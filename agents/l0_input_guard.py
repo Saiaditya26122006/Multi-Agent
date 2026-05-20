@@ -19,6 +19,7 @@ from memory.supabase_client import (
     log_message,
     log_event
 )
+from tools.trace_emitter import emit_trace
 
 
 def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -43,9 +44,12 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
     channel = message_data.get("channel", "telegram")
     from_user = message_data.get("from_user", {})
 
+    session_key = str(chat_id)
+
     print(f"[L0] Processing message {message_id} from chat {chat_id}")
 
     # Step 1: Load CEO context
+    emit_trace(session_key, "L0", "loading_ceo_context", "Loading CEO profile")
     ceo_context = get_ceo_context()
 
     if not ceo_context:
@@ -62,6 +66,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
     ceo_telegram_chat_id = ceo_context.get("telegram_chat_id")
 
     # Step 2: Validate sender is the CEO
+    emit_trace(session_key, "L0", "validating_sender", "Checking sender identity")
     if ceo_telegram_chat_id is None:
         print("[L0] ✗ CEO telegram_chat_id not configured in database")
         return {
@@ -85,6 +90,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
     print(f"[L0] ✓ Sender validated: CEO {ceo_context.get('name')}")
 
     # Step 3: Check for duplicate message (only for Telegram — web messages are unique by UUID)
+    emit_trace(session_key, "L0", "duplicate_check", "Checking for duplicate message")
     if channel == "telegram" and check_message_exists(message_id):
         print(f"[L0] ✗ Duplicate message detected: {message_id}")
         return {
@@ -98,6 +104,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
     print(f"[L0] ✓ Message is unique: {message_id}")
 
     # Step 4: Get or create active session
+    emit_trace(session_key, "L0", "get_session", "Loading or creating session")
     session = get_active_session(chat_id)
     is_new_session = False
 
@@ -122,6 +129,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         print(f"[L0] ✓ Created new session: {session_id}")
 
     # Step 5: Log the raw message
+    emit_trace(session_key, "L0", "logging_message", "Logging raw message to DB")
     message_log = log_message(
         telegram_message_id=message_id,
         content=text,
@@ -159,6 +167,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
     print(f"[L0] ✓ Event logged for session {session_id}")
 
     # Success!
+    emit_trace(session_key, "L0", "complete", "Message validated and routed", {"session_id": session_id})
     print(f"[L0] ✅ Message validated successfully")
     return {
         "valid": True,

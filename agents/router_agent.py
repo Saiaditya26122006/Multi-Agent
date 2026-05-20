@@ -23,6 +23,7 @@ from memory.supabase_client import get_ceo_context
 from memory.redis_client import redis_client
 from config.config import GEMINI_MODEL, MAX_RETRIES, RETRY_WAIT_SECONDS
 from utils.retry import retry_with_fallback
+from tools.trace_emitter import emit_trace
 
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
@@ -122,14 +123,20 @@ def classify_message(
     """
     text_lower = message_text.lower().strip()
 
+    ceo_ctx = get_ceo_context()
+    session_key = str(ceo_ctx.get("telegram_chat_id")) if ceo_ctx else ""
+
+    emit_trace(session_key, "Router", "fast_path_check", "Checking fast-path rules")
     fast_result = _fast_classify(text_lower, session_state)
     if fast_result:
+        emit_trace(session_key, "Router", "routed", f"Routed as: {fast_result}", {"method": "fast_path", "category": fast_result})
         logger.info(f"[ROUTER] Fast-path: '{message_text[:30]}' → {fast_result}")
         return fast_result
 
     # Short messages (1-2 words) that aren't commands are likely general
     word_count = len(text_lower.split())
     if word_count <= 2 and len(text_lower) < 15:
+        emit_trace(session_key, "Router", "routed", "Routed as: general", {"method": "short_message", "category": "general"})
         logger.info(f"[ROUTER] Short message default: '{message_text}' → general")
         return "general"
 
@@ -176,16 +183,19 @@ Respond with ONLY the category name. One word. Nothing else."""
                 return cat
         return raw
 
+    emit_trace(session_key, "Router", "llm_classification", "Classifying with LLM...")
     try:
         category = call_gemini()
         valid = {"general", "business_idea", "query", "command"}
         if category not in valid:
             logger.warning(f"[ROUTER] LLM returned '{category}', defaulting to business_idea")
-            return "business_idea"
+            category = "business_idea"
+        emit_trace(session_key, "Router", "routed", f"Routed as: {category}", {"method": "llm", "category": category})
         logger.info(f"[ROUTER] LLM classified: '{message_text[:30]}' → {category}")
         return category
     except Exception as e:
         logger.error(f"[ROUTER] Classification failed: {e}")
+        emit_trace(session_key, "Router", "routed", "Routed as: business_idea", {"method": "fallback", "category": "business_idea"})
         return "business_idea"
 
 

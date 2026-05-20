@@ -5,6 +5,7 @@ Consolidates session learnings into long-term memory and generates welcome-back 
 
 import os
 import sys
+import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
@@ -31,6 +32,7 @@ from config.config import (
     RETRY_WAIT_SECONDS
 )
 from utils.retry import retry_with_fallback
+from tools.trace_emitter import emit_trace
 
 # Load environment variables
 env_path = Path(__file__).parent.parent / ".env"
@@ -58,8 +60,13 @@ def consolidate_session_memory(session_id: str, ceo_id: str) -> List[Dict[str, A
     """
     print(f"\n[MEMORY] Consolidating session {session_id}...")
 
+    ceo_ctx = get_ceo_context()
+    session_key = str(ceo_ctx.get("telegram_chat_id")) if ceo_ctx else ""
+
     # Step 1: Load session data
+    emit_trace(session_key, "Memory", "loading_assumptions", "Loading session assumptions")
     assumptions = get_assumptions_for_session(session_id)
+    emit_trace(session_key, "Memory", "loading_decisions", "Loading session decisions")
     decisions = get_decisions_for_session(session_id)
 
     if not assumptions and not decisions:
@@ -134,6 +141,8 @@ JSON ARRAY:"""
     print("[MEMORY] Extracting memories with Gemini...")
 
     # Step 4: Call Gemini to extract memories
+    emit_trace(session_key, "Memory", "calling_llm", "Extracting memories with LLM")
+
     @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
     def call_gemini_with_retry():
         client = genai.Client(api_key=GEMINI_API_KEY)
@@ -152,7 +161,6 @@ JSON ARRAY:"""
         print(f"[MEMORY] Raw response: {raw_response[:200]}...")
 
         # Parse JSON response
-        import json
         # Clean up response (remove markdown code blocks if present)
         json_text = raw_response
         if "```json" in json_text:
@@ -167,6 +175,8 @@ JSON ARRAY:"""
             return []
 
         # Step 5: Store each extracted memory
+        emit_trace(session_key, "Memory", "validating_memories", f"Validating and filtering memories ({len(memories_data)} found)", {"count": len(memories_data)})
+        emit_trace(session_key, "Memory", "storing_memories", "Storing memories to profile")
         created_memories = []
         for memory_item in memories_data[:5]:  # Max 5 memories
             memory_type = memory_item.get("type")
@@ -202,6 +212,7 @@ JSON ARRAY:"""
             if memory:
                 created_memories.append(memory)
 
+        emit_trace(session_key, "Memory", "complete", f"Memory consolidation done ({len(created_memories)} memories saved)", {"saved": len(created_memories)})
         print(f"[MEMORY] ✅ Created {len(created_memories)} memories")
         return created_memories
 

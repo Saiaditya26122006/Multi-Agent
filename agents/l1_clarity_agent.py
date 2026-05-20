@@ -36,6 +36,7 @@ from config.config import (
     AGENT_L1_CLARITY
 )
 from utils.retry import retry_with_fallback
+from tools.trace_emitter import emit_trace
 
 # Load environment variables
 env_path = Path(__file__).parent.parent / ".env"
@@ -70,9 +71,13 @@ def generate_clarifying_question(
 
     print(f"[L1] Processing message for session {session_id}")
 
+    ceo_ctx = get_ceo_context()
+    session_key = str(ceo_ctx.get("telegram_chat_id")) if ceo_ctx else ""
+
     # CRITICAL: Check question counter - maximum MAX_QUESTIONS per session
     existing_assumptions = get_assumptions_for_session(session_id)
     question_count = len(existing_assumptions)
+    emit_trace(session_key, "L1", "checking_counter", f"Checking question count ({question_count}/{MAX_QUESTIONS})", {"count": question_count, "max": MAX_QUESTIONS})
 
     print(f"[L1] Questions asked so far: {question_count}/{MAX_QUESTIONS}")
 
@@ -87,7 +92,8 @@ def generate_clarifying_question(
         }
 
     # Step 1: Load CEO context card
-    ceo_context = get_ceo_context()
+    emit_trace(session_key, "L1", "loading_context", "Loading CEO context")
+    ceo_context = ceo_ctx
 
     if not ceo_context:
         print("[L1] ✗ No CEO context found")
@@ -97,6 +103,7 @@ def generate_clarifying_question(
 
     # Step 2: Load memory profile
     memory_profile = get_memory_profile(ceo_id)
+    emit_trace(session_key, "L1", "loading_memory", f"Loading memory profile ({len(memory_profile)} memories)", {"count": len(memory_profile)})
     print(f"[L1] ✓ Loaded {len(memory_profile)} memory entries")
 
     # Step 3: Load active project state (scoped to this session)
@@ -106,6 +113,13 @@ def generate_clarifying_question(
 
     # Step 3b: Load conversation history for this session
     session_messages = get_messages_for_session(session_id)
+
+    emit_trace(session_key, "L1", "loading_project_state", "Loading project state", {
+        "open_sections": len(open_sections),
+        "unresolved_assumptions": len(unresolved_assumptions),
+        "pending_decisions": len(pending_decisions),
+        "messages": len(session_messages),
+    })
 
     print(f"[L1] ✓ Project state loaded:")
     print(f"     - Open sections: {len(open_sections)}")
@@ -182,9 +196,14 @@ Return ONLY the question text, nothing else. No preamble, no explanation.
 
 QUESTION:"""
 
+    emit_trace(session_key, "L1", "building_prompt", "Building LLM prompt")
     print("[L1] ✓ Generating clarifying question with Gemini...")
 
     # Step 5: Call Gemini to generate the question with retry logic
+    emit_trace(session_key, "L1", "calling_llm", "Generating clarifying question...", {"model": GEMINI_MODEL})
+    import time as _time
+    _llm_start = _time.time()
+
     @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
     def call_gemini_with_retry():
         client = genai.Client(api_key=GEMINI_API_KEY)
@@ -199,6 +218,8 @@ QUESTION:"""
             raise
 
     raw_question = call_gemini_with_retry()
+    _llm_duration = round(_time.time() - _llm_start, 2)
+    emit_trace(session_key, "L1", "llm_complete", "Question generated", {"duration_s": _llm_duration, "model": GEMINI_MODEL})
 
     # Add progress indicator to the question
     question = f"Question {current_question_number} of {MAX_QUESTIONS}: {raw_question}"
@@ -206,6 +227,7 @@ QUESTION:"""
     print(f"[L1] ✓ Generated question: {question[:80]}...")
 
     # Step 6: Create an assumption based on the question
+    emit_trace(session_key, "L1", "writing_assumption", "Writing assumption to database")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     assumption_id = f"assumption_{timestamp}"
 
@@ -227,6 +249,7 @@ QUESTION:"""
     print(f"[L1] ✓ Created assumption: {assumption_id}")
 
     # Step 7: Update session state to NEEDS_CLARIFICATION
+    emit_trace(session_key, "L1", "updating_session", "Updating session state")
     updated_session = update_session_state(session_id, STATE_NEEDS_CLARIFICATION)
 
     if not updated_session:
@@ -253,6 +276,7 @@ QUESTION:"""
     print(f"[L1] ✓ Event logged")
 
     # Success!
+    emit_trace(session_key, "L1", "complete", f"Question {current_question_number}/{MAX_QUESTIONS} ready")
     print(f"[L1] ✅ Clarifying question generated successfully ({current_question_number}/3)")
     return {
         "question": question,

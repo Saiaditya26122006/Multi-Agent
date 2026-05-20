@@ -18,6 +18,7 @@ from memory.supabase_client import (
     get_ceo_context,
     get_assumptions_for_session,
     get_decisions_for_session,
+    get_messages_for_session,
     update_session_state,
     create_decision,
     log_event,
@@ -34,6 +35,7 @@ from config.config import (
     AGENT_L3_FEEDBACK
 )
 from utils.retry import retry_with_fallback
+from tools.trace_emitter import emit_trace
 
 # Load environment variables
 env_path = Path(__file__).parent.parent / ".env"
@@ -73,11 +75,14 @@ def generate_feedback(
         print("[L3] ✗ No CEO context found")
         raise ValueError("CEO context not found in database")
 
+    session_key = str(ceo_context.get("telegram_chat_id"))
+    emit_trace(session_key, "L3", "loading_context", "Loading CEO context")
     print(f"[L3] ✓ Loaded CEO context: {ceo_context.get('name')}")
 
     # Step 2: Load memory profile
     ceo_id = ceo_context.get('id')
     memory_profile = get_memory_profile(ceo_id)
+    emit_trace(session_key, "L3", "loading_memory", f"Loading memory profile ({len(memory_profile)} entries)", {"count": len(memory_profile)})
     print(f"[L3] ✓ Loaded {len(memory_profile)} memory entries")
 
     # Step 3: Load assumptions from THIS session (these are the CEO's actual answers)
@@ -87,9 +92,11 @@ def generate_feedback(
         print("[L3] ✗ No assumptions found for this session")
         raise ValueError("No assumptions found - cannot generate feedback")
 
+    emit_trace(session_key, "L3", "loading_assumptions", f"Loading session assumptions ({len(assumptions)} found)", {"count": len(assumptions)})
     print(f"[L3] ✓ Loaded {len(assumptions)} assumptions from this session")
 
     # Step 4: Load pending decisions
+    emit_trace(session_key, "L3", "loading_decisions", "Loading session decisions")
     decisions = get_decisions_for_session(session_id)
     print(f"[L3] ✓ Loaded {len(decisions)} decisions")
 
@@ -112,13 +119,19 @@ def generate_feedback(
             context_parts.append(f"[{mem_type}] {content}")
         context_parts.append("")
 
-    # Conversation Context (THIS is the research - the CEO's actual answers)
-    context_parts.append("=== WHAT THE CEO SAID (from clarification questions) ===")
+    # Conversation Context — actual messages from the session
+    session_messages = get_messages_for_session(session_id)
+    if session_messages:
+        context_parts.append("=== FULL CONVERSATION THIS SESSION ===")
+        for msg in session_messages:
+            content = msg.get("content", "")
+            context_parts.append(f"- {content}")
+        context_parts.append("")
+
+    # Assumptions (structured Q&A context)
+    context_parts.append("=== CLARIFICATION Q&A (from L1 agent) ===")
     for i, assumption in enumerate(assumptions, 1):
-        # Each assumption captures what was asked and what the CEO implied
         statement = assumption.get('statement', '')
-        # Extract the actual content from the assumption statement
-        # Format: "Assuming the CEO's message 'X...' requires clarification about: Y"
         context_parts.append(f"{i}. {statement}")
     context_parts.append("")
 
@@ -134,6 +147,7 @@ def generate_feedback(
     context = "\n".join(context_parts)
 
     # Step 5: Create prompt for Gemini
+    emit_trace(session_key, "L3", "building_prompt", "Building feedback prompt")
     prompt = f"""You are a business strategy feedback agent. The CEO just finished answering 3 clarifying questions. Based on their answers, generate a concise summary.
 
 {context}
@@ -177,6 +191,10 @@ OUTPUT:"""
     print("[L3] ✓ Generating feedback with Gemini...")
 
     # Step 6: Call Gemini to generate the summary with retry logic
+    emit_trace(session_key, "L3", "calling_llm", "Generating feedback summary...", {"model": GEMINI_MODEL})
+    import time as _time
+    _llm_start = _time.time()
+
     @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
     def call_gemini_with_retry():
         client = genai.Client(api_key=GEMINI_API_KEY)
@@ -191,10 +209,13 @@ OUTPUT:"""
             raise
 
     summary = call_gemini_with_retry()
+    _llm_duration = round(_time.time() - _llm_start, 2)
+    emit_trace(session_key, "L3", "llm_complete", "Summary generated", {"duration_s": _llm_duration, "chars": len(summary)})
 
     print(f"[L3] ✓ Generated summary: {len(summary)} chars")
 
     # Step 7: Create telegram message (clean version without markdown)
+    emit_trace(session_key, "L3", "cleaning_response", "Formatting for Telegram")
     telegram_message = summary
 
     # Clean up any markdown that slipped through
@@ -203,6 +224,7 @@ OUTPUT:"""
     telegram_message = telegram_message.replace('###', '')
 
     # Step 8: Update session state to AWAITING_APPROVAL
+    emit_trace(session_key, "L3", "updating_session", "Updating session to AWAITING_APPROVAL")
     updated_session = update_session_state(session_id, STATE_AWAITING_APPROVAL)
 
     if not updated_session:
@@ -211,6 +233,7 @@ OUTPUT:"""
     print(f"[L3] ✓ Updated session state to {STATE_AWAITING_APPROVAL}")
 
     # Step 9: Create decision object
+    emit_trace(session_key, "L3", "creating_decision", "Creating decision object in DB")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     decision_id = f"decision_{timestamp}"
 
@@ -268,6 +291,7 @@ OUTPUT:"""
     print(f"[L3] ✓ Agent output saved")
 
     # Success!
+    emit_trace(session_key, "L3", "complete", "Feedback ready, sent to Alex")
     print(f"[L3] ✅ Feedback generated successfully")
     return {
         "summary": summary,
