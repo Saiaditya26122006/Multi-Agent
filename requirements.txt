@@ -1,0 +1,21 @@
+# Multi-Agent AI System - Python Dependencies
+# Updated: 2026-05-20
+
+# Core Telegram bot functionality
+python-telegram-bot==22.7
+
+# Environment variables management
+python-dotenv==1.2.2
+
+# Database and storage
+supabase==2.30.0
+upstash-redis==1.7.0
+
+# AI/LLM packages
+google-genai==1.75.0
+langchain-google-genai==4.2.2
+
+# Web server (chat interface)
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+websockets==13.1

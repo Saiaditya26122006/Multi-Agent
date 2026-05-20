@@ -1,0 +1,286 @@
+"""
+L1 Clarity Agent
+Generates focused clarifying questions based on vague CEO messages.
+"""
+
+import os
+import sys
+from pathlib import Path
+from typing import Dict, Any
+from datetime import datetime
+from dotenv import load_dotenv
+from google import genai
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from memory.supabase_client import (
+    get_ceo_context,
+    get_open_business_plan_sections,
+    get_unresolved_assumptions,
+    get_pending_decisions,
+    create_assumption,
+    update_session_state,
+    log_event,
+    get_assumptions_for_session,
+    get_memory_profile,
+    get_messages_for_session,
+)
+from config.config import (
+    MAX_QUESTIONS,
+    GEMINI_MODEL,
+    GEMINI_FALLBACK_MODEL,
+    MAX_RETRIES,
+    RETRY_WAIT_SECONDS,
+    STATE_NEEDS_CLARIFICATION,
+    AGENT_L1_CLARITY
+)
+from utils.retry import retry_with_fallback
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path)
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY not found in .env file")
+
+
+def generate_clarifying_question(
+    session_id: str,
+    ceo_id: str,
+    message_text: str
+) -> Dict[str, Any]:
+    """
+    L1 Clarity Agent: Generate one focused clarifying question.
+
+    Args:
+        session_id: UUID of the session
+        ceo_id: UUID of the CEO
+        message_text: The CEO's message text
+
+    Returns:
+        Dict with:
+            - question (str): The clarifying question
+            - assumption_id (str): ID of the created assumption
+            - session_id (str): UUID of the session
+            - clarification_complete (bool): True if 3 questions already asked
+    """
+
+    print(f"[L1] Processing message for session {session_id}")
+
+    # CRITICAL: Check question counter - maximum MAX_QUESTIONS per session
+    existing_assumptions = get_assumptions_for_session(session_id)
+    question_count = len(existing_assumptions)
+
+    print(f"[L1] Questions asked so far: {question_count}/{MAX_QUESTIONS}")
+
+    if question_count >= MAX_QUESTIONS:
+        print(f"[L1] ✓ Maximum questions reached ({MAX_QUESTIONS}/{MAX_QUESTIONS})")
+        print("[L1] ✓ Clarification phase complete, ready for L3")
+        return {
+            "clarification_complete": True,
+            "session_id": session_id,
+            "question": None,
+            "assumption_id": None
+        }
+
+    # Step 1: Load CEO context card
+    ceo_context = get_ceo_context()
+
+    if not ceo_context:
+        print("[L1] ✗ No CEO context found")
+        raise ValueError("CEO context not found in database")
+
+    print(f"[L1] ✓ Loaded CEO context: {ceo_context.get('name')}")
+
+    # Step 2: Load memory profile
+    memory_profile = get_memory_profile(ceo_id)
+    print(f"[L1] ✓ Loaded {len(memory_profile)} memory entries")
+
+    # Step 3: Load active project state (scoped to this session)
+    open_sections = get_open_business_plan_sections()
+    unresolved_assumptions = get_unresolved_assumptions(session_id=session_id)
+    pending_decisions = get_pending_decisions()
+
+    # Step 3b: Load conversation history for this session
+    session_messages = get_messages_for_session(session_id)
+
+    print(f"[L1] ✓ Project state loaded:")
+    print(f"     - Open sections: {len(open_sections)}")
+    print(f"     - Unresolved assumptions (this session): {len(unresolved_assumptions)}")
+    print(f"     - Pending decisions: {len(pending_decisions)}")
+    print(f"     - Messages in session: {len(session_messages)}")
+
+    # Step 4: Build context for the LLM
+    context_parts = []
+
+    # CEO Context
+    context_parts.append("=== CEO CONTEXT ===")
+    context_parts.append(f"Name: {ceo_context.get('name')}")
+    context_parts.append(f"Company: {ceo_context.get('company')}")
+    context_parts.append(f"Output Style: {ceo_context.get('output_style')}")
+    context_parts.append(f"Strategic Priorities: {ceo_context.get('strategic_priorities')}")
+    context_parts.append(f"Known Constraints: {ceo_context.get('known_constraints')}")
+    context_parts.append("")
+
+    # Long-term Memory
+    if memory_profile:
+        context_parts.append("=== LONG-TERM MEMORY (from past sessions) ===")
+        for memory in memory_profile[:10]:
+            mem_type = memory.get("memory_type", "").replace("_", " ").title()
+            content = memory.get("content")
+            context_parts.append(f"[{mem_type}] {content}")
+        context_parts.append("")
+
+    # Conversation history (what was asked and answered so far)
+    if session_messages:
+        context_parts.append("=== CONVERSATION THIS SESSION (questions asked + CEO answers) ===")
+        for msg in session_messages:
+            content = msg.get("content", "")
+            context_parts.append(f"- {content}")
+        context_parts.append("")
+
+    # Previous questions in this session (from assumptions)
+    if existing_assumptions:
+        context_parts.append("=== QUESTIONS ALREADY ASKED THIS SESSION ===")
+        for assumption in existing_assumptions:
+            context_parts.append(f"- {assumption.get('statement')}")
+        context_parts.append("")
+
+    # Business Plan Sections
+    if open_sections:
+        context_parts.append("=== OPEN BUSINESS PLAN SECTIONS ===")
+        for section in open_sections[:5]:
+            context_parts.append(f"- {section.get('section_name')} (status: {section.get('status')})")
+        context_parts.append("")
+
+    context = "\n".join(context_parts)
+
+    # Step 5: Create prompt for Gemini
+    current_question_number = question_count + 1
+    prompt = f"""You are a clarity agent helping a CEO build their business plan. This is question {current_question_number} of {MAX_QUESTIONS} maximum questions.
+
+{context}
+
+CEO'S LATEST MESSAGE: "{message_text}"
+
+RULES:
+1. This is question {current_question_number}/{MAX_QUESTIONS} - make it count
+2. Ask ONE specific, focused question to clarify the CEO's intent
+3. DO NOT ask about information already in the CEO context card
+4. DO NOT ask about information already in LONG-TERM MEMORY
+5. DO NOT repeat any question from "QUESTIONS ALREADY ASKED THIS SESSION"
+6. DO NOT ask about things the CEO already answered in the conversation above
+7. Focus on understanding what the CEO wants to accomplish
+8. Keep the question short and direct (1 sentence)
+9. Since you only have {MAX_QUESTIONS - question_count} questions left, prioritize the most critical missing info
+
+OUTPUT FORMAT:
+Return ONLY the question text, nothing else. No preamble, no explanation.
+
+QUESTION:"""
+
+    print("[L1] ✓ Generating clarifying question with Gemini...")
+
+    # Step 5: Call Gemini to generate the question with retry logic
+    @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
+    def call_gemini_with_retry():
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt
+            )
+            return response.text.strip()
+        except Exception as e:
+            print(f"[L1] ✗ Gemini API call failed: {str(e)}")
+            raise
+
+    raw_question = call_gemini_with_retry()
+
+    # Add progress indicator to the question
+    question = f"Question {current_question_number} of {MAX_QUESTIONS}: {raw_question}"
+
+    print(f"[L1] ✓ Generated question: {question[:80]}...")
+
+    # Step 6: Create an assumption based on the question
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    assumption_id = f"assumption_{timestamp}"
+
+    # The assumption is what we're assuming about the CEO's intent
+    assumption_statement = f"Assuming the CEO's message '{message_text[:50]}...' requires clarification about: {question}"
+
+    assumption = create_assumption(
+        assumption_id=assumption_id,
+        statement=assumption_statement,
+        session_id=session_id,
+        confidence="low",
+        clarification_status="pending"
+    )
+
+    if not assumption:
+        print("[L1] ✗ Failed to create assumption")
+        raise ValueError("Failed to create assumption in database")
+
+    print(f"[L1] ✓ Created assumption: {assumption_id}")
+
+    # Step 7: Update session state to NEEDS_CLARIFICATION
+    updated_session = update_session_state(session_id, STATE_NEEDS_CLARIFICATION)
+
+    if not updated_session:
+        print("[L1] ⚠ Warning: Failed to update session state")
+        # Continue anyway - session state update failure shouldn't block
+
+    print(f"[L1] ✓ Updated session state to {STATE_NEEDS_CLARIFICATION}")
+
+    # Step 8: Log the event
+    event = log_event(
+        agent_id=AGENT_L1_CLARITY,
+        action=f"GENERATED_QUESTION: {question[:50]}...",
+        session_id=session_id,
+        state_before=None,
+        state_after=STATE_NEEDS_CLARIFICATION,
+        input_ref=f"message:{message_text[:50]}",
+        output_ref=f"assumption_id:{assumption_id}"
+    )
+
+    if not event:
+        print("[L1] ⚠ Warning: Failed to log event")
+        # Continue anyway
+
+    print(f"[L1] ✓ Event logged")
+
+    # Success!
+    print(f"[L1] ✅ Clarifying question generated successfully ({current_question_number}/3)")
+    return {
+        "question": question,
+        "assumption_id": assumption_id,
+        "session_id": session_id,
+        "clarification_complete": False
+    }
+
+
+if __name__ == "__main__":
+    # Test the L1 agent
+    test_session_id = "a5124a5d-6023-4dc4-951d-5d3cea448fa6"  # Use existing session from L0 tests
+    test_ceo_id = "b21ddf08-cd2e-4dec-a498-d4f0b4683a43"
+    test_message = "I want to grow the business"
+
+    print("=" * 60)
+    print("L1 Clarity Agent - Test Run")
+    print("=" * 60)
+
+    result = generate_clarifying_question(
+        session_id=test_session_id,
+        ceo_id=test_ceo_id,
+        message_text=test_message
+    )
+
+    print("\n" + "=" * 60)
+    print("Test Result:")
+    print("=" * 60)
+    for key, value in result.items():
+        print(f"  {key}: {value}")
+    print("=" * 60)

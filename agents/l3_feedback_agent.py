@@ -1,0 +1,326 @@
+"""
+L3 Feedback Agent
+Generates concise summaries and decision questions based on research briefs.
+"""
+
+import os
+import sys
+from pathlib import Path
+from typing import Dict, Any, Optional
+from datetime import datetime
+from dotenv import load_dotenv
+from google import genai
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from memory.supabase_client import (
+    get_ceo_context,
+    get_assumptions_for_session,
+    get_decisions_for_session,
+    update_session_state,
+    create_decision,
+    log_event,
+    save_agent_output,
+    get_memory_profile
+)
+from config.config import (
+    GEMINI_MODEL,
+    GEMINI_FALLBACK_MODEL,
+    MAX_RETRIES,
+    RETRY_WAIT_SECONDS,
+    STATE_NEEDS_CLARIFICATION,
+    STATE_AWAITING_APPROVAL,
+    AGENT_L3_FEEDBACK
+)
+from utils.retry import retry_with_fallback
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path)
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY not found in .env file")
+
+
+def generate_feedback(
+    session_id: str,
+    research_brief: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    L3 Feedback Agent: Generate a summary and decision question based on clarification.
+
+    Args:
+        session_id: UUID of the session
+        research_brief: Optional (deprecated - not used, kept for backward compatibility)
+
+    Returns:
+        Dict with:
+            - summary (str): Full summary with context, risk, and decision
+            - decision_id (str): ID of the created decision
+            - session_id (str): UUID of the session
+            - telegram_message (str): Clean formatted message for Telegram
+    """
+
+    print(f"[L3] Processing feedback for session {session_id}")
+
+    # Step 1: Load CEO context card
+    ceo_context = get_ceo_context()
+
+    if not ceo_context:
+        print("[L3] ✗ No CEO context found")
+        raise ValueError("CEO context not found in database")
+
+    print(f"[L3] ✓ Loaded CEO context: {ceo_context.get('name')}")
+
+    # Step 2: Load memory profile
+    ceo_id = ceo_context.get('id')
+    memory_profile = get_memory_profile(ceo_id)
+    print(f"[L3] ✓ Loaded {len(memory_profile)} memory entries")
+
+    # Step 3: Load assumptions from THIS session (these are the CEO's actual answers)
+    assumptions = get_assumptions_for_session(session_id)
+
+    if not assumptions:
+        print("[L3] ✗ No assumptions found for this session")
+        raise ValueError("No assumptions found - cannot generate feedback")
+
+    print(f"[L3] ✓ Loaded {len(assumptions)} assumptions from this session")
+
+    # Step 4: Load pending decisions
+    decisions = get_decisions_for_session(session_id)
+    print(f"[L3] ✓ Loaded {len(decisions)} decisions")
+
+    # Step 5: Build context for the LLM from the actual conversation
+    context_parts = []
+
+    # CEO Context
+    context_parts.append("=== CEO CONTEXT ===")
+    context_parts.append(f"CEO: {ceo_context.get('name')} at {ceo_context.get('company')}")
+    context_parts.append(f"Priorities: {ceo_context.get('strategic_priorities')}")
+    context_parts.append(f"Constraints: {ceo_context.get('known_constraints')}")
+    context_parts.append("")
+
+    # Long-term Memory
+    if memory_profile:
+        context_parts.append("=== LONG-TERM MEMORY (from past sessions) ===")
+        for memory in memory_profile[:5]:  # Show top 5 most relevant
+            mem_type = memory.get("memory_type", "").replace("_", " ").title()
+            content = memory.get("content")
+            context_parts.append(f"[{mem_type}] {content}")
+        context_parts.append("")
+
+    # Conversation Context (THIS is the research - the CEO's actual answers)
+    context_parts.append("=== WHAT THE CEO SAID (from clarification questions) ===")
+    for i, assumption in enumerate(assumptions, 1):
+        # Each assumption captures what was asked and what the CEO implied
+        statement = assumption.get('statement', '')
+        # Extract the actual content from the assumption statement
+        # Format: "Assuming the CEO's message 'X...' requires clarification about: Y"
+        context_parts.append(f"{i}. {statement}")
+    context_parts.append("")
+
+    # Pending Decisions (if any)
+    if decisions:
+        pending = [d for d in decisions if d.get('status') == 'pending_approval']
+        if pending:
+            context_parts.append("=== PENDING DECISIONS ===")
+            for decision in pending[:3]:  # Limit to 3
+                context_parts.append(f"- {decision.get('decision')}")
+            context_parts.append("")
+
+    context = "\n".join(context_parts)
+
+    # Step 5: Create prompt for Gemini
+    prompt = f"""You are a business strategy feedback agent. The CEO just finished answering 3 clarifying questions. Based on their answers, generate a concise summary.
+
+{context}
+
+IMPORTANT:
+- The "WHAT THE CEO SAID" section contains the actual conversation context from THIS session
+- The "LONG-TERM MEMORY" section contains validated facts from PAST sessions
+- When relevant, reference past decisions: "This aligns with your earlier decision to..." or "Building on your Spain-first strategy..."
+- Use ONLY these sources - do not invent or assume additional details
+
+INSTRUCTIONS:
+Create a short, plain-language summary with EXACTLY these three parts:
+
+1. WHAT WE KNOW (1 paragraph, 2-3 sentences):
+   - Summarize what the CEO communicated in their answers
+   - Reference relevant long-term memory when it adds context
+   - Focus on what they want to accomplish
+   - Keep it concrete and specific to what they actually said
+
+2. BIGGEST OPEN RISK (1 sentence):
+   - Identify the single most important uncertainty or risk based on what the CEO shared
+   - Focus on what's still unclear or could go wrong
+
+3. DECISION QUESTION (1 sentence + options):
+   - Ask if the CEO wants to proceed with what they described
+   - Provide exactly these three reply options:
+     • Yes - proceed as planned
+     • Adjust - modify the approach
+     • Kill - stop this initiative
+
+FORMATTING RULES:
+- Use simple, direct language
+- No corporate jargon or buzzwords
+- No markdown formatting (**, ##, etc.)
+- Keep total length under 200 words
+- Write for someone who is busy and wants clarity
+- Stay true to what the CEO actually said - don't add external research or assumptions
+
+OUTPUT:"""
+
+    print("[L3] ✓ Generating feedback with Gemini...")
+
+    # Step 6: Call Gemini to generate the summary with retry logic
+    @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
+    def call_gemini_with_retry():
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt
+            )
+            return response.text.strip()
+        except Exception as e:
+            print(f"[L3] ✗ Gemini API call failed: {str(e)}")
+            raise
+
+    summary = call_gemini_with_retry()
+
+    print(f"[L3] ✓ Generated summary: {len(summary)} chars")
+
+    # Step 7: Create telegram message (clean version without markdown)
+    telegram_message = summary
+
+    # Clean up any markdown that slipped through
+    telegram_message = telegram_message.replace('**', '')
+    telegram_message = telegram_message.replace('##', '')
+    telegram_message = telegram_message.replace('###', '')
+
+    # Step 8: Update session state to AWAITING_APPROVAL
+    updated_session = update_session_state(session_id, STATE_AWAITING_APPROVAL)
+
+    if not updated_session:
+        print("[L3] ⚠ Warning: Failed to update session state")
+
+    print(f"[L3] ✓ Updated session state to {STATE_AWAITING_APPROVAL}")
+
+    # Step 9: Create decision object
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    decision_id = f"decision_{timestamp}"
+
+    # Extract assumption IDs
+    assumption_ids = [a.get('assumption_id') for a in assumptions if a.get('assumption_id')]
+
+    # Build decision statement from first assumption (the original CEO message)
+    first_assumption = assumptions[0].get('statement', '') if assumptions else ''
+    decision_statement = f"Proceed with CEO's plan based on clarification"
+
+    decision_obj = create_decision(
+        decision_id=decision_id,
+        decision=decision_statement,
+        rationale=summary,
+        session_id=session_id,
+        assumptions_used=assumption_ids,
+        evidence_used=[],  # No external research, only conversation
+        sections_affected=[],
+        status="pending_approval"
+    )
+
+    if not decision_obj:
+        print("[L3] ✗ Failed to create decision")
+        raise ValueError("Failed to create decision in database")
+
+    print(f"[L3] ✓ Created decision: {decision_id}")
+
+    # Step 10: Log the event
+    event = log_event(
+        agent_id=AGENT_L3_FEEDBACK,
+        action=f"GENERATED_FEEDBACK: {decision_id}",
+        session_id=session_id,
+        state_before=STATE_NEEDS_CLARIFICATION,
+        state_after=STATE_AWAITING_APPROVAL,
+        input_ref=f"assumptions:{len(assumptions)}",
+        output_ref=f"decision_id:{decision_id}"
+    )
+
+    if not event:
+        print("[L3] ⚠ Warning: Failed to log event")
+
+    print(f"[L3] ✓ Event logged")
+
+    # Step 11: Save raw output to agent_outputs table
+    output = save_agent_output(
+        agent_id=AGENT_L3_FEEDBACK,
+        session_id=session_id,
+        output_text=summary,
+        input_summary=f"Clarification with {len(assumptions)} Q&A exchanges"
+    )
+
+    if not output:
+        print("[L3] ⚠ Warning: Failed to save agent output")
+
+    print(f"[L3] ✓ Agent output saved")
+
+    # Success!
+    print(f"[L3] ✅ Feedback generated successfully")
+    return {
+        "summary": summary,
+        "decision_id": decision_id,
+        "session_id": session_id,
+        "telegram_message": telegram_message
+    }
+
+
+if __name__ == "__main__":
+    # Test the L3 agent
+    # First, we need to create a test research brief
+    from memory.supabase_client import supabase
+
+    test_session_id = "a5124a5d-6023-4dc4-951d-5d3cea448fa6"
+
+    # Create a test research brief
+    test_brief = {
+        "research_id": "test_research_20260514",
+        "topic": "Market expansion into Southeast Asia",
+        "source_type": "system_structured",
+        "key_findings": [
+            "High mobile penetration (85%+) in target markets",
+            "Strong demand for B2B SaaS solutions",
+            "Regulatory approval required in 3 countries"
+        ],
+        "evidence_quality": "medium",
+        "remaining_uncertainty": "Unclear timeline for regulatory approvals",
+        "decision_relevance": "Critical for Q3 expansion plans",
+        "session_id": test_session_id
+    }
+
+    # Insert test research brief
+    try:
+        supabase.table("research_briefs").insert(test_brief).execute()
+        print("✓ Test research brief created")
+    except Exception as e:
+        print(f"Note: Test brief may already exist: {e}")
+
+    print("=" * 60)
+    print("L3 Feedback Agent - Test Run")
+    print("=" * 60)
+
+    result = generate_feedback(
+        session_id=test_session_id,
+        research_brief=test_brief
+    )
+
+    print("\n" + "=" * 60)
+    print("Test Result:")
+    print("=" * 60)
+    print(f"Decision ID: {result['decision_id']}")
+    print(f"Session ID: {result['session_id']}")
+    print(f"\nSummary:\n{result['summary']}")
+    print(f"\nTelegram Message:\n{result['telegram_message']}")
+    print("=" * 60)
