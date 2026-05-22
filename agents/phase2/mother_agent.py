@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 import asyncio
 import json
 import os
@@ -39,7 +44,7 @@ def load_constitution() -> str:
 # Helper: send ACL message between Spade agents
 # ─────────────────────────────────────────────────────────────────────────────
 async def send_acl(
-    sender_agent,
+    sender,
     to_jid: str,
     performative: str,
     content: dict,
@@ -53,18 +58,31 @@ async def send_acl(
     msg.set_metadata("session_id", session_id or "")
     msg.set_metadata("pipeline_run_id", pipeline_run_id or "")
     msg.body = json.dumps(content)
-    await sender_agent.send(msg)
 
-    db = SupabaseClient()
-    db.client.table("agent_messages").insert({
-        "from_agent": str(sender_agent.jid),
-        "to_agent": to_jid,
-        "performative": performative,
-        "content": content,
-        "pipeline_run_id": pipeline_run_id,
-        "session_id": session_id,
-        "task_id": task_id,
-    }).execute()
+    if isinstance(sender, Agent):
+        class _SendBehaviour(OneShotBehaviour):
+            async def run(self_b):
+                await self_b.send(msg)
+        b = _SendBehaviour()
+        sender.add_behaviour(b)
+        await b.join(timeout=10)
+    else:
+        await sender.send(msg)
+
+    try:
+        db = SupabaseClient()
+        from_jid = str(sender.agent.jid) if hasattr(sender, "agent") else str(sender.jid)
+        db.client.table("agent_messages").insert({
+            "from_agent": from_jid,
+            "to_agent": to_jid,
+            "performative": performative,
+            "content": content,
+            "pipeline_run_id": pipeline_run_id,
+            "session_id": session_id,
+            "task_id": task_id,
+        }).execute()
+    except Exception as e:
+        print(f"[send_acl] Failed to log message: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -124,21 +142,24 @@ class PlanBehaviour(OneShotBehaviour):
 class PipelineTriggerBehaviour(PeriodicBehaviour):
 
     async def run(self):
+        if self.agent.active_runs:
+            return
+
         keys = self.agent.redis.client.keys("pipeline_trigger:*")
         if not keys:
             return
 
-        for key in keys:
-            if isinstance(key, bytes):
-                key = key.decode("utf-8")
-            session_id = key.replace("pipeline_trigger:", "")
-            run_mode_raw = self.agent.redis.client.get(key)
-            run_mode = "full_pipeline"
-            if run_mode_raw:
-                run_mode = run_mode_raw.decode("utf-8") if isinstance(run_mode_raw, bytes) else run_mode_raw
-            self.agent.redis.client.delete(key)
-            print(f"[MotherAgent] Pipeline trigger found for session {session_id} ({run_mode})")
-            self.agent.start_pipeline(session_id, run_mode)
+        key = keys[0]
+        if isinstance(key, bytes):
+            key = key.decode("utf-8")
+        session_id = key.replace("pipeline_trigger:", "")
+        run_mode_raw = self.agent.redis.client.get(key)
+        run_mode = "full_pipeline"
+        if run_mode_raw:
+            run_mode = run_mode_raw.decode("utf-8") if isinstance(run_mode_raw, bytes) else run_mode_raw
+        self.agent.redis.client.delete(key)
+        print(f"[MotherAgent] Pipeline trigger found for session {session_id} ({run_mode})")
+        self.agent.start_pipeline(session_id, run_mode)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -234,12 +255,14 @@ class MotherAgent(Agent):
             await self._run_coherence_audit(session_id, run_id, prior_outputs)
             return
 
+        print(f"[MotherAgent] === Starting Group {group_number} ===")
+
         # Generate tasks for this group
         tasks = self._generate_group_tasks(
             group_number, applicable_sections, prior_outputs, phase1_data
         )
         if not tasks:
-            print(f"[MotherAgent] No tasks for group {group_number} — skipping")
+            print(f"[MotherAgent] No tasks for group {group_number} — skipping to next")
             await self._run_group(
                 group_number + 1, session_id, run_id,
                 phase1_data, applicable_sections, prior_outputs
@@ -262,9 +285,11 @@ class MotherAgent(Agent):
 
         # Send Gate 2 approval request to Alex
         self._request_gate2_approval(session_id, run_id, group_id, gate2_package)
+        print(f"[MotherAgent] Group {group_number} Gate 2 sent — waiting for Alex")
 
-        # Wait for Alex's Gate 2 response (stored in Redis)
+        # Wait for Alex's Gate 2 response (stored in Redis) — BLOCKS here
         response = await self._wait_for_gate2_response(session_id, group_id)
+        print(f"[MotherAgent] Group {group_number} Gate 2 response: {response['action']}")
 
         if response["action"] == "kill":
             self._kill_group(run_id, group_id, session_id)
@@ -281,11 +306,13 @@ class MotherAgent(Agent):
 
         # Mark group as approved
         self._update_group_status(group_id, "approved")
+        print(f"[MotherAgent] Group {group_number} approved — executing tasks")
 
-        # Execute tasks (parallel where group config allows)
+        # Execute tasks (parallel where group config allows) — BLOCKS here
         group_outputs = await self._execute_group(
             tasks, task_ids, group_id, session_id, run_id, group_config
         )
+        print(f"[MotherAgent] Group {group_number} execution complete — {len(group_outputs)} outputs")
 
         # Merge outputs with prior outputs
         prior_outputs.update(group_outputs)
@@ -293,7 +320,9 @@ class MotherAgent(Agent):
         # Update memory
         self._update_memory(session_id, run_id, group_outputs)
 
-        # Run next group
+        print(f"[MotherAgent] === Group {group_number} done. Advancing to Group {group_number + 1} ===")
+
+        # Advance to next group — only reached after everything above completes
         await self._run_group(
             group_number + 1, session_id, run_id,
             phase1_data, applicable_sections, prior_outputs
@@ -1005,7 +1034,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
     asyncio.run(main())

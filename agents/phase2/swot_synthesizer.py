@@ -6,7 +6,7 @@ from typing import Optional
 
 import boto3
 from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour
+from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
 
 from memory.redis_client import RedisClient
@@ -64,6 +64,14 @@ class SWOTSynthesizerAgent(Agent):
         logger.info("[SWOTSynthesizer] Starting")
         self.add_behaviour(ListenBehaviour())
 
+    async def _send_msg(self, msg: Message):
+        class _Send(OneShotBehaviour):
+            async def run(self_b):
+                await self_b.send(msg)
+        b = _Send()
+        self.add_behaviour(b)
+        await b.join(timeout=10)
+
     async def handle_request(self, task_id, session_id, pipeline_run_id, content):
         task = content.get("task", {})
         input_package = task.get("input_package", {})
@@ -114,7 +122,7 @@ class SWOTSynthesizerAgent(Agent):
         msg.set_metadata("session_id", session_id)
         msg.set_metadata("pipeline_run_id", pipeline_run_id)
         msg.body = json.dumps({"status": "accepted", "proposal": content.get("proposal", "")})
-        await self.send(msg)
+        await self._send_msg(msg)
 
     def _build_prompt(self, inp: SWOTSynthesizerInput) -> str:
         return f"""Synthesize a SWOT matrix from these inputs.
@@ -166,7 +174,7 @@ Return ONLY valid JSON with these exact keys:
         msg.set_metadata("session_id", session_id)
         msg.set_metadata("pipeline_run_id", pipeline_run_id)
         msg.body = json.dumps({"trigger": trigger, "notes": notes, "section": "5", "gap_key": "pest_analysis"})
-        await self.send(msg)
+        await self._send_msg(msg)
 
     async def _send_inform(self, task_id, session_id, pipeline_run_id, output):
         mother_jid = os.getenv("MOTHER_AGENT_JID", "")
@@ -176,7 +184,7 @@ Return ONLY valid JSON with these exact keys:
         msg.set_metadata("session_id", session_id)
         msg.set_metadata("pipeline_run_id", pipeline_run_id)
         msg.body = json.dumps({"output": output, "section_number": "5"})
-        await self.send(msg)
+        await self._send_msg(msg)
 
 
 async def main():
