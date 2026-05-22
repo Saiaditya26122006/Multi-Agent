@@ -1,0 +1,46 @@
+{
+  "task_id": "task-002-environment",
+  "section_number": "3",
+  "pest_analysis": [
+    {"category": "political", "factor": "EU Digital Education Action Plan 2021-2027 actively funds EdTech adoption in higher education", "impact": "positive", "relevance": "high"},
+    {"category": "economic", "factor": "European business school tuition fees rising 5-8% annually increasing pressure to demonstrate ROI", "impact": "positive", "relevance": "high"},
+    {"category": "social", "factor": "Post-COVID expectation of hybrid learning creates demand for digital engagement measurement", "impact": "positive", "relevance": "high"},
+    {"category": "technological", "factor": "LMS platforms increasingly offering open APIs via LTI 1.3 standard reducing integration barriers", "impact": "positive", "relevance": "medium"},
+    {"category": "political", "factor": "GDPR Article 22 restrictions on automated decision-making about students may limit features", "impact": "negative", "relevance": "high"}
+  ],
+  "five_forces": [
+    {"force": "Threat of new entrants", "assessment": "Moderate — low capital requirements but high domain expertise needed in business school pedagogy", "strength": "medium"},
+    {"force": "Bargaining power of buyers", "assessment": "High — business schools have long procurement cycles and limited budget flexibility", "strength": "high"},
+    {"force": "Bargaining power of suppliers", "assessment": "Low — cloud infrastructure is commoditised and talent is available across EU", "strength": "low"},
+    {"force": "Threat of substitutes", "assessment": "Medium — schools can build internal dashboards using LMS native reporting but lack predictive capabilities", "strength": "medium"},
+    {"force": "Competitive rivalry", "assessment": "Low — no dominant player in European business school analytics specifically", "strength": "low"}
+  ],
+  "risks_opportunities": {
+    "risks": [
+      "GDPR enforcement could restrict behavioural data collection scope",
+      "Business school budget freezes during economic downturn",
+      "LMS vendors could build native analytics features",
+      "Academic year cycle means missed sales windows delay revenue by 12 months"
+    ],
+    "opportunities": [
+      "AMBA/EQUIS accreditation bodies mandating outcome measurement creates pull demand",
+      "Network effects from benchmarking data make platform more valuable with each school added",
+      "EU Erasmus+ programme may co-fund institutional EdTech procurement",
+      "Expansion into executive education after establishing business school base"
+    ]
+  },
+  "market_context": "The European business school market comprises approximately 300 AMBA/EQUIS/AACSB accredited institutions with a total addressable market of 90M EUR for learning analytics solutions. The segment is underserved by existing EdTech providers who focus primarily on K-12 or large undergraduate universities. Accreditation pressure is the primary purchase driver — schools that cannot demonstrate learning outcome measurement risk losing their triple-crown status which directly impacts tuition pricing power and student recruitment.",
+  "assumptions_used": [
+    {"statement": "300 accredited business schools in Europe is the correct TAM boundary", "confidence": "high", "source": "validated", "source_detail": "AMBA directory plus EQUIS list cross-referenced"},
+    {"statement": "90M EUR TAM based on 300 schools x 300k EUR average annual analytics spend", "confidence": "medium", "source": "agent_inferred", "source_detail": "Derived from published EdTech spending benchmarks"},
+    {"statement": "Accreditation pressure is the primary purchase driver", "confidence": "high", "source": "alex_provided", "source_detail": "Alex confirmed from conversations with 5 deans"}
+  ],
+  "uncertainties": [
+    "Exact budget allocation for analytics vs general IT at each school",
+    "Whether UK schools post-Brexit will adopt same purchasing patterns as EU"
+  ],
+  "confidence_score": "high",
+  "model_used": "claude-haiku-4-5-20251001",
+  "input_tokens": 1203,
+  "output_tokens": 1876
+}

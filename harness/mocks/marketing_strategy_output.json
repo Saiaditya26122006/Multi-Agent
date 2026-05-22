@@ -1,0 +1,73 @@
+{
+  "task_id": "task-005-marketing",
+  "section_number": "8",
+  "target_market_analysis": {
+    "segmentation": "Tier 1: Triple-crown accredited schools (80 in Europe). Tier 2: Double-accredited schools (120). Tier 3: Single-accredited (100).",
+    "icp_refined": "Tier 1 triple-crown business school with 500+ MBA students, existing LMS, Dean of Programmes as champion, annual IT budget >500k EUR",
+    "market_size_tam_sam_som": "TAM: 90M EUR. SAM: 24M EUR (80 Tier 1 schools). SOM Year 1: 480k EUR (8 schools at 60k)"
+  },
+  "competitors": [
+    {
+      "name": "Civitas Learning",
+      "positioning": "US-focused student success platform for large universities",
+      "pricing": "Enterprise pricing 100k-500k USD primarily US market",
+      "strengths": ["Strong predictive models", "Large US dataset", "Established brand"],
+      "weaknesses": ["No European presence", "Not specialised for business schools", "Complex implementation"]
+    },
+    {
+      "name": "Brightspace Insights (D2L)",
+      "positioning": "Analytics module within D2L LMS ecosystem",
+      "pricing": "5-15 EUR per student per year add-on",
+      "strengths": ["Integrated within LMS", "Low friction adoption", "Real-time dashboards"],
+      "weaknesses": ["Only works with D2L", "Generic not tailored to business schools", "No benchmarking"]
+    },
+    {
+      "name": "Internal LMS reporting",
+      "positioning": "Built-in Canvas or Moodle analytics used by most schools today",
+      "pricing": "Free included in LMS licence",
+      "strengths": ["Zero cost", "No procurement", "Faculty familiarity"],
+      "weaknesses": ["Descriptive only", "No prediction", "No benchmarking", "No accreditation reporting"]
+    }
+  ],
+  "competitive_advantages": [
+    "Only platform purpose-built for European business school accreditation requirements",
+    "Cross-institution benchmarking creates network effects unavailable to single-school solutions",
+    "Predictive dropout intervention directly tied to school ranking metrics"
+  ],
+  "marketing_mix": {
+    "product": "Cloud SaaS platform with LMS integration, predictive analytics, accreditation reporting, and benchmarking",
+    "pricing_policy": "Annual subscription: 60k EUR base for schools under 1000 students, 90k for 1000-3000, 120k for 3000+",
+    "distribution": "Direct sales via founder network. Conference presence at EFMD and AMBA events. LMS vendor co-marketing.",
+    "promotion": "Case study-led after first 3 pilots. Webinar series on accreditation compliance. Whitepaper via AMBA channels."
+  },
+  "customer_relations": {
+    "communication": "Quarterly business reviews. Monthly usage reports. Dedicated Slack channel per institution.",
+    "loyalty_strategy": "Multi-year contracts with 10% discount for 3-year commitment. Benchmarking data as retention hook."
+  },
+  "revenue_assumptions": {
+    "price_per_unit": 60000,
+    "volume_year1": 8,
+    "volume_year2": 22,
+    "volume_year3": 45,
+    "sales_cycle_months": 5
+  },
+  "cac_assumptions": {
+    "cac_estimate": 18000,
+    "cac_source": "B2B SaaS benchmarks for enterprise education sales including conference attendance and site visits",
+    "confidence": "medium"
+  },
+  "market_entry_strategy": "Land with 3 pilot schools from Alex's network at discounted pricing to generate case studies and retention data. Use pilot results to create AMBA-endorsed whitepaper. Scale to Tier 1 schools via conference-driven outbound and LMS vendor referrals.",
+  "assumptions_used": [
+    {"statement": "60k EUR price point viable for Tier 1 schools based on IT budget benchmarks", "confidence": "medium", "source": "agent_inferred", "source_detail": "Comparable EdTech SaaS pricing in European higher education"},
+    {"statement": "5-month sales cycle realistic for university procurement", "confidence": "high", "source": "alex_provided", "source_detail": "Alex experienced 4-6 month cycles in prior role"},
+    {"statement": "18k EUR CAC achievable with founder-led sales model", "confidence": "medium", "source": "agent_inferred", "source_detail": "Lower than typical enterprise CAC due to existing network"}
+  ],
+  "uncertainties": [
+    "Whether pilot discounting will set price expectations that hinder full-price sales",
+    "Conversion rate from conference leads to qualified pipeline"
+  ],
+  "confidence_score": "medium",
+  "model_used": "claude-sonnet-4-20250514",
+  "input_tokens": 2876,
+  "output_tokens": 3201
+}

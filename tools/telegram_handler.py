@@ -94,6 +94,11 @@ async def _handle_message_wrapper(update: Update, context: ContextTypes.DEFAULT_
 
         logger.info(f"[{timestamp}] Received message from {message_data['from_user']['username']} (chat_id: {message_data['chat_id']}): {message_data['text']}")
 
+        # Check if this is a Gate 2 response (Phase 2 pipeline approval)
+        if handle_gate2_response(message_data["chat_id"], message_data["text"]):
+            await send_message(message_data["chat_id"], "Got it. Running the group now.")
+            return
+
         # Call the user-provided handler
         if handle_message_callback:
             await handle_message_callback(message_data)
@@ -129,6 +134,58 @@ async def _handle_callback_query_wrapper(update: Update, context: ContextTypes.D
         # Call the user-provided handler
         if handle_callback_callback:
             await handle_callback_callback(callback_data)
+
+
+def handle_gate2_response(chat_id: int, text: str) -> bool:
+    """
+    Check if this message is a Gate 2 response and process it.
+
+    Returns True if handled as a Gate 2 response, False otherwise.
+    """
+    import json
+    from memory.redis_client import redis_client
+
+    text_lower = text.lower().strip()
+
+    if not text_lower.startswith(("agree", "edit", "add", "kill")):
+        return False
+
+    group_key = f"gate2_active_group:{chat_id}"
+    group_id = redis_client.get(group_key)
+    if not group_id:
+        return False
+
+    if isinstance(group_id, bytes):
+        group_id = group_id.decode("utf-8")
+
+    pending_key = f"gate2_pending:{group_id}"
+    if not redis_client.get(pending_key):
+        return False
+
+    if text_lower.startswith("agree"):
+        response = {"action": "agree"}
+    elif text_lower.startswith("edit"):
+        response = {"action": "edit", "edits": {}, "raw": text[4:].strip()}
+    elif text_lower.startswith("add"):
+        response = {"action": "add", "new_task": text[3:].strip()}
+    elif text_lower.startswith("kill"):
+        response = {"action": "kill"}
+    else:
+        return False
+
+    response_key = f"gate2_response:{group_id}"
+    redis_client.set(response_key, json.dumps(response), ex=3600)
+    redis_client.delete(pending_key)
+    redis_client.delete(group_key)
+
+    logger.info(f"[GATE2] Processed response from chat {chat_id}: {response['action']}")
+    return True
+
+
+def set_gate2_active_group(chat_id: int, group_id: str):
+    """Store the active gate2 group_id for a chat so responses can be routed."""
+    from memory.redis_client import redis_client
+    redis_client.set(f"gate2_active_group:{chat_id}", group_id, ex=14400)
 
 
 def start_polling(handle_message, handle_callback=None):

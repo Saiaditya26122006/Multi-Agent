@@ -1,0 +1,58 @@
+{
+  "task_id": "task-003-organisation",
+  "section_number": "4",
+  "org_structure": "Flat structure with CEO (Alex) leading three functional areas: Product and Engineering (CTO hire), Sales and Partnerships (founder-led initially), and Customer Success (first hire after pilot). Advisory board of 2-3 business school deans for credibility and network access.",
+  "capability_gaps": [
+    {"gap": "Technical CTO with LMS integration experience", "severity": "high", "resolution": "hire"},
+    {"gap": "Data science for predictive engagement models", "severity": "medium", "resolution": "hire"},
+    {"gap": "GDPR and education data compliance expertise", "severity": "high", "resolution": "outsource"},
+    {"gap": "Business school network and sales relationships", "severity": "low", "resolution": "build"}
+  ],
+  "roles_and_responsibilities": [
+    {
+      "title": "CTO / Lead Engineer",
+      "responsibilities": ["LMS integration architecture", "Platform development and deployment", "Data pipeline design", "Technical hiring"],
+      "required_skills": ["Python or Node.js", "LTI integration experience", "Data engineering", "Cloud infrastructure"],
+      "hire_timeline": "Month 1-2",
+      "assigned_to": "hire"
+    },
+    {
+      "title": "Data Scientist",
+      "responsibilities": ["Engagement prediction models", "Dropout risk scoring", "Benchmarking analytics", "A/B testing framework"],
+      "required_skills": ["Machine learning", "Python and scikit-learn", "Educational data mining", "Statistical modelling"],
+      "hire_timeline": "Month 4-6",
+      "assigned_to": "hire"
+    },
+    {
+      "title": "Customer Success Manager",
+      "responsibilities": ["Pilot school onboarding", "Faculty training", "Usage monitoring", "Renewal management"],
+      "required_skills": ["Higher education experience", "Account management", "Technical communication", "Project management"],
+      "hire_timeline": "Month 6-8",
+      "assigned_to": "hire"
+    }
+  ],
+  "headcount_plan": {
+    "year_1": {"count": 4, "cost": 320000},
+    "year_2": {"count": 8, "cost": 680000},
+    "year_3": {"count": 14, "cost": 1200000}
+  },
+  "personnel_policy": "Remote-first within EU timezone (UTC-1 to UTC+3). Competitive salaries benchmarked at 75th percentile for EU SaaS startups. Equity pool of 15% reserved for first 10 hires. Annual learning budget of 3000 EUR per employee. Quarterly in-person team gatherings.",
+  "knowledge_gaps": [
+    "No team member currently has direct LMS vendor partnership experience",
+    "GDPR Data Protection Officer qualification needed but not yet sourced",
+    "No existing relationship with accreditation bodies at institutional level"
+  ],
+  "assumptions_used": [
+    {"statement": "CTO hire achievable at 120k EUR salary in EU market", "confidence": "medium", "source": "agent_inferred", "source_detail": "Based on Glassdoor EU CTO salary ranges for early-stage startups"},
+    {"statement": "Alex can lead sales personally for first 6 months", "confidence": "high", "source": "alex_provided", "source_detail": "Alex confirmed availability and existing school contacts"},
+    {"statement": "Remote-first model viable for all roles", "confidence": "high", "source": "validated", "source_detail": "All target roles are knowledge work with no physical presence requirement"}
+  ],
+  "uncertainties": [
+    "Whether CTO calibre candidate will join pre-funding",
+    "Cost of GDPR DPO outsourcing in education sector"
+  ],
+  "confidence_score": "medium",
+  "model_used": "claude-haiku-4-5-20251001",
+  "input_tokens": 1456,
+  "output_tokens": 1923
+}

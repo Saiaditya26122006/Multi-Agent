@@ -872,3 +872,10 @@ def get_last_message_time(telegram_chat_id: int) -> Optional[str]:
     except Exception as e:
         print(f"Error getting last message time: {e}")
         return None
+
+
+class SupabaseClient:
+    """Wrapper class for Phase 2 agents that need object-oriented access."""
+
+    def __init__(self):
+        self.client = supabase

@@ -1,0 +1,60 @@
+{
+  "task_id": "task-007-financial",
+  "section_number": "12",
+  "three_statement_model": {
+    "pl_monthly_year1": [
+      {"month": 1, "revenue": 0, "cogs": 0, "opex": 45000, "net_income": -45000},
+      {"month": 6, "revenue": 20000, "cogs": 2400, "opex": 52000, "net_income": -34400},
+      {"month": 12, "revenue": 100000, "cogs": 12000, "opex": 60000, "net_income": 28000}
+    ],
+    "pl_annual_years2_3": [
+      {"year": 2, "revenue": 1320000, "cogs": 158400, "opex": 780000, "net_income": 381600},
+      {"year": 3, "revenue": 2700000, "cogs": 324000, "opex": 1400000, "net_income": 976000}
+    ],
+    "balance_sheet": {
+      "year1_end": {"cash": 185000, "accounts_receivable": 80000, "total_assets": 265000, "equity": 235000}
+    },
+    "cash_flow": {
+      "year1": {"operating": -226600, "investing": -50000, "financing": 500000, "net": 223400}
+    }
+  },
+  "break_even_analysis": {
+    "baseline_month": 10,
+    "optimistic_month": 8,
+    "pessimistic_month": 14,
+    "units_required": 5
+  },
+  "probability_distribution": [
+    {"scenario": "P10", "year1_revenue": 180000.0, "year2_revenue": 720000.0, "year3_revenue": 1350000.0, "break_even_month": 16, "cash_out_month": null},
+    {"scenario": "P50", "year1_revenue": 420000.0, "year2_revenue": 1320000.0, "year3_revenue": 2700000.0, "break_even_month": 10, "cash_out_month": null},
+    {"scenario": "P90", "year1_revenue": 600000.0, "year2_revenue": 1800000.0, "year3_revenue": 3600000.0, "break_even_month": 7, "cash_out_month": null}
+  ],
+  "primary_risk_factor": "Sales cycle length — longer cycles delay revenue and increase cash burn risk",
+  "risk_mitigation_actions": [
+    "Offer pilot pricing with 30-day contract start to shorten procurement cycle",
+    "Maintain 12-month runway buffer and do not hire ahead of revenue"
+  ],
+  "dcf_valuation": {
+    "enterprise_value_base": 8500000,
+    "discount_rate_used": 0.35,
+    "terminal_growth_rate": 0.03
+  },
+  "comps_table": null,
+  "assumption_log": [
+    {"name": "price_per_unit", "value": "60000 EUR", "label": "alex_provided", "source": "CEO pricing decision"},
+    {"name": "volume_year1", "value": "8 schools", "label": "alex_provided", "source": "Based on existing pipeline"},
+    {"name": "sales_cycle_months", "value": "5", "label": "alex_provided", "source": "Prior experience"},
+    {"name": "churn_rate", "value": "0.08 annual", "label": "agent_inferred", "source": "Enterprise SaaS benchmark"},
+    {"name": "cac", "value": "18000 EUR", "label": "agent_inferred", "source": "Marketing strategy output"}
+  ],
+  "simpy_runs_completed": 1000,
+  "uncertainties": [
+    "Churn rate assumed at 8% but no empirical data yet",
+    "Sales cycle could be longer in first year due to unproven product"
+  ],
+  "confidence_score": "medium",
+  "model_used": "claude-sonnet-4-20250514",
+  "financial_skills_applied": ["three_statement_model", "dcf_model", "comps_analysis"],
+  "input_tokens": 4521,
+  "output_tokens": 5102
+}

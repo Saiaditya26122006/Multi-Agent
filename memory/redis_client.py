@@ -154,3 +154,10 @@ def session_exists(session_id: str) -> bool:
     except Exception as e:
         print(f"Error checking if session {session_id} exists: {e}")
         return False
+
+
+class RedisClient:
+    """Wrapper class for Phase 2 agents that need object-oriented access."""
+
+    def __init__(self):
+        self.client = redis_client

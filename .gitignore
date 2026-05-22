@@ -48,3 +48,5 @@ htmlcov/
 # Distribution
 *.tar.gz
 *.whl
+config/phase2/localhost.key
+config/phase2/localhost.crt

@@ -1,0 +1,67 @@
+{
+  "task_id": "task-008-launch",
+  "section_number": "13",
+  "launch_programme": [
+    {
+      "milestone": "CTO hired and onboarded",
+      "target_date_months": 2,
+      "responsible": "Alex (CEO)",
+      "success_metric": "Signed contract and architecture document produced within 2 weeks of start",
+      "dependencies": []
+    },
+    {
+      "milestone": "MVP platform with Canvas integration live",
+      "target_date_months": 5,
+      "responsible": "CTO",
+      "success_metric": "Working integration pulling live data from at least 1 Canvas instance",
+      "dependencies": ["CTO hired and onboarded"]
+    },
+    {
+      "milestone": "First pilot school onboarded and using platform",
+      "target_date_months": 6,
+      "responsible": "Alex and CTO",
+      "success_metric": "School staff trained and data flowing for more than 2 weeks",
+      "dependencies": ["MVP platform with Canvas integration live"]
+    },
+    {
+      "milestone": "3 pilot schools live with measurable retention data",
+      "target_date_months": 9,
+      "responsible": "Customer Success Manager",
+      "success_metric": "All 3 schools active and baseline dropout metrics established",
+      "dependencies": ["First pilot school onboarded and using platform"]
+    },
+    {
+      "milestone": "8 paying customers signed for Year 1 target",
+      "target_date_months": 12,
+      "responsible": "Alex (Sales)",
+      "success_metric": "8 signed annual contracts totalling over 400k EUR ARR",
+      "dependencies": ["3 pilot schools live with measurable retention data"]
+    }
+  ],
+  "prerequisite_conditions": [
+    "GDPR Data Processing Impact Assessment completed and approved before any student data is processed",
+    "At least 2 signed letters of intent from business schools before committing to full platform build",
+    "500k EUR seed funding secured to cover 12-month runway without revenue dependency"
+  ],
+  "capital_plan": "Raise 500k EUR pre-seed round from angel investors with EdTech or higher education background. Use for 12 months runway covering team of 4, cloud infrastructure, and sales activities. Target close by Month 2 to avoid delaying CTO hire. If pilot results strong by Month 9, begin Series A preparation targeting 2-3M EUR.",
+  "critical_path_item": "CTO hire — everything downstream (MVP, pilot, revenue) depends on having technical leadership in place",
+  "contingency_scenarios": [
+    {"scenario": "CTO hire takes more than 3 months", "trigger": "No signed offer by Month 3", "response": "Engage contract CTO from EdTech agency while continuing permanent search"},
+    {"scenario": "First pilot school churns within 60 days", "trigger": "School stops using platform", "response": "Conduct exit interview and pause remaining pilots until root cause fixed"},
+    {"scenario": "Seed funding not secured by Month 2", "trigger": "No term sheet by end of Month 2", "response": "Alex self-funds 3 months at reduced scope with contractor CTO only"}
+  ],
+  "exit_conditions": "Wind down if after 18 months fewer than 3 paying customers AND no measurable retention improvement AND seed funding exhausted",
+  "assumptions_used": [
+    {"statement": "500k EUR seed round achievable for EdTech in current EU market", "confidence": "medium", "source": "agent_inferred", "source_detail": "Based on 2024-2025 EU EdTech seed round benchmarks"},
+    {"statement": "CTO can be hired within 2 months", "confidence": "medium", "source": "assumed", "source_detail": null},
+    {"statement": "Series A achievable at 8-10M pre-money if 8+ customers signed", "confidence": "low", "source": "agent_inferred", "source_detail": "Based on comparable B2B SaaS Series A rounds in EU"}
+  ],
+  "uncertainties": [
+    "Whether angel investors with EdTech focus are available in current market",
+    "Whether 12-month runway is sufficient given potential sales cycle delays"
+  ],
+  "confidence_score": "medium",
+  "model_used": "claude-haiku-4-5-20251001",
+  "input_tokens": 2103,
+  "output_tokens": 1876
+}

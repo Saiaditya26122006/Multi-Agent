@@ -1,0 +1,44 @@
+{
+  "task_id": "task-006-operations",
+  "section_number": "10",
+  "production_process": "The platform is delivered as a cloud-hosted SaaS application. Development follows 2-week sprint cycles using CI/CD pipelines deploying to AWS EU Frankfurt. Each new school onboarding involves LMS integration setup (2-4 weeks), historical data import and model training (1-2 weeks), faculty training and UAT (1 week), go-live and monitoring. Total onboarding time per school is 4-7 weeks depending on LMS complexity.",
+  "cost_structure": {
+    "fixed_costs": {
+      "cloud_infrastructure": 3000,
+      "development_tools_and_licences": 1500,
+      "security_and_compliance_tooling": 2000,
+      "office_and_admin": 1000
+    },
+    "variable_costs": {
+      "cloud_compute_per_school": 200,
+      "support_hours_per_school_monthly": 500,
+      "data_storage_per_school": 100
+    },
+    "cogs_per_unit": 800,
+    "source_labels": {
+      "cloud_infrastructure": "benchmarked",
+      "development_tools_and_licences": "validated",
+      "security_and_compliance_tooling": "assumed",
+      "cloud_compute_per_school": "benchmarked",
+      "support_hours_per_school_monthly": "assumed",
+      "data_storage_per_school": "benchmarked"
+    }
+  },
+  "capacity_plan": "Current architecture supports up to 20 schools on single-tenant instances. At 2x (40 schools) migrate to multi-tenant architecture requiring 3-month engineering effort. At 5x (100 schools) require dedicated DevOps hire, upgraded database tier, and CDN for real-time dashboards.",
+  "supplier_strategy": "AWS as primary cloud provider with EU-West-1 Frankfurt for GDPR compliance. Backup provider GCP for disaster recovery. LMS integration via official partner programmes.",
+  "rd_plan": "Phase 1 Months 1-4: Core platform and Canvas integration. Phase 2 Months 5-8: Predictive models and Moodle integration. Phase 3 Months 9-12: Benchmarking module and accreditation reporting.",
+  "ip_analysis": null,
+  "assumptions_used": [
+    {"statement": "AWS Frankfurt region satisfies GDPR data residency for all EU schools", "confidence": "high", "source": "validated", "source_detail": "AWS GDPR compliance documentation"},
+    {"statement": "4-7 week onboarding timeline per school", "confidence": "medium", "source": "agent_inferred", "source_detail": "Based on comparable SaaS LMS integration timelines"},
+    {"statement": "800 EUR monthly COGS per school at scale", "confidence": "low", "source": "assumed", "source_detail": null}
+  ],
+  "uncertainties": [
+    "Whether legacy LMS versions at older schools will require custom integration work",
+    "Data storage costs at scale if schools request multi-year historical data import"
+  ],
+  "confidence_score": "medium",
+  "model_used": "claude-haiku-4-5-20251001",
+  "input_tokens": 1678,
+  "output_tokens": 1543
+}

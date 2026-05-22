@@ -1,0 +1,318 @@
+sections:
+  "1":
+    name: "Analysis of idea and business opportunity"
+    always_required: true
+    depends_on: []
+    required_inputs:
+      - field: "idea_summary"
+        source: "phase1_memory"
+        description: "Raw approved idea from Phase 1 session"
+      - field: "ceo_assumptions"
+        source: "phase1_memory"
+        description: "Q&A pairs from L1 clarification"
+      - field: "approved_decision"
+        source: "phase1_memory"
+        description: "Approved decision record from Gate 1"
+    outputs:
+      - field: "opportunity_description"
+        description: "Structured description of the business opportunity"
+      - field: "competitive_strategy"
+        description: "How the business will compete"
+      - field: "objectives"
+        description: "Quantified Year 1 objectives"
+      - field: "icp_hypothesis"
+        description: "Initial ideal customer profile"
+
+  "2":
+    name: "Entrepreneur and development team"
+    always_required: false
+    condition: "Include when team is not yet established or investor audience requires profiles"
+    depends_on: ["1"]
+    required_inputs:
+      - field: "founder_profile"
+        source: "ceo_answer"
+        description: "Alex's background and relevant experience"
+      - field: "team_composition"
+        source: "ceo_answer"
+        description: "Current team members and roles"
+    outputs:
+      - field: "team_profiles"
+        description: "Structured team capability summary"
+      - field: "team_credibility_score"
+        description: "Assessment of team fit for this opportunity"
+
+  "3":
+    name: "Study of the business environment"
+    always_required: true
+    depends_on: ["1"]
+    required_inputs:
+      - field: "market_scope"
+        source: "prior_task"
+        description: "Geographic and segment scope from Section 1"
+      - field: "business_type"
+        source: "phase1_memory"
+        description: "Type of business being analysed"
+    outputs:
+      - field: "pest_analysis"
+        description: "Political, economic, social, technological factors"
+      - field: "five_forces"
+        description: "Porter five forces analysis"
+      - field: "risks_opportunities"
+        description: "Key risks and opportunities identified"
+      - field: "market_context"
+        description: "Overall external environment summary"
+
+  "4":
+    name: "Company structure"
+    always_required: false
+    condition: "Include when legal structure or governance is material"
+    depends_on: ["1"]
+    required_inputs:
+      - field: "legal_structure"
+        source: "ceo_answer"
+        description: "Intended or existing legal entity"
+      - field: "org_design"
+        source: "ceo_answer"
+        description: "How the organisation is or will be structured"
+    outputs:
+      - field: "org_chart"
+        description: "Hierarchical structure diagram description"
+      - field: "production_flow"
+        description: "Flow chart of principal operational processes"
+      - field: "strengths_weaknesses"
+        description: "Internal analysis of organisational capabilities"
+
+  "5":
+    name: "SWOT matrix"
+    always_required: true
+    depends_on: ["3", "4"]
+    required_inputs:
+      - field: "pest_analysis"
+        source: "prior_task"
+        description: "From Section 3"
+      - field: "five_forces"
+        source: "prior_task"
+        description: "From Section 3"
+      - field: "strengths_weaknesses"
+        source: "prior_task"
+        description: "From Section 4"
+      - field: "risks_opportunities"
+        source: "prior_task"
+        description: "From Section 3"
+    outputs:
+      - field: "swot_matrix"
+        description: "Full 2x2 SWOT matrix with supporting evidence"
+      - field: "strategic_implications"
+        description: "What the SWOT means for strategy"
+
+  "6":
+    name: "R&D and technology"
+    always_required: false
+    condition: "Include only when business is built on technology innovation or patent"
+    depends_on: ["1"]
+    required_inputs:
+      - field: "technology_description"
+        source: "ceo_answer"
+        description: "The innovation or technology being developed"
+      - field: "ip_status"
+        source: "ceo_answer"
+        description: "Patent, licence, or proprietary process status"
+    outputs:
+      - field: "rd_plan"
+        description: "Development stages and timeline to market"
+      - field: "ip_analysis"
+        description: "IP position and competitive protection"
+
+  "7":
+    name: "Agreements, alliances and outsourcing"
+    always_required: false
+    condition: "Include when partnerships or outsourcing are core to the business model"
+    depends_on: ["1", "5"]
+    required_inputs:
+      - field: "partnership_targets"
+        source: "ceo_answer"
+        description: "Intended partners or outsourcing targets"
+      - field: "competitive_strategy"
+        source: "prior_task"
+        description: "From Section 1 — to assess alliance fit"
+    outputs:
+      - field: "alliance_plan"
+        description: "Key partnerships and what they enable"
+      - field: "outsourcing_strategy"
+        description: "What will not be built in-house and why"
+
+  "8":
+    name: "Marketing plan"
+    always_required: true
+    depends_on: ["5"]
+    required_inputs:
+      - field: "swot_matrix"
+        source: "prior_task"
+        description: "From Section 5"
+      - field: "icp_hypothesis"
+        source: "prior_task"
+        description: "From Section 1"
+      - field: "competitive_strategy"
+        source: "prior_task"
+        description: "From Section 1"
+      - field: "market_context"
+        source: "prior_task"
+        description: "From Section 3"
+    outputs:
+      - field: "target_market_analysis"
+        description: "Segmentation, ICP, competitors, market size"
+      - field: "marketing_mix"
+        description: "Product, pricing, distribution, promotion"
+      - field: "customer_relations"
+        description: "Communication and loyalty strategy"
+      - field: "revenue_assumptions"
+        description: "Pricing, volume, and conversion assumptions for financial model"
+      - field: "cac_assumptions"
+        description: "Customer acquisition cost assumptions"
+
+  "9":
+    name: "Quality management"
+    always_required: false
+    condition: "Include for service businesses where delivery consistency is a key differentiator"
+    depends_on: ["1", "8"]
+    required_inputs:
+      - field: "service_description"
+        source: "prior_task"
+        description: "What the product or service actually does"
+    outputs:
+      - field: "quality_policy"
+        description: "Quality assurance approach"
+      - field: "quality_procedures"
+        description: "Methods for ensuring consistent delivery"
+
+  "10":
+    name: "Production plan"
+    always_required: false
+    condition: "Include for businesses with physical production or complex service delivery"
+    depends_on: ["1", "8"]
+    required_inputs:
+      - field: "product_description"
+        source: "prior_task"
+        description: "What is being produced or delivered"
+      - field: "target_volume"
+        source: "prior_task"
+        description: "Expected production or delivery volume from Section 8"
+    outputs:
+      - field: "production_process"
+        description: "How the product or service is made or delivered"
+      - field: "capacity_plan"
+        description: "Production capacity and scalability"
+      - field: "cost_structure"
+        description: "Cost of goods and service delivery — feeds financial model"
+      - field: "supplier_strategy"
+        description: "Key suppliers and dependency management"
+
+  "11":
+    name: "Human resources plan"
+    always_required: true
+    depends_on: ["1", "5"]
+    required_inputs:
+      - field: "capability_gaps"
+        source: "prior_task"
+        description: "From Section 4 or Section 2 — what the team lacks"
+      - field: "business_model"
+        source: "prior_task"
+        description: "From Section 1 — to determine required roles"
+      - field: "strategic_implications"
+        source: "prior_task"
+        description: "From SWOT — to assess talent priorities"
+    outputs:
+      - field: "roles_and_responsibilities"
+        description: "Key positions required for execution"
+      - field: "personnel_policy"
+        description: "Hiring, compensation, motivation approach"
+      - field: "headcount_plan"
+        description: "Who is needed when — feeds financial model"
+      - field: "knowledge_gaps"
+        description: "Skills the business must acquire"
+
+  "12":
+    name: "Financial plan"
+    always_required: true
+    depends_on: ["8", "10", "11"]
+    required_inputs:
+      - field: "revenue_assumptions"
+        source: "prior_task"
+        description: "From Section 8 marketing plan"
+      - field: "cac_assumptions"
+        source: "prior_task"
+        description: "From Section 8"
+      - field: "cost_structure"
+        source: "prior_task"
+        description: "From Section 10 (or Section 8 if Section 10 skipped)"
+      - field: "headcount_plan"
+        source: "prior_task"
+        description: "From Section 11"
+      - field: "business_model"
+        source: "prior_task"
+        description: "From Section 1 — for financial model framing"
+    outputs:
+      - field: "three_statement_model"
+        description: "P&L, balance sheet, cash flow — monthly Year 1, annual Years 2-3"
+      - field: "break_even_analysis"
+        description: "Month and units to break even under 3 scenarios"
+      - field: "probability_distribution"
+        description: "SimPy 1000-run output — P10, P50, P90 outcomes"
+      - field: "dcf_valuation"
+        description: "Discounted cash flow valuation (conditional on traction assumptions)"
+      - field: "assumption_log"
+        description: "Every financial assumption labelled validated/assumed with source"
+      - field: "risk_factors"
+        description: "Primary risk factors identified from simulation"
+
+  "13":
+    name: "Start-up programme"
+    always_required: true
+    depends_on: ["8", "11", "12"]
+    required_inputs:
+      - field: "revenue_assumptions"
+        source: "prior_task"
+        description: "From Section 8 — to sequence GTM milestones"
+      - field: "headcount_plan"
+        source: "prior_task"
+        description: "From Section 11 — to sequence hiring"
+      - field: "break_even_analysis"
+        source: "prior_task"
+        description: "From Section 12 — to set funding milestones"
+    outputs:
+      - field: "launch_programme"
+        description: "Steps to first customer in sequence with dates"
+      - field: "prerequisite_conditions"
+        description: "What must happen before launch"
+      - field: "capital_plan"
+        description: "How and when to raise capital"
+
+  "14":
+    name: "Contingency plan"
+    always_required: false
+    condition: "Include when risk profile is high or explicitly requested by Alex"
+    depends_on: ["12", "13"]
+    required_inputs:
+      - field: "risk_factors"
+        source: "prior_task"
+        description: "From Section 12 financial model"
+      - field: "probability_distribution"
+        source: "prior_task"
+        description: "From Section 12 SimPy — failure scenarios"
+    outputs:
+      - field: "contingency_scenarios"
+        description: "What happens under key failure scenarios"
+      - field: "exit_conditions"
+        description: "Under what conditions the business should wind down"
+
+  "executive_summary":
+    name: "Executive summary"
+    always_required: true
+    depends_on: ["1", "3", "5", "8", "11", "12", "13"]
+    required_inputs:
+      - field: "all_section_outputs"
+        source: "prior_task"
+        description: "Completed outputs from all applicable sections"
+    outputs:
+      - field: "executive_summary"
+        description: "One page — opportunity, competitive advantage, team, financials, ask"

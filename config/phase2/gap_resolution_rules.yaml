@@ -1,0 +1,90 @@
+gaps:
+  founder_profile:
+    question_to_ceo: "To build the team section I need a brief overview of your background — what's most relevant to this specific idea?"
+    agent_alternative: null
+    blocking: false
+
+  team_composition:
+    question_to_ceo: "Who is currently on the team and what are their roles? Include anyone working on this full or part time."
+    agent_alternative: null
+    blocking: false
+
+  legal_structure:
+    question_to_ceo: "What legal entity does or will the business operate as — Ltd, GmbH, sole trader, or not yet decided?"
+    agent_alternative: null
+    blocking: false
+
+  technology_description:
+    question_to_ceo: "Describe the core technology or innovation — what does it do that existing solutions don't?"
+    agent_alternative: null
+    blocking: true
+
+  ip_status:
+    question_to_ceo: "Is there a patent, licence, or proprietary process involved? What is the current IP status?"
+    agent_alternative: null
+    blocking: false
+
+  partnership_targets:
+    question_to_ceo: "Are there specific partners, platforms, or channels you're planning to work through rather than selling direct?"
+    agent_alternative: null
+    blocking: false
+
+  budget_constraints:
+    question_to_ceo: "What is the current runway or budget available for the next 12 months? Rough range is fine."
+    agent_alternative: null
+    blocking: false
+
+  pricing_assumption:
+    question_to_ceo: "What price point are you thinking for this? Even a rough range helps the financial model."
+    agent_alternative: "marketing_strategy — can infer from competitive analysis if Alex cannot provide"
+    blocking: false
+
+  target_volume:
+    question_to_ceo: "How many customers or units are you targeting in Year 1? What does success look like?"
+    agent_alternative: "marketing_strategy — can derive from market size and conversion assumptions"
+    blocking: false
+
+  cac_assumptions:
+    question_to_ceo: "Do you have a sense of what it costs to acquire a customer — either from experience or comparable businesses?"
+    agent_alternative: "environment_research — can benchmark from industry data"
+    blocking: false
+
+  conversion_rate:
+    question_to_ceo: "What conversion rate are you assuming from lead to paying customer? Any basis for that number?"
+    agent_alternative: "marketing_strategy — can benchmark from competitive analysis"
+    blocking: false
+
+  churn_rate:
+    question_to_ceo: "What annual churn rate are you planning for? Industry benchmark or your own assumption?"
+    agent_alternative: "environment_research — can benchmark from comparable SaaS businesses"
+    blocking: false
+
+  market_scope:
+    question_to_ceo: "Which specific markets or geographies are we targeting first? Be as specific as possible."
+    agent_alternative: null
+    blocking: true
+
+  sales_cycle_length:
+    question_to_ceo: "How long do you expect the typical sales cycle to be from first contact to signed contract?"
+    agent_alternative: "marketing_strategy — can estimate from buyer profile and procurement process"
+    blocking: false
+
+  cost_structure:
+    question_to_ceo: "What are the main cost items — infrastructure, people, licensing, marketing? Rough breakdown."
+    agent_alternative: "operations — can derive from production plan if Section 10 is included"
+    blocking: false
+
+  gdpr_or_compliance:
+    question_to_ceo: "Are there specific regulatory requirements — GDPR, financial regulation, sector-specific licensing — that the business must comply with from day one?"
+    agent_alternative: "environment_research — can identify from PEST analysis"
+    blocking: false
+
+escalation_rules:
+  max_gaps_before_pause: 3
+  description: "If more than 3 gaps are unresolved before a group runs, pause and ask Alex to resolve them in one message rather than asking one at a time"
+
+  blocking_gap_behaviour: "hard_stop"
+  description_blocking: "If a blocking gap cannot be resolved — either Alex cannot provide it and no agent alternative exists — the pipeline stops. Alex is notified with the specific gap and why it is blocking."
+
+  agent_alternative_behaviour: "ask_first"
+  description_agent_alt: "When an agent alternative exists, always ask Alex first. If Alex says he does not have the information, then run the agent alternative."

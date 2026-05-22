@@ -339,12 +339,22 @@ async def handle_telegram_message(message_data):
             memories = consolidate_session_memory(session_id, ceo_id)
             print(f"[DECISION] ✓ Created {len(memories)} memories")
 
+            # Trigger Phase 2 pipeline via Redis
+            print("[PHASE2] Triggering Phase 2 pipeline...")
+            redis_client.set(
+                f"pipeline_trigger:{session_id}",
+                "full_pipeline",
+                ex=3600,
+            )
+            print(f"[PHASE2] ✓ Pipeline trigger set for session {session_id}")
+
             await send_reply(
                 chat_id,
                 "✅ Decision approved! Moving forward with the plan.\n\n"
-                "Session completed. Send a new message when you're ready."
+                "Phase 2 pipeline starting — I'll build the full business plan now.\n"
+                "You'll receive Group 1 tasks for review shortly."
             )
-            print("[DECISION] ✓ Approved and session completed")
+            print("[DECISION] ✓ Approved and Phase 2 triggered")
 
         elif text_lower == "adjust":
             # Request adjustment
@@ -548,12 +558,22 @@ async def handle_telegram_callback(callback_data):
         # Complete the session
         update_session_state(session_id, "COMPLETED")
 
+        # Trigger Phase 2 pipeline via Redis
+        print("[PHASE2] Triggering Phase 2 pipeline...")
+        redis_client.set(
+            f"pipeline_trigger:{session_id}",
+            "full_pipeline",
+            ex=3600,
+        )
+        print(f"[PHASE2] ✓ Pipeline trigger set for session {session_id}")
+
         await send_reply(
             chat_id,
             "✅ Decision approved! Moving forward with the plan.\n\n"
-            "Session completed. Send a new message when you're ready."
+            "Phase 2 pipeline starting — I'll build the full business plan now.\n"
+            "You'll receive Group 1 tasks for review shortly."
         )
-        print("[DECISION] ✓ Approved and session completed")
+        print("[DECISION] ✓ Approved and Phase 2 triggered")
 
     elif data == "decision_adjust":
         print("[DECISION] CEO wants adjustments...")

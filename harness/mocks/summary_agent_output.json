@@ -1,0 +1,26 @@
+{
+  "task_id": "task-009-summary",
+  "section_number": "executive_summary",
+  "executive_summary": "SchoolPulse is a SaaS analytics platform that helps European business schools reduce student dropout rates by 15-25% through predictive engagement monitoring. The platform integrates with existing LMS systems to detect at-risk students before they disengage, enabling early intervention by programme directors.\n\nThe market opportunity is strong: 300 accredited European business schools face increasing pressure from AMBA/EQUIS accreditation bodies to demonstrate measurable learning outcomes. No existing solution addresses this niche specifically.\n\nAlex brings direct access to 12 business school contacts from a prior career in the sector. The go-to-market strategy is founder-led: land 3 pilot schools at discounted pricing, prove retention improvement, then scale via conference-driven outbound and AMBA endorsement.\n\nFinancially, the model projects 480k EUR ARR in Year 1 (8 schools at 60k EUR), growing to 2.7M EUR by Year 3. Break-even occurs around Month 10 under the base case. A 1000-run Monte Carlo simulation shows a P50 outcome of 1.32M EUR Year 2 revenue with primary risk being sales cycle length.\n\nThe ask: 500k EUR pre-seed to fund a team of 4 for 12 months. Key hire is a CTO — the critical path item. GDPR compliance assessment and letters of intent are prerequisites before full build.\n\nPrimary risks: CTO hire timeline, GDPR constraints on student data, and the possibility that LMS vendors build native analytics.",
+  "headline_metrics": {
+    "year1_revenue_range": "180k-600k EUR (P10-P90), base case 480k EUR",
+    "break_even_month": "Month 10 base, Month 8 optimistic, Month 14 pessimistic",
+    "primary_risk": "Sales cycle length delays revenue and increases cash burn risk",
+    "team_size_year1": "4 (CEO + CTO + Data Scientist + Customer Success Manager)"
+  },
+  "key_assumptions_flagged": [
+    "LMS integration achievable within 3 months per school — no pilot data to confirm",
+    "800 EUR monthly COGS per school at scale — no operational data yet",
+    "CTO can be hired within 2 months — competitive market for senior technical talent",
+    "Network effects activate meaningfully at 10+ schools — untested hypothesis"
+  ],
+  "sections_included": ["1", "3", "4", "5", "8", "10", "11", "12", "13", "14"],
+  "sections_skipped": ["2", "6", "7", "9"],
+  "coherence_issues_resolved": [
+    "Revenue assumptions aligned between marketing strategy and financial model input",
+    "Headcount cost from organisation designer matched to financial model opex"
+  ],
+  "model_used": "claude-haiku-4-5-20251001",
+  "input_tokens": 8934,
+  "output_tokens": 1456
+}

@@ -1,0 +1,33 @@
+{
+  "task_id": "task-001-opportunity",
+  "section_number": "1",
+  "opportunity_description": "A SaaS analytics platform providing real-time student engagement and learning outcome dashboards for European business schools. The platform integrates with existing LMS systems (Moodle, Canvas, Blackboard) to aggregate behavioural data and produce actionable insights for programme directors and faculty. The core value proposition is reducing student dropout rates by 15-25% through early intervention triggered by engagement pattern detection.",
+  "competitive_strategy": "Differentiate through deep specialisation in business school pedagogy rather than competing as a generic EdTech analytics platform. Build switching costs via proprietary benchmarking data across the European business school network.",
+  "objectives": [
+    {"objective": "Acquire pilot customers", "metric": "signed contracts", "target_value": "8 business schools", "timeframe": "12 months"},
+    {"objective": "Annual recurring revenue", "metric": "ARR", "target_value": "480000 EUR", "timeframe": "12 months"},
+    {"objective": "Student retention improvement", "metric": "dropout reduction", "target_value": "15% average across pilots", "timeframe": "12 months"},
+    {"objective": "Net Promoter Score", "metric": "NPS", "target_value": "50+", "timeframe": "12 months"}
+  ],
+  "icp_hypothesis": {
+    "buyer_role": "Dean of Programmes or Director of Digital Learning",
+    "budget_process": "Annual budget cycle, typically approved Q4 for next academic year. Procurement via university purchasing if >20k EUR.",
+    "decision_timeline": "3-6 months from first demo to signed contract due to academic committee approval requirements",
+    "pain_points": ["High student dropout rates impacting rankings", "No visibility into engagement until exam results arrive", "AMBA/EQUIS accreditation pressure for learning outcome evidence", "Faculty resistance to adopting new tools without clear benefit data"]
+  },
+  "assumptions_used": [
+    {"statement": "European business schools are under accreditation pressure to demonstrate learning outcomes", "confidence": "high", "source": "validated", "source_detail": "AMBA accreditation framework 2024 requirements"},
+    {"statement": "8 pilot schools achievable in Year 1 given existing network", "confidence": "medium", "source": "alex_provided", "source_detail": "Alex has contacts at 12 schools from prior career"},
+    {"statement": "15-25% dropout reduction is achievable with early intervention", "confidence": "medium", "source": "agent_inferred", "source_detail": "Based on published case studies from Civitas Learning and similar platforms"},
+    {"statement": "LMS integration is technically feasible within 3 months per school", "confidence": "low", "source": "assumed", "source_detail": null}
+  ],
+  "uncertainties": [
+    "GDPR compliance cost for student behavioural data across EU jurisdictions",
+    "Whether business schools will share benchmarking data with each other",
+    "Technical complexity of legacy LMS integrations at older institutions"
+  ],
+  "confidence_score": "medium",
+  "model_used": "claude-sonnet-4-20250514",
+  "input_tokens": 1847,
+  "output_tokens": 2103
+}
