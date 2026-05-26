@@ -6,10 +6,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import asyncio
 import json
 import os
+import time
 import uuid
 import yaml
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 import spade
 from spade.agent import Agent
@@ -184,9 +188,133 @@ class MotherAgent(Agent):
         self._log_constitution_version()
         listen = ListenBehaviour()
         self.add_behaviour(listen)
-        trigger_check = PipelineTriggerBehaviour(period=5)
-        self.add_behaviour(trigger_check)
+        trigger = PipelineTriggerBehaviour(period=5)
+        self.add_behaviour(trigger)
+
+        # TASK 1: Auto-resume incomplete pipeline runs on startup
+        await self._check_and_resume_incomplete_runs()
+
         print("[MotherAgent] Ready. Listening for messages and pipeline triggers.")
+
+    async def _check_and_resume_incomplete_runs(self):
+        """Check for incomplete pipeline runs from last 24h and resume them."""
+        try:
+            cutoff = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+            result = self.db.client.table("pipeline_runs") \
+                .select("*") \
+                .not_.in_("status", ["completed", "failed"]) \
+                .gte("created_at", cutoff) \
+                .order("created_at", desc=True) \
+                .limit(1) \
+                .execute()
+
+            if not result.data:
+                print("[MotherAgent] No incomplete pipeline runs to resume")
+                return
+
+            run = result.data[0]
+            run_id = run["id"]
+            session_id = run["session_id"]
+
+            # Find last completed group
+            groups = self.db.client.table("execution_groups") \
+                .select("*") \
+                .eq("pipeline_run_id", run_id) \
+                .order("group_number", desc=True) \
+                .execute()
+
+            last_completed_group = 0
+            for g in groups.data:
+                if g["status"] == "completed":
+                    last_completed_group = g["group_number"]
+                    break
+
+            resume_from = last_completed_group + 1
+            print(f"[MotherAgent] Resuming pipeline run {run_id} from Group {resume_from}")
+
+            # Load prior outputs from completed sections
+            prior_outputs = self._load_prior_outputs(run_id)
+
+            # Read phase1 data
+            phase1_data = self._read_phase1_session(session_id)
+            if not phase1_data:
+                print(f"[MotherAgent] Cannot resume — Phase 1 data not found for session {session_id}")
+                return
+
+            applicable_sections = self._determine_applicable_sections(phase1_data)
+            self.active_runs[session_id] = run_id
+
+            # Resume from the next group
+            await self._run_group(
+                group_number=resume_from,
+                session_id=session_id,
+                run_id=run_id,
+                phase1_data=phase1_data,
+                applicable_sections=applicable_sections,
+                prior_outputs=prior_outputs,
+            )
+
+        except Exception as e:
+            print(f"[MotherAgent] Error checking for incomplete runs: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _load_prior_outputs(self, run_id: str) -> dict:
+        """Load outputs from completed sections for pipeline resumption."""
+        prior_outputs = {}
+        try:
+            sections = self.db.client.table("bp_section_content") \
+                .select("section_number, content") \
+                .eq("pipeline_run_id", run_id) \
+                .execute()
+
+            for s in sections.data:
+                section_num = s.get("section_number")
+                content = s.get("content")
+                if section_num and content:
+                    prior_outputs[section_num] = content
+
+            print(f"[MotherAgent] Loaded {len(prior_outputs)} prior outputs for resume")
+        except Exception as e:
+            print(f"[MotherAgent] Error loading prior outputs: {e}")
+
+        return prior_outputs
+
+    def _start_child_agents_sync(self):
+        import subprocess
+        import time
+        agents_to_start = [
+            "agents/phase2/opportunity_analyst.py",
+            "agents/phase2/environment_research.py",
+            "agents/phase2/organisation_designer.py",
+            "agents/phase2/swot_synthesizer.py",
+            "agents/phase2/marketing_strategy.py",
+            "agents/phase2/operations.py",
+            "agents/phase2/financial_modelling.py",
+            "agents/phase2/launch_contingency.py",
+            "agents/phase2/summary_agent.py",
+        ]
+        self._child_processes = []
+        for agent_path in agents_to_start:
+            proc = subprocess.Popen(
+                ["python3", agent_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            self._child_processes.append(proc)
+            print(f"[MotherAgent] Started child agent: {agent_path} (pid {proc.pid})")
+        print("[MotherAgent] All child agents launched — waiting 10s for XMPP connections")
+        time.sleep(10)
+        print("[MotherAgent] Child agents ready")
+
+    async def stop(self):
+        if hasattr(self, "_child_processes"):
+            for proc in self._child_processes:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+        await super().stop()
 
     def _log_constitution_version(self):
         """Log which constitution version is active at startup."""
@@ -337,33 +465,63 @@ class MotherAgent(Agent):
         run_id: str,
         group_config: dict,
     ) -> dict:
+        """TASK 5: Fault-tolerant group execution — one agent crash doesn't kill the pipeline."""
         self._update_group_status(group_id, "running")
         outputs = {}
 
         if group_config.get("parallel", False):
             results = await asyncio.gather(
                 *[
-                    self._execute_task(t, task_ids.get(t["task_name"]), session_id, run_id)
+                    self._execute_task_safe(t, task_ids.get(t["task_name"]), session_id, run_id)
                     for t in tasks
                 ],
                 return_exceptions=True,
             )
             for task, result in zip(tasks, results):
                 if isinstance(result, Exception):
-                    await self._handle_task_failure(
-                        task, session_id, run_id, str(result)
-                    )
-                else:
+                    print(f"[MotherAgent] Task {task['task_name']} failed: {result}")
+                    fallback = self._generate_fallback_output(task["bp_section"], "task_failure", str(result))
+                    if fallback:
+                        outputs[task["bp_section"]] = fallback
+                elif result:
                     outputs[task["bp_section"]] = result
         else:
             for task in tasks:
                 tid = task_ids.get(task["task_name"])
-                result = await self._execute_task(task, tid, session_id, run_id)
+                result = await self._execute_task_safe(task, tid, session_id, run_id)
                 if result:
                     outputs[task["bp_section"]] = result
+                else:
+                    # Store fallback so downstream agents have something
+                    fallback = self._generate_fallback_output(task["bp_section"], "task_timeout", "No response")
+                    if fallback:
+                        outputs[task["bp_section"]] = fallback
+                        print(f"[MotherAgent] Using fallback output for section {task['bp_section']}")
 
         self._update_group_status(group_id, "completed")
         return outputs
+
+    async def _execute_task_safe(
+        self,
+        task: dict,
+        task_id: str,
+        session_id: str,
+        run_id: str,
+    ) -> Optional[dict]:
+        """Wrap _execute_task in try/except to prevent single task from crashing pipeline."""
+        try:
+            return await self._execute_task(task, task_id, session_id, run_id)
+        except Exception as e:
+            print(f"[MotherAgent] Task execution error for {task.get('task_name', 'unknown')}: {e}")
+            logger.exception("Task execution failed")
+            self.db.client.table("task_readiness") \
+                .update({
+                    "status": "failed",
+                    "validation_errors": str(e),
+                    "completed_at": datetime.utcnow().isoformat(),
+                }) \
+                .eq("id", task_id).execute()
+            return None
 
     async def _execute_task(
         self,
@@ -387,7 +545,7 @@ class MotherAgent(Agent):
 
         # Send request to child agent
         await send_acl(
-            sender_agent=self,
+            self,
             to_jid=agent_jid,
             performative="request",
             content={"task": task, "task_id": task_id},
@@ -447,7 +605,7 @@ class MotherAgent(Agent):
         target_config = self._find_agent_config_by_jid(target_agent)
         if target_config:
             await send_acl(
-                sender_agent=self,
+                self,
                 to_jid=target_agent,
                 performative="propose",
                 content=content,
@@ -471,6 +629,7 @@ class MotherAgent(Agent):
         """Child agent hit one of the 3 escalation triggers."""
         trigger = content.get("trigger")
         notes = content.get("notes", "")
+        section = content.get("section", "")
 
         print(f"[MotherAgent] escalate from {from_agent} — trigger: {trigger}")
 
@@ -482,6 +641,17 @@ class MotherAgent(Agent):
                 "escalation_notes": notes,
             }) \
             .eq("id", task_id).execute()
+
+        # TASK 2: Store minimal valid fallback output so downstream agents have data
+        fallback_output = self._generate_fallback_output(section, trigger, notes)
+        if fallback_output:
+            self._write_section_content(session_id, run_id, section, fallback_output, from_agent)
+            self.redis.client.set(
+                f"task_output:{task_id}",
+                json.dumps(fallback_output),
+                ex=3600
+            )
+            print(f"[MotherAgent] Stored fallback output for section {section}")
 
         # Determine resolution path from gap_resolution_rules
         gap_key = content.get("gap_key")
@@ -496,17 +666,75 @@ class MotherAgent(Agent):
             "pipeline_run_id": run_id,
             "session_id": session_id,
             "task_id": task_id,
-            "section_number": content.get("section", ""),
+            "section_number": section,
             "gap_description": notes,
             "resolution_type": "blocked" if blocking else "ceo_provided",
             "question_asked_to_ceo": question,
         }).execute()
+
+        # Set Redis key for clarification routing (TASK 6)
+        try:
+            sess = self.db.client.table("sessions") \
+                .select("telegram_chat_id") \
+                .eq("id", session_id).execute()
+            if sess.data:
+                chat_id = sess.data[0].get("telegram_chat_id")
+                if chat_id:
+                    self.redis.client.set(
+                        f"awaiting_clarification:{chat_id}",
+                        json.dumps({
+                            "task_id": task_id,
+                            "session_id": session_id,
+                            "run_id": run_id,
+                            "section": section,
+                            "question": question,
+                        }),
+                        ex=14400
+                    )
+        except Exception as e:
+            print(f"[MotherAgent] Failed to set clarification key: {e}")
 
         # Ask Alex
         msg = f"An agent needs clarification before continuing:\n\n{question}"
         if agent_alt:
             msg += f"\n\nAlternatively, I can run an agent to gather this. Reply 'agent' to delegate."
         self._send_telegram(session_id, msg)
+
+    def _generate_fallback_output(self, section: str, trigger: str, notes: str) -> Optional[dict]:
+        """Generate minimal valid fallback output for escalated sections."""
+        fallback_templates = {
+            "3": {
+                "pest_analysis": [],
+                "five_forces": [],
+                "risks_opportunities": {"risks": [], "opportunities": []},
+                "confidence": "low",
+                "escalation_note": f"Escalated: {trigger} — {notes}",
+            },
+            "5": {
+                "strengths": [],
+                "weaknesses": [],
+                "opportunities": [],
+                "threats": [],
+                "strategic_priorities": [],
+                "confidence": "low",
+                "escalation_note": f"Escalated: {trigger} — {notes}",
+            },
+            "8": {
+                "target_market_analysis": {},
+                "positioning_statement": "Pending clarification",
+                "channel_strategy": [],
+                "confidence": "low",
+                "escalation_note": f"Escalated: {trigger} — {notes}",
+            },
+            "12": {
+                "three_statement_model": {},
+                "key_assumptions": [],
+                "scenario_analysis": {},
+                "confidence": "low",
+                "escalation_note": f"Escalated: {trigger} — {notes}",
+            },
+        }
+        return fallback_templates.get(str(section))
 
     # ── Coherence audit ───────────────────────────────────────────────────────
 
@@ -666,7 +894,7 @@ class MotherAgent(Agent):
             "version": 1,
         }).execute()
 
-        self.db.client.table("bp_section_metadata").insert({
+        self.db.client.table("bp_section_metadata").upsert({
             "pipeline_run_id": run_id,
             "session_id": session_id,
             "section_number": str(section),
@@ -675,7 +903,7 @@ class MotherAgent(Agent):
             "agent_assigned": from_agent,
             "model_used": model,
             "dependencies_met": True,
-        }).execute()
+        }, on_conflict="pipeline_run_id,section_number").execute()
 
     # ── Telegram helpers ──────────────────────────────────────────────────────
 
@@ -899,15 +1127,54 @@ class MotherAgent(Agent):
             field = req["field"]
             source = req.get("source", "prior_task")
             if source == "phase1_memory":
-                package[field] = phase1_data.get(field)
+                value = phase1_data.get(field)
+                if value is None or (isinstance(value, str) and not value.strip()):
+                    if field == "idea_summary":
+                        value = (
+                            phase1_data.get("idea_summary")
+                            or phase1_data.get("market_scope")
+                            or ""
+                        )
+                        if not value:
+                            ceo_a = phase1_data.get("ceo_assumptions", [])
+                            if ceo_a:
+                                parts = [f"{a.get('question', '')}: {a.get('answer', '')}" for a in ceo_a if a.get("answer")]
+                                value = "Business idea: " + "; ".join(parts) if parts else ""
+                        if not value:
+                            approved = phase1_data.get("approved_decision") or {}
+                            value = approved.get("rationale", "") or approved.get("summary", "") or "Approved business idea — details pending"
+                    elif field == "ceo_assumptions":
+                        value = phase1_data.get("ceo_assumptions", [])
+                    elif field == "approved_decision":
+                        value = phase1_data.get("approved_decision") or {}
+                    elif field == "business_type":
+                        value = phase1_data.get("business_type", "saas")
+                    elif field == "market_scope":
+                        value = phase1_data.get("idea_summary", "") or phase1_data.get("market_scope", "General market")
+                    elif field == "opportunity_description":
+                        value = phase1_data.get("idea_summary", "") or "Business opportunity — from Phase 1"
+                package[field] = value
             elif source == "prior_task":
-                package[field] = self._find_field_in_prior_outputs(field, prior_outputs)
+                value = self._find_field_in_prior_outputs(field, prior_outputs)
+                if value is None:
+                    defaults = {
+                        "pest_analysis": [],
+                        "five_forces": [],
+                        "risks_opportunities": {"risks": [], "opportunities": []},
+                    }
+                    value = defaults.get(field)
+                package[field] = value
         return package
 
     def _find_field_in_prior_outputs(self, field: str, prior_outputs: dict):
         for section_output in prior_outputs.values():
-            if isinstance(section_output, dict) and field in section_output:
+            if not isinstance(section_output, dict):
+                continue
+            if field in section_output:
                 return section_output[field]
+            for nested_value in section_output.values():
+                if isinstance(nested_value, dict) and field in nested_value:
+                    return nested_value[field]
         return None
 
     # ── Misc helpers ──────────────────────────────────────────────────────────
@@ -918,22 +1185,93 @@ class MotherAgent(Agent):
                 .select("*").eq("id", session_id).execute()
             if not session.data:
                 return None
+
+            session_data = session.data[0]
+            print(f"[MotherAgent] Session fields: {list(session_data.keys())}")
+
+            messages = self.db.client.table("messages") \
+                .select("*").eq("session_id", session_id) \
+                .order("received_at", desc=False).execute()
+
             assumptions = self.db.client.table("assumptions") \
                 .select("*").eq("session_id", session_id).execute()
+
             decisions = self.db.client.table("decisions") \
                 .select("*").eq("session_id", session_id).execute()
+
+            print(f"[MotherAgent] Messages: {len(messages.data)}")
+            print(f"[MotherAgent] Assumptions: {len(assumptions.data)}")
+            print(f"[MotherAgent] Decisions: {len(decisions.data)}")
+
+            # The idea is the content of the first message in the session
+            # TASK 4: Skip Gate 2 command messages when building idea_summary
+            gate2_commands = {"agree", "kill", "edit", "add"}
+            idea_summary = ""
+            if messages.data:
+                for msg in messages.data:
+                    content = msg.get("content", "").strip()
+                    if content.lower() not in gate2_commands and len(content) > 10:
+                        idea_summary = content
+                        break
+
+            # Fallback: try session fields that may exist on newer schemas
+            if not idea_summary:
+                idea_summary = (
+                    session_data.get("current_idea") or
+                    session_data.get("idea") or
+                    session_data.get("raw_idea") or
+                    ""
+                )
+
+            # Last resort: build from assumptions Q&A
+            if not idea_summary and assumptions.data:
+                qa_parts = [
+                    f"{a.get('question_asked', '')}: {a.get('ceo_answer', '')}"
+                    for a in assumptions.data
+                    if a.get("ceo_answer")
+                ]
+                if qa_parts:
+                    idea_summary = "Business idea based on CEO answers: " + "; ".join(qa_parts)
+
+            # Get approved decision
+            approved_decision = None
+            for d in decisions.data:
+                if d.get("status") in ("approved", "APPROVED", "completed", "COMPLETED"):
+                    approved_decision = d
+                    break
+            if not approved_decision and decisions.data:
+                approved_decision = decisions.data[0]
+
+            # Build Q&A from messages (answers) + assumptions (questions)
+            import re as _re
+            ceo_answers = [m.get("content", "") for m in messages.data[1:]]
+            ceo_assumptions = []
+            for i, a in enumerate(assumptions.data):
+                statement = a.get("statement", "")
+                q_match = _re.search(r"requires clarification about: (.+)$", statement)
+                question = q_match.group(1) if q_match else a.get("question_asked", "")
+                answer = ceo_answers[i] if i < len(ceo_answers) else a.get("ceo_answer", "")
+                if answer:
+                    ceo_assumptions.append({"question": question, "answer": answer})
+
+            print(f"[MotherAgent] idea_summary: {idea_summary[:100] if idea_summary else 'EMPTY'}")
+            print(f"[MotherAgent] ceo_assumptions: {len(ceo_assumptions)}")
+            print(f"[MotherAgent] approved_decision: {approved_decision is not None}")
+
             return {
-                "session": session.data[0],
+                "session": session_data,
                 "assumptions": assumptions.data,
                 "decisions": decisions.data,
-                "idea_summary": session.data[0].get("current_idea", ""),
-                "ceo_assumptions": [
-                    {"question": a.get("question_asked"), "answer": a.get("ceo_answer")}
-                    for a in assumptions.data
-                ],
+                "idea_summary": idea_summary,
+                "ceo_assumptions": ceo_assumptions,
+                "approved_decision": approved_decision,
+                "business_type": session_data.get("business_type", "saas"),
+                "market_scope": idea_summary,
             }
         except Exception as e:
             print(f"[MotherAgent] Failed to read Phase 1 session: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def _validate_output(self, section: str, output: dict) -> tuple:
@@ -1001,8 +1339,10 @@ class MotherAgent(Agent):
         for section, output in group_outputs.items():
             if isinstance(output, dict):
                 assumptions = output.get("assumptions_used", [])
-                for assumption in assumptions:
+                for i, assumption in enumerate(assumptions):
+                    assumption_id = f"assumption_phase2_{session_id[:8]}_{int(time.time())}_{i}"
                     self.db.client.table("assumptions").insert({
+                        "assumption_id": assumption_id,
                         "session_id": session_id,
                         "statement": assumption.get("statement", ""),
                         "confidence": assumption.get("confidence", "medium"),
@@ -1021,6 +1361,9 @@ async def main():
         raise ValueError("MOTHER_AGENT_JID and MOTHER_AGENT_PASSWORD must be set in .env")
 
     agent = MotherAgent(jid=jid, password=password)
+
+    agent._start_child_agents_sync()
+
     await agent.start(auto_register=True)
     print("[MotherAgent] Running. Press Ctrl+C to stop.")
 

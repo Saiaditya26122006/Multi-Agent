@@ -21,10 +21,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Import agents
-from agents.l0_input_guard import validate_message
-from agents.l1_clarity_agent import generate_clarifying_question
-from agents.l3_feedback_agent import generate_feedback
-from agents.memory_agent import (
+from agents.phase1.l0_input_guard import validate_message
+from agents.phase1.l1_clarity_agent import generate_clarifying_question
+from agents.phase1.l3_feedback_agent import generate_feedback
+from agents.phase1.memory_agent import (
     consolidate_session_memory,
     generate_welcome_back,
     should_send_welcome_back
@@ -49,7 +49,7 @@ from tools.telegram_handler import start_polling, create_decision_keyboard
 from tools.reply_handler import send_reply
 
 # Import router agent
-from agents.router_agent import classify_message, handle_general_chat, handle_query
+from agents.phase1.router_agent import classify_message, handle_general_chat, handle_query
 
 
 def print_banner():
@@ -164,9 +164,65 @@ async def handle_telegram_message(message_data):
     print(f"[SESSION] Current state: {current_state}")
 
     # ========================================================================
-    # STEP 2: ROUTER AGENT - Classify message intent
+    # STEP 1.5: Drop Gate 2 commands if no active Gate 2 listener waiting
     # ========================================================================
     text_lower = text.lower().strip()
+
+    # TASK 3: Check Redis for active Gate 2 listener before processing agree/kill
+    if text_lower in ("agree", "kill"):
+        gate2_active = redis_client.get(f"gate2_active_group:{chat_id}")
+        if gate2_active:
+            # Gate 2 listener will handle this — drop silently
+            print(f"[GUARD] ✓ Gate 2 command '{text_lower}' will be handled by listener — dropping from main pipeline")
+            return
+        elif current_state in (
+            "PHASE2_RUNNING",
+            "PHASE2_AWAITING_GATE2",
+            "PHASE2_GATE2_PENDING",
+            "COMPLETED",
+        ):
+            # No active listener but session is in Phase 2 state — drop silently
+            print(f"[GUARD] ✓ Stale Gate 2 command '{text_lower}' with no active listener — dropping")
+            return
+
+    # ========================================================================
+    # STEP 1.6: Route clarification responses back to Mother Agent
+    # ========================================================================
+    # TASK 6: Check if we're awaiting a clarification response from CEO
+    clarification_key = f"awaiting_clarification:{chat_id}"
+    clarification_data = redis_client.get(clarification_key)
+    if clarification_data:
+        try:
+            import json as _json
+            clarification = _json.loads(clarification_data.decode("utf-8") if isinstance(clarification_data, bytes) else clarification_data)
+            task_id = clarification.get("task_id")
+            run_id = clarification.get("run_id")
+
+            print(f"[CLARIFICATION] Routing CEO response to Mother Agent for task {task_id}")
+
+            # Store the clarification answer in Redis for Mother Agent to pick up
+            redis_client.set(
+                f"clarification_response:{task_id}",
+                _json.dumps({"answer": text, "task_id": task_id, "run_id": run_id}),
+                ex=3600
+            )
+
+            # Clear the awaiting key
+            redis_client.delete(clarification_key)
+
+            await send_reply(
+                chat_id,
+                "✓ Got it. Passing your response to the agent and continuing..."
+            )
+            print("[CLARIFICATION] ✓ Response stored for Mother Agent")
+            return
+        except Exception as e:
+            print(f"[CLARIFICATION] Error routing response: {e}")
+            # Fall through to normal processing if routing fails
+
+    # ========================================================================
+    # STEP 2: ROUTER AGENT - Classify message intent
+    # ========================================================================
 
     # Get last question asked (for router context)
     last_q_key = f"last_question:{chat_id}"
@@ -435,7 +491,7 @@ async def handle_telegram_message(message_data):
             print("[L1] ✓ Triggering L3 Feedback Agent...")
 
             # Trigger L3 to generate feedback
-            from agents.l3_feedback_agent import generate_feedback
+            from agents.phase1.l3_feedback_agent import generate_feedback
 
             print("\n[L3] Generating feedback based on clarification...")
 
