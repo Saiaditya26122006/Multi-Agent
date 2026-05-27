@@ -1265,7 +1265,7 @@ class MotherAgent(Agent):
 
         if len(section_summaries) < 2:
             logger.info("[MotherAgent] Too few sections for coherence check — delivering")
-            self._deliver_plan(session_id, run_id, all_outputs)
+            await self._deliver_plan(session_id, run_id, all_outputs)
             return
 
         truncated = json.dumps(section_summaries, indent=1, default=str)[:12000]
@@ -1310,7 +1310,7 @@ If no issues found, return {{"passed": true, "issues": [], "confidence_summary":
             audit_result = json.loads(raw)
         except Exception as e:
             logger.error("[MotherAgent] Coherence audit LLM failed: %s — delivering anyway", e)
-            self._deliver_plan(session_id, run_id, all_outputs)
+            await self._deliver_plan(session_id, run_id, all_outputs)
             return
 
         self.db.client.table("pipeline_runs") \
@@ -1772,7 +1772,7 @@ Only include sections where the condition clearly applies based on the business 
 
     # ── Delivery ──────────────────────────────────────────────────────────────
 
-    def _deliver_plan(self, session_id: str, run_id: str, all_outputs: dict):
+    async def _deliver_plan(self, session_id: str, run_id: str, all_outputs: dict):
         trace_key = self._get_trace_key(session_id)
 
         # Record acceptance in Learning Engine for all delivered sections
@@ -1806,11 +1806,8 @@ Only include sections where the condition clearly applies based on the business 
 
         compiled_doc = None
         try:
-            import asyncio
             business_name = all_outputs.get("1", {}).get("opportunity_description", "The Business")[:80]
-            compiled_doc = asyncio.get_event_loop().run_until_complete(
-                self.compiler.compile(all_outputs, business_name, coherence_audit)
-            ) if not asyncio.get_event_loop().is_running() else None
+            compiled_doc = await self.compiler.compile(all_outputs, business_name, coherence_audit)
         except Exception as e:
             logger.warning("[MotherAgent] Document compilation failed: %s — delivering JSON only", e)
 
