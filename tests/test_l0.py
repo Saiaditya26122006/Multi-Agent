@@ -9,7 +9,7 @@ import random
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from agents.l0_input_guard import validate_message
+from agents.phase1.l0_input_guard import validate_message
 from memory.supabase_client import get_ceo_context
 
 

@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 import asyncio
 import json
 import logging
@@ -10,6 +15,8 @@ from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
 
 from memory.redis_client import RedisClient
+from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
+from agents.phase2.intelligence_engine import IntelligenceEngine
 from schemas.inputs.marketing_strategy import MarketingStrategyInput
 from schemas.outputs.marketing_strategy import MarketingStrategyOutput
 
@@ -28,6 +35,8 @@ Rules:
 - market_entry_strategy must be at least 50 characters
 - If pricing data is unavailable from CEO, infer from competitive analysis and label as agent_inferred
 - Never claim "no competitors" — always identify substitutes at minimum
+
+You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields: section_number, target_market_analysis, competitors, competitive_advantages, marketing_mix, customer_relations, revenue_assumptions, cac_assumptions, market_entry_strategy, assumptions_used, uncertainties, confidence_score, input_tokens, output_tokens.
 """
 
 
@@ -57,14 +66,13 @@ class MarketingStrategyAgent(Agent):
         super().__init__(jid, password)
         self.redis = RedisClient()
         self.model_id = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
-        self.bedrock = boto3.client(
-            "bedrock-runtime",
-            region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
-        )
+        self.bedrock = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"))
+        self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
 
     async def setup(self):
         logger.info("[MarketingStrategy] Starting")
         self.add_behaviour(ListenBehaviour())
+        signal_ready(self.redis, "marketing_strategy")
 
     async def _send_msg(self, msg: Message):
         class _Send(OneShotBehaviour):
@@ -98,25 +106,53 @@ class MarketingStrategyAgent(Agent):
             await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
             return
 
-        user_message = self._build_prompt(validated_input)
-        llm_response = await self._call_llm(user_message)
+        cross_context = input_package.get("cross_section_context", {})
+        input_data = {
+            "swot_matrix": input_package.get("swot_matrix", {}),
+            "icp_hypothesis": input_package.get("icp_hypothesis", {}),
+            "competitive_strategy": input_package.get("competitive_strategy", ""),
+            "market_context": input_package.get("market_context", ""),
+            "strategic_implications": input_package.get("strategic_implications", ""),
+            "pricing_assumption": input_package.get("pricing_assumption"),
+            "target_volume": input_package.get("target_volume"),
+            "cac_assumptions": input_package.get("cac_assumptions"),
+        }
 
-        if not llm_response:
-            await self._escalate(task_id, session_id, pipeline_run_id, "weak_evidence", "LLM call failed")
-            return
+        parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(
+            agent_role=(
+                "Marketing Strategy — you build the full marketing plan including target market, "
+                "competitive positioning, marketing mix, revenue assumptions, and CAC estimates"
+            ),
+            input_data=input_data,
+            output_schema_prompt=self._build_schema_prompt(),
+            cross_section_context=cross_context if cross_context else None,
+            reasoning_budget=3,
+        )
+
+        if not parsed:
+            user_message = self._build_prompt(validated_input)
+            llm_response, fallback_usage = await self._call_llm(user_message)
+            if not llm_response:
+                await self._escalate(task_id, session_id, pipeline_run_id, "weak_evidence", "Intelligence engine and fallback both failed")
+                return
+            parsed = self._parse_llm_response(llm_response, validated_input)
+            token_usage["input_tokens"] = token_usage.get("input_tokens", 0) + fallback_usage.get("input_tokens", 0)
+            token_usage["output_tokens"] = token_usage.get("output_tokens", 0) + fallback_usage.get("output_tokens", 0)
 
         try:
-            output_data = json.loads(llm_response)
-            output_data["task_id"] = task_id
-            output_data["model_used"] = self.model_id
-            validated_output = MarketingStrategyOutput(**output_data)
+            parsed["task_id"] = task_id
+            parsed["model_used"] = self.model_id
+            parsed["input_tokens"] = token_usage.get("input_tokens", 0)
+            parsed["output_tokens"] = token_usage.get("output_tokens", 0)
+            validated_output = MarketingStrategyOutput(**parsed)
         except Exception as e:
             logger.error("[MarketingStrategy] Output validation failed: %s", e)
             await self._escalate(task_id, session_id, pipeline_run_id, "output_conflict", str(e))
             return
 
         result = validated_output.model_dump()
-        self.redis.client.set(f"task_output:{task_id}", json.dumps(result), ex=3600)
+        result["reasoning_trace"] = reasoning_trace
+        self.redis.client.set(f"task_output:{task_id}", json.dumps(result, default=str), ex=3600)
         await self._send_inform(task_id, session_id, pipeline_run_id, result)
 
     async def handle_propose(self, task_id, session_id, pipeline_run_id, sender, content):
@@ -143,6 +179,23 @@ class MarketingStrategyAgent(Agent):
             msg.set_metadata("pipeline_run_id", pipeline_run_id)
             msg.body = json.dumps({"status": "accepted", "proposal": proposal})
             await self._send_msg(msg)
+
+    def _build_schema_prompt(self) -> str:
+        return """Return ONLY valid JSON with these exact keys:
+- section_number: "8"
+- target_market_analysis: {"segmentation": str, "icp_refined": str, "market_size_tam_sam_som": str}
+- competitors: list of {"name": str, "positioning": str, "pricing": str|null, "strengths": [str], "weaknesses": [str]} (min 2)
+- competitive_advantages: [str] (min 2, specific not generic)
+- marketing_mix: {"product": str, "pricing_policy": str, "distribution": str, "promotion": str}
+- customer_relations: {"communication": str, "loyalty_strategy": str}
+- revenue_assumptions: {"price_per_unit": float, "volume_year1": int, "volume_year2": int, "volume_year3": int, "sales_cycle_months": int}
+- cac_assumptions: {"cac_estimate": float, "cac_source": str, "confidence": "high"|"medium"|"low"}
+- market_entry_strategy: str (min 50 chars — specific go-to-market plan)
+- assumptions_used: list of {"statement": str, "confidence": "high"|"medium"|"low", "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source_detail": str|null}
+- uncertainties: [str]
+- confidence_score: "high"|"medium"|"low"
+- input_tokens: 0
+- output_tokens: 0"""
 
     def _build_prompt(self, inp: MarketingStrategyInput) -> str:
         return f"""Build a complete marketing strategy for this business.
@@ -174,22 +227,55 @@ Return ONLY valid JSON with these exact keys:
 - output_tokens: 0
 """
 
-    async def _call_llm(self, user_message: str) -> Optional[str]:
+    def _parse_llm_response(self, raw: str, inp: MarketingStrategyInput) -> dict:
+        """Parse LLM response with retry before falling back to defaults."""
+        result = parse_json_with_retry(
+            raw=raw,
+            bedrock_client=self.bedrock,
+            model_id=self.model_id,
+            system_prompt=SYSTEM_PROMPT,
+            user_message=self._build_prompt(inp),
+            agent_name="MarketingStrategy",
+            max_tokens=8192,
+        )
+        if result is not None:
+            return result
+
+        logger.warning("[MarketingStrategy] Both parse attempts failed, constructing fallback")
+        return {
+                "section_number": "8",
+                "target_market_analysis": {"segmentation": "To be determined based on ICP validation", "icp_refined": "Initial hypothesis requires market testing", "market_size_tam_sam_som": "Requires further research"},
+                "competitors": [
+                    {"name": "Incumbent Solution A", "positioning": "Established market player", "pricing": None, "strengths": ["Brand recognition", "Existing customer base"], "weaknesses": ["Slow innovation", "Legacy technology"]},
+                    {"name": "Alternative/Substitute B", "positioning": "Adjacent market solution", "pricing": None, "strengths": ["Low cost"], "weaknesses": ["Poor fit for target use case"]},
+                ],
+                "competitive_advantages": ["Novel approach to customer problem", "Speed and agility as early-stage venture"],
+                "marketing_mix": {"product": "Core product addressing identified pain points", "pricing_policy": "Value-based pricing aligned with market", "distribution": "Direct-to-customer digital channels", "promotion": "Content marketing and targeted outreach"},
+                "customer_relations": {"communication": "Direct engagement via digital channels", "loyalty_strategy": "Early adopter program with feedback loop"},
+                "revenue_assumptions": {"price_per_unit": 100.0, "volume_year1": 100, "volume_year2": 500, "volume_year3": 1500, "sales_cycle_months": 3},
+                "cac_assumptions": {"cac_estimate": 500.0, "cac_source": "Industry benchmark — not validated", "confidence": "low"},
+                "market_entry_strategy": "Focus on early adopter segment with direct sales approach, then expand through referrals and content marketing",
+                "assumptions_used": [{"statement": "LLM output was unparseable — defaults used", "confidence": "low", "source": "assumed", "source_detail": None}],
+                "uncertainties": ["LLM response could not be parsed — full analysis not completed"],
+                "confidence_score": "low",
+                "input_tokens": 0,
+                "output_tokens": 0,
+            }
+
+    async def _call_llm(self, user_message: str) -> tuple[Optional[str], dict]:
         try:
-            response = self.bedrock.invoke_model(
+            response = self.bedrock.converse(
                 modelId=self.model_id,
-                body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 4096,
-                    "system": SYSTEM_PROMPT,
-                    "messages": [{"role": "user", "content": user_message}],
-                }),
+                system=[{"text": SYSTEM_PROMPT}],
+                messages=[{"role": "user", "content": [{"text": user_message}]}],
+                inferenceConfig={"maxTokens": 4096},
             )
-            result = json.loads(response["body"].read())
-            return result["content"][0]["text"]
+            usage = response.get("usage", {})
+            text = response["output"]["message"]["content"][0]["text"]
+            return text, {"input_tokens": usage.get("inputTokens", 0), "output_tokens": usage.get("outputTokens", 0)}
         except Exception as e:
             logger.error("[MarketingStrategy] LLM call failed: %s", e)
-            return None
+            return None, {}
 
     async def _escalate(self, task_id, session_id, pipeline_run_id, trigger, notes):
         mother_jid = os.getenv("MOTHER_AGENT_JID", "")
@@ -213,6 +299,8 @@ Return ONLY valid JSON with these exact keys:
 
 
 async def main():
+    from dotenv import load_dotenv
+    load_dotenv()
     jid = os.getenv("MARKETING_STRATEGY_JID")
     password = os.getenv("MARKETING_STRATEGY_PASSWORD")
     if not jid or not password:

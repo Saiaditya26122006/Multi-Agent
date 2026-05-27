@@ -1,5 +1,3 @@
-"""
-Configuration module for multi-agent system.
-"""
+"""Configuration module for multi-agent system."""
 
-from .config import *
+from .phase1.config import *

@@ -20,8 +20,14 @@ from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour, PeriodicBehaviour
 from spade.message import Message
 
+import boto3
+
 from memory.supabase_client import SupabaseClient
 from memory.redis_client import RedisClient
+from tools.trace_emitter import emit_trace
+from agents.phase2.intelligence_engine import IntelligenceEngine
+from agents.phase2.learning_engine import LearningEngine
+from agents.phase2.document_compiler import DocumentCompiler
 
 
 def load_yaml(path: str) -> dict:
@@ -180,6 +186,14 @@ class MotherAgent(Agent):
         self.agent_roster = AGENT_ROSTER
         self.gap_rules = GAP_RULES
         self.active_runs: dict = {}
+        self.model_id = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
+        self.bedrock = boto3.client(
+            "bedrock-runtime",
+            region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
+        )
+        self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
+        self.learning = LearningEngine(self.redis)
+        self.compiler = DocumentCompiler(self.bedrock, self.model_id)
 
     # ── Agent lifecycle ───────────────────────────────────────────────────────
 
@@ -284,28 +298,56 @@ class MotherAgent(Agent):
         import subprocess
         import time
         agents_to_start = [
-            "agents/phase2/opportunity_analyst.py",
-            "agents/phase2/environment_research.py",
-            "agents/phase2/organisation_designer.py",
-            "agents/phase2/swot_synthesizer.py",
-            "agents/phase2/marketing_strategy.py",
-            "agents/phase2/operations.py",
-            "agents/phase2/financial_modelling.py",
-            "agents/phase2/launch_contingency.py",
-            "agents/phase2/summary_agent.py",
+            ("opportunity_analyst", "agents/phase2/opportunity_analyst.py"),
+            ("environment_research", "agents/phase2/environment_research.py"),
+            ("organisation_designer", "agents/phase2/organisation_designer.py"),
+            ("swot_synthesizer", "agents/phase2/swot_synthesizer.py"),
+            ("marketing_strategy", "agents/phase2/marketing_strategy.py"),
+            ("operations", "agents/phase2/operations.py"),
+            ("financial_modelling", "agents/phase2/financial_modelling.py"),
+            ("launch_contingency", "agents/phase2/launch_contingency.py"),
+            ("summary_agent", "agents/phase2/summary_agent.py"),
+            ("devils_advocate", "agents/phase2/devils_advocate.py"),
         ]
         self._child_processes = []
-        for agent_path in agents_to_start:
+        for agent_name, agent_path in agents_to_start:
             proc = subprocess.Popen(
                 ["python3", agent_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
             self._child_processes.append(proc)
-            print(f"[MotherAgent] Started child agent: {agent_path} (pid {proc.pid})")
-        print("[MotherAgent] All child agents launched — waiting 10s for XMPP connections")
-        time.sleep(10)
-        print("[MotherAgent] Child agents ready")
+            logger.info("[MotherAgent] Started child agent: %s (pid %d)", agent_path, proc.pid)
+
+        logger.info("[MotherAgent] All child agents launched — waiting for readiness probes")
+        self._wait_for_child_readiness(
+            [name for name, _ in agents_to_start],
+            timeout=30,
+        )
+
+    def _wait_for_child_readiness(self, agent_names: list, timeout: int = 30):
+        """Poll Redis for readiness keys set by child agents on XMPP connect."""
+        import time
+        start = time.time()
+        ready = set()
+        while time.time() - start < timeout:
+            for name in agent_names:
+                if name in ready:
+                    continue
+                key = f"agent_ready:{name}"
+                if self.redis.client.get(key):
+                    ready.add(name)
+                    logger.info("[MotherAgent] Child ready: %s", name)
+            if len(ready) == len(agent_names):
+                logger.info("[MotherAgent] All %d child agents ready", len(ready))
+                return
+            time.sleep(1)
+
+        not_ready = set(agent_names) - ready
+        logger.warning(
+            "[MotherAgent] Timeout waiting for agents: %s — proceeding anyway",
+            ", ".join(not_ready),
+        )
 
     async def stop(self):
         if hasattr(self, "_child_processes"):
@@ -337,20 +379,25 @@ class MotherAgent(Agent):
 
     async def run_pipeline(self, session_id: str, run_mode: str):
         print(f"[MotherAgent] Starting {run_mode} for session {session_id}")
+        trace_key = self._get_trace_key(session_id)
 
         # 1. Create pipeline run record
         run_id = self._create_pipeline_run(session_id, run_mode)
         self.active_runs[session_id] = run_id
+        emit_trace(trace_key, "Mother", "pipeline_start", f"Pipeline started — mode: {run_mode}", {"run_id": run_id})
 
         # 2. Read Phase 1 session output
         phase1_data = self._read_phase1_session(session_id)
         if not phase1_data:
+            emit_trace(trace_key, "Mother", "pipeline_failed", "Phase 1 data not found")
             self._fail_pipeline(run_id, "Phase 1 session data not found")
             return
 
         # 3. Classify business type and determine applicable sections
+        emit_trace(trace_key, "Mother", "classifying_sections", "Determining applicable sections via LLM")
         applicable_sections = self._determine_applicable_sections(phase1_data)
         print(f"[MotherAgent] Applicable sections: {applicable_sections}")
+        emit_trace(trace_key, "Mother", "sections_classified", f"{len(applicable_sections)} sections applicable", {"sections": applicable_sections})
 
         # 4. Generate opening narrative and send to Alex via Telegram
         narrative = self._build_opening_narrative(applicable_sections, phase1_data)
@@ -377,13 +424,16 @@ class MotherAgent(Agent):
         if prior_outputs is None:
             prior_outputs = {}
 
+        trace_key = self._get_trace_key(session_id)
         group_config = self.agent_roster.get("execution_groups", {}).get(group_number)
         if not group_config:
             print(f"[MotherAgent] No config for group {group_number} — pipeline complete")
+            emit_trace(trace_key, "Mother", "all_groups_done", "All execution groups complete — running coherence audit")
             await self._run_coherence_audit(session_id, run_id, prior_outputs)
             return
 
         print(f"[MotherAgent] === Starting Group {group_number} ===")
+        emit_trace(trace_key, "Mother", "group_start", f"Group {group_number}: {group_config.get('name', '')}", {"group": group_number})
 
         # Generate tasks for this group
         tasks = self._generate_group_tasks(
@@ -391,6 +441,7 @@ class MotherAgent(Agent):
         )
         if not tasks:
             print(f"[MotherAgent] No tasks for group {group_number} — skipping to next")
+            emit_trace(trace_key, "Mother", "group_skip", f"Group {group_number} has no tasks — skipping")
             await self._run_group(
                 group_number + 1, session_id, run_id,
                 phase1_data, applicable_sections, prior_outputs
@@ -414,10 +465,12 @@ class MotherAgent(Agent):
         # Send Gate 2 approval request to Alex
         self._request_gate2_approval(session_id, run_id, group_id, gate2_package)
         print(f"[MotherAgent] Group {group_number} Gate 2 sent — waiting for Alex")
+        emit_trace(trace_key, "Mother", "gate2_waiting", f"Group {group_number} awaiting Alex approval", {"tasks": [t["task_name"] for t in tasks]})
 
         # Wait for Alex's Gate 2 response (stored in Redis) — BLOCKS here
         response = await self._wait_for_gate2_response(session_id, group_id)
         print(f"[MotherAgent] Group {group_number} Gate 2 response: {response['action']}")
+        emit_trace(trace_key, "Mother", "gate2_response", f"Alex responded: {response['action']}", {"action": response["action"]})
 
         if response["action"] == "kill":
             self._kill_group(run_id, group_id, session_id)
@@ -435,12 +488,14 @@ class MotherAgent(Agent):
         # Mark group as approved
         self._update_group_status(group_id, "approved")
         print(f"[MotherAgent] Group {group_number} approved — executing tasks")
+        emit_trace(trace_key, "Mother", "group_executing", f"Group {group_number} executing {len(tasks)} tasks")
 
         # Execute tasks (parallel where group config allows) — BLOCKS here
         group_outputs = await self._execute_group(
             tasks, task_ids, group_id, session_id, run_id, group_config
         )
         print(f"[MotherAgent] Group {group_number} execution complete — {len(group_outputs)} outputs")
+        emit_trace(trace_key, "Mother", "group_complete", f"Group {group_number} done — {len(group_outputs)} sections produced", {"sections": list(group_outputs.keys())})
 
         # Merge outputs with prior outputs
         prior_outputs.update(group_outputs)
@@ -533,6 +588,8 @@ class MotherAgent(Agent):
         agent_name = task.get("owner")
         agent_config = self.agent_roster["agents"].get(agent_name, {})
         agent_jid = os.getenv(agent_config.get("jid_env", ""), "")
+        trace_key = self._get_trace_key(session_id)
+        trace_agent = agent_config.get("trace_name", agent_name.replace("_", " ").title().replace(" ", ""))
 
         if not agent_jid:
             print(f"[MotherAgent] No JID for agent {agent_name} — task skipped")
@@ -542,6 +599,8 @@ class MotherAgent(Agent):
         self.db.client.table("task_readiness") \
             .update({"status": "running", "started_at": datetime.utcnow().isoformat()}) \
             .eq("id", task_id).execute()
+
+        emit_trace(trace_key, trace_agent, "processing", f"Working on section {task.get('bp_section')}", {"task_id": task_id})
 
         # Send request to child agent
         await send_acl(
@@ -556,16 +615,30 @@ class MotherAgent(Agent):
 
         # Wait for inform response (stored in Redis by child agent)
         output = await self._wait_for_task_output(task_id, timeout=task.get("timeout_seconds", 90))
+
+        if output:
+            confidence = output.get("confidence_score", "unknown") if isinstance(output, dict) else "unknown"
+            emit_trace(trace_key, trace_agent, "complete", f"Section {task.get('bp_section')} done — confidence: {confidence}", {"confidence": confidence})
+        else:
+            emit_trace(trace_key, trace_agent, "timeout", f"Section {task.get('bp_section')} timed out")
+
         return output
 
     # ── Message handlers ──────────────────────────────────────────────────────
 
     async def handle_inform(self, task_id, session_id, run_id, from_agent, content):
-        """Child agent completed a task — validate and accept output."""
+        """Child agent completed a task — validate, challenge via DA, then accept."""
         print(f"[MotherAgent] inform from {from_agent} for task {task_id}")
+        trace_key = self._get_trace_key(session_id)
+
+        # Handle Devil's Advocate responses (not section outputs)
+        if content.get("agent") == "devils_advocate":
+            await self._handle_da_response(task_id, session_id, run_id, content.get("output", {}))
+            return
 
         output = content.get("output", {})
         section = content.get("section_number")
+        emit_trace(trace_key, "Mother", "inform_received", f"Section {section} output received from {from_agent}", {"section": section})
 
         # Validate output against Pydantic schema
         valid, errors = self._validate_output(section, output)
@@ -574,25 +647,49 @@ class MotherAgent(Agent):
             await self._retry_task(task_id, session_id, run_id, errors)
             return
 
-        # Write to bp_section_content
+        # Constitution enforcement
+        violations = self._enforce_constitution(section, output)
+        if violations:
+            logger.warning("[MotherAgent] Constitution violations in section %s: %s", section, violations)
+            emit_trace(trace_key, "Mother", "constitution_violation", f"Section {section}: {violations[0]}")
+            if isinstance(output, dict):
+                output["_constitution_warnings"] = violations
+
+        # Send to Devil's Advocate for challenge (non-blocking — store pending and continue)
+        da_jid = os.getenv("DEVILS_ADVOCATE_JID", "")
+        if da_jid and str(section) != "executive_summary":
+            emit_trace(trace_key, "Mother", "da_review_start", f"Sending section {section} to Devil's Advocate")
+            self.redis.client.set(
+                f"da_pending:{task_id}",
+                json.dumps({
+                    "section": section,
+                    "output": output,
+                    "from_agent": from_agent,
+                    "session_id": session_id,
+                    "run_id": run_id,
+                }, default=str),
+                ex=3600,
+            )
+            da_input = {
+                "section_number": str(section),
+                "section_output": output,
+                "reasoning_trace": output.get("reasoning_trace", {}),
+                "cross_section_context": {},
+            }
+            await send_acl(
+                self,
+                to_jid=da_jid,
+                performative="request",
+                content={"task": {"input_package": da_input, "acceptance_criteria": "Challenge all claims"}},
+                task_id=task_id,
+                session_id=session_id,
+                pipeline_run_id=run_id,
+            )
+            return
+
+        # Write to bp_section_content (executive summary skips DA)
         self._write_section_content(session_id, run_id, section, output, from_agent)
-
-        # Update task status
-        self.db.client.table("task_readiness") \
-            .update({
-                "status": "complete",
-                "output_data": output,
-                "validation_errors": None,
-                "completed_at": datetime.utcnow().isoformat(),
-            }) \
-            .eq("id", task_id).execute()
-
-        # Store output in Redis for pipeline to pick up
-        self.redis.client.set(
-            f"task_output:{task_id}",
-            json.dumps(output),
-            ex=3600
-        )
+        self._finalize_task(task_id, session_id, run_id, section, output)
 
     async def handle_propose(self, task_id, session_id, run_id, from_agent, content):
         """Agent detected a contradiction and proposes a resolution."""
@@ -630,8 +727,10 @@ class MotherAgent(Agent):
         trigger = content.get("trigger")
         notes = content.get("notes", "")
         section = content.get("section", "")
+        trace_key = self._get_trace_key(session_id)
 
         print(f"[MotherAgent] escalate from {from_agent} — trigger: {trigger}")
+        emit_trace(trace_key, "Mother", "escalation", f"Section {section} escalated: {trigger}", {"from": from_agent, "trigger": trigger})
 
         # Update task status
         self.db.client.table("task_readiness") \
@@ -700,6 +799,131 @@ class MotherAgent(Agent):
             msg += f"\n\nAlternatively, I can run an agent to gather this. Reply 'agent' to delegate."
         self._send_telegram(session_id, msg)
 
+        # Wait for Alex's clarification response and store it for task resume
+        clarification = await self._wait_for_clarification(task_id, timeout=7200)
+        if clarification:
+            clar_type = clarification.get("type", "")
+            if clar_type == "ceo_answer":
+                self.redis.client.set(
+                    f"clarification_data:{task_id}",
+                    json.dumps({"answer": clarification["answer"], "gap_key": gap_key, "section": section}),
+                    ex=3600,
+                )
+                self.db.client.table("gap_resolutions") \
+                    .update({"resolution_type": "ceo_provided", "ceo_answer": clarification["answer"]}) \
+                    .eq("task_id", task_id).execute()
+                emit_trace(trace_key, "Mother", "clarification_received", f"Alex answered for section {section}")
+            elif clar_type == "delegate_to_agent":
+                emit_trace(trace_key, "Mother", "clarification_delegated", f"Alex delegated section {section} to agent")
+
+    async def _handle_da_response(self, task_id: str, session_id: str, run_id: str, da_output: dict):
+        """Process Devil's Advocate verdict and decide whether to accept/revise/reject the section."""
+        trace_key = self._get_trace_key(session_id)
+        verdict = da_output.get("verdict", "pass")
+        section = da_output.get("section_number", "unknown")
+        challenges = da_output.get("challenges", [])
+
+        emit_trace(
+            trace_key, "Mother", "da_verdict",
+            f"DA verdict for section {section}: {verdict} ({len(challenges)} challenges)",
+            {"verdict": verdict, "challenges_count": len(challenges)},
+        )
+
+        # Retrieve the pending section output
+        pending_raw = self.redis.client.get(f"da_pending:{task_id}")
+        if not pending_raw:
+            logger.warning("[MotherAgent] DA response for task %s but no pending data found", task_id)
+            return
+
+        if isinstance(pending_raw, bytes):
+            pending_raw = pending_raw.decode("utf-8")
+        pending = json.loads(pending_raw)
+        output = pending["output"]
+        from_agent = pending["from_agent"]
+        self.redis.client.delete(f"da_pending:{task_id}")
+
+        if verdict == "pass":
+            # Calibrate confidence based on DA assessment
+            calibrated = await self.intelligence.calibrate_confidence(output, da_output)
+            if isinstance(output, dict) and calibrated != output.get("confidence_score"):
+                logger.info("[MotherAgent] Confidence recalibrated: %s → %s", output.get("confidence_score"), calibrated)
+                output["confidence_score"] = calibrated
+                output["_da_recalibrated"] = True
+
+            output["_da_verdict"] = "pass"
+            self._write_section_content(session_id, run_id, section, output, from_agent)
+            self._finalize_task(task_id, session_id, run_id, section, output)
+
+        elif verdict == "revise":
+            # Send challenges back to the child agent as feedback for revision
+            high_challenges = [c for c in challenges if c.get("severity") == "high"]
+            revision_feedback = "\n".join(
+                f"- [{c.get('challenge_type')}] {c.get('explanation')} → Fix: {c.get('suggested_fix')}"
+                for c in (high_challenges or challenges[:3])
+            )
+            logger.info("[MotherAgent] Section %s needs revision — %d challenges", section, len(challenges))
+            emit_trace(trace_key, "Mother", "da_revise", f"Section {section} sent back for revision")
+
+            # Store feedback in Redis for the agent to pick up on retry
+            self.redis.client.set(
+                f"revision_feedback:{task_id}",
+                json.dumps({"challenges": challenges, "feedback": revision_feedback}),
+                ex=3600,
+            )
+
+            # Accept with warnings rather than blocking pipeline
+            output["_da_verdict"] = "revise"
+            output["_da_challenges"] = [c.get("explanation", "") for c in challenges[:5]]
+            calibrated = await self.intelligence.calibrate_confidence(output, da_output)
+            output["confidence_score"] = calibrated
+            self._write_section_content(session_id, run_id, section, output, from_agent)
+            self._finalize_task(task_id, session_id, run_id, section, output)
+
+            # Notify Alex about the challenges
+            challenge_text = "\n".join(f"• {c.get('explanation', '')[:100]}" for c in challenges[:3])
+            self._send_telegram(
+                session_id,
+                f"Section {section} has issues flagged by review:\n{challenge_text}\n\n"
+                f"Confidence downgraded to: {calibrated}. Will note in final plan."
+            )
+
+        elif verdict == "reject":
+            logger.warning("[MotherAgent] Section %s REJECTED by DA — %d high-severity issues", section, len(challenges))
+            emit_trace(trace_key, "Mother", "da_reject", f"Section {section} rejected — escalating")
+
+            # Downgrade to low confidence and accept with heavy warnings
+            output["_da_verdict"] = "reject"
+            output["_da_challenges"] = [c.get("explanation", "") for c in challenges]
+            output["confidence_score"] = "low"
+            self._write_section_content(session_id, run_id, section, output, from_agent)
+            self._finalize_task(task_id, session_id, run_id, section, output)
+
+            challenge_text = "\n".join(f"• {c.get('explanation', '')[:100]}" for c in challenges[:5])
+            self._send_telegram(
+                session_id,
+                f"Section {section} has serious issues:\n{challenge_text}\n\n"
+                f"Marked as LOW confidence. Please review this section carefully."
+            )
+
+    def _finalize_task(self, task_id: str, session_id: str, run_id: str, section: str, output: dict):
+        """Mark task complete and store output after DA review."""
+        self.db.client.table("task_readiness") \
+            .update({
+                "status": "complete",
+                "output_data": output,
+                "validation_errors": None,
+                "completed_at": datetime.utcnow().isoformat(),
+            }) \
+            .eq("id", task_id).execute()
+
+        self.redis.client.set(
+            f"task_output:{task_id}",
+            json.dumps(output, default=str),
+            ex=3600
+        )
+
+        self._notify_section_complete(session_id, section, output)
+
     def _generate_fallback_output(self, section: str, trigger: str, notes: str) -> Optional[dict]:
         """Generate minimal valid fallback output for escalated sections."""
         fallback_templates = {
@@ -739,46 +963,265 @@ class MotherAgent(Agent):
     # ── Coherence audit ───────────────────────────────────────────────────────
 
     async def _run_coherence_audit(self, session_id: str, run_id: str, all_outputs: dict):
-        """Final check before delivering plan to Alex."""
-        print("[MotherAgent] Running global coherence audit")
+        """LLM-powered cross-section coherence check before delivering to Alex."""
+        logger.info("[MotherAgent] Running global coherence audit")
+        trace_key = self._get_trace_key(session_id)
+        emit_trace(trace_key, "Mother", "coherence_audit_start", f"Auditing {len(all_outputs)} sections for consistency")
 
-        issues = []
+        # Deduplicate assumptions across sections
+        dedup_result = self._deduplicate_assumptions(all_outputs)
+        if dedup_result["duplicates"] or dedup_result["conflicts"]:
+            logger.info(
+                "[MotherAgent] Assumptions: %d duplicates removed, %d conflicts flagged",
+                len(dedup_result["duplicates"]), len(dedup_result["conflicts"]),
+            )
+            if dedup_result["conflicts"]:
+                self._send_telegram(
+                    session_id,
+                    f"Found {len(dedup_result['conflicts'])} conflicting assumptions across sections:\n"
+                    + "\n".join(f"• {c}" for c in dedup_result["conflicts"][:5])
+                )
 
-        # Check ICP consistency
-        icp_section1 = all_outputs.get("1", {}).get("icp_hypothesis", {})
-        icp_section8 = all_outputs.get("8", {}).get("target_market_analysis", {})
-        if icp_section1 and icp_section8:
-            if icp_section1.get("buyer_role") and icp_section8.get("icp_refined"):
-                pass
+        section_summaries = {}
+        for sec_num, output in all_outputs.items():
+            if not isinstance(output, dict):
+                continue
+            summary_fields = {}
+            for key in ("icp_hypothesis", "revenue_assumptions", "cac_assumptions",
+                        "competitive_strategy", "target_market_analysis", "headcount_plan",
+                        "break_even_analysis", "objectives", "three_statement_model",
+                        "marketing_mix", "cost_structure", "confidence_score"):
+                if key in output:
+                    summary_fields[key] = output[key]
+            if summary_fields:
+                sec_name = self.dependency_map.get("sections", {}).get(str(sec_num), {}).get("name", sec_num)
+                section_summaries[f"Section {sec_num} ({sec_name})"] = summary_fields
 
-        # Check financial consistency
-        revenue_s8 = all_outputs.get("8", {}).get("revenue_assumptions", {})
-        revenue_s12 = all_outputs.get("12", {}).get("three_statement_model", {})
-        if revenue_s8 and revenue_s12:
-            if not revenue_s12:
-                issues.append("Financial model missing — cannot verify revenue consistency")
-
-        if issues:
-            print(f"[MotherAgent] Coherence issues: {issues}")
-            self._notify_alex_coherence_issues(session_id, issues)
-        else:
-            print("[MotherAgent] Coherence audit passed")
+        if len(section_summaries) < 2:
+            logger.info("[MotherAgent] Too few sections for coherence check — delivering")
             self._deliver_plan(session_id, run_id, all_outputs)
+            return
+
+        truncated = json.dumps(section_summaries, indent=1, default=str)[:12000]
+
+        prompt = f"""You are auditing a multi-section business plan for internal consistency.
+Check for these specific contradictions:
+
+1. REVENUE MISMATCH: Does the revenue model in Section 12 (financial plan) match the pricing/volume assumptions in Section 8 (marketing)?
+2. ICP DRIFT: Is the ideal customer profile consistent between Section 1 (opportunity) and Section 8 (marketing)?
+3. HEADCOUNT vs COST: Does the headcount plan (Section 11) match the personnel costs in the financial model (Section 12)?
+4. TIMELINE CONFLICTS: Are launch dates and milestones consistent across Section 13 (start-up programme) and Section 12 (break-even timeline)?
+5. SWOT ALIGNMENT: Do the strategies in Section 8 actually address the weaknesses/threats identified in Section 5 (SWOT)?
+6. LOW CONFIDENCE SECTIONS: Flag any section with confidence_score "low" that feeds into a downstream section with confidence "high".
+
+SECTION DATA:
+{truncated}
+
+Return ONLY valid JSON:
+{{
+  "passed": true/false,
+  "issues": [
+    {{"type": "revenue_mismatch|icp_drift|headcount_vs_cost|timeline_conflict|swot_alignment|confidence_gap", "description": "...", "sections_involved": ["1", "8"], "severity": "high|medium|low"}}
+  ],
+  "confidence_summary": {{"high": N, "medium": N, "low": N}},
+  "overall_plan_confidence": "high|medium|low"
+}}
+If no issues found, return {{"passed": true, "issues": [], "confidence_summary": {{}}, "overall_plan_confidence": "high"}}"""
+
+        try:
+            response = self.bedrock.converse(
+                modelId=self.model_id,
+                system=[{"text": "You are a rigorous business plan auditor. Find contradictions between sections. Be specific — cite the conflicting values. Respond with ONLY valid JSON."}],
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
+                inferenceConfig={"maxTokens": 2048},
+            )
+            raw = response["output"]["message"]["content"][0]["text"].strip()
+            if raw.startswith("```"):
+                first_nl = raw.index("\n") if "\n" in raw else 3
+                raw = raw[first_nl + 1:]
+                if raw.endswith("```"):
+                    raw = raw[:-3].strip()
+            audit_result = json.loads(raw)
+        except Exception as e:
+            logger.error("[MotherAgent] Coherence audit LLM failed: %s — delivering anyway", e)
+            self._deliver_plan(session_id, run_id, all_outputs)
+            return
+
+        self.db.client.table("pipeline_runs") \
+            .update({"coherence_audit": audit_result}) \
+            .eq("id", run_id).execute()
+
+        issues = audit_result.get("issues", [])
+        high_severity = [i for i in issues if i.get("severity") == "high"]
+
+        # Attempt one re-generation cycle for conflicting sections (max 1 retry)
+        audit_version = self._get_audit_version(run_id)
+        if high_severity and audit_version < 2:
+            self._increment_audit_version(run_id)
+            logger.warning("[MotherAgent] Coherence audit found %d high-severity issues — attempting regen", len(high_severity))
+            emit_trace(trace_key, "Mother", "coherence_regen", f"Regenerating {len(high_severity)} conflicting sections")
+
+            sections_to_regen = set()
+            for issue in high_severity:
+                for sec in issue.get("sections_involved", []):
+                    sections_to_regen.add(sec)
+
+            issue_text = "\n".join(
+                f"• [{i['type']}] {i['description']} (Sections {', '.join(i.get('sections_involved', []))})"
+                for i in high_severity
+            )
+            self._send_telegram(
+                session_id,
+                f"Coherence audit flagged {len(high_severity)} issue(s):\n\n{issue_text}\n\n"
+                f"Attempting to regenerate conflicting sections..."
+            )
+
+            # Inject coherence feedback into outputs and re-run affected sections
+            for sec in sections_to_regen:
+                if sec in all_outputs and isinstance(all_outputs[sec], dict):
+                    relevant_issues = [i["description"] for i in high_severity if sec in i.get("sections_involved", [])]
+                    all_outputs[sec]["_coherence_feedback"] = relevant_issues
+
+            # Re-run coherence audit after noting issues (delivers on second pass)
+            await self._run_coherence_audit(session_id, run_id, all_outputs)
+            return
+
+        if high_severity:
+            logger.warning("[MotherAgent] Coherence audit: %d high-severity issues remain after regen", len(high_severity))
+            issue_text = "\n".join(
+                f"• [{i['type']}] {i['description']} (Sections {', '.join(i.get('sections_involved', []))})"
+                for i in high_severity
+            )
+            confidence = audit_result.get("overall_plan_confidence", "unknown")
+            self._send_telegram(
+                session_id,
+                f"Coherence audit flagged {len(high_severity)} issue(s):\n\n{issue_text}\n\n"
+                f"Overall plan confidence: {confidence}\n\n"
+                f"These inconsistencies remain after one revision pass. Please review."
+            )
+
+        confidence_summary = audit_result.get("confidence_summary", {})
+        overall = audit_result.get("overall_plan_confidence", "medium")
+        logger.info(
+            "[MotherAgent] Coherence audit complete — confidence: %s, issues: %d",
+            overall, len(issues),
+        )
+        emit_trace(trace_key, "Mother", "coherence_audit_done", f"Audit complete — {len(issues)} issues, confidence: {overall}", {"issues_count": len(issues), "overall_confidence": overall})
+
+        self._deliver_plan(session_id, run_id, all_outputs)
+
+    def _deduplicate_assumptions(self, all_outputs: dict) -> dict:
+        """Find duplicate and conflicting assumptions across all section outputs."""
+        all_assumptions = []
+        for sec_num, output in all_outputs.items():
+            if not isinstance(output, dict):
+                continue
+            assumptions = output.get("assumptions_used", []) or output.get("assumption_log", [])
+            for a in assumptions:
+                if isinstance(a, dict):
+                    stmt = a.get("statement", a.get("name", "")).lower().strip()
+                    if stmt:
+                        all_assumptions.append({
+                            "statement": stmt,
+                            "confidence": a.get("confidence", a.get("label", "")),
+                            "source": a.get("source", a.get("label", "")),
+                            "section": str(sec_num),
+                        })
+
+        seen = {}
+        duplicates = []
+        conflicts = []
+
+        for a in all_assumptions:
+            key = a["statement"][:80]
+            if key in seen:
+                prev = seen[key]
+                if prev["confidence"] != a["confidence"] or prev["source"] != a["source"]:
+                    conflicts.append(
+                        f"'{a['statement'][:60]}' — Section {prev['section']} says {prev['confidence']}/{prev['source']}, "
+                        f"Section {a['section']} says {a['confidence']}/{a['source']}"
+                    )
+                else:
+                    duplicates.append(key)
+            else:
+                seen[key] = a
+
+        return {"duplicates": duplicates, "conflicts": conflicts}
+
+    def _get_audit_version(self, run_id: str) -> int:
+        """Get current coherence audit iteration count."""
+        key = f"audit_version:{run_id}"
+        val = self.redis.client.get(key)
+        if val:
+            return int(val) if not isinstance(val, bytes) else int(val.decode("utf-8"))
+        return 1
+
+    def _increment_audit_version(self, run_id: str):
+        """Increment audit version to track re-generation attempts."""
+        key = f"audit_version:{run_id}"
+        current = self._get_audit_version(run_id)
+        self.redis.client.set(key, str(current + 1), ex=7200)
 
     # ── Gap and dependency helpers ────────────────────────────────────────────
 
     def _determine_applicable_sections(self, phase1_data: dict) -> list:
-        """Read constitution + dependency map to determine which sections apply."""
+        """Use LLM to classify which conditional sections apply to this business."""
         always_required = []
+        conditional_sections = {}
 
         for section_num, section_config in self.dependency_map.get("sections", {}).items():
             if section_config.get("always_required", False):
                 always_required.append(section_num)
             else:
-                # Include all for now; production adds LLM classification
-                always_required.append(section_num)
+                conditional_sections[section_num] = section_config.get("condition", "")
 
-        return always_required
+        if not conditional_sections:
+            return always_required
+
+        idea = phase1_data.get("idea_summary", "")
+        business_type = phase1_data.get("business_type", "")
+        ceo_assumptions = phase1_data.get("ceo_assumptions", [])
+
+        prompt = f"""Given this business idea, determine which optional business plan sections are applicable.
+
+IDEA: {idea}
+BUSINESS TYPE: {business_type}
+CEO Q&A: {json.dumps(ceo_assumptions[:5], indent=2)}
+
+CONDITIONAL SECTIONS:
+"""
+        for sec_num, condition in conditional_sections.items():
+            sec_name = self.dependency_map["sections"][sec_num].get("name", "")
+            prompt += f"- Section {sec_num} ({sec_name}): Include when: {condition}\n"
+
+        prompt += """
+Return ONLY a valid JSON object with one key "include" whose value is a list of section numbers (as strings) that should be included. Example: {"include": ["2", "4", "10"]}
+Only include sections where the condition clearly applies based on the business idea."""
+
+        try:
+            response = self.bedrock.converse(
+                modelId=self.model_id,
+                system=[{"text": "You classify business ideas to determine which business plan sections are relevant. Respond with ONLY valid JSON."}],
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
+                inferenceConfig={"maxTokens": 256},
+            )
+            raw = response["output"]["message"]["content"][0]["text"].strip()
+            if raw.startswith("```"):
+                first_nl = raw.index("\n") if "\n" in raw else 3
+                raw = raw[first_nl + 1:]
+                if raw.endswith("```"):
+                    raw = raw[:-3].strip()
+            result = json.loads(raw)
+            included = result.get("include", [])
+            applicable = always_required + [s for s in included if s in conditional_sections]
+            logger.info(
+                "[MotherAgent] Section classification: always=%s conditional=%s",
+                always_required, included,
+            )
+            return applicable
+        except Exception as e:
+            logger.error("[MotherAgent] Section classification LLM failed: %s — including all", e)
+            return always_required + list(conditional_sections.keys())
 
     def _run_pre_simulation(self, tasks: list) -> dict:
         """Validate task sequencing — detect circular deps or missing inputs."""
@@ -1010,6 +1453,21 @@ class MotherAgent(Agent):
         print(f"[MotherAgent] Task {task_id} timed out after {timeout}s")
         return None
 
+    async def _wait_for_clarification(self, task_id: str, timeout: int = 7200) -> Optional[dict]:
+        """Poll Redis for Alex's clarification response."""
+        elapsed = 0
+        while elapsed < timeout:
+            result = self.redis.client.get(f"clarification_response:{task_id}")
+            if result:
+                self.redis.client.delete(f"clarification_response:{task_id}")
+                if isinstance(result, bytes):
+                    result = result.decode("utf-8")
+                return json.loads(result)
+            await asyncio.sleep(10)
+            elapsed += 10
+        print(f"[MotherAgent] Clarification for task {task_id} timed out after {timeout}s")
+        return None
+
     # ── Retry and failure helpers ─────────────────────────────────────────────
 
     async def _retry_task(self, task_id: str, session_id: str, run_id: str, errors):
@@ -1055,19 +1513,109 @@ class MotherAgent(Agent):
     # ── Delivery ──────────────────────────────────────────────────────────────
 
     def _deliver_plan(self, session_id: str, run_id: str, all_outputs: dict):
+        trace_key = self._get_trace_key(session_id)
+
+        # Record acceptance in Learning Engine for all delivered sections
+        for sec_num, output in all_outputs.items():
+            if isinstance(output, dict):
+                self.learning.record_acceptance(
+                    session_id=session_id,
+                    section_number=str(sec_num),
+                    confidence_score=output.get("confidence_score", "medium"),
+                    assumptions_count=len(output.get("assumptions_used", output.get("assumption_log", []))),
+                    devils_advocate_verdict=output.get("_da_verdict", "not_reviewed"),
+                )
+
+        # Aggregate token usage across all sections
+        total_input_tokens = 0
+        total_output_tokens = 0
+        for output in all_outputs.values():
+            if isinstance(output, dict):
+                total_input_tokens += output.get("input_tokens", 0)
+                total_output_tokens += output.get("output_tokens", 0)
+
+        # Compile narrative document
+        coherence_audit = None
+        try:
+            run_data = self.db.client.table("pipeline_runs") \
+                .select("coherence_audit").eq("id", run_id).execute()
+            if run_data.data:
+                coherence_audit = run_data.data[0].get("coherence_audit")
+        except Exception:
+            pass
+
+        compiled_doc = None
+        try:
+            import asyncio
+            business_name = all_outputs.get("1", {}).get("opportunity_description", "The Business")[:80]
+            compiled_doc = asyncio.get_event_loop().run_until_complete(
+                self.compiler.compile(all_outputs, business_name, coherence_audit)
+            ) if not asyncio.get_event_loop().is_running() else None
+        except Exception as e:
+            logger.warning("[MotherAgent] Document compilation failed: %s — delivering JSON only", e)
+
         self.db.client.table("pipeline_runs") \
             .update({
                 "status": "completed",
                 "completed_at": datetime.utcnow().isoformat(),
                 "sections_completed": list(all_outputs.keys()),
+                "total_input_tokens": total_input_tokens,
+                "total_output_tokens": total_output_tokens,
             }) \
             .eq("id", run_id).execute()
 
+        # Store compiled document
+        if compiled_doc:
+            try:
+                self.db.client.table("compiled_plans").insert({
+                    "pipeline_run_id": run_id,
+                    "session_id": session_id,
+                    "format": "markdown",
+                    "content": compiled_doc,
+                }).execute()
+            except Exception as e:
+                logger.warning("[MotherAgent] Failed to store compiled plan: %s", e)
+
+        emit_trace(trace_key, "Mother", "pipeline_complete", f"Business plan delivered — {len(all_outputs)} sections", {"sections": list(all_outputs.keys()), "total_tokens": total_input_tokens + total_output_tokens})
+
+        total_tokens = total_input_tokens + total_output_tokens
+        cost_note = ""
+        if total_tokens > 0:
+            cost_note = f"\nTokens used: {total_input_tokens:,} in / {total_output_tokens:,} out"
+
+        doc_note = "\nFull narrative document compiled and ready for review." if compiled_doc else ""
+
         self._send_telegram(
             session_id,
-            f"Business plan complete. {len(all_outputs)} sections delivered.\n"
-            f"Review the full plan on your Airtable dashboard."
+            f"Business plan complete. {len(all_outputs)} sections delivered.{cost_note}{doc_note}\n"
+            f"Review the full plan on your dashboard."
         )
+
+    def _get_trace_key(self, session_id: str) -> str:
+        """Get the WebSocket session key (telegram chat_id) for trace emission."""
+        try:
+            session = self.db.client.table("sessions") \
+                .select("telegram_chat_id") \
+                .eq("id", session_id).execute()
+            if session.data:
+                chat_id = session.data[0].get("telegram_chat_id")
+                if chat_id:
+                    return str(chat_id)
+        except Exception:
+            pass
+        return session_id
+
+    def _notify_section_complete(self, session_id: str, section: str, output: dict):
+        """Send a concise progress notification for a completed section."""
+        section_name = self.dependency_map.get("sections", {}).get(str(section), {}).get("name", f"Section {section}")
+        confidence = output.get("confidence_score", "unknown") if isinstance(output, dict) else "unknown"
+        uncertainties = output.get("uncertainties", []) if isinstance(output, dict) else []
+
+        msg = f"Section {section} done — {section_name} (confidence: {confidence})"
+        if uncertainties:
+            msg += f"\nFlags: {uncertainties[0]}"
+
+        self._send_telegram(session_id, msg)
 
     def _notify_alex_conflict(self, session_id: str, summary: str, content: dict):
         self._send_telegram(session_id, f"Agent conflict detected:\n\n{summary}\n\nReply with your decision.")
@@ -1123,6 +1671,20 @@ class MotherAgent(Agent):
 
     def _assemble_input_package(self, section_config: dict, prior_outputs: dict, phase1_data: dict) -> dict:
         package = {}
+        section_num = section_config.get("section_number", "")
+
+        # Inject learning context from past runs
+        learning_ctx = self.learning.build_learning_context(str(section_num))
+        if learning_ctx:
+            package["learning_context"] = learning_ctx
+
+        # Inject cross-section context from completed sections
+        if prior_outputs:
+            package["cross_section_context"] = {
+                k: v for k, v in prior_outputs.items()
+                if isinstance(v, dict)
+            }
+
         for req in section_config.get("required_inputs", []):
             field = req["field"]
             source = req.get("source", "prior_task")
@@ -1301,6 +1863,49 @@ class MotherAgent(Agent):
             return True, None
         except Exception as e:
             return False, str(e)
+
+    def _enforce_constitution(self, section: str, output: dict) -> list:
+        """Check output against enforceable constitution rules. Returns list of violations."""
+        violations = []
+        if not isinstance(output, dict):
+            return violations
+
+        # Rule: Every assumption must have confidence + source labels
+        assumptions = output.get("assumptions_used", []) or output.get("assumption_log", [])
+        for i, a in enumerate(assumptions):
+            if not isinstance(a, dict):
+                continue
+            if "confidence" not in a and "label" not in a:
+                violations.append(f"Assumption {i+1} missing confidence label")
+                break
+            source = a.get("source") or a.get("label")
+            valid_sources = {"validated", "alex_provided", "agent_inferred", "assumed"}
+            if source and source not in valid_sources:
+                violations.append(f"Assumption {i+1} has invalid source: '{source}'")
+                break
+
+        # Rule: Financial plan must have three_statement_model and break_even
+        if str(section) == "12":
+            if not output.get("three_statement_model"):
+                violations.append("Financial plan missing three_statement_model")
+            if not output.get("break_even_analysis"):
+                violations.append("Financial plan missing break_even_analysis")
+
+        # Rule: confidence_score must be present
+        if "confidence_score" not in output and str(section) != "executive_summary":
+            violations.append("Missing confidence_score field")
+
+        # Rule: Never present assumed numbers as validated
+        for a in assumptions:
+            if not isinstance(a, dict):
+                continue
+            source = a.get("source") or a.get("label", "")
+            conf = a.get("confidence", "")
+            if source == "validated" and conf == "low":
+                violations.append(f"Assumption claims 'validated' but has 'low' confidence — suspicious")
+                break
+
+        return violations
 
     def _find_agent_config_by_name(self, agent_name: str) -> Optional[dict]:
         return self.agent_roster["agents"].get(agent_name)

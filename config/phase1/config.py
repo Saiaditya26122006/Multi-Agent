@@ -6,12 +6,12 @@ Centralized configuration for the multi-agent system.
 MAX_QUESTIONS = 3
 
 # Gemini AI Settings
-GEMINI_MODEL = "gemini-2.5-flash"  # Latest and fastest
-GEMINI_FALLBACK_MODEL = "gemini-2.0-flash"  # Stable fallback
+GEMINI_MODEL = "gemini-2.5-flash"  # Primary model
+GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
 
 # Retry Settings
-MAX_RETRIES = 3
-RETRY_WAIT_SECONDS = 5
+MAX_RETRIES = 5
+RETRY_WAIT_SECONDS = 8
 
 # Session States
 STATE_NEEDS_CLARIFICATION = "NEEDS_CLARIFICATION"

@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from google import genai
 
 # Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from memory.supabase_client import (
     get_ceo_context,
@@ -26,7 +26,7 @@ from memory.supabase_client import (
     update_memory_last_referenced,
     get_active_session
 )
-from config.config import (
+from config import (
     GEMINI_MODEL,
     MAX_RETRIES,
     RETRY_WAIT_SECONDS
@@ -35,7 +35,7 @@ from utils.retry import retry_with_fallback
 from tools.trace_emitter import emit_trace
 
 # Load environment variables
-env_path = Path(__file__).parent.parent / ".env"
+env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(env_path)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")

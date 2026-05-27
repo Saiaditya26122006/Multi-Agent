@@ -9,7 +9,7 @@ import random
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from agents.l1_clarity_agent import generate_clarifying_question
+from agents.phase1.l1_clarity_agent import generate_clarifying_question
 from memory.supabase_client import (
     get_ceo_context,
     get_active_session,

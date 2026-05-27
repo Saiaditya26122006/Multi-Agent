@@ -99,6 +99,11 @@ async def _handle_message_wrapper(update: Update, context: ContextTypes.DEFAULT_
             await send_message(message_data["chat_id"], "Got it. Running the group now.")
             return
 
+        # Check if this is a clarification response (Phase 2 escalation)
+        if handle_clarification_response(message_data["chat_id"], message_data["text"]):
+            await send_message(message_data["chat_id"], "Thanks — feeding your answer back into the pipeline.")
+            return
+
         # Call the user-provided handler
         if handle_message_callback:
             await handle_message_callback(message_data)
@@ -179,6 +184,56 @@ def handle_gate2_response(chat_id: int, text: str) -> bool:
     redis_client.delete(group_key)
 
     logger.info(f"[GATE2] Processed response from chat {chat_id}: {response['action']}")
+    return True
+
+
+def handle_clarification_response(chat_id: int, text: str) -> bool:
+    """
+    Check if there's a pending clarification for this chat and route Alex's reply back.
+
+    The Mother Agent sets `awaiting_clarification:{chat_id}` when a child agent escalates.
+    When Alex replies, we store the answer in Redis so the pipeline can resume.
+
+    Returns True if handled, False otherwise.
+    """
+    import json
+    from memory.redis_client import redis_client
+
+    clarification_key = f"awaiting_clarification:{chat_id}"
+    pending_raw = redis_client.get(clarification_key)
+    if not pending_raw:
+        return False
+
+    if isinstance(pending_raw, bytes):
+        pending_raw = pending_raw.decode("utf-8")
+
+    try:
+        pending = json.loads(pending_raw)
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+    task_id = pending.get("task_id")
+    session_id = pending.get("session_id")
+    run_id = pending.get("run_id")
+    section = pending.get("section")
+
+    text_lower = text.lower().strip()
+    if text_lower == "agent":
+        response = {"type": "delegate_to_agent", "section": section}
+    else:
+        response = {
+            "type": "ceo_answer",
+            "answer": text.strip(),
+            "task_id": task_id,
+            "session_id": session_id,
+            "run_id": run_id,
+            "section": section,
+        }
+
+    redis_client.set(f"clarification_response:{task_id}", json.dumps(response), ex=3600)
+    redis_client.delete(clarification_key)
+
+    logger.info("[CLARIFICATION] Processed response from chat %s for task %s", chat_id, task_id)
     return True
 
 

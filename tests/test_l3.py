@@ -8,7 +8,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from agents.l3_feedback_agent import generate_feedback
+from agents.phase1.l3_feedback_agent import generate_feedback
 from memory.supabase_client import (
     get_ceo_context,
     get_active_session,

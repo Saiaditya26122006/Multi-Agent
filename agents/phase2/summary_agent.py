@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 import asyncio
 import json
 import logging
@@ -10,6 +15,8 @@ from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
 
 from memory.redis_client import RedisClient
+from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
+from agents.phase2.intelligence_engine import IntelligenceEngine
 from schemas.inputs.summary_agent import SummaryAgentInput
 from schemas.outputs.summary_agent import SummaryAgentOutput
 
@@ -27,6 +34,8 @@ Rules:
 - List which sections were included vs skipped
 - If coherence issues were found during the pipeline, list how they were resolved
 - Write for Alex — plain language, no jargon, decision-oriented
+
+You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields: section_number, executive_summary, headline_metrics, key_assumptions_flagged, sections_included, sections_skipped, coherence_issues_resolved, input_tokens, output_tokens.
 """
 
 
@@ -56,14 +65,13 @@ class SummaryAgentAgent(Agent):
         super().__init__(jid, password)
         self.redis = RedisClient()
         self.model_id = os.getenv("CLAUDE_HAIKU_MODEL", "claude-haiku-4-5-20251001")
-        self.bedrock = boto3.client(
-            "bedrock-runtime",
-            region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
-        )
+        self.bedrock = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"))
+        self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
 
     async def setup(self):
         logger.info("[SummaryAgent] Starting")
         self.add_behaviour(ListenBehaviour())
+        signal_ready(self.redis, "summary_agent")
 
     async def _send_msg(self, msg: Message):
         class _Send(OneShotBehaviour):
@@ -91,25 +99,46 @@ class SummaryAgentAgent(Agent):
             await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
             return
 
-        user_message = self._build_prompt(validated_input)
-        llm_response = await self._call_llm(user_message)
+        input_data = {
+            "completed_sections": input_package.get("completed_sections", {}),
+            "flagged_assumptions": input_package.get("flagged_assumptions", []),
+        }
 
-        if not llm_response:
-            await self._escalate(task_id, session_id, pipeline_run_id, "weak_evidence", "LLM call failed")
-            return
+        parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(
+            agent_role=(
+                "Summary Agent — you synthesize all section outputs into a one-page executive summary "
+                "for Alex (CEO). Write for decision-making, not for show."
+            ),
+            input_data=input_data,
+            output_schema_prompt=self._build_schema_prompt(),
+            cross_section_context=None,
+            reasoning_budget=2,
+        )
+
+        if not parsed:
+            user_message = self._build_prompt(validated_input)
+            llm_response, fallback_usage = await self._call_llm(user_message)
+            if not llm_response:
+                await self._escalate(task_id, session_id, pipeline_run_id, "weak_evidence", "Intelligence engine and fallback both failed")
+                return
+            parsed = self._parse_llm_response(llm_response, validated_input)
+            token_usage["input_tokens"] = token_usage.get("input_tokens", 0) + fallback_usage.get("input_tokens", 0)
+            token_usage["output_tokens"] = token_usage.get("output_tokens", 0) + fallback_usage.get("output_tokens", 0)
 
         try:
-            output_data = json.loads(llm_response)
-            output_data["task_id"] = task_id
-            output_data["model_used"] = self.model_id
-            validated_output = SummaryAgentOutput(**output_data)
+            parsed["task_id"] = task_id
+            parsed["model_used"] = self.model_id
+            parsed["input_tokens"] = token_usage.get("input_tokens", 0)
+            parsed["output_tokens"] = token_usage.get("output_tokens", 0)
+            validated_output = SummaryAgentOutput(**parsed)
         except Exception as e:
             logger.error("[SummaryAgent] Output validation failed: %s", e)
             await self._escalate(task_id, session_id, pipeline_run_id, "output_conflict", str(e))
             return
 
         result = validated_output.model_dump()
-        self.redis.client.set(f"task_output:{task_id}", json.dumps(result), ex=3600)
+        result["reasoning_trace"] = reasoning_trace
+        self.redis.client.set(f"task_output:{task_id}", json.dumps(result, default=str), ex=3600)
         await self._send_inform(task_id, session_id, pipeline_run_id, result)
 
     async def handle_propose(self, task_id, session_id, pipeline_run_id, sender, content):
@@ -121,6 +150,18 @@ class SummaryAgentAgent(Agent):
         msg.set_metadata("pipeline_run_id", pipeline_run_id)
         msg.body = json.dumps({"status": "accepted", "proposal": content.get("proposal", "")})
         await self._send_msg(msg)
+
+    def _build_schema_prompt(self) -> str:
+        return """Return ONLY valid JSON with these exact keys:
+- section_number: "executive_summary"
+- executive_summary: str (200-3000 chars. Cover: opportunity, competitive advantage, team, financials, ask. Plain language for a CEO.)
+- headline_metrics: {"year1_revenue_range": str, "break_even_month": str, "primary_risk": str, "team_size_year1": str}
+- key_assumptions_flagged: [str] (assumptions Alex must validate before using externally)
+- sections_included: [str]
+- sections_skipped: [str]
+- coherence_issues_resolved: [str]
+- input_tokens: 0
+- output_tokens: 0"""
 
     def _build_prompt(self, inp: SummaryAgentInput) -> str:
         all_sections = list(inp.completed_sections.keys())
@@ -150,22 +191,49 @@ Return ONLY valid JSON with these exact keys:
 - output_tokens: 0
 """
 
-    async def _call_llm(self, user_message: str) -> Optional[str]:
+    def _parse_llm_response(self, raw: str, inp: SummaryAgentInput) -> dict:
+        """Parse LLM response with retry before falling back to defaults."""
+        result = parse_json_with_retry(
+            raw=raw,
+            bedrock_client=self.bedrock,
+            model_id=self.model_id,
+            system_prompt=SYSTEM_PROMPT,
+            user_message=self._build_prompt(inp),
+            agent_name="SummaryAgent",
+        )
+        if result is not None:
+            return result
+
+        logger.warning("[SummaryAgent] Both parse attempts failed, constructing fallback")
+        all_sections = list(inp.completed_sections.keys())
+        all_possible = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
+        skipped = [s for s in all_possible if s not in all_sections]
+        return {
+            "section_number": "executive_summary",
+            "executive_summary": "This business plan covers an early-stage venture opportunity. The analysis was generated by the multi-agent system but the LLM output could not be parsed into structured format. Key sections have been completed and are available for review. Alex should review the individual section outputs directly for detailed findings. The plan requires validation of key assumptions before external use.",
+            "headline_metrics": {"year1_revenue_range": "See financial model", "break_even_month": "See financial model", "primary_risk": "Unvalidated assumptions", "team_size_year1": "See org design"},
+            "key_assumptions_flagged": [a.get("statement", str(a)) if isinstance(a, dict) else str(a) for a in inp.flagged_assumptions[:5]] or ["No specific assumptions flagged"],
+            "sections_included": all_sections,
+            "sections_skipped": skipped,
+            "coherence_issues_resolved": [],
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }
+
+    async def _call_llm(self, user_message: str) -> tuple[Optional[str], dict]:
         try:
-            response = self.bedrock.invoke_model(
+            response = self.bedrock.converse(
                 modelId=self.model_id,
-                body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 4096,
-                    "system": SYSTEM_PROMPT,
-                    "messages": [{"role": "user", "content": user_message}],
-                }),
+                system=[{"text": SYSTEM_PROMPT}],
+                messages=[{"role": "user", "content": [{"text": user_message}]}],
+                inferenceConfig={"maxTokens": 4096},
             )
-            result = json.loads(response["body"].read())
-            return result["content"][0]["text"]
+            usage = response.get("usage", {})
+            text = response["output"]["message"]["content"][0]["text"]
+            return text, {"input_tokens": usage.get("inputTokens", 0), "output_tokens": usage.get("outputTokens", 0)}
         except Exception as e:
             logger.error("[SummaryAgent] LLM call failed: %s", e)
-            return None
+            return None, {}
 
     async def _escalate(self, task_id, session_id, pipeline_run_id, trigger, notes):
         mother_jid = os.getenv("MOTHER_AGENT_JID", "")
@@ -189,6 +257,8 @@ Return ONLY valid JSON with these exact keys:
 
 
 async def main():
+    from dotenv import load_dotenv
+    load_dotenv()
     jid = os.getenv("SUMMARY_JID")
     password = os.getenv("SUMMARY_PASSWORD")
     if not jid or not password:

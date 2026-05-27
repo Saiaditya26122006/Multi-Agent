@@ -17,15 +17,15 @@ from typing import Optional
 from dotenv import load_dotenv
 from google import genai
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from memory.supabase_client import get_ceo_context
 from memory.redis_client import redis_client
-from config.config import GEMINI_MODEL, MAX_RETRIES, RETRY_WAIT_SECONDS
+from config import GEMINI_MODEL, MAX_RETRIES, RETRY_WAIT_SECONDS
 from utils.retry import retry_with_fallback
 from tools.trace_emitter import emit_trace
 
-load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
+load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ Respond with ONLY the category name. One word. Nothing else."""
                 max_output_tokens=5,
             ),
         )
-        raw = response.text.strip().lower().replace('"', '').replace("'", "")
+        raw = (response.text or "").strip().lower().replace('"', '').replace("'", "")
         # Extract just the category word
         for cat in ["general", "business_idea", "query", "command"]:
             if cat in raw:
