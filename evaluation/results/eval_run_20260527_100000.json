@@ -1,0 +1,152 @@
+[
+  {
+    "idea_id": "eval_saas_crm",
+    "idea_name": "AI-Powered CRM for Freelancers",
+    "started_at": "2026-05-27T10:00:00+00:00",
+    "completed_at": "2026-05-27T10:02:30+00:00",
+    "total_input_tokens": 12500,
+    "total_output_tokens": 8200,
+    "total_latency_seconds": 45.3,
+    "errors": [],
+    "sections": {
+      "1": {
+        "section_number": "1",
+        "agent_name": "Opportunity Analyst",
+        "model": "claude-sonnet-4-20250514",
+        "latency_seconds": 8.2,
+        "input_tokens": 2100,
+        "output_tokens": 1400,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": "1",
+          "opportunity_description": "A lightweight CRM tool for freelancers with AI-powered lead management",
+          "competitive_strategy": "Differentiate on simplicity and AI automation versus complex enterprise tools",
+          "objectives": [
+            {
+              "objective": "Acquire 100 paying users",
+              "metric": "users",
+              "target_value": "100",
+              "timeframe": "6 months"
+            }
+          ],
+          "icp_hypothesis": {
+            "buyer_role": "Freelance designer/developer",
+            "budget_process": "Personal discretion",
+            "decision_timeline": "1 week",
+            "pain_points": [
+              "No good CRM for solo workers"
+            ]
+          },
+          "assumptions_used": [
+            {
+              "statement": "Freelancers want simpler CRM",
+              "confidence": "high",
+              "source": "alex_provided"
+            }
+          ],
+          "uncertainties": [
+            "Actual willingness to pay monthly"
+          ],
+          "confidence_score": "high"
+        },
+        "reasoning_trace": {
+          "decomposition": "Key decisions: target segment, pricing, differentiation...",
+          "challenge": "Overconfidence on WTP assumption",
+          "revisions_applied": true,
+          "reasoning_budget": 3
+        }
+      },
+      "8": {
+        "section_number": "8",
+        "agent_name": "Marketing Strategy",
+        "model": "claude-sonnet-4-20250514",
+        "latency_seconds": 12.1,
+        "input_tokens": 3500,
+        "output_tokens": 2200,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": "8",
+          "target_market_analysis": "Freelance web designers and developers, solo practitioners earning 50-150K",
+          "competitors": [
+            {
+              "name": "HoneyBook"
+            },
+            {
+              "name": "Dubsado"
+            }
+          ],
+          "competitive_advantages": [
+            "AI automation",
+            "Simplicity for solo users"
+          ],
+          "marketing_mix": {
+            "product": "AI CRM",
+            "price": "29/mo",
+            "place": "online",
+            "promotion": "content + SEO"
+          },
+          "revenue_assumptions": {
+            "price_per_unit": 29,
+            "volume_year1": 500,
+            "volume_year2": 2000,
+            "volume_year3": 5000,
+            "sales_cycle_months": 1
+          },
+          "cac_assumptions": {
+            "cac_estimate": 45,
+            "cac_source": "industry benchmark",
+            "confidence": "medium"
+          },
+          "market_entry_strategy": "Launch on ProductHunt, content marketing on Twitter/LinkedIn, target freelance communities on Reddit and Discord",
+          "assumptions_used": [
+            {
+              "statement": "CAC of 45 is achievable via organic",
+              "confidence": "medium",
+              "source": "agent_inferred"
+            }
+          ],
+          "uncertainties": [
+            "Organic CAC may be higher in practice"
+          ],
+          "confidence_score": "medium"
+        },
+        "reasoning_trace": {
+          "decomposition": "Marketing channels, budget allocation...",
+          "challenge": "",
+          "revisions_applied": false,
+          "reasoning_budget": 3
+        }
+      }
+    },
+    "scores": {
+      "overall_score": 7.2,
+      "schema_compliance": 100.0,
+      "avg_confidence": "medium",
+      "confidence_distribution": {
+        "high": 1,
+        "medium": 1,
+        "low": 0
+      },
+      "section_scores": {
+        "1": {
+          "schema_compliance": 10.0,
+          "specificity": 7.5,
+          "completeness": 8.0,
+          "total": 8.4,
+          "issues": []
+        },
+        "8": {
+          "schema_compliance": 10.0,
+          "specificity": 6.0,
+          "completeness": 7.0,
+          "total": 7.5,
+          "issues": [
+            "marketing_mix: too short"
+          ]
+        }
+      },
+      "total_sections": 2,
+      "successful_parses": 2
+    }
+  }
+]
