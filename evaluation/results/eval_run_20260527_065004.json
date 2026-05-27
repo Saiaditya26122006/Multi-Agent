@@ -1,0 +1,53 @@
+[
+  {
+    "idea_id": "eval_saas_crm",
+    "idea_name": "AI-Powered CRM for Freelancers",
+    "started_at": "2026-05-27T06:45:42.420995+00:00",
+    "sections": {
+      "8": {
+        "section_number": "8",
+        "agent_name": "Marketing Strategy",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 261.59,
+        "input_tokens": 7282,
+        "output_tokens": 12288,
+        "parsed_successfully": false,
+        "output": null,
+        "reasoning_trace": {
+          "decomposition": "# Pre-Output Strategic Analysis\n\n## 1. Three Most Critical Judgments\n\n**Judgment 1: Can $29/month generate enough LTV to justify any meaningful CAC?**\n- LTV at $29/month with typical SaaS churn (let's estimate 5-8%/month for SMB solo operators) = $29 / 0.065 avg = ~$446 LTV\n- This severely constrains paid acquisition. Every channel choice flows from this constraint.\n\n**Judgment 2: Is the AI differentiation compelling enough to displace HoneyBook/Dubsado incumbents or acquire net-new CRM adopters?**\n- Evidence: 20 interviews validated pain point. Missing: Did those 20 say they'd *switch*, or just that the problem exists? Switcher vs. net-new TAM is radically different.\n- HoneyBook raised $250M. Dubsado has deep community loyalty. Displacement cost is high.\n\n**Judgment 3: Can content marketing + SEO + ProductHunt actually drive to $29/month SaaS profitability on $15K?**\n- $15K total budget. ProductHunt launch is free. SEO takes 6-18 months to compound. Twitter/LinkedIn organic is slow. This is a 12-18 month cash constraint problem, not a 6-month one.\n\n## 2. Evidence Available vs. Missing\n\n| Judgment | Evidence I Have | What's Missing |\n|---|---|---|\n| LTV viability | $29 price, bootstrapped $15K | Churn rate data, annual vs. monthly mix |\n| Differentiation | 20 interviews, AI feature set | Willingness-to-pay vs. incumbents, feature gap analysis |\n| Channel viability | CEO's channel list | Conversion rates, keyword volume/difficulty, founder's audience size |\n\n## 3. Critical Causal Chains\n\n- **Low price \u2192 low LTV \u2192 CAC ceiling ~$50-80 \u2192 paid ads impossible \u2192 organic-only \u2192 slow growth \u2192 cash exhaustion before PMF**\n- **AI differentiation \u2192 trial interest \u2192 if UX is complex \u2192 churn spike \u2192 negative word-of-mouth in tight freelancer communities**\n- **ProductHunt launch \u2192 spike traffic \u2192 converts 2-5% \u2192 50-150 paid users \u2192 ~$1,500-4,350 MRR \u2192 runway extension \u2192 buys time for SEO**\n\n## 4. The ONE Assumption That Invalidates Everything\n\n> **\"Freelance designers/developers w",
+          "challenge": "## Due Diligence Strike Report \u2014 Section 4\n\n---\n\n### 1. MATH ERRORS\n\n**TAM arithmetic is wrong.**\n> `~810,000 freelancers \u00d7 $29/month \u00d7 12 months = $281,000,000`\n\nActual calculation: 810,000 \u00d7 $29 \u00d7 12 = **$281,880,000**. Rounds to $282M, not $281M. Minor, but a plan this granular should not round down and obscure the formula.\n\n**SAM arithmetic does not follow from stated inputs.**\n> `~1.46M qualifying freelancers \u00d7 30% adoption propensity \u00d7 $29/month \u00d7 12 months = $152,000,000`\n\nActual: 1,460,000 \u00d7 0.30 \u00d7 $29 \u00d7 12 = **$152,424,000**. Close enough, but let's check the input construction:\n- US base = 810,000\n- 1.8x multiplier \u2192 810,000 \u00d7 1.8 = 1,458,000, not 1,460,000\n\nThe 1.46M figure is silently rounded up. Immaterial numerically, but the 1.8x English-speaking market multiplier is **completely unsourced**. No citation. No methodology. The US has roughly 330M people. The five primary English-speaking markets (US, UK, Canada, Australia, NZ) combined add perhaps 40-50% more addressable population, not 80%. A 1.8x multiplier implies near-parity between the US market and all other English-speaking markets combined, which is not supported. If the real multiplier is 1.3x, the SAM drops to ~$110M.\n\n**SOM steady-state churn math is internally inconsistent with growth targets.**\n> \"At 5% monthly churn, steady-state users at 50 new users/month = 1,000 users.\"\n\nCheck: Steady-state = new users / churn rate = 50 / 0.05 = 1,000. **Correct.**\n\n> \"At 8% churn, steady-state drops to 625 users.\"\n\nCheck: 50 / 0.08 = 625. **Correct.**\n\nBut here is the critical inconsistency: the SOM projects **2,500 users by Year 3**, which requires \"15\u201318% month-over-month net user growth post-launch.\" At 500 users end of Year 1 growing to 2,500 by end of Year 3, that is 5x growth over 24 months, which requires approximately **8.3% net monthly growth** (500 \u00d7 1.083^24 \u2248 2,500), not 15\u201318%. \n\nThe plan either overstates the required growth rate or understates how fast user counts must rise. If 15\u201318% Mo",
+          "revisions_applied": true,
+          "reasoning_budget": 3
+        }
+      }
+    },
+    "total_input_tokens": 7282,
+    "total_output_tokens": 12288,
+    "total_latency_seconds": 261.58664298057556,
+    "errors": [],
+    "completed_at": "2026-05-27T06:50:04.008562+00:00",
+    "scores": {
+      "overall_score": 0.0,
+      "schema_compliance": 0.0,
+      "avg_confidence": "medium",
+      "confidence_distribution": {
+        "high": 0,
+        "medium": 0,
+        "low": 0
+      },
+      "section_scores": {
+        "8": {
+          "schema_compliance": 0,
+          "specificity": 0,
+          "completeness": 0,
+          "total": 0,
+          "issues": [
+            "Output is None \u2014 agent failed to produce anything"
+          ]
+        }
+      },
+      "total_sections": 1,
+      "successful_parses": 0
+    }
+  }
+]

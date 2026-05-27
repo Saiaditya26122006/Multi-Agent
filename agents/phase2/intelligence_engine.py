@@ -136,7 +136,7 @@ Think carefully. Use specific numbers from the inputs, not generalities.""",
 
         # STEP 2: PRODUCE DRAFT
         draft_raw, usage = await self._call(
-            system=f"You are a senior business plan writer. {agent_role}. Produce rigorous, specific, quantified analysis.",
+            system=f"You are a senior business plan writer. {agent_role}. Produce rigorous, specific, quantified analysis. Be concise — use short values in JSON fields. No essays inside string fields.",
             user=f"""Based on your strategic analysis:
 
 {decomposition}
@@ -147,13 +147,14 @@ Now produce the structured output. Rules:
 - Be honest about confidence: LOW means "I'm guessing", not "it's probably fine"
 - Be specific: "$120k ARR" not "significant revenue"; "18-month window" not "limited time"
 - If cross-section data contradicts your conclusion, note the conflict
+- Keep string field values under 300 characters each to stay within token limits
 {constraints_str}{ceiling_str}{uncertainties_str}
 
 INPUT DATA:
 {input_str}
 
 {output_schema_prompt}""",
-            max_tokens=4096,
+            max_tokens=8192,
         )
         total_usage["input_tokens"] += usage.get("input_tokens", 0)
         total_usage["output_tokens"] += usage.get("output_tokens", 0)
@@ -190,9 +191,9 @@ Be brutal. An investor reading this will be. List specific problems, not vague c
         # STEP 4: REVISE
         if challenge and reasoning_budget >= 3:
             final_raw, usage = await self._call(
-                system=f"You are finalizing a business plan section. {agent_role}. Incorporate valid challenges. Respond with ONLY valid JSON.",
+                system=f"You are finalizing a business plan section. {agent_role}. Incorporate valid challenges. Respond with ONLY valid JSON — no markdown fences, no explanation.",
                 user=f"""ORIGINAL DRAFT:
-{draft_raw[:4000]}
+{draft_raw[:6000]}
 
 CHALLENGES RAISED:
 {challenge[:2000]}
@@ -203,24 +204,28 @@ Revise the output:
 - Add valid challenges to the uncertainties list
 - DO NOT water down your analysis — keep conclusions sharp and specific
 - If a challenge is invalid (the draft was actually correct), ignore it
+- Keep string values concise (under 300 chars each)
 
 {output_schema_prompt}
 
-Return ONLY the final valid JSON object.""",
-                max_tokens=4096,
+Return ONLY the final valid JSON object. Start with {{ and end with }}.""",
+                max_tokens=8192,
             )
             total_usage["input_tokens"] += usage.get("input_tokens", 0)
             total_usage["output_tokens"] += usage.get("output_tokens", 0)
         else:
             final_raw = draft_raw
 
-        # Parse final output
+        # Parse final output — fall back to draft if revision parse fails
         parsed = self._parse_output(final_raw)
+        if parsed is None and final_raw != draft_raw:
+            logger.warning("[IntelligenceEngine] REVISE output unparseable — falling back to draft")
+            parsed = self._parse_output(draft_raw)
 
         reasoning_trace = {
             "decomposition": decomposition[:2000] if decomposition else "",
             "challenge": challenge[:2000] if challenge else "",
-            "revisions_applied": bool(challenge),
+            "revisions_applied": bool(challenge) and (final_raw != draft_raw),
             "reasoning_budget": reasoning_budget,
         }
 
@@ -441,4 +446,21 @@ If everything checks out, return an empty array: []""",
         try:
             return json.loads(text)
         except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Fallback: find the first { ... } block in the text
+        start = text.find("{")
+        if start == -1:
             return None
+        depth = 0
+        for i in range(start, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(text[start:i + 1])
+                    except (json.JSONDecodeError, ValueError):
+                        return None
+        return None
