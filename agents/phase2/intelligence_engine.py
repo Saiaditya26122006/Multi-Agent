@@ -402,6 +402,7 @@ If everything checks out, return an empty array: []""",
     async def _call(self, system: str, user: str, max_tokens: int = 4096, retries: int = 3) -> tuple[Optional[str], dict]:
         """Make a single LLM call with exponential backoff on throttling."""
         import asyncio
+        from botocore.exceptions import ReadTimeoutError, ConnectTimeoutError
 
         for attempt in range(retries):
             try:
@@ -421,7 +422,7 @@ If everything checks out, return an empty array: []""",
                 wait = 2 ** attempt
                 logger.warning("[IntelligenceEngine] Throttled — retrying in %ds (attempt %d/%d)", wait, attempt + 1, retries)
                 await asyncio.sleep(wait)
-            except self.bedrock.exceptions.ModelTimeoutException:
+            except (self.bedrock.exceptions.ModelTimeoutException, ReadTimeoutError, ConnectTimeoutError):
                 wait = 3 ** attempt
                 logger.warning("[IntelligenceEngine] Timeout — retrying in %ds (attempt %d/%d)", wait, attempt + 1, retries)
                 await asyncio.sleep(wait)

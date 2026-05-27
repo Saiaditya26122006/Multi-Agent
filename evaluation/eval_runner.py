@@ -23,6 +23,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import boto3
+from botocore.config import Config
 from dotenv import load_dotenv
 
 from agents.phase2.intelligence_engine import IntelligenceEngine
@@ -111,6 +112,7 @@ class EvalRunner:
         self.bedrock = boto3.client(
             "bedrock-runtime",
             region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
+            config=Config(read_timeout=120, connect_timeout=10, retries={"max_attempts": 2}),
         )
         self.sonnet_model = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
         self.haiku_model = os.getenv("CLAUDE_HAIKU_MODEL", "claude-haiku-4-5-20251001")
