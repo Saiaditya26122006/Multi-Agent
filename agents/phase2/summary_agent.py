@@ -99,6 +99,13 @@ class SummaryAgentAgent(Agent):
             await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
             return
 
+        learning_context = input_package.get("learning_context", "")
+
+        revision_required = input_package.get("revision_required", False)
+        revision_feedback = input_package.get("revision_feedback", "")
+        if revision_required and revision_feedback:
+            learning_context += f"\n\nMANDATORY REVISIONS (from quality review):\n{revision_feedback}\nFix these issues. Do NOT weaken your analysis — make it more rigorous."
+
         input_data = {
             "completed_sections": input_package.get("completed_sections", {}),
             "flagged_assumptions": input_package.get("flagged_assumptions", []),
@@ -112,7 +119,8 @@ class SummaryAgentAgent(Agent):
             input_data=input_data,
             output_schema_prompt=self._build_schema_prompt(),
             cross_section_context=None,
-            reasoning_budget=2,
+            reasoning_budget=3 if revision_required else 2,
+            learning_context=learning_context,
         )
 
         if not parsed:

@@ -122,6 +122,13 @@ class OpportunityAnalystAgent(Agent):
             return
 
         cross_context = input_package.get("cross_section_context", {})
+        learning_context = input_package.get("learning_context", "")
+
+        # Revision mode: DA challenged this output, must fix specific issues
+        revision_required = input_package.get("revision_required", False)
+        revision_feedback = input_package.get("revision_feedback", "")
+        if revision_required and revision_feedback:
+            learning_context += f"\n\nMANDATORY REVISIONS (from quality review):\n{revision_feedback}\nFix these issues. Do NOT weaken your analysis — make it more rigorous."
 
         output_schema_prompt = self._build_schema_prompt()
         input_data = {
@@ -139,7 +146,8 @@ class OpportunityAnalystAgent(Agent):
             input_data=input_data,
             output_schema_prompt=output_schema_prompt,
             cross_section_context=cross_context if cross_context else None,
-            reasoning_budget=3,
+            reasoning_budget=4 if revision_required else 3,
+            learning_context=learning_context,
         )
 
         if not parsed:

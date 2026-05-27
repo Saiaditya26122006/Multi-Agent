@@ -133,6 +133,13 @@ class FinancialModellingAgent(Agent):
                 skills_loaded.append(skill_name)
 
         cross_context = input_package.get("cross_section_context", {})
+        learning_context = input_package.get("learning_context", "")
+
+        revision_required = input_package.get("revision_required", False)
+        revision_feedback = input_package.get("revision_feedback", "")
+        if revision_required and revision_feedback:
+            learning_context += f"\n\nMANDATORY REVISIONS (from quality review):\n{revision_feedback}\nFix these issues. Do NOT weaken your analysis — make it more rigorous."
+
         input_data = {
             "revenue_assumptions": input_package.get("revenue_assumptions", {}),
             "cac_assumptions": input_package.get("cac_assumptions", {}),
@@ -154,6 +161,7 @@ class FinancialModellingAgent(Agent):
             output_schema_prompt=self._build_schema_prompt(),
             cross_section_context=cross_context if cross_context else None,
             reasoning_budget=4,
+            learning_context=learning_context,
         )
 
         if not parsed:

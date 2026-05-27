@@ -68,6 +68,26 @@ class IntelligenceEngine:
 
         input_str = json.dumps(input_data, indent=2, default=str)[:6000]
 
+        # Hard constraint injection — numbers that MUST be used exactly
+        constraints_str = ""
+        hard_constraints = input_data.get("hard_constraints", {})
+        if hard_constraints:
+            constraint_lines = []
+            for key, info in hard_constraints.items():
+                if isinstance(info, dict):
+                    constraint_lines.append(f"  - {key} = {info.get('value')} (from {info.get('source', 'upstream')})")
+            if constraint_lines:
+                constraints_str = (
+                    "\n\nBINDING CONSTRAINTS (you MUST use these exact numbers — do NOT invent your own):\n"
+                    + "\n".join(constraint_lines)
+                )
+
+        # Confidence ceiling — cannot claim higher confidence than weakest upstream
+        ceiling_str = ""
+        confidence_ceiling = input_data.get("confidence_ceiling")
+        if confidence_ceiling:
+            ceiling_str = f"\n\nCONFIDENCE CEILING: Your confidence_score CANNOT exceed '{confidence_ceiling}' because your upstream inputs have that confidence level. Be honest."
+
         learning_str = ""
         if learning_context:
             learning_str = f"\n\n{learning_context}"
@@ -79,7 +99,7 @@ class IntelligenceEngine:
 
 INPUT DATA:
 {input_str}
-{cross_context_str}{learning_str}
+{cross_context_str}{constraints_str}{ceiling_str}{learning_str}
 
 Before producing any output, analyze the problem:
 1. What are the 3 most critical judgments I must make for this section?
@@ -110,6 +130,7 @@ Now produce the structured output. Rules:
 - Be honest about confidence: LOW means "I'm guessing", not "it's probably fine"
 - Be specific: "$120k ARR" not "significant revenue"; "18-month window" not "limited time"
 - If cross-section data contradicts your conclusion, note the conflict
+{constraints_str}{ceiling_str}
 
 INPUT DATA:
 {input_str}

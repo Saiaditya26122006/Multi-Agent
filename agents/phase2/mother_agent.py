@@ -655,6 +655,19 @@ class MotherAgent(Agent):
             if isinstance(output, dict):
                 output["_constitution_warnings"] = violations
 
+        # Enforce confidence ceiling — hard cap regardless of what LLM returned
+        if isinstance(output, dict):
+            section_config = self.dependency_map["sections"].get(str(section), {})
+            prior_outputs = self._load_prior_outputs(run_id)
+            ceiling = self._compute_confidence_ceiling(section_config, prior_outputs)
+            if ceiling:
+                confidence_rank = {"high": 3, "medium": 2, "low": 1}
+                current = output.get("confidence_score", "medium")
+                if confidence_rank.get(current, 2) > confidence_rank.get(ceiling, 2):
+                    logger.info("[MotherAgent] Confidence capped: %s → %s (ceiling from upstream)", current, ceiling)
+                    output["confidence_score"] = ceiling
+                    output["_confidence_capped"] = True
+
         # Send to Devil's Advocate for challenge (non-blocking — store pending and continue)
         da_jid = os.getenv("DEVILS_ADVOCATE_JID", "")
         if da_jid and str(section) != "executive_summary":
@@ -670,11 +683,12 @@ class MotherAgent(Agent):
                 }, default=str),
                 ex=3600,
             )
+            prior_outputs = self._load_prior_outputs(run_id)
             da_input = {
                 "section_number": str(section),
                 "section_output": output,
                 "reasoning_trace": output.get("reasoning_trace", {}),
-                "cross_section_context": {},
+                "cross_section_context": prior_outputs,
             }
             await send_acl(
                 self,
@@ -850,12 +864,19 @@ class MotherAgent(Agent):
                 output["confidence_score"] = calibrated
                 output["_da_recalibrated"] = True
 
+            # So-What Filter — does this section actually help Alex make a decision?
+            agent_role = self._get_agent_role_for_section(section)
+            so_what_critique = await self.intelligence.apply_so_what_filter(output, agent_role)
+            if so_what_critique:
+                logger.warning("[MotherAgent] Section %s failed So-What filter: %s", section, so_what_critique)
+                emit_trace(trace_key, "Mother", "so_what_fail", f"Section {section}: {so_what_critique[:100]}")
+                output["_so_what_warning"] = so_what_critique
+
             output["_da_verdict"] = "pass"
             self._write_section_content(session_id, run_id, section, output, from_agent)
             self._finalize_task(task_id, session_id, run_id, section, output)
 
         elif verdict == "revise":
-            # Send challenges back to the child agent as feedback for revision
             high_challenges = [c for c in challenges if c.get("severity") == "high"]
             revision_feedback = "\n".join(
                 f"- [{c.get('challenge_type')}] {c.get('explanation')} → Fix: {c.get('suggested_fix')}"
@@ -864,28 +885,32 @@ class MotherAgent(Agent):
             logger.info("[MotherAgent] Section %s needs revision — %d challenges", section, len(challenges))
             emit_trace(trace_key, "Mother", "da_revise", f"Section {section} sent back for revision")
 
-            # Store feedback in Redis for the agent to pick up on retry
-            self.redis.client.set(
-                f"revision_feedback:{task_id}",
-                json.dumps({"challenges": challenges, "feedback": revision_feedback}),
-                ex=3600,
-            )
+            # Check retry count — max 1 revision loop to avoid infinite cycles
+            revision_key = f"da_revision_count:{task_id}"
+            revision_count = int(self.redis.client.get(revision_key) or 0)
 
-            # Accept with warnings rather than blocking pipeline
-            output["_da_verdict"] = "revise"
-            output["_da_challenges"] = [c.get("explanation", "") for c in challenges[:5]]
-            calibrated = await self.intelligence.calibrate_confidence(output, da_output)
-            output["confidence_score"] = calibrated
-            self._write_section_content(session_id, run_id, section, output, from_agent)
-            self._finalize_task(task_id, session_id, run_id, section, output)
+            if revision_count < 1:
+                # Re-dispatch to child agent with challenges as hard constraints
+                self.redis.client.set(revision_key, str(revision_count + 1), ex=3600)
+                await self._redispatch_with_feedback(
+                    task_id, session_id, run_id, section, output, from_agent, challenges, revision_feedback
+                )
+            else:
+                # Already revised once — accept with warnings
+                logger.info("[MotherAgent] Section %s already revised once — accepting with warnings", section)
+                output["_da_verdict"] = "revise"
+                output["_da_challenges"] = [c.get("explanation", "") for c in challenges[:5]]
+                calibrated = await self.intelligence.calibrate_confidence(output, da_output)
+                output["confidence_score"] = calibrated
+                self._write_section_content(session_id, run_id, section, output, from_agent)
+                self._finalize_task(task_id, session_id, run_id, section, output)
 
-            # Notify Alex about the challenges
-            challenge_text = "\n".join(f"• {c.get('explanation', '')[:100]}" for c in challenges[:3])
-            self._send_telegram(
-                session_id,
-                f"Section {section} has issues flagged by review:\n{challenge_text}\n\n"
-                f"Confidence downgraded to: {calibrated}. Will note in final plan."
-            )
+                challenge_text = "\n".join(f"• {c.get('explanation', '')[:100]}" for c in challenges[:3])
+                self._send_telegram(
+                    session_id,
+                    f"Section {section} has issues flagged by review:\n{challenge_text}\n\n"
+                    f"Confidence downgraded to: {calibrated}. Will note in final plan."
+                )
 
         elif verdict == "reject":
             logger.warning("[MotherAgent] Section %s REJECTED by DA — %d high-severity issues", section, len(challenges))
@@ -904,6 +929,108 @@ class MotherAgent(Agent):
                 f"Section {section} has serious issues:\n{challenge_text}\n\n"
                 f"Marked as LOW confidence. Please review this section carefully."
             )
+
+    async def _redispatch_with_feedback(
+        self,
+        task_id: str,
+        session_id: str,
+        run_id: str,
+        section: str,
+        original_output: dict,
+        from_agent: str,
+        challenges: list,
+        revision_feedback: str,
+    ):
+        """Re-dispatch a section to its child agent with DA challenges as constraints."""
+        trace_key = self._get_trace_key(session_id)
+        emit_trace(trace_key, "Mother", "redispatch", f"Re-dispatching section {section} with {len(challenges)} challenges")
+
+        agent_name = self._get_agent_name_for_section(section)
+        if not agent_name:
+            logger.warning("[MotherAgent] Cannot find agent for section %s — accepting with warnings", section)
+            original_output["_da_verdict"] = "revise"
+            original_output["_da_challenges"] = [c.get("explanation", "") for c in challenges[:5]]
+            original_output["confidence_score"] = "low"
+            self._write_section_content(session_id, run_id, section, original_output, from_agent)
+            self._finalize_task(task_id, session_id, run_id, section, original_output)
+            return
+
+        agent_config = self.agent_roster["agents"][agent_name]
+        agent_jid = os.getenv(agent_config.get("jid_env", ""), "")
+        if not agent_jid:
+            logger.warning("[MotherAgent] No JID for %s — accepting with warnings", agent_name)
+            original_output["_da_verdict"] = "revise"
+            original_output["confidence_score"] = "low"
+            self._write_section_content(session_id, run_id, section, original_output, from_agent)
+            self._finalize_task(task_id, session_id, run_id, section, original_output)
+            return
+
+        prior_outputs = self._load_prior_outputs(run_id)
+        phase1_data = self._read_phase1_session(session_id) or {}
+        section_config = self.dependency_map["sections"].get(str(section), {})
+        input_package = self._assemble_input_package(section_config, prior_outputs, phase1_data)
+
+        input_package["revision_required"] = True
+        input_package["revision_feedback"] = revision_feedback
+        input_package["challenges_to_fix"] = [
+            {
+                "claim": c.get("claim", ""),
+                "type": c.get("challenge_type", ""),
+                "fix": c.get("suggested_fix", ""),
+            }
+            for c in challenges
+            if c.get("severity") in ("high", "medium")
+        ]
+
+        revision_task = {
+            "task_name": f"Revise section {section} (DA feedback)",
+            "bp_section": str(section),
+            "purpose": f"Fix issues identified by Devil's Advocate review",
+            "input_package": input_package,
+            "output_format": "structured_json",
+            "owner": agent_name,
+            "acceptance_criteria": "Fix all high-severity challenges. Do not weaken analysis.",
+            "timeout_seconds": agent_config.get("timeout_seconds", 90),
+        }
+
+        new_task_id = f"{task_id}_rev"
+        self.redis.client.set(
+            f"da_pending:{new_task_id}",
+            json.dumps({
+                "section": section,
+                "output": original_output,
+                "from_agent": from_agent,
+                "session_id": session_id,
+                "run_id": run_id,
+            }, default=str),
+            ex=3600,
+        )
+
+        await send_acl(
+            self,
+            to_jid=agent_jid,
+            performative="request",
+            content={"task": revision_task, "task_id": new_task_id},
+            task_id=new_task_id,
+            session_id=session_id,
+            pipeline_run_id=run_id,
+        )
+        logger.info("[MotherAgent] Section %s re-dispatched to %s for revision", section, agent_name)
+
+    def _get_agent_name_for_section(self, section: str) -> Optional[str]:
+        """Look up which agent owns a given section number."""
+        for name, config in self.agent_roster["agents"].items():
+            if str(section) in [str(s) for s in config.get("sections_owned", [])]:
+                return name
+        return None
+
+    def _get_agent_role_for_section(self, section: str) -> str:
+        """Get the agent's role description for So-What filter context."""
+        agent_name = self._get_agent_name_for_section(section)
+        if agent_name:
+            config = self.agent_roster["agents"].get(agent_name, {})
+            return config.get("description", f"Agent for section {section}")
+        return f"Agent for section {section}"
 
     def _finalize_task(self, task_id: str, session_id: str, run_id: str, section: str, output: dict):
         """Mark task complete and store output after DA review."""
@@ -1726,6 +1853,17 @@ Only include sections where the condition clearly applies based on the business 
                     }
                     value = defaults.get(field)
                 package[field] = value
+
+        # Hard constraint propagation — enforce numerical consistency across sections
+        hard_constraints = self._extract_hard_constraints(prior_outputs)
+        if hard_constraints:
+            package["hard_constraints"] = hard_constraints
+
+        # Confidence ceiling — agent cannot claim higher confidence than weakest upstream input
+        confidence_ceiling = self._compute_confidence_ceiling(section_config, prior_outputs)
+        if confidence_ceiling:
+            package["confidence_ceiling"] = confidence_ceiling
+
         return package
 
     def _find_field_in_prior_outputs(self, field: str, prior_outputs: dict):
@@ -1738,6 +1876,84 @@ Only include sections where the condition clearly applies based on the business 
                 if isinstance(nested_value, dict) and field in nested_value:
                     return nested_value[field]
         return None
+
+    def _extract_hard_constraints(self, prior_outputs: dict) -> dict:
+        """Extract binding numerical facts from upstream sections.
+
+        These are numbers that downstream agents MUST use exactly — not reinterpret.
+        Prevents contradictions like Marketing saying $200/unit but Financial assuming $150.
+        """
+        constraints = {}
+
+        for section_num, output in prior_outputs.items():
+            if not isinstance(output, dict):
+                continue
+
+            # Revenue assumptions from Marketing (Section 8)
+            rev = output.get("revenue_assumptions")
+            if isinstance(rev, dict):
+                price = rev.get("price_per_unit")
+                vol_y1 = rev.get("volume_year1")
+                vol_y2 = rev.get("volume_year2")
+                vol_y3 = rev.get("volume_year3")
+                if price is not None:
+                    constraints["price_per_unit"] = {"value": price, "source": f"Section {section_num}"}
+                if vol_y1 is not None:
+                    constraints["volume_year1"] = {"value": vol_y1, "source": f"Section {section_num}"}
+                    if price is not None:
+                        try:
+                            constraints["revenue_year1"] = {
+                                "value": float(price) * float(vol_y1),
+                                "source": f"Section {section_num} (price × volume)",
+                            }
+                        except (TypeError, ValueError):
+                            pass
+                if vol_y2 is not None:
+                    constraints["volume_year2"] = {"value": vol_y2, "source": f"Section {section_num}"}
+                if vol_y3 is not None:
+                    constraints["volume_year3"] = {"value": vol_y3, "source": f"Section {section_num}"}
+
+            # CAC from Marketing
+            cac = output.get("cac_assumptions")
+            if isinstance(cac, dict) and cac.get("cac_estimate") is not None:
+                constraints["cac_estimate"] = {"value": cac["cac_estimate"], "source": f"Section {section_num}"}
+
+            # Headcount from Org Designer (Section 4/11)
+            headcount = output.get("headcount_plan")
+            if isinstance(headcount, dict):
+                total = headcount.get("total_headcount") or headcount.get("year1_headcount")
+                if total is not None:
+                    constraints["headcount_year1"] = {"value": total, "source": f"Section {section_num}"}
+
+            # Break-even from Financial (Section 12)
+            be = output.get("break_even_analysis")
+            if isinstance(be, dict) and be.get("break_even_month"):
+                constraints["break_even_month"] = {"value": be["break_even_month"], "source": f"Section {section_num}"}
+
+        return constraints
+
+    def _compute_confidence_ceiling(self, section_config: dict, prior_outputs: dict) -> Optional[str]:
+        """An agent's confidence cannot exceed the weakest confidence of its upstream dependencies.
+
+        If your inputs are "low" confidence, your output cannot honestly be "high".
+        """
+        confidence_rank = {"high": 3, "medium": 2, "low": 1}
+        depends_on = section_config.get("depends_on", [])
+
+        if not depends_on:
+            return None
+
+        min_confidence = 3
+        for dep_section in depends_on:
+            dep_output = prior_outputs.get(str(dep_section), {})
+            if isinstance(dep_output, dict):
+                dep_confidence = dep_output.get("confidence_score", "medium")
+                rank = confidence_rank.get(dep_confidence, 2)
+                min_confidence = min(min_confidence, rank)
+
+        rank_to_label = {3: "high", 2: "medium", 1: "low"}
+        ceiling = rank_to_label.get(min_confidence, "medium")
+        return ceiling
 
     # ── Misc helpers ──────────────────────────────────────────────────────────
 
