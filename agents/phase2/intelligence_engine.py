@@ -88,6 +88,23 @@ class IntelligenceEngine:
         if confidence_ceiling:
             ceiling_str = f"\n\nCONFIDENCE CEILING: Your confidence_score CANNOT exceed '{confidence_ceiling}' because your upstream inputs have that confidence level. Be honest."
 
+        # Upstream uncertainties — things you're building on that are shaky
+        uncertainties_str = ""
+        upstream_uncertainties = input_data.get("upstream_uncertainties", [])
+        if upstream_uncertainties:
+            unc_lines = [f"  - [From Section {u.get('from_section', '?')}] {u.get('uncertainty', '')}" for u in upstream_uncertainties[:8]]
+            uncertainties_str = (
+                "\n\nUPSTREAM UNCERTAINTIES (your inputs have these known unknowns — acknowledge them in your output, do not build confidently on shaky ground):\n"
+                + "\n".join(unc_lines)
+            )
+
+        # CEO-provided data — real facts from Alex's documents
+        ceo_data_str = ""
+        ceo_provided = input_data.get("ceo_provided_data", {})
+        if ceo_provided:
+            ceo_text = json.dumps(ceo_provided, indent=2, default=str)[:3000]
+            ceo_data_str = f"\n\nCEO-PROVIDED DATA (real facts from Alex — prioritize these over inferences):\n{ceo_text}"
+
         learning_str = ""
         if learning_context:
             learning_str = f"\n\n{learning_context}"
@@ -99,7 +116,7 @@ class IntelligenceEngine:
 
 INPUT DATA:
 {input_str}
-{cross_context_str}{constraints_str}{ceiling_str}{learning_str}
+{cross_context_str}{constraints_str}{ceiling_str}{uncertainties_str}{ceo_data_str}{learning_str}
 
 Before producing any output, analyze the problem:
 1. What are the 3 most critical judgments I must make for this section?
@@ -130,7 +147,7 @@ Now produce the structured output. Rules:
 - Be honest about confidence: LOW means "I'm guessing", not "it's probably fine"
 - Be specific: "$120k ARR" not "significant revenue"; "18-month window" not "limited time"
 - If cross-section data contradicts your conclusion, note the conflict
-{constraints_str}{ceiling_str}
+{constraints_str}{ceiling_str}{uncertainties_str}
 
 INPUT DATA:
 {input_str}
@@ -315,6 +332,72 @@ Be harsh. Generic outputs like "the market is growing" or "competition exists" f
         if response and response.strip().startswith("PASS"):
             return None
         return response
+
+    async def validate_hypotheses(self, section_output: dict, agent_role: str) -> list:
+        """Test whether quantitative claims in a section are internally consistent.
+
+        Checks funnel math, unit economics, and timeline feasibility.
+        Returns a list of failed hypotheses (empty if all pass).
+        """
+        quantitative_fields = {}
+        for key, value in section_output.items():
+            if key.startswith("_") or key in ("input_tokens", "output_tokens", "model_used",
+                                               "task_id", "section_number", "reasoning_trace"):
+                continue
+            if isinstance(value, (int, float)):
+                quantitative_fields[key] = value
+            elif isinstance(value, dict):
+                for k, v in value.items():
+                    if isinstance(v, (int, float)):
+                        quantitative_fields[f"{key}.{k}"] = v
+
+        if len(quantitative_fields) < 2:
+            return []
+
+        fields_str = json.dumps(quantitative_fields, indent=2, default=str)
+        section_str = json.dumps(
+            {k: v for k, v in section_output.items()
+             if k not in ("input_tokens", "output_tokens", "model_used", "task_id", "reasoning_trace")},
+            indent=2, default=str,
+        )[:4000]
+
+        response, _ = await self._call(
+            system="You are a quantitative analyst. Your job: check if the numbers in this business plan section are internally consistent and realistic. Only flag REAL problems — not stylistic preferences.",
+            user=f"""Section from: {agent_role}
+
+NUMERICAL VALUES EXTRACTED:
+{fields_str}
+
+FULL SECTION:
+{section_str}
+
+Check these hypotheses:
+1. FUNNEL MATH: If volume=X and conversion=Y%, does the required traffic/leads make sense? (e.g., 500 sales at 2% conversion = 25,000 leads needed — is that realistic for the business type?)
+2. UNIT ECONOMICS: Does revenue_per_unit × volume actually equal total revenue? Does CAC × customers equal total acquisition spend?
+3. TIMELINE FEASIBILITY: Can you actually achieve the claimed volume in the claimed timeframe given the stated resources?
+4. GROWTH CONSISTENCY: Are year-over-year growth rates consistent with the market size and competitive position described?
+
+For each check, answer PASS or FAIL with ONE sentence explaining why.
+
+Return ONLY valid JSON array:
+[{{"hypothesis": "funnel_math|unit_economics|timeline|growth", "result": "pass|fail", "explanation": "...", "numbers_involved": "..."}}]
+
+If everything checks out, return an empty array: []""",
+            max_tokens=1024,
+        )
+
+        if not response:
+            return []
+
+        try:
+            text = strip_markdown_json(response)
+            results = json.loads(text)
+            if isinstance(results, list):
+                return [r for r in results if isinstance(r, dict) and r.get("result") == "fail"]
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        return []
 
     async def _call(self, system: str, user: str, max_tokens: int = 4096, retries: int = 3) -> tuple[Optional[str], dict]:
         """Make a single LLM call with exponential backoff on throttling."""

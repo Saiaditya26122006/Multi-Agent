@@ -28,6 +28,7 @@ from tools.trace_emitter import emit_trace
 from agents.phase2.intelligence_engine import IntelligenceEngine
 from agents.phase2.learning_engine import LearningEngine
 from agents.phase2.document_compiler import DocumentCompiler
+from ceo_data.loader import load_all_ceo_data, get_relevant_ceo_data
 
 
 def load_yaml(path: str) -> dict:
@@ -872,6 +873,16 @@ class MotherAgent(Agent):
                 emit_trace(trace_key, "Mother", "so_what_fail", f"Section {section}: {so_what_critique[:100]}")
                 output["_so_what_warning"] = so_what_critique
 
+            # Hypothesis testing — validate funnel math and unit economics
+            failed_hypotheses = await self.intelligence.validate_hypotheses(output, agent_role)
+            if failed_hypotheses:
+                logger.warning("[MotherAgent] Section %s has %d failed hypotheses", section, len(failed_hypotheses))
+                emit_trace(trace_key, "Mother", "hypothesis_fail", f"Section {section}: {len(failed_hypotheses)} failed checks")
+                output["_hypothesis_warnings"] = [
+                    f"[{h.get('hypothesis', '')}] {h.get('explanation', '')}"
+                    for h in failed_hypotheses
+                ]
+
             output["_da_verdict"] = "pass"
             self._write_section_content(session_id, run_id, section, output, from_agent)
             self._finalize_task(task_id, session_id, run_id, section, output)
@@ -1087,6 +1098,134 @@ class MotherAgent(Agent):
         }
         return fallback_templates.get(str(section))
 
+    # ── Backward pass ────────────────────────────────────────────────────────
+
+    async def _run_backward_pass(
+        self,
+        session_id: str,
+        run_id: str,
+        all_outputs: dict,
+        issues: list,
+        sections_to_regen: set,
+    ):
+        """Re-dispatch upstream sections that have conflicts with downstream sections.
+
+        This is the core intelligence mechanism: when Financial discovers that Marketing's
+        revenue assumptions produce a 24-month break-even, it routes back to Marketing
+        with the specific conflict so Marketing can revise pricing/volume.
+        """
+        trace_key = self._get_trace_key(session_id)
+        emit_trace(
+            trace_key, "Mother", "backward_pass_start",
+            f"Backward pass: re-dispatching {len(sections_to_regen)} sections",
+            {"sections": list(sections_to_regen)},
+        )
+        logger.info("[MotherAgent] Backward pass — regenerating sections: %s", sections_to_regen)
+
+        # Determine which section in each conflict is "upstream" (should be revised)
+        # Strategy: the section with higher dependency depth is downstream (it's correct about the math),
+        # so we revise the upstream section that fed it bad assumptions.
+        sections_depth = {}
+        for sec_num, sec_config in self.dependency_map.get("sections", {}).items():
+            deps = sec_config.get("depends_on", [])
+            sections_depth[sec_num] = len(deps)
+
+        upstream_targets = set()
+        for issue in issues:
+            involved = issue.get("sections_involved", [])
+            if len(involved) >= 2:
+                # The section with fewer dependencies is upstream — revise it
+                sorted_by_depth = sorted(involved, key=lambda s: sections_depth.get(str(s), 0))
+                upstream_targets.add(str(sorted_by_depth[0]))
+            else:
+                upstream_targets.update(str(s) for s in involved)
+
+        if not upstream_targets:
+            upstream_targets = sections_to_regen
+
+        phase1_data = self._read_phase1_session(session_id) or {}
+
+        for section in upstream_targets:
+            if section not in all_outputs:
+                continue
+
+            relevant_issues = [
+                i for i in issues
+                if str(section) in [str(s) for s in i.get("sections_involved", [])]
+            ]
+            if not relevant_issues:
+                continue
+
+            # Build revision feedback from the specific conflicts
+            feedback_lines = []
+            for issue in relevant_issues:
+                other_sections = [s for s in issue.get("sections_involved", []) if str(s) != str(section)]
+                feedback_lines.append(
+                    f"- [{issue.get('type', 'conflict')}] {issue.get('description', '')} "
+                    f"(conflicts with Section {', '.join(str(s) for s in other_sections)})"
+                )
+
+            revision_feedback = (
+                "BACKWARD PASS — downstream sections found these conflicts with YOUR output:\n"
+                + "\n".join(feedback_lines)
+                + "\n\nRevise your output to resolve these conflicts. "
+                "Use the hard_constraints values (from downstream) as the ground truth where numbers conflict."
+            )
+
+            agent_name = self._get_agent_name_for_section(section)
+            if not agent_name:
+                continue
+
+            agent_config = self.agent_roster["agents"][agent_name]
+            agent_jid = os.getenv(agent_config.get("jid_env", ""), "")
+            if not agent_jid:
+                continue
+
+            section_config = self.dependency_map["sections"].get(str(section), {})
+            input_package = self._assemble_input_package(section_config, all_outputs, phase1_data)
+            input_package["revision_required"] = True
+            input_package["revision_feedback"] = revision_feedback
+            input_package["backward_pass"] = True
+
+            task_id = f"backward_{run_id}_{section}"
+            revision_task = {
+                "task_name": f"Backward pass: revise section {section}",
+                "bp_section": str(section),
+                "purpose": "Resolve cross-section conflicts identified by coherence audit",
+                "input_package": input_package,
+                "output_format": "structured_json",
+                "owner": agent_name,
+                "acceptance_criteria": "Resolve all flagged conflicts. Numbers must match downstream sections.",
+                "timeout_seconds": agent_config.get("timeout_seconds", 90),
+            }
+
+            emit_trace(
+                trace_key, "Mother", "backward_dispatch",
+                f"Backward pass: re-dispatching section {section} to {agent_name}",
+            )
+
+            await send_acl(
+                self,
+                to_jid=agent_jid,
+                performative="request",
+                content={"task": revision_task, "task_id": task_id},
+                task_id=task_id,
+                session_id=session_id,
+                pipeline_run_id=run_id,
+            )
+
+            # Wait for revised output
+            revised_output = await self._wait_for_task_output(task_id, timeout=agent_config.get("timeout_seconds", 90))
+            if revised_output and isinstance(revised_output, dict):
+                all_outputs[section] = revised_output
+                self._write_section_content(session_id, run_id, section, revised_output, agent_name)
+                logger.info("[MotherAgent] Backward pass: section %s revised successfully", section)
+            else:
+                logger.warning("[MotherAgent] Backward pass: section %s revision timed out — keeping original", section)
+
+        # Re-run coherence audit after backward pass (delivers on this pass)
+        await self._run_coherence_audit(session_id, run_id, all_outputs)
+
     # ── Coherence audit ───────────────────────────────────────────────────────
 
     async def _run_coherence_audit(self, session_id: str, run_id: str, all_outputs: dict):
@@ -1203,14 +1342,8 @@ If no issues found, return {{"passed": true, "issues": [], "confidence_summary":
                 f"Attempting to regenerate conflicting sections..."
             )
 
-            # Inject coherence feedback into outputs and re-run affected sections
-            for sec in sections_to_regen:
-                if sec in all_outputs and isinstance(all_outputs[sec], dict):
-                    relevant_issues = [i["description"] for i in high_severity if sec in i.get("sections_involved", [])]
-                    all_outputs[sec]["_coherence_feedback"] = relevant_issues
-
-            # Re-run coherence audit after noting issues (delivers on second pass)
-            await self._run_coherence_audit(session_id, run_id, all_outputs)
+            # Backward pass: re-dispatch conflicting upstream sections with specific fix instructions
+            await self._run_backward_pass(session_id, run_id, all_outputs, high_severity, sections_to_regen)
             return
 
         if high_severity:
@@ -1805,6 +1938,11 @@ Only include sections where the condition clearly applies based on the business 
         if learning_ctx:
             package["learning_context"] = learning_ctx
 
+        # Inject CEO-provided data relevant to this section
+        ceo_data = get_relevant_ceo_data(str(section_num))
+        if ceo_data:
+            package["ceo_provided_data"] = ceo_data
+
         # Inject cross-section context from completed sections
         if prior_outputs:
             package["cross_section_context"] = {
@@ -1863,6 +2001,11 @@ Only include sections where the condition clearly applies based on the business 
         confidence_ceiling = self._compute_confidence_ceiling(section_config, prior_outputs)
         if confidence_ceiling:
             package["confidence_ceiling"] = confidence_ceiling
+
+        # Uncertainty propagation — upstream unknowns that this agent must be aware of
+        propagated_uncertainties = self._propagate_uncertainties(section_config, prior_outputs)
+        if propagated_uncertainties:
+            package["upstream_uncertainties"] = propagated_uncertainties
 
         return package
 
@@ -1954,6 +2097,44 @@ Only include sections where the condition clearly applies based on the business 
         rank_to_label = {3: "high", 2: "medium", 1: "low"}
         ceiling = rank_to_label.get(min_confidence, "medium")
         return ceiling
+
+    def _propagate_uncertainties(self, section_config: dict, prior_outputs: dict) -> list:
+        """Collect uncertainties from upstream sections that this section depends on.
+
+        If Marketing flagged "pricing is uncertain — no market validation", then Financial
+        must know it's building on shaky ground, not treat the price as gospel.
+        """
+        depends_on = section_config.get("depends_on", [])
+        propagated = []
+
+        for dep_section in depends_on:
+            dep_output = prior_outputs.get(str(dep_section), {})
+            if not isinstance(dep_output, dict):
+                continue
+
+            # Collect explicit uncertainties
+            uncertainties = dep_output.get("uncertainties", [])
+            for u in uncertainties[:3]:
+                if isinstance(u, str):
+                    propagated.append({"from_section": str(dep_section), "uncertainty": u})
+                elif isinstance(u, dict):
+                    propagated.append({"from_section": str(dep_section), "uncertainty": u.get("description", str(u))})
+
+            # Collect low-confidence assumptions
+            assumptions = dep_output.get("assumptions_used", [])
+            for a in assumptions:
+                if isinstance(a, dict) and a.get("confidence") == "low":
+                    propagated.append({
+                        "from_section": str(dep_section),
+                        "uncertainty": f"Low-confidence assumption: {a.get('statement', a.get('assumption', str(a)))}",
+                    })
+
+            # Flag hypothesis warnings from upstream
+            hyp_warnings = dep_output.get("_hypothesis_warnings", [])
+            for hw in hyp_warnings[:2]:
+                propagated.append({"from_section": str(dep_section), "uncertainty": f"Upstream math concern: {hw}"})
+
+        return propagated[:10]
 
     # ── Misc helpers ──────────────────────────────────────────────────────────
 
