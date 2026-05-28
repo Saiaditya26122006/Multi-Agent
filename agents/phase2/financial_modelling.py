@@ -193,7 +193,6 @@ class FinancialModellingAgent(Agent):
 
         result = validated_output.model_dump()
         result["reasoning_trace"] = reasoning_trace
-        self.redis.client.set(f"task_output:{task_id}", json.dumps(result, default=str), ex=3600)
 
         await self._check_contradictions(task_id, session_id, pipeline_run_id, validated_input, sim_results, result)
         await self._send_inform(task_id, session_id, pipeline_run_id, result)

@@ -271,20 +271,17 @@ class CouncilAgent(Agent):
         output: dict,
         verdict: CouncilVerdict,
     ):
-        """Forward approved output to Mother Agent."""
+        """Forward approved output to Mother Agent via Redis task_output key."""
         output["_council_score"] = verdict.score
         output["_council_decision"] = verdict.decision
         if verdict.decision != "pass":
             output["_council_warnings"] = verdict.feedback
 
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "inform")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"output": output, "section_number": section_number})
-        await self._send_msg(msg)
+        self.redis.client.set(
+            f"task_output:{task_id}",
+            json.dumps(output, default=str),
+            ex=3600,
+        )
 
     async def _send_back_to_child(
         self,

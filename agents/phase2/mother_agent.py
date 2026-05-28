@@ -28,6 +28,7 @@ from tools.trace_emitter import emit_trace
 from agents.phase2.intelligence_engine import IntelligenceEngine
 from agents.phase2.learning_engine import LearningEngine
 from agents.phase2.document_compiler import DocumentCompiler
+from config.phase2.council_config import COUNCIL_GATED_SECTIONS
 from ceo_data.loader import load_all_ceo_data, get_relevant_ceo_data
 
 
@@ -193,7 +194,7 @@ class MotherAgent(Agent):
             region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
         )
         self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
-        self.learning = LearningEngine(self.redis)
+        self.learning = LearningEngine(self.redis, self.db)
         self.compiler = DocumentCompiler(self.bedrock, self.model_id)
 
     # ── Agent lifecycle ───────────────────────────────────────────────────────
@@ -481,6 +482,14 @@ class MotherAgent(Agent):
         if response["action"] == "edit":
             tasks = self._apply_edit(tasks, response["edits"])
             self._recheck_dependencies(tasks)
+            for task_name, edit_details in response.get("edits", {}).items():
+                self.learning.record_edit(
+                    session_id=session_id,
+                    section_number=str(group_number),
+                    field_edited=task_name,
+                    original_value=str(edit_details.get("original", "")),
+                    new_value=str(edit_details.get("new", edit_details)),
+                )
 
         if response["action"] == "add":
             new_task = self._classify_new_task(response["new_task"], applicable_sections)
@@ -592,6 +601,8 @@ class MotherAgent(Agent):
         agent_jid = os.getenv(agent_config.get("jid_env", ""), "")
         trace_key = self._get_trace_key(session_id)
         trace_agent = agent_config.get("trace_name", agent_name.replace("_", " ").title().replace(" ", ""))
+        section = task.get("bp_section", "")
+        is_council_gated = str(section) in COUNCIL_GATED_SECTIONS
 
         if not agent_jid:
             print(f"[MotherAgent] No JID for agent {agent_name} — task skipped")
@@ -602,7 +613,7 @@ class MotherAgent(Agent):
             .update({"status": "running", "started_at": datetime.utcnow().isoformat()}) \
             .eq("id", task_id).execute()
 
-        emit_trace(trace_key, trace_agent, "processing", f"Working on section {task.get('bp_section')}", {"task_id": task_id})
+        emit_trace(trace_key, trace_agent, "processing", f"Working on section {section}", {"task_id": task_id})
 
         # Send request to child agent
         await send_acl(
@@ -615,14 +626,70 @@ class MotherAgent(Agent):
             pipeline_run_id=run_id,
         )
 
-        # Wait for inform response (stored in Redis by child agent)
-        output = await self._wait_for_task_output(task_id, timeout=task.get("timeout_seconds", 90))
+        # Council-gated sections get more time (child + council review)
+        timeout = task.get("timeout_seconds", 90)
+        if is_council_gated:
+            timeout = timeout + 120
+
+        # Wait for output in Redis (set by child directly or by Council after review)
+        output = await self._wait_for_task_output(task_id, timeout=timeout)
 
         if output:
             confidence = output.get("confidence_score", "unknown") if isinstance(output, dict) else "unknown"
-            emit_trace(trace_key, trace_agent, "complete", f"Section {task.get('bp_section')} done — confidence: {confidence}", {"confidence": confidence})
+            emit_trace(trace_key, trace_agent, "complete", f"Section {section} done — confidence: {confidence}", {"confidence": confidence})
+
+            # Council-gated sections: already reviewed by Council, run evidence
+            # grading and finalize inline (they skip handle_inform DA path)
+            if is_council_gated and isinstance(output, dict):
+                output = await self._post_process_council_output(
+                    task_id, session_id, run_id, section, output, agent_name
+                )
         else:
-            emit_trace(trace_key, trace_agent, "timeout", f"Section {task.get('bp_section')} timed out")
+            emit_trace(trace_key, trace_agent, "timeout", f"Section {section} timed out")
+
+        return output
+
+    async def _post_process_council_output(
+        self,
+        task_id: str,
+        session_id: str,
+        run_id: str,
+        section: str,
+        output: dict,
+        agent_name: str,
+    ) -> dict:
+        """Post-process council-reviewed output: evidence grading, write to DB, finalize."""
+        trace_key = self._get_trace_key(session_id)
+
+        # Grade evidence on assumptions
+        assumptions = output.get("assumptions_used", output.get("assumption_log", []))
+        if assumptions:
+            available_evidence = output.get("ceo_provided_data", {})
+            graded = await self.intelligence.grade_evidence(assumptions, available_evidence)
+            if graded and graded != assumptions:
+                output["assumptions_used"] = graded
+                emit_trace(trace_key, "Mother", "evidence_graded", f"Section {section}: assumptions re-graded")
+
+        # Enforce confidence ceiling
+        section_config = self.dependency_map["sections"].get(str(section), {})
+        prior_outputs = self._load_prior_outputs(run_id)
+        ceiling = self._compute_confidence_ceiling(section_config, prior_outputs)
+        if ceiling:
+            confidence_rank = {"high": 3, "medium": 2, "low": 1}
+            current = output.get("confidence_score", "medium")
+            if confidence_rank.get(current, 2) > confidence_rank.get(ceiling, 2):
+                logger.info("[MotherAgent] Council output confidence capped: %s → %s", current, ceiling)
+                output["confidence_score"] = ceiling
+                output["_confidence_capped"] = True
+
+        # Constitution enforcement
+        violations = self._enforce_constitution(section, output)
+        if violations:
+            output["_constitution_warnings"] = violations
+
+        # Write to Supabase
+        self._write_section_content(session_id, run_id, section, output, agent_name)
+        self._finalize_task(task_id, session_id, run_id, section, output)
 
         return output
 
@@ -884,6 +951,24 @@ class MotherAgent(Agent):
                     for h in failed_hypotheses
                 ]
 
+            # Evidence grading — verify assumption confidence labels are honest
+            assumptions = output.get("assumptions_used", output.get("assumption_log", []))
+            if assumptions:
+                available_evidence = output.get("ceo_provided_data", {})
+                graded = await self.intelligence.grade_evidence(assumptions, available_evidence)
+                if graded and graded != assumptions:
+                    output["assumptions_used"] = graded
+                    emit_trace(trace_key, "Mother", "evidence_graded", f"Section {section}: assumptions re-graded")
+
+            # Record DA accuracy for learning
+            for challenge in challenges:
+                self.learning.record_da_accuracy(
+                    session_id=session_id,
+                    section_number=str(section),
+                    challenge_type=challenge.get("challenge_type", "unknown"),
+                    was_valid=challenge.get("severity") != "low",
+                )
+
             output["_da_verdict"] = "pass"
             self._write_section_content(session_id, run_id, section, output, from_agent)
             self._finalize_task(task_id, session_id, run_id, section, output)
@@ -896,6 +981,14 @@ class MotherAgent(Agent):
             )
             logger.info("[MotherAgent] Section %s needs revision — %d challenges", section, len(challenges))
             emit_trace(trace_key, "Mother", "da_revise", f"Section {section} sent back for revision")
+
+            for challenge in challenges:
+                self.learning.record_da_accuracy(
+                    session_id=session_id,
+                    section_number=str(section),
+                    challenge_type=challenge.get("challenge_type", "unknown"),
+                    was_valid=True,
+                )
 
             # Check retry count — max 1 revision loop to avoid infinite cycles
             revision_key = f"da_revision_count:{task_id}"
@@ -927,6 +1020,21 @@ class MotherAgent(Agent):
         elif verdict == "reject":
             logger.warning("[MotherAgent] Section %s REJECTED by DA — %d high-severity issues", section, len(challenges))
             emit_trace(trace_key, "Mother", "da_reject", f"Section {section} rejected — escalating")
+
+            for challenge in challenges:
+                self.learning.record_da_accuracy(
+                    session_id=session_id,
+                    section_number=str(section),
+                    challenge_type=challenge.get("challenge_type", "unknown"),
+                    was_valid=True,
+                )
+
+            self.learning.record_rejection(
+                session_id=session_id,
+                section_number=str(section),
+                reason=f"DA rejected: {len(challenges)} high-severity issues",
+                ceo_feedback=da_output.get("summary", ""),
+            )
 
             # Downgrade to low confidence and accept with heavy warnings
             output["_da_verdict"] = "reject"
@@ -1769,6 +1877,12 @@ Only include sections where the condition clearly applies based on the business 
     def _kill_group(self, run_id: str, group_id: str, session_id: str):
         self._update_group_status(group_id, "killed")
         self._fail_pipeline(run_id, "Alex killed the group")
+        self.learning.record_rejection(
+            session_id=session_id,
+            section_number="group",
+            reason="Alex killed the execution group",
+            ceo_feedback="Group killed via Gate 2",
+        )
         self._send_telegram(session_id, "Group killed. Pipeline stopped. Nothing has been executed.")
 
     # ── Delivery ──────────────────────────────────────────────────────────────
@@ -1805,10 +1919,25 @@ Only include sections where the condition clearly applies based on the business 
         except Exception:
             pass
 
+        # Fetch council reports for this run
+        council_reports = None
+        try:
+            cr_result = self.db.client.table("council_reports") \
+                .select("*") \
+                .eq("pipeline_run_id", run_id) \
+                .order("section_number") \
+                .execute()
+            if cr_result.data:
+                council_reports = cr_result.data
+        except Exception:
+            pass
+
         compiled_doc = None
         try:
             business_name = all_outputs.get("1", {}).get("opportunity_description", "The Business")[:80]
-            compiled_doc = await self.compiler.compile(all_outputs, business_name, coherence_audit)
+            compiled_doc = await self.compiler.compile(
+                all_outputs, business_name, coherence_audit, council_reports
+            )
         except Exception as e:
             logger.warning("[MotherAgent] Document compilation failed: %s — delivering JSON only", e)
 

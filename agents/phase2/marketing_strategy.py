@@ -162,7 +162,6 @@ class MarketingStrategyAgent(Agent):
 
         result = validated_output.model_dump()
         result["reasoning_trace"] = reasoning_trace
-        self.redis.client.set(f"task_output:{task_id}", json.dumps(result, default=str), ex=3600)
         await self._send_inform(task_id, session_id, pipeline_run_id, result)
 
     async def handle_revise(self, task_id, session_id, pipeline_run_id, content):
