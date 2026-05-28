@@ -47,6 +47,7 @@ class DocumentCompiler:
         all_outputs: dict,
         business_name: str = "The Business",
         coherence_audit: Optional[dict] = None,
+        council_reports: Optional[list] = None,
     ) -> str:
         """Compile all section outputs into a full Markdown business plan."""
         sections_md = []
@@ -73,6 +74,11 @@ class DocumentCompiler:
         # Appendix: confidence & data quality
         quality_md = self._compile_quality_appendix(all_outputs, coherence_audit)
         sections_md.append(quality_md)
+
+        # Appendix: Council quality assurance
+        if council_reports:
+            council_md = self._compile_council_appendix(council_reports)
+            sections_md.append(council_md)
 
         return "\n\n".join(sections_md)
 
@@ -171,6 +177,54 @@ Return ONLY the Markdown content for this section (no code blocks wrapping it)."
         flagged = [a for a in all_assumptions if a["confidence"] == "low" or a["source"] == "assumed"]
         if flagged:
             lines.append(f"\n**{len(flagged)} assumptions require validation before external use.**")
+
+        return "\n".join(lines)
+
+    def _compile_council_appendix(self, council_reports: list) -> str:
+        """Compile Council review results into a transparency appendix."""
+        lines = ["## Appendix C: Quality Assurance (Council Review)\n"]
+
+        if not council_reports:
+            lines.append("No council reviews recorded for this run.")
+            return "\n".join(lines)
+
+        lines.append("| Section | Score | Decision | Attempts | Key Finding |")
+        lines.append("|---------|-------|----------|----------|-------------|")
+
+        total_score = 0.0
+        revisions_triggered = 0
+
+        for report in council_reports:
+            section = report.get("section_number", "?")
+            score = report.get("score", 0)
+            decision = report.get("decision", "?")
+            attempt = report.get("attempt", 1)
+            critiques = report.get("critiques", [])
+            total_score += score
+            if decision == "revise":
+                revisions_triggered += 1
+
+            key_finding = ""
+            critical = [c for c in critiques if c.get("severity") == "critical"]
+            if critical:
+                key_finding = critical[0].get("top_finding", "")[:60]
+            elif critiques:
+                key_finding = critiques[0].get("top_finding", "")[:60]
+
+            lines.append(f"| {section} | {score:.1f}/10 | {decision} | {attempt} | {key_finding} |")
+
+        avg_score = total_score / max(len(council_reports), 1)
+        lines.append(f"\n**Average Quality Score:** {avg_score:.1f}/10")
+        lines.append(f"**Revisions Triggered:** {revisions_triggered}")
+        lines.append(f"**Sections Reviewed:** {len(council_reports)}")
+
+        improvements = []
+        for report in council_reports:
+            for imp in report.get("improvements_made", []):
+                improvements.append(f"- [{report.get('section_number', '?')}] {imp}")
+        if improvements:
+            lines.append("\n**Improvements Made After Review:**")
+            lines.extend(improvements[:10])
 
         return "\n".join(lines)
 

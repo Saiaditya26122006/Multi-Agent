@@ -36,3 +36,20 @@ class FailedHypothesis(BaseModel):
 
 class CalibrateConfidenceOutput(BaseModel):
     calibrated_confidence: Literal["high", "medium", "low"]
+
+
+class GradeEvidenceOutput(BaseModel):
+    graded_claims: List[GradedClaim] = Field(default_factory=list)
+    total_claims: int = Field(default=0, ge=0)
+    downgraded_count: int = Field(default=0, ge=0)
+
+
+class ValidateHypothesesOutput(BaseModel):
+    failed_hypotheses: List[FailedHypothesis] = Field(default_factory=list)
+    total_checked: int = Field(default=0, ge=0)
+    all_passed: bool = Field(default=True)
+
+
+class SoWhatFilterOutput(BaseModel):
+    passed: bool = Field(default=True)
+    critique: Optional[str] = Field(default=None, description="Critique text if failed, None if passed")

@@ -30,3 +30,12 @@ class RecordDAAccuracyInput(BaseModel):
     section_number: str
     challenge_type: str
     was_valid: bool = Field(..., description="Whether the DA challenge turned out to be correct")
+
+
+class GetSectionHistoryInput(BaseModel):
+    section_number: str = Field(..., description="Section number to get history for")
+    limit: int = Field(default=10, ge=1, le=50, description="Max records to return")
+
+
+class BuildLearningContextInput(BaseModel):
+    section_number: str = Field(..., description="Section number to build context for")

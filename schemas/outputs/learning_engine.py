@@ -26,3 +26,16 @@ class DAAccuracyStats(BaseModel):
 class LearningContext(BaseModel):
     context_text: str = Field(default="", description="Formatted learning context string for prompt injection")
     failure_count: int = Field(default=0, description="Number of past failures for this section type")
+
+
+class SectionHistory(BaseModel):
+    records: List[PatternRecord] = Field(default_factory=list)
+    total_records: int = Field(default=0, ge=0)
+    acceptance_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class FailurePatterns(BaseModel):
+    patterns: List[PatternRecord] = Field(default_factory=list)
+    most_edited_fields: List[str] = Field(default_factory=list)
+    rejection_count: int = Field(default=0, ge=0)
+    edit_count: int = Field(default=0, ge=0)

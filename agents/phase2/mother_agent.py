@@ -309,6 +309,7 @@ class MotherAgent(Agent):
             ("launch_contingency", "agents/phase2/launch_contingency.py"),
             ("summary_agent", "agents/phase2/summary_agent.py"),
             ("devils_advocate", "agents/phase2/devils_advocate.py"),
+            ("council_agent", "agents/phase2/council_agent.py"),
         ]
         self._child_processes = []
         for agent_name, agent_path in agents_to_start:

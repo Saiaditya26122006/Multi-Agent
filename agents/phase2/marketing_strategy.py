@@ -56,6 +56,8 @@ class ListenBehaviour(CyclicBehaviour):
 
         if performative == "request":
             await self.agent.handle_request(task_id, session_id, pipeline_run_id, content)
+        elif performative == "revise":
+            await self.agent.handle_revise(task_id, session_id, pipeline_run_id, content)
         elif performative == "propose":
             await self.agent.handle_propose(task_id, session_id, pipeline_run_id, sender, content)
 
@@ -162,6 +164,29 @@ class MarketingStrategyAgent(Agent):
         result["reasoning_trace"] = reasoning_trace
         self.redis.client.set(f"task_output:{task_id}", json.dumps(result, default=str), ex=3600)
         await self._send_inform(task_id, session_id, pipeline_run_id, result)
+
+    async def handle_revise(self, task_id, session_id, pipeline_run_id, content):
+        """Handle revision request from Council Agent."""
+        revision_instructions = content.get("revision_instructions", "")
+        original_output = content.get("original_output", {})
+        persona_critiques = content.get("persona_critiques", [])
+
+        critique_text = "\n".join(
+            f"- [{c.get('persona', '')}] {c.get('top_finding', '')}"
+            for c in persona_critiques if c.get("severity") in ("critical", "minor")
+        )
+
+        input_package = {
+            "icp_hypothesis": original_output.get("icp_hypothesis", ""),
+            "competitive_strategy": original_output.get("competitive_strategy", ""),
+            "revenue_assumptions": original_output.get("revenue_assumptions", {}),
+            "revision_required": True,
+            "revision_feedback": f"COUNCIL REVIEW FEEDBACK:\n{revision_instructions}\n\nSPECIFIC CRITIQUES:\n{critique_text}",
+            "cross_section_context": content.get("cross_section_context", {}),
+        }
+
+        revised_content = {"task": {"input_package": input_package, "task_id": task_id}}
+        await self.handle_request(task_id, session_id, pipeline_run_id, revised_content)
 
     async def handle_propose(self, task_id, session_id, pipeline_run_id, sender, content):
         proposal = content.get("proposal", "")
@@ -296,13 +321,18 @@ Return ONLY valid JSON with these exact keys:
         await self._send_msg(msg)
 
     async def _send_inform(self, task_id, session_id, pipeline_run_id, output):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
+        council_jid = os.getenv("COUNCIL_AGENT_JID", "")
+        target_jid = council_jid if council_jid else os.getenv("MOTHER_AGENT_JID", "")
+        msg = Message(to=target_jid)
         msg.set_metadata("performative", "inform")
         msg.set_metadata("task_id", task_id)
         msg.set_metadata("session_id", session_id)
         msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"output": output, "section_number": "8"})
+        msg.body = json.dumps({
+            "output": output,
+            "section_number": "8",
+            "agent_name": "marketing_strategy",
+        })
         await self._send_msg(msg)
 
 

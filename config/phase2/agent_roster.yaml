@@ -114,6 +114,19 @@ agents:
     timeout_seconds: 90
     description: "Executive summary — runs last, reads all completed section outputs"
 
+  council_agent:
+    jid_env: "COUNCIL_AGENT_JID"
+    password_env: "COUNCIL_AGENT_PASSWORD"
+    model: "claude-haiku"
+    model_env: "CLAUDE_HAIKU_MODEL"
+    synthesizer_model_env: "CLAUDE_SONNET_MODEL"
+    sections_owned: []
+    role: "quality_gate"
+    retry_limit: 1
+    timeout_seconds: 60
+    description: "5-persona deliberation gate — reviews SWOT, Financial, Marketing, Summary outputs before Mother accepts"
+    gated_sections: ["5", "8", "12", "executive_summary"]
+
 execution_groups:
   1:
     name: "Foundation"
