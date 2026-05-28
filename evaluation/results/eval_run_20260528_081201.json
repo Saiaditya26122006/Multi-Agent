@@ -1,0 +1,191 @@
+[
+  {
+    "idea_id": "eval_saas_crm",
+    "idea_name": "AI-Powered CRM for Freelancers",
+    "started_at": "2026-05-28T08:08:16.513281+00:00",
+    "sections": {
+      "1": {
+        "section_number": "1",
+        "agent_name": "Opportunity Analyst",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 225.32,
+        "input_tokens": 7852,
+        "output_tokens": 9753,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 1,
+          "opportunity_description": "Lightweight AI CRM for solo freelance designers/developers ($50K-$150K/yr) targeting lead-to-client conversion intelligence. SAM ~$20.6M ARR (63K users x ~$328 blended ACV at 35% annual/$290, 65% monthly/$348). Viable bootstrapped niche; not venture-scale. 12-month window before incumbents ship comparable AI features given public API availability.",
+          "competitive_strategy": "Focused differentiation: own lead-to-client conversion workflow with AI intelligence, not full business management. Position against HoneyBook/Dubsado complexity. Moat via anonymized close-rate data network effects and Gmail/Outlook context lock-in increasing switching cost over time. Moat is thin until 500+ data points accumulated.",
+          "objectives": [
+            {
+              "objective": "Reach 100 paying customers by Month 9",
+              "metric": "Paying subscribers",
+              "target": 100,
+              "deadline": "Month 9",
+              "basis": "305 customers needed for $100K ARR at blended $328 ACV; 100 by M9 validates conversion rate before runway exhaustion at M10-12",
+              "confidence": "low",
+              "conflict_note": "Requires ~17 new paying customers/month post-launch (M6); content/SEO alone unlikely to deliver this pace without pre-built audience"
+            },
+            {
+              "objective": "Achieve $28K ARR by Month 12",
+              "metric": "ARR",
+              "target": 28000,
+              "deadline": "Month 12",
+              "basis": "At 5% monthly churn, cohort of 100 customers shrinks to ~54 active by M12. ~80 average active customers x $29/mo x 12 months annualized = ~$27.8K ARR. Revised down from $35K to reflect stated churn assumption.",
+              "confidence": "low",
+              "conflict_note": "$28K ARR on $15K budget requires CAC under $150; unproven with no existing audience. If churn hits 12%, ARR collapses to ~$20K."
+            },
+            {
+              "objective": "Convert 35% of paying customers to annual plan by Month 12",
+              "metric": "Annual plan conversion rate",
+              "target": "35%",
+              "deadline": "Month 12",
+              "basis": "Annual plan ($290/yr) improves cash flow and reduces churn risk; 35% achievable with 2-month free incentive. Standard SaaS annual conversion benchmark is 30-40%.",
+              "confidence": "medium",
+              "conflict_note": "Annual plan ($290) is lower ACV than monthly annualized ($348); blended ACV at 35% annual mix = ~$328. SAM and customer targets updated to reflect this."
+            },
+            {
+              "objective": "Maintain monthly churn below 8% post-launch",
+              "metric": "Monthly logo churn",
+              "target": "8%",
+              "deadline": "Month 12",
+              "basis": "At $29/mo and 8% churn, LTV = $362. At 12% churn (high end of freelancer range), LTV = $242, making any paid CAC above $80 unviable. Churn floor is AI quality.",
+              "confidence": "low",
+              "conflict_note": "No onboarding data yet; freelancer SaaS churn typically 6-12%. 12% scenario modeled: LTV=$242, CAC ceiling=$80, paid acquisition becomes unviable."
+            },
+            {
+              "objective": "Launch on ProductHunt with 400+ upvotes and 80+ trial signups on launch day",
+              "metric": "ProductHunt upvotes + trial signups",
+              "target": "400 upvotes, 80 trials",
+              "deadline": "Month 6",
+              "basis": "Top 5 Product of Day threshold ~400 upvotes; 80 trials at 20% conversion = 16 paying customers from launch alone",
+              "confidence": "low",
+              "conflict_note": "ProductHunt success requires pre-built hunter network and community warmup. No evidence founder has this. Treat as upside scenario, not baseline."
+            },
+            {
+              "objective": "Ship 3 deep integrations (Gmail, Calendly, Stripe) before paid launch",
+              "metric": "Live integrations at paid launch",
+              "target": 3,
+              "deadline": "Month 6",
+              "basis": "Integrations create switching costs and differentiate from HoneyBook/Dubsado walled gardens; reduces AI context loss on churn",
+              "confidence": "low",
+              "conflict_note": "3-month MVP timeline is tight for core CRM + AI + 3 integrations. High scope risk. Recommend sequencing: Gmail first, Calendly/Stripe post-launch."
+            },
+            {
+              "objective": "Collect 500 anonymized close-rate data points by Month 12 to begin data moat",
+              "metric": "Lead outcome data points logged",
+              "target": 500,
+              "deadline": "Month 12",
+              "basis": "100 customers x ~5 active leads/month average = 500 data points minimum for early model signal. Data moat is non-functional below this threshold.",
+              "confidence": "medium",
+              "conflict_note": "Assumes users log lead outcomes consistently. Requires UX incentive design. Passive logging via Gmail integration preferred over manual entry."
+            }
+          ],
+          "icp_hypothesis": {
+            "buyer_role": "Solo freelance web designer or developer, no employees, self-managed pipeline, 3-8 active leads at any time, earning $50K-$150K/yr, 2-7 years freelancing, past survival phase",
+            "budget_process": "Individual discretionary spend; no procurement. Cancels tools showing no ROI within 30 days. Pays for 3-6 SaaS tools already. Decision is emotional and immediate. Annual plan requires perceived stability of product.",
+            "decision_timeline": "Same-session decision if trial friction is low. 7-14 days trial-to-paid if onboarding delivers one aha moment such as AI suggesting a follow-up that closes a lead.",
+            "pain_points": [
+              "Loses track of leads in email threads and spreadsheets; follows up too late or not at all",
+              "No signal on which leads are worth pursuing vs. time-wasting",
+              "Writes the same follow-up email variations manually; repetitive and inconsistent",
+              "HoneyBook/Dubsado feel like overkill \u2014 built for studios, not solo operators",
+              "Feast-or-famine pipeline with no visibility into future workload"
+            ],
+            "switching_trigger": "Missing a high-value lead follow-up that cost them a project. Quantifiable loss event drives tool adoption.",
+            "current_alternatives": [
+              "Google Sheets / Notion (free, manual, no intelligence)",
+              "HoneyBook (too complex, priced for studios)",
+              "Dubsado (workflow-heavy, steep learning curve)",
+              "Gmail labels + reminders (fragile, no pipeline view)"
+            ],
+            "red_flags_wrong_icp": [
+              "Freelancer earning under $40K \u2014 cost-sensitive, low ROI justification",
+              "Agency owner with employees \u2014 needs seat-based multi-user tool",
+              "Platform-only freelancer (Upwork/Fiverr) \u2014 no outbound lead pipeline to manage"
+            ]
+          },
+          "assumptions_used": [
+            {
+              "statement": "63K addressable solo freelance designers/developers in English-speaking markets earning $50K-$150K/yr",
+              "confidence": "low",
+              "source": "Unverified; requires primary research or Bureau of Labor Statistics / freelancer survey cross-reference"
+            },
+            {
+              "statement": "Blended ACV ~$328 at 35% annual ($290) and 65% monthly ($348 annualized)",
+              "confidence": "medium",
+              "source": "Derived from pricing assumptions and objective 3 annual conversion target"
+            },
+            {
+              "statement": "Monthly churn of 5% used in ARR model; 8% used as ceiling threshold",
+              "confidence": "low",
+              "source": "Freelancer SaaS benchmarks 6-12%; 5% is optimistic; 12% downside scenario modeled"
+            },
+            {
+              "statement": "CAC under $150 achievable on $15K budget via content and community",
+              "confidence": "low",
+              "source": "No paid acquisition data; assumption based on organic-first strategy with no audience validation"
+            },
+            {
+              "statement": "Incumbents (HoneyBook, Dubsado) will not ship comparable AI lead conversion features within 12 months",
+              "confidence": "low",
+              "source": "No basis; HoneyBook raised $250M in 2021; OpenAI API is publicly available; 12-month window is speculative"
+            },
+            {
+              "statement": "100 customers x 5 active leads/month = 500 data points sufficient for early model signal",
+              "confidence": "medium",
+              "source": "Internal estimate; actual signal quality depends on outcome label consistency and lead diversity"
+            }
+          ],
+          "uncertainties": [
+            "Competitive window is 12 months at most, not 18; HoneyBook/Dubsado have capital and API access to ship AI features faster than assumed",
+            "At 12% monthly churn (high end of freelancer range), LTV=$242 and CAC ceiling drops to ~$80, making paid acquisition unviable and organic growth the only path",
+            "63K SAM user count is unverified; if actual addressable pool is 30K-40K, SAM halves to ~$10-13M ARR and bootstrapped viability weakens",
+            "ProductHunt launch outcome is binary and founder-network-dependent; plan cannot rely on it as a baseline customer acquisition event",
+            "Scope risk is high: MVP + AI layer + 3 integrations in 3 months is likely to require sequencing or quality tradeoffs",
+            "Annual plan at $290 is lower than monthly annualized at $348; aggressive annual conversion push reduces ARR, not just churn \u2014 tradeoff must be modeled explicitly",
+            "Data moat requires consistent user behavior (logging outcomes); passive Gmail integration is necessary condition, not optional enhancement",
+            "No validation that solo freelancers will pay $29/month for AI CRM vs. continuing with free Notion/Sheets; willingness-to-pay research is absent"
+          ],
+          "confidence_score": "low",
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "reasoning_trace": {
+          "decomposition": "# Pre-Output Strategic Analysis\n\n## Step 1: Critical Judgments I Must Make\n\n**Judgment 1: Is $29/month the right price, or does it create a structural growth ceiling?**\n- Evidence I have: 20 freelancer interviews validated pain point; HoneyBook charges ~$16-$39/month; Dubsado charges ~$20-$40/month\n- What's missing: Willingness-to-pay data from those 20 interviews; what did they actually say they'd pay?\n- Risk: At $29/month, reaching $100K ARR requires 287 paying customers. Reaching $1M ARR requires 2,874. With a bootstrapped $15K budget, CAC must be near zero or the math collapses.\n\n**Judgment 2: Can AI differentiation hold against HoneyBook/Dubsado, who have capital to copy it?**\n- Evidence I have: CEO claims differentiation by \"AI automation and simplicity\" \u2014 but this is a feature, not a moat\n- What's missing: Technical defensibility; how long before incumbents ship GPT-powered follow-up emails?\n- Causal chain: If HoneyBook ships AI features within 12 months (likely), differentiation evaporates \u2192 retention drops \u2192 churn kills unit economics at $29/month\n\n**Judgment 3: Is content marketing + ProductHunt sufficient for acquisition at this budget?**\n- Evidence I have: $15K total budget; 6-month runway to paid launch\n- What's missing: Current audience size on Twitter/LinkedIn; domain authority for SEO; ProductHunt category competition\n- \"Freelance CRM\" SEO: High-intent but dominated by established players. Realistic organic timeline is 12-18 months to meaningful traffic, not 6.\n\n## Step 2: Critical Causal Chains\n\n- Low price ($29) \u2192 high volume required \u2192 volume requires scalable acquisition \u2192 content/SEO is slow \u2192 bootstrapped budget runs out before organic kicks in \u2192 **cash crisis at Month 6-9**\n- AI features ship \u2192 freelancers trial \u2192 if onboarding friction exists \u2192 churn spikes \u2192 negative word-of-mouth in tight freelancer communities \u2192 ProductHunt launch underperforms\n- Niche ICP (solo freelancers) \u2192 low expansion revenue possible \u2192 no seat-based upsell \u2192 LTV cap",
+          "challenge": "## Due Diligence Problems \u2014 Section 1\n\n---\n\n### 1. MATH ERRORS\n\n**SAM Calculation Is Not Verifiable**\n\"63K addressable users \u00d7 $348 ACV = $21.9M ARR\" \u2014 $348 ACV implies a $29/month plan. But the annual plan is cited as $290/year elsewhere. These cannot both be true simultaneously. If the annual plan is $290, blended ACV is somewhere between $290 and $348 depending on mix. The SAM figure is built on the higher number while the pricing section undermines it. No source is given for the 63K user count.\n\n**$35K ARR Basis Is Internally Inconsistent**\n\"~100 paying customers \u00d7 $29/mo \u00d7 12 = $34.8K\" is wrong. 100 customers \u00d7 $29 \u00d7 12 = $34,800 annualized only if all 100 customers are present for all 12 months. The plan simultaneously states 5% monthly churn. At 5% monthly churn, a cohort of 100 customers shrinks to roughly 54 by month 12. The ARR figure ignores its own churn assumption. The actual ARR at month 12 under stated churn is materially lower.\n\n**287 Customers for $100K ARR Is Also Wrong Under Annual Plan Mix**\n\"287 customers needed for $100K ARR\" uses $29/month ($348/year). But objective 3 targets 35% annual plan conversion at $290/year. At 35% annual ($290) and 65% monthly ($348 annualized), blended ACV \u2248 $328. At that blend, $100K ARR requires ~305 customers, not 287. The objectives are not using consistent pricing assumptions.\n\n**LTV Claim Is Inconsistent With Churn Target**\n\"Churn above 8% collapses LTV below $363.\" At $29/month and 8% churn, LTV = $29 / 0.08 = $362.50. That math checks out. But the stated *target* churn is below 8%, and the \"low confidence\" rating applies. If actual churn lands at the high end of the cited freelancer range (12%), LTV = $29 / 0.12 = $242. The plan never models this scenario despite flagging it as likely.\n\n---\n\n### 2. LOGICAL GAPS AND UNSUPPORTED CLAIMS\n\n**\"18-Month Window Before Incumbents Ship Comparable AI Features\" Has No Basis**\nHoneyBook raised $250M in 2021. Dubsado is actively developing. OpenAI's API is publicly availab",
+          "revisions_applied": true,
+          "reasoning_budget": 3
+        }
+      }
+    },
+    "total_input_tokens": 7852,
+    "total_output_tokens": 9753,
+    "total_latency_seconds": 225.32232809066772,
+    "errors": [],
+    "completed_at": "2026-05-28T08:12:01.836112+00:00",
+    "scores": {
+      "overall_score": 9.6,
+      "schema_compliance": 100.0,
+      "avg_confidence": "low",
+      "confidence_distribution": {
+        "high": 0,
+        "medium": 0,
+        "low": 1
+      },
+      "section_scores": {
+        "1": {
+          "schema_compliance": 10.0,
+          "specificity": 10.0,
+          "completeness": 8.6,
+          "total": 9.6,
+          "issues": [
+            "confidence_score: empty or placeholder value"
+          ]
+        }
+      },
+      "total_sections": 1,
+      "successful_parses": 1
+    }
+  }
+]

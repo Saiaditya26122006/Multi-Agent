@@ -1477,7 +1477,7 @@ If no issues found, return {{"passed": true, "issues": [], "confidence_summary":
         )
         emit_trace(trace_key, "Mother", "coherence_audit_done", f"Audit complete — {len(issues)} issues, confidence: {overall}", {"issues_count": len(issues), "overall_confidence": overall})
 
-        self._deliver_plan(session_id, run_id, all_outputs)
+        await self._deliver_plan(session_id, run_id, all_outputs)
 
     def _deduplicate_assumptions(self, all_outputs: dict) -> dict:
         """Find duplicate and conflicting assumptions across all section outputs."""

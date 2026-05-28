@@ -1,0 +1,102 @@
+{
+  "baseline_id": "baseline_v1_20260528",
+  "created_at": "2026-05-28T10:00:00+00:00",
+  "test_idea": "eval_saas_crm",
+  "model": "claude-sonnet-4-6 (Bedrock)",
+  "intelligence_engine": "4-step reasoning (decompose/produce/challenge/revise)",
+  "sections_evaluated": [
+    "1",
+    "3",
+    "5",
+    "8",
+    "12",
+    "13"
+  ],
+  "results": {
+    "overall_score": 4.6,
+    "schema_compliance_pct": 50.0,
+    "sections_passed": 3,
+    "sections_failed": 3,
+    "total_tokens": 109457,
+    "total_latency_seconds": 3296
+  },
+  "section_scores": {
+    "1": {
+      "score": 9.6,
+      "status": "pass",
+      "latency_s": 222,
+      "tokens": 18395,
+      "agent": "Opportunity Analyst",
+      "model": "sonnet"
+    },
+    "3": {
+      "score": 10.0,
+      "status": "pass",
+      "latency_s": 158,
+      "tokens": 24857,
+      "agent": "Environment Research",
+      "model": "haiku"
+    },
+    "5": {
+      "score": 0,
+      "status": "fail_timeout",
+      "latency_s": 1105,
+      "tokens": 4112,
+      "agent": "SWOT Synthesizer",
+      "model": "sonnet"
+    },
+    "8": {
+      "score": 0,
+      "status": "fail_timeout",
+      "latency_s": 1101,
+      "tokens": 3406,
+      "agent": "Marketing Strategy",
+      "model": "sonnet"
+    },
+    "12": {
+      "score": 8.0,
+      "status": "pass",
+      "latency_s": 526,
+      "tokens": 26990,
+      "agent": "Financial Modelling",
+      "model": "sonnet"
+    },
+    "13": {
+      "score": 0,
+      "status": "fail_parse",
+      "latency_s": 183,
+      "tokens": 31697,
+      "agent": "Launch & Contingency",
+      "model": "haiku"
+    }
+  },
+  "first_run_context": {
+    "note": "First run (before scorer fix) had ALL 6 sections pass with identical test idea. Timeouts are intermittent Bedrock throttling, not systematic agent failures.",
+    "first_run_sections_passed": "1, 3, 5, 8, 12, 13 (all 6)",
+    "first_run_latencies": {
+      "1": 186,
+      "3": 188,
+      "5": 401,
+      "8": 400,
+      "12": 537,
+      "13": 191
+    },
+    "first_run_total_tokens": 154079
+  },
+  "quality_findings": [
+    "Sections 1, 3, 12 consistently produce high-quality structured output (8-10/10)",
+    "Intelligence Engine 4-step reasoning adds significant latency (150-540s per section) but produces well-reasoned output",
+    "Confidence scores are appropriately conservative (mostly low/medium \u2014 honest given bootstrapping context)",
+    "Bedrock timeout at 120s read_timeout causes failures during high-load periods",
+    "Section 13 REVISE step on Haiku produces unparseable contingency plans (format drift)"
+  ],
+  "action_items": [
+    "Increase read_timeout to 180s for Sonnet sections",
+    "Fix Section 13 REVISE parsing \u2014 add fallback to PRODUCE output when REVISE fails",
+    "Re-run full baseline (all 5 test ideas) during off-peak hours for stable comparison"
+  ],
+  "source_files": [
+    "evaluation/results/eval_run_20260528_094310.json",
+    "evaluation/results/eval_run_20260528_094831.json"
+  ]
+}

@@ -176,7 +176,7 @@ def score_pipeline_run(run_result: dict) -> dict:
 
         if output and isinstance(output, dict):
             conf = output.get("confidence_score", "medium")
-            if conf in confidence_counts:
+            if isinstance(conf, str) and conf in confidence_counts:
                 confidence_counts[conf] += 1
 
     total_sections = len(sections)
