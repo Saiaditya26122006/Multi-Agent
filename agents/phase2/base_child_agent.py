@@ -1,12 +1,17 @@
 """
 Base class for all Phase 2 child agents.
 
+Supports dual-mode communication:
+- SPADE/XMPP (legacy, being phased out)
+- MessageBus (new, in-process async — preferred)
+
 Eliminates duplicated boilerplate across 10 agents by providing:
 - Bedrock LLM calls with retry + exponential backoff
-- SPADE message handling (send, escalate, inform)
-- Intelligence Engine integration
-- Standard handle_request flow (validate → reason → fallback → validate output → inform)
-- ListenBehaviour that routes performatives to handler methods
+- Message handling (send, escalate, inform) via either transport
+- Intelligence Engine integration with enforced reasoning chain
+- Structured failure handling (retry-simple → partial → refuse)
+- Pre/post consistency checks against cross-section data
+- Standard handle_request flow
 
 Subclasses must implement:
 - SYSTEM_PROMPT: str
@@ -24,7 +29,7 @@ Subclasses must implement:
 
 Optionally override:
 - handle_revise() — for council-gated agents
-- _check_contradictions() — for cross-section validation
+- _derive_from_inputs() — domain-specific partial output derivation
 - _evaluate_proposal() — custom proposal evaluation logic
 - reasoning_budget(revision_required: bool) -> int
 """
@@ -39,13 +44,24 @@ from typing import Optional
 
 import boto3
 from botocore.config import Config as BotoConfig
-from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour, OneShotBehaviour
-from spade.message import Message
+
+try:
+    from spade.agent import Agent
+    from spade.behaviour import CyclicBehaviour, OneShotBehaviour
+    from spade.message import Message
+    SPADE_AVAILABLE = True
+except ImportError:
+    SPADE_AVAILABLE = False
+    Agent = object
+    CyclicBehaviour = object
+    OneShotBehaviour = object
+    Message = None
 
 from memory.redis_client import RedisClient
 from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
 from agents.phase2.intelligence_engine import IntelligenceEngine
+from agents.phase2.message_bus import MessageBus, ACLMessage
+from agents.phase2.agent_beliefs import AgentBeliefStore
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +131,10 @@ class BaseChildAgent(Agent, ABC):
         self.model_id = os.getenv(self.MODEL_ENV, self.MODEL_DEFAULT)
         self.bedrock = get_shared_bedrock_client()
         self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
+        self.beliefs = AgentBeliefStore(
+            agent_name=self.AGENT_NAME, redis_client=self.redis
+        )
+        self._message_bus: Optional[MessageBus] = None
 
     async def setup(self):
         logger.info("[%s] Starting", self.AGENT_NAME)
@@ -218,7 +238,7 @@ class BaseChildAgent(Agent, ABC):
     # ── Standard request handling ────────────────────────────────────────────
 
     async def handle_request(self, task_id: str, session_id: str, pipeline_run_id: str, content: dict):
-        """Standard flow: validate input → IE reason → fallback LLM → validate output → inform."""
+        """Enforced flow: validate → pre-check → IE reason → fallback → post-audit → inform."""
         task = content.get("task", {})
         input_package = task.get("input_package", {})
 
@@ -243,6 +263,32 @@ class BaseChildAgent(Agent, ABC):
                 "Fix these issues. Do NOT weaken your analysis — make it more rigorous."
             )
 
+        # PRE-CHECK: Extract constraints from prior sections
+        constraints = self._pre_check_consistency(cross_context)
+        if constraints:
+            learning_context += (
+                "\n\nCONSTRAINTS FROM PRIOR SECTIONS (your output MUST be consistent with these):\n"
+                + "\n".join(f"  - {c}" for c in constraints)
+            )
+
+        # BELIEFS: Inject agent's persistent beliefs into context
+        belief_context = self.beliefs.get_beliefs_for_prompt()
+        if belief_context:
+            learning_context += f"\n\n{belief_context}"
+
+        # BELIEFS: Check for conflicts with incoming cross-section data
+        if cross_context:
+            conflicts = self.beliefs.get_conflicts_with(cross_context)
+            if conflicts:
+                conflict_summary = "\n".join(
+                    f"  - My belief '{c.get('my_belief', '')}' conflicts with "
+                    f"incoming '{c.get('incoming', '')}'"
+                    for c in conflicts[:3]
+                )
+                learning_context += (
+                    f"\n\nBELIEF CONFLICTS (resolve these in your output):\n{conflict_summary}"
+                )
+
         input_data = self._build_ie_input_data(input_package)
 
         parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(
@@ -255,15 +301,12 @@ class BaseChildAgent(Agent, ABC):
         )
 
         if not parsed:
-            user_message = self._build_prompt(validated_input)
-            llm_response, fallback_usage = await self._call_llm(user_message)
-            if not llm_response:
-                await self._escalate(
-                    task_id, session_id, pipeline_run_id,
-                    "weak_evidence", "Intelligence engine and fallback both failed",
-                )
+            # Structured failure handling — not template dump
+            parsed, fallback_usage = await self._handle_llm_failure(
+                task_id, session_id, pipeline_run_id, validated_input, token_usage
+            )
+            if parsed is None:
                 return
-            parsed = self._parse_llm_response(llm_response, validated_input)
             token_usage["input_tokens"] = token_usage.get("input_tokens", 0) + fallback_usage.get("input_tokens", 0)
             token_usage["output_tokens"] = token_usage.get("output_tokens", 0) + fallback_usage.get("output_tokens", 0)
 
@@ -280,10 +323,140 @@ class BaseChildAgent(Agent, ABC):
 
         result = validated_output.model_dump()
         result["reasoning_trace"] = reasoning_trace
+
+        # BELIEFS: Update agent's beliefs from produced output
+        self.beliefs.update_from_output(result)
+
+        # POST-AUDIT: Self-check for contradictions with prior sections
+        audit_warnings = self._post_audit_consistency(result, cross_context)
+        if audit_warnings:
+            result["_self_audit_warnings"] = audit_warnings
+            if result.get("confidence_score") == "high":
+                result["confidence_score"] = "medium"
+                result["_confidence_reason"] = "Self-audit found potential contradictions"
+
         self.redis.client.set(f"task_output:{task_id}", json.dumps(result, default=str), ex=3600)
 
         await self._post_process(task_id, session_id, pipeline_run_id, validated_input, result)
         await self._send_inform(task_id, session_id, pipeline_run_id, result)
+
+    # ── Structured failure handling (replaces template fallback) ──────────────
+
+    async def _handle_llm_failure(
+        self,
+        task_id: str,
+        session_id: str,
+        pipeline_run_id: str,
+        validated_input,
+        token_usage: dict,
+    ) -> tuple[Optional[dict], dict]:
+        """Intelligent failure handling: retry simple → partial → refuse."""
+        # Strategy 1: Retry with drastically simplified prompt
+        simple_prompt = self._build_minimal_prompt(validated_input)
+        llm_response, usage = await self._call_llm(simple_prompt)
+        if llm_response:
+            parsed = self._parse_llm_response(llm_response, validated_input)
+            if parsed:
+                parsed["_generation_mode"] = "simplified_retry"
+                parsed["confidence_score"] = "low"
+                logger.info("[%s] Recovered via simplified retry", self.AGENT_NAME)
+                return parsed, usage
+
+        # Strategy 2: Produce partial output from inputs
+        partial = self._derive_from_inputs(validated_input)
+        if partial and len([k for k in partial if not k.startswith("_")]) >= 3:
+            partial["_generation_mode"] = "partial_from_inputs"
+            partial["confidence_score"] = "low"
+            partial["_missing_fields"] = self._identify_missing_fields(partial)
+            logger.info("[%s] Produced partial output from inputs", self.AGENT_NAME)
+            return partial, usage or {}
+
+        # Strategy 3: Refuse — tell Mother this section cannot be produced
+        logger.warning("[%s] All strategies exhausted — refusing task", self.AGENT_NAME)
+        refusal = {
+            "_status": "refused",
+            "_reason": "LLM failed after simplified retry and partial derivation",
+            "_available_inputs": list(vars(validated_input).keys()) if hasattr(validated_input, '__dict__') else [],
+            "confidence_score": "none",
+            "section_number": str(self.SECTION_NUMBER),
+        }
+        await self._escalate(
+            task_id, session_id, pipeline_run_id,
+            "weak_evidence",
+            f"All generation strategies failed for section {self.SECTION_NUMBER}",
+        )
+        return None, usage or {}
+
+    def _build_minimal_prompt(self, validated_input) -> str:
+        """Ultra-simplified prompt for retry after IE failure."""
+        input_dict = validated_input.model_dump() if hasattr(validated_input, 'model_dump') else vars(validated_input)
+        key_fields = {k: v for k, v in input_dict.items() if v and k not in ("task_id", "session_id")}
+        return (
+            f"Given this input: {json.dumps(key_fields, default=str)[:2000]}\n\n"
+            f"Produce a JSON output for business plan section {self.SECTION_NUMBER}.\n"
+            f"Be specific with numbers. Use 'low' confidence if unsure.\n\n"
+            f"{self._build_schema_prompt()}"
+        )
+
+    def _derive_from_inputs(self, validated_input) -> dict:
+        """Extract what we can directly from inputs without LLM. Override per agent."""
+        return {}
+
+    def _identify_missing_fields(self, partial: dict) -> list:
+        """Identify which schema fields are missing from partial output."""
+        if not self.OUTPUT_SCHEMA:
+            return []
+        try:
+            schema_fields = set(self.OUTPUT_SCHEMA.model_fields.keys())
+            present_fields = set(k for k in partial.keys() if not k.startswith("_"))
+            return list(schema_fields - present_fields)
+        except Exception:
+            return []
+
+    # ── Cross-section consistency ────────────────────────────────────────────
+
+    def _pre_check_consistency(self, cross_context: dict) -> list[str]:
+        """Before producing, identify binding constraints from prior sections."""
+        if not cross_context:
+            return []
+
+        constraints = []
+        for section, data in cross_context.items():
+            if not isinstance(data, dict):
+                continue
+            # Extract quantitative constraints
+            for key in ("revenue_assumptions", "pricing", "target_market_size",
+                        "headcount_plan", "break_even_analysis", "icp_hypothesis"):
+                if key in data and data[key]:
+                    constraints.append(
+                        f"Section {section} established {key}: "
+                        f"{json.dumps(data[key], default=str)[:200]}"
+                    )
+        return constraints[:10]
+
+    def _post_audit_consistency(self, output: dict, cross_context: dict) -> list[str]:
+        """After producing, check for contradictions with prior sections."""
+        if not cross_context:
+            return []
+
+        warnings = []
+        output_str = json.dumps(output, default=str).lower()
+
+        for section, data in cross_context.items():
+            if not isinstance(data, dict):
+                continue
+            # Check numeric contradictions
+            for key, value in data.items():
+                if isinstance(value, (int, float)) and value > 0:
+                    if key in output and isinstance(output.get(key), (int, float)):
+                        our_value = output[key]
+                        if our_value > 0 and abs(our_value - value) / value > 0.5:
+                            warnings.append(
+                                f"Possible contradiction: our {key}={our_value} "
+                                f"vs section {section} {key}={value} (>50% divergence)"
+                            )
+
+        return warnings[:5]
 
     # ── Proposal handling (default: always accept) ───────────────────────────
 

@@ -28,6 +28,11 @@ from tools.trace_emitter import emit_trace
 from agents.phase2.intelligence_engine import IntelligenceEngine
 from agents.phase2.learning_engine import LearningEngine
 from agents.phase2.document_compiler import DocumentCompiler
+from agents.phase2.pipeline_checkpoints import should_continue_pipeline, evaluate_checkpoint
+from agents.phase2.negotiation import NegotiationManager, should_negotiate
+from agents.phase2.quality_gate import QualityGate
+from agents.phase2.coherence_auditor import CoherenceAuditor
+from agents.phase2.conflict_resolver import ConflictResolver
 from config.phase2.council_config import COUNCIL_GATED_SECTIONS
 from ceo_data.loader import load_all_ceo_data, get_relevant_ceo_data
 
@@ -196,6 +201,10 @@ class MotherAgent(Agent):
         self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
         self.learning = LearningEngine(self.redis, self.db)
         self.compiler = DocumentCompiler(self.bedrock, self.model_id)
+        self.quality_gate = QualityGate()
+        self.coherence_auditor = CoherenceAuditor()
+        self.negotiation_manager = NegotiationManager(self.bedrock, self.model_id)
+        self.conflict_resolver = ConflictResolver()
 
     # ── Agent lifecycle ───────────────────────────────────────────────────────
 
@@ -513,6 +522,58 @@ class MotherAgent(Agent):
 
         # Update memory
         self._update_memory(session_id, run_id, group_outputs)
+
+        # KILL CHECKPOINTS — evaluate after critical sections
+        for section_key, section_output in group_outputs.items():
+            if isinstance(section_output, dict):
+                should_continue, checkpoint_result = should_continue_pipeline(
+                    str(section_key), section_output, prior_outputs
+                )
+                if not should_continue and checkpoint_result:
+                    logger.warning(
+                        "[MotherAgent] Kill checkpoint triggered at section %s: %s",
+                        section_key, checkpoint_result.message,
+                    )
+                    emit_trace(
+                        trace_key, "Mother", "kill_checkpoint",
+                        f"Section {section_key}: {checkpoint_result.message}",
+                        {"evidence": checkpoint_result.evidence},
+                    )
+                    self._send_telegram(
+                        session_id,
+                        f"⚠️ CHECKPOINT: {checkpoint_result.message}\n\n"
+                        f"Evidence: {json.dumps(checkpoint_result.evidence, default=str)[:500]}\n\n"
+                        "Reply 'continue', 'pivot', or 'kill'.",
+                    )
+                    # Wait for CEO response
+                    checkpoint_response = await self._wait_for_checkpoint_response(
+                        session_id, str(section_key), timeout=7200
+                    )
+                    if checkpoint_response == "kill":
+                        self._fail_pipeline(run_id, f"Killed at checkpoint section {section_key}")
+                        return
+                    # "continue" or "pivot" — proceed
+
+        # COHERENCE AUDIT — check for cross-section contradictions
+        audit_result = self.coherence_auditor.audit(prior_outputs)
+        if audit_result.contradictions:
+            logger.info(
+                "[MotherAgent] Coherence audit found %d contradictions",
+                len(audit_result.contradictions),
+            )
+            # Attempt negotiation-based resolution
+            resolutions = await self.conflict_resolver.resolve(
+                audit_result.contradictions,
+                self.negotiation_manager,
+                self.bedrock,
+                self.model_id,
+            )
+            for resolution in resolutions:
+                if resolution.get("outcome") == "deadlock":
+                    self._send_telegram(
+                        session_id,
+                        f"Unresolved conflict: {resolution.get('escalation_message', '')}",
+                    )
 
         print(f"[MotherAgent] === Group {group_number} done. Advancing to Group {group_number + 1} ===")
 
@@ -1836,6 +1897,27 @@ Only include sections where the condition clearly applies based on the business 
             elapsed += 10
         print(f"[MotherAgent] Clarification for task {task_id} timed out after {timeout}s")
         return None
+
+    async def _wait_for_checkpoint_response(
+        self, session_id: str, section: str, timeout: int = 7200
+    ) -> str:
+        """Poll Redis for CEO's checkpoint response (continue/pivot/kill)."""
+        key = f"checkpoint_response:{session_id}:{section}"
+        elapsed = 0
+        while elapsed < timeout:
+            result = self.redis.client.get(key)
+            if result:
+                self.redis.client.delete(key)
+                if isinstance(result, bytes):
+                    result = result.decode("utf-8")
+                return result.strip().lower()
+            await asyncio.sleep(10)
+            elapsed += 10
+        logger.warning(
+            "[MotherAgent] Checkpoint response timed out for section %s — continuing",
+            section,
+        )
+        return "continue"
 
     # ── Retry and failure helpers ─────────────────────────────────────────────
 

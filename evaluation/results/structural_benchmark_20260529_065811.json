@@ -1,0 +1,102 @@
+{
+  "run_id": "f6529ffd-c03f-4546-b48e-5a38351d0676",
+  "timestamp": "2026-05-29T06:58:11.303136+00:00",
+  "test_idea": "structural_analysis",
+  "benchmark_type": "structural",
+  "overall_score": 8.88,
+  "overall_grade": "A",
+  "dimensions": {
+    "reasoning_depth": {
+      "score": 7.54,
+      "details": {
+        "agents_scored": 9,
+        "avg_per_agent": 7.54
+      },
+      "evidence": [],
+      "recommendations": []
+    },
+    "ie_enforcement": {
+      "score": 10.0,
+      "details": {
+        "enforcement_mechanisms": 6
+      },
+      "evidence": [],
+      "recommendations": []
+    },
+    "communication_efficiency": {
+      "score": 7.5,
+      "details": {
+        "has_message_bus": true
+      },
+      "evidence": [
+        "base_child_agent still imports SPADE"
+      ],
+      "recommendations": []
+    },
+    "cross_section_consistency": {
+      "score": 10.0,
+      "details": {
+        "has_pre_check": true
+      },
+      "evidence": [],
+      "recommendations": []
+    },
+    "learning_effectiveness": {
+      "score": 10.0,
+      "details": {
+        "has_pattern_extraction": true
+      },
+      "evidence": [],
+      "recommendations": []
+    },
+    "fallback_quality": {
+      "score": 10.0,
+      "details": {
+        "has_structured_failure": true
+      },
+      "evidence": [],
+      "recommendations": []
+    },
+    "negotiation_capability": {
+      "score": 10.0,
+      "details": {
+        "has_negotiation": true
+      },
+      "evidence": [],
+      "recommendations": []
+    },
+    "agent_autonomy": {
+      "score": 8.5,
+      "details": {
+        "has_beliefs": true
+      },
+      "evidence": [],
+      "recommendations": []
+    },
+    "mother_coupling": {
+      "score": 6.0,
+      "details": {
+        "mother_lines": 2591,
+        "split_files": [
+          "quality_gate.py",
+          "coherence_auditor.py",
+          "conflict_resolver.py"
+        ]
+      },
+      "evidence": [
+        "Mother Agent is 2591 lines (god object)"
+      ],
+      "recommendations": [
+        "Split Mother Agent into focused subsystems"
+      ]
+    },
+    "adaptive_pipeline": {
+      "score": 8.5,
+      "details": {
+        "checkpoint_sections": []
+      },
+      "evidence": [],
+      "recommendations": []
+    }
+  }
+}
