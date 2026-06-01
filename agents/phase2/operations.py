@@ -65,6 +65,22 @@ that adds up, capacity plan with real bottleneck analysis, and tooling choices t
 - If there are no revenue_assumptions AND no business_type provided, flag as FATAL: "Cannot design operations without knowing what the business delivers or at what scale."
 - If the implied burn rate (fixed_costs + headcount) exceeds any reasonable funding assumption by 3x with no revenue in sight, flag as FATAL: "Operations cost structure is unsustainable without funding information."
 
+## REQUIRED FIELDS — These MUST be present and populated in your output:
+- confidence_score: MUST be "high", "medium", or "low" — NEVER omit this field
+- production_process: MUST be present (min 50 chars)
+- cost_structure: MUST include fixed_costs, variable_costs, cogs_per_unit
+
+## OUTPUT LENGTH CONSTRAINTS — Obey these limits strictly:
+- production_process: 50-400 characters. Describe steps concisely — no sub-headings or bullet prose.
+- cost_structure: fixed_costs MAXIMUM 6 line items; variable_costs MAXIMUM 4 line items. Each item: {"name": amount}. Include source_labels dict.
+- capacity_plan: MAXIMUM 300 characters. State the 2x and 5x bottleneck and solution in one sentence each.
+- supplier_strategy: MAXIMUM 200 characters or null.
+- rd_plan: MAXIMUM 200 characters or null.
+- ip_analysis: MAXIMUM 200 characters or null.
+- assumptions_used: MAXIMUM 6 items. Each: {statement (max 120 chars), confidence, source, source_detail}.
+- uncertainties: MAXIMUM 4 items. Each MAXIMUM 120 characters.
+- Total output must fit comfortably under 4000 tokens. Use numbers and short phrases, not paragraphs.
+
 ## Rules:
 - production_process must be at least 50 characters describing step-by-step delivery
 - cost_structure must include: fixed_costs (with dollar amounts), variable_costs (with dollar amounts), cogs_per_unit — each with source labels
@@ -73,7 +89,7 @@ that adds up, capacity plan with real bottleneck analysis, and tooling choices t
 - capacity_plan must address scalability — what specifically breaks at 2x and 5x volume
 - If this is a pure services business, focus on delivery process rather than manufacturing
 
-You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields: section_number, production_process, cost_structure, capacity_plan, supplier_strategy, rd_plan, ip_analysis, assumptions_used, uncertainties, confidence_score, input_tokens, output_tokens.
+You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields in this order: section_number, confidence_score, production_process, cost_structure, capacity_plan, supplier_strategy, rd_plan, ip_analysis, assumptions_used, uncertainties, input_tokens, output_tokens.
 """
 
 
@@ -206,19 +222,21 @@ class OperationsAgent(Agent):
         await self._send_msg(msg)
 
     def _build_schema_prompt(self) -> str:
-        return """Return ONLY valid JSON with these exact keys:
+        return """Return ONLY valid JSON with these exact keys IN THIS ORDER:
 - section_number: "10"
-- production_process: str (min 50 chars — how the product/service is made or delivered step by step)
-- cost_structure: {"fixed_costs": {"item": amount}, "variable_costs": {"item": amount}, "cogs_per_unit": float, "source_labels": {"item": "validated"|"assumed"|"benchmarked"}}
-- capacity_plan: str (what happens at 2x and 5x volume — specific bottlenecks and solutions)
-- supplier_strategy: str|null
-- rd_plan: str|null (include only if technology innovation involved)
-- ip_analysis: str|null (include only if IP is relevant)
-- assumptions_used: list of {"statement": str, "confidence": "high"|"medium"|"low", "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source_detail": str|null}
-- uncertainties: [str]
-- confidence_score: "high"|"medium"|"low"
+- confidence_score: "high"|"medium"|"low" (REQUIRED — never omit)
+- production_process: str (50-400 chars — how product/service is delivered, concise steps)
+- cost_structure: {"fixed_costs": {"item": amount} (MAX 6 items), "variable_costs": {"item": amount} (MAX 4 items), "cogs_per_unit": float, "source_labels": {"item": "validated"|"assumed"|"benchmarked"}}
+- capacity_plan: str (max 300 chars — what breaks at 2x and 5x volume)
+- supplier_strategy: str (max 200 chars)|null
+- rd_plan: str (max 200 chars)|null (only if tech innovation involved)
+- ip_analysis: str (max 200 chars)|null (only if IP relevant)
+- assumptions_used: list of {"statement": str (max 120 chars), "confidence": "high"|"medium"|"low", "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source_detail": str|null} (MAX 6 items)
+- uncertainties: [str] (MAX 4 items, each max 120 chars)
 - input_tokens: 0
-- output_tokens: 0"""
+- output_tokens: 0
+
+CONSTRAINTS: Total output under 4000 tokens. Numbers and short phrases, not paragraphs."""
 
     def _build_prompt(self, inp: OperationsInput) -> str:
         tech_section = ""
@@ -232,19 +250,21 @@ BUSINESS TYPE: {inp.business_type}
 REVENUE ASSUMPTIONS: {json.dumps(inp.revenue_assumptions, indent=2)}
 SWOT: {json.dumps(inp.swot_matrix, indent=2)}{tech_section}
 
-Return ONLY valid JSON with these exact keys:
+Return ONLY valid JSON with these exact keys IN THIS ORDER:
 - section_number: "10"
-- production_process: str (min 50 chars, how the product/service is made or delivered)
-- cost_structure: {{"fixed_costs": {{"item": amount, ...}}, "variable_costs": {{"item": amount, ...}}, "cogs_per_unit": float, "source_labels": {{"item": "validated"|"assumed"|"benchmarked"}}}}
-- capacity_plan: str (scalability at 2x and 5x volume)
-- supplier_strategy: str|null
-- rd_plan: str|null (include only if technology innovation is involved)
-- ip_analysis: str|null (include only if IP is relevant)
-- assumptions_used: list of {{"statement": str, "confidence": "high"|"medium"|"low", "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source_detail": str|null}}
-- uncertainties: [str]
-- confidence_score: "high"|"medium"|"low"
+- confidence_score: "high"|"medium"|"low" (REQUIRED — never omit)
+- production_process: str (50-400 chars, concise delivery steps)
+- cost_structure: {{"fixed_costs": {{"item": amount}} (MAX 6 items), "variable_costs": {{"item": amount}} (MAX 4 items), "cogs_per_unit": float, "source_labels": {{"item": "validated"|"assumed"|"benchmarked"}}}}
+- capacity_plan: str (max 300 chars — 2x and 5x bottlenecks)
+- supplier_strategy: str (max 200 chars)|null
+- rd_plan: str (max 200 chars)|null
+- ip_analysis: str (max 200 chars)|null
+- assumptions_used: list of {{"statement": str (max 120 chars), "confidence": "high"|"medium"|"low", "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source_detail": str|null}} (MAX 6 items)
+- uncertainties: [str] (MAX 4 items, each max 120 chars)
 - input_tokens: 0
 - output_tokens: 0
+
+CONSTRAINTS: Total output under 4000 tokens. Numbers and short phrases, not paragraphs.
 """
 
     def _parse_llm_response(self, raw: str, inp: OperationsInput) -> dict:

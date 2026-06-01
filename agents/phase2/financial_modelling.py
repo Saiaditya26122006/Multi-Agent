@@ -80,16 +80,34 @@ Follow them precisely for model construction.
 - If the model shows negative unit economics (price_per_unit < variable_cost_per_unit) with no path to improvement, flag as FATAL: "Business loses money on every unit sold — fundamental model is broken."
 - If break-even requires >5 years AND there is no DCF justification for patient capital, flag as FATAL: "Break-even timeline exceeds viable runway for this stage."
 
+## REQUIRED FIELDS — These MUST be present and populated in your output:
+- confidence_score: MUST be "high", "medium", or "low" — NEVER omit this field
+- risk_mitigation_actions: MUST have 2-5 items that directly address simulation risks
+- break_even_analysis: MUST include baseline_month, optimistic_month, pessimistic_month, units_required
+
+## OUTPUT LENGTH CONSTRAINTS — Obey these limits strictly:
+- pl_monthly_year1: MAXIMUM 12 rows. Each row: {month, revenue, costs, net} — 4 fields only. No sub-breakdowns.
+- pl_annual_years2_3: MAXIMUM 2 rows (year 2, year 3). Each: {year, revenue, costs, net, headcount_cost}.
+- balance_sheet: MAXIMUM 6 key-value pairs (assets, liabilities, equity, cash, receivables, payables).
+- cash_flow: MAXIMUM 4 key-value pairs (operating, investing, financing, net_change).
+- break_even_analysis: Exactly 4 fields: baseline_month, optimistic_month, pessimistic_month, units_required.
+- risk_mitigation_actions: 2-5 items. Each item MAXIMUM 150 characters.
+- dcf_valuation: If included, MAXIMUM 5 key-value pairs. Omit (null) if assumptions are "assumed".
+- comps_table: If included, MAXIMUM 3 comparable companies with 4 fields each. Omit (null) if not applicable.
+- assumption_log: MAXIMUM 8 assumptions. Only the most material ones.
+- uncertainties: MAXIMUM 5 items. Each MAXIMUM 150 characters.
+- All string values: MAXIMUM 200 characters. Be concise — numbers over prose.
+- Total output must fit comfortably under 4000 tokens. Prefer numbers and short phrases over paragraphs.
+
 ## Rules:
 - three_statement_model must include: pl_monthly_year1, pl_annual_years2_3, balance_sheet, cash_flow
 - break_even_analysis must include: baseline_month, optimistic_month, pessimistic_month, units_required
 - Every assumption must be logged with label (validated/alex_provided/agent_inferred/assumed)
-- risk_mitigation_actions must have at least 2 items that directly address simulation risks
 - DCF valuation is optional — only include if revenue assumptions have evidence beyond "assumed"
 - SimPy simulation results will be provided separately — integrate them into your output
 - All financial figures must be internally consistent across statements
 
-You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields: section_number, three_statement_model, break_even_analysis, risk_mitigation_actions, dcf_valuation, comps_table, assumption_log, uncertainties, confidence_score, input_tokens, output_tokens.
+You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields in this order: section_number, confidence_score, risk_mitigation_actions, break_even_analysis, three_statement_model, dcf_valuation, comps_table, assumption_log, uncertainties, input_tokens, output_tokens.
 """
 
 
@@ -335,18 +353,20 @@ class FinancialModellingAgent(Agent):
         }
 
     def _build_schema_prompt(self) -> str:
-        return """Return ONLY valid JSON with these exact keys:
+        return """Return ONLY valid JSON with these exact keys IN THIS ORDER:
 - section_number: "12"
-- three_statement_model: {"pl_monthly_year1": [...], "pl_annual_years2_3": [...], "balance_sheet": {...}, "cash_flow": {...}}
+- confidence_score: "high"|"medium"|"low" (REQUIRED — never omit)
+- risk_mitigation_actions: [str] (2-5 items, each max 150 chars — REQUIRED)
 - break_even_analysis: {"baseline_month": int, "optimistic_month": int, "pessimistic_month": int, "units_required": int}
-- risk_mitigation_actions: [str] (min 2 items — specific actions, not platitudes)
-- dcf_valuation: dict|null (include only if revenue assumptions have evidence beyond "assumed")
-- comps_table: dict|null
-- assumption_log: list of {"name": str, "value": str, "label": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source": str|null}
-- uncertainties: [str]
-- confidence_score: "high"|"medium"|"low"
+- three_statement_model: {"pl_monthly_year1": [max 12 rows, each {month, revenue, costs, net}], "pl_annual_years2_3": [2 rows], "balance_sheet": {max 6 fields}, "cash_flow": {max 4 fields}}
+- dcf_valuation: dict|null (max 5 fields, omit if assumptions are "assumed")
+- comps_table: dict|null (max 3 companies, 4 fields each)
+- assumption_log: list of {"name": str, "value": str, "label": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source": str|null} (MAX 8 items)
+- uncertainties: [str] (MAX 5 items, each max 150 chars)
 - input_tokens: 0
 - output_tokens: 0
+
+CONSTRAINTS: Total output must be under 4000 tokens. Use numbers and short phrases, not paragraphs. Each P&L row is 4 fields only.
 
 NOTE: probability_distribution, primary_risk_factor, simpy_runs_completed, financial_skills_applied, model_used, and task_id will be added automatically. Do NOT include them."""
 
@@ -367,18 +387,20 @@ SIMPY SIMULATION RESULTS (1000 runs):
 FINANCIAL SKILLS (follow these methodologies):
 {skills_content}
 
-Return ONLY valid JSON with these exact keys:
+Return ONLY valid JSON with these exact keys IN THIS ORDER:
 - section_number: "12"
-- three_statement_model: {{"pl_monthly_year1": [...], "pl_annual_years2_3": [...], "balance_sheet": {{...}}, "cash_flow": {{...}}}}
+- confidence_score: "high"|"medium"|"low" (REQUIRED — never omit)
+- risk_mitigation_actions: [str] (2-5 items, each max 150 chars — REQUIRED)
 - break_even_analysis: {{"baseline_month": int, "optimistic_month": int, "pessimistic_month": int, "units_required": int}}
-- risk_mitigation_actions: [str] (min 2 items)
-- dcf_valuation: dict|null (include only if revenue assumptions are not purely assumed)
-- comps_table: dict|null
-- assumption_log: list of {{"name": str, "value": str, "label": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source": str|null}}
-- uncertainties: [str]
-- confidence_score: "high"|"medium"|"low"
+- three_statement_model: {{"pl_monthly_year1": [max 12 rows, each {{month, revenue, costs, net}}], "pl_annual_years2_3": [2 rows], "balance_sheet": {{max 6 fields}}, "cash_flow": {{max 4 fields}}}}
+- dcf_valuation: dict|null (max 5 fields, omit if assumptions are "assumed")
+- comps_table: dict|null (max 3 companies, 4 fields each)
+- assumption_log: list of {{"name": str, "value": str, "label": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source": str|null}} (MAX 8 items)
+- uncertainties: [str] (MAX 5 items, each max 150 chars)
 - input_tokens: 0
 - output_tokens: 0
+
+CONSTRAINTS: Total output must be under 4000 tokens. Use numbers and short phrases, not paragraphs. Each P&L row is 4 fields only.
 
 NOTE: probability_distribution, primary_risk_factor, simpy_runs_completed, financial_skills_applied, model_used, and task_id will be added automatically. Do NOT include them.
 """

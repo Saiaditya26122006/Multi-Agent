@@ -70,9 +70,21 @@ contingency plans that directly address the specific kill conditions identified 
 - If break_even_analysis is empty AND probability_distribution is empty AND there is no primary_risk_factor, flag as FATAL: "Cannot build contingency plan without financial model outputs from Section 12."
 - If the financial model shows >60% probability of cash-out AND there is no identified funding path, flag as FATAL: "Launch plan is not viable without addressing the >60% failure probability from simulation."
 
+## OUTPUT LENGTH CONSTRAINTS — Obey these limits strictly:
+- launch_programme: MAXIMUM 6 milestones. Pick the 6 most critical. Do NOT list every sub-task.
+- prerequisite_conditions: MAXIMUM 4 items.
+- contingency_scenarios: MAXIMUM 3 scenarios. Only the highest-impact scenarios.
+- assumptions_used: MAXIMUM 5 assumptions. Only those that materially affect the plan.
+- uncertainties: MAXIMUM 4 items.
+- capital_plan: 2-3 sentences max.
+- critical_path_item: 1-2 sentences max.
+- exit_conditions: 2-3 sentences covering the key triggers.
+- All string fields: MAXIMUM 200 characters each. Be concise.
+- Total output must fit comfortably in one JSON response. Prefer brevity over exhaustiveness.
+
 ## Rules:
-- launch_programme must have at least 3 milestones with target_date_months, responsible, success_metric, dependencies
-- prerequisite_conditions must have at least 2 items — things that must be TRUE before launch starts
+- launch_programme must have 3-6 milestones with target_date_months, responsible, success_metric, dependencies
+- prerequisite_conditions must have 2-4 items — things that must be TRUE before launch starts
 - capital_plan must be at least 50 characters explaining how and when to raise specific amounts
 - critical_path_item must identify the single most important thing to get right first and why
 - contingency_scenarios must be included when probability_distribution shows >30% cash-out rate

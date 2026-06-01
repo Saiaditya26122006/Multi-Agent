@@ -66,7 +66,7 @@ from agents.phase2.agent_beliefs import AgentBeliefStore
 logger = logging.getLogger(__name__)
 
 BEDROCK_CONFIG = BotoConfig(
-    read_timeout=180,
+    read_timeout=300,
     connect_timeout=10,
     retries={"max_attempts": 0},
 )

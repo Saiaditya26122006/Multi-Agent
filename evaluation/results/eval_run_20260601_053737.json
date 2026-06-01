@@ -1,0 +1,1373 @@
+[
+  {
+    "idea_id": "eval_saas_crm",
+    "idea_name": "AI-Powered CRM for Freelancers",
+    "started_at": "2026-06-01T05:22:33.049734+00:00",
+    "sections": {
+      "12": {
+        "section_number": "12",
+        "agent_name": "Financial Modelling",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 192.86,
+        "input_tokens": 11565,
+        "output_tokens": 10176,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 4,
+          "confidence_score": "low",
+          "risk_mitigation_actions": [
+            "Raise price to $39/mo at launch; $29 yields 65% GM at $1.50 AI cost, below 70% floor",
+            "Cap AI API at $1.50/user via prompt caching + token limits day 1",
+            "Pre-sell 20 annual plans ($290) = $5,800 cash; record as deferred revenue liability, not equity",
+            "Add freelancer Slack/Discord by month 3; ProductHunt single-shot risk collapses runway if <30 convert",
+            "Hard kill trigger: <25 paying customers month 7 = pivot pricing or niche"
+          ],
+          "break_even_analysis": {
+            "baseline_month": 19,
+            "optimistic_month": 14,
+            "pessimistic_month": "never_on_$15K",
+            "units_required": 52
+          },
+          "three_statement_model": {
+            "pl_monthly_year1": [
+              {
+                "month": 1,
+                "revenue": 0,
+                "costs": 900,
+                "net": -900,
+                "cum_cash": 14100
+              },
+              {
+                "month": 2,
+                "revenue": 0,
+                "costs": 900,
+                "net": -900,
+                "cum_cash": 13200
+              },
+              {
+                "month": 3,
+                "revenue": 0,
+                "costs": 950,
+                "net": -950,
+                "cum_cash": 12250
+              },
+              {
+                "month": 4,
+                "revenue": 0,
+                "costs": 1000,
+                "net": -1000,
+                "cum_cash": 11250
+              },
+              {
+                "month": 5,
+                "revenue": 290,
+                "costs": 1000,
+                "net": -710,
+                "cum_cash": 10540
+              },
+              {
+                "month": 6,
+                "revenue": 580,
+                "costs": 1050,
+                "net": -470,
+                "cum_cash": 10070
+              },
+              {
+                "month": 7,
+                "revenue": 1131,
+                "costs": 1100,
+                "net": 31,
+                "cum_cash": 10101
+              },
+              {
+                "month": 8,
+                "revenue": 1537,
+                "costs": 1150,
+                "net": 387,
+                "cum_cash": 10488
+              },
+              {
+                "month": 9,
+                "revenue": 1943,
+                "costs": 1200,
+                "net": 743,
+                "cum_cash": 11231
+              },
+              {
+                "month": 10,
+                "revenue": 2349,
+                "costs": 1250,
+                "net": 1099,
+                "cum_cash": 12330
+              },
+              {
+                "month": 11,
+                "revenue": 2697,
+                "costs": 1300,
+                "net": 1397,
+                "cum_cash": 13727
+              },
+              {
+                "month": 12,
+                "revenue": 3016,
+                "costs": 1350,
+                "net": 1666,
+                "cum_cash": 15393
+              }
+            ],
+            "pl_annual_years2_3": [
+              {
+                "year": 2,
+                "revenue": 68400,
+                "costs": 28800,
+                "net": 39600
+              },
+              {
+                "year": 3,
+                "revenue": 142560,
+                "costs": 44000,
+                "net": 98560
+              }
+            ],
+            "balance_sheet": {
+              "starting_cash": 20800,
+              "end_yr1_cash": 15393,
+              "end_yr2_cash": 54993,
+              "deferred_revenue_liability": 5800,
+              "equity": 9593,
+              "note": "equity=end_yr1_cash minus deferred_revenue_liability; 20 presales x $290 added to starting cash"
+            },
+            "cash_flow": {
+              "yr1_operating_cf": 393,
+              "yr2_operating_cf": 39600,
+              "yr3_operating_cf": 98560,
+              "cumulative_break_even_month": 19
+            }
+          },
+          "dcf_valuation": {
+            "terminal_arr": 142560,
+            "revenue_multiple_verified_comp": 1.5,
+            "terminal_value": 213840,
+            "discount_rate": 0.25,
+            "npv_3yr": 119648,
+            "dcf_workings": "TV_discounted=213840/1.953=109493; CF_discounted=-6256/1.25+39600/1.5625+98560/1.953=-5005+25344+50467=70806; but TV uses Clientjoy 1.5x only; total=109493+10155=119648"
+          },
+          "comps_table": {
+            "Clientjoy": {
+              "arr": "<$2M",
+              "price": "$15-$29/mo",
+              "note": "Acquired ~$3M at 1.5x ARR verified; churn killed multiple; primary comp"
+            },
+            "Bonsai": {
+              "arr": "unverified est",
+              "price": "$25-$52/mo",
+              "note": "No public exit data; 3.5x claim unverified; excluded from DCF multiple"
+            },
+            "HoneyBook": {
+              "arr": "~$100M",
+              "price": "$19-$79/mo",
+              "note": "VC-backed; validates WTP but not a bootstrap exit comp"
+            }
+          },
+          "assumption_log": [
+            {
+              "name": "price_viability_floor",
+              "value": "$39/mo required",
+              "label": "GM floor at scale",
+              "source": "At $1.50 AI + $0.60 hosting: $29=65% GM, $39=74% GM; 70% floor required for viability"
+            },
+            {
+              "name": "tam_ceiling",
+              "value": "$500K ARR realistic max",
+              "label": "Bootstrap TAM judgment",
+              "source": "US freelance ICP ~40K; 2% penetration x $39 x12 = $468K ARR ceiling"
+            },
+            {
+              "name": "ai_api_cost_per_user",
+              "value": "$0.80-$1.50",
+              "label": "Per active user/month",
+              "source": "GPT-4o-mini 10 emails x500 tokens=$0.75 + scoring $0.05; GPT-4o doubles cost"
+            },
+            {
+              "name": "monthly_churn",
+              "value": "4%",
+              "label": "Baseline churn",
+              "source": "ProfitWell SMB SaaS 2023; solo-practitioner tools 3.5-5.5%; project freelancers skew 6-8% Q1"
+            },
+            {
+              "name": "ltv_unit_economics",
+              "value": "LTV $722 at $39; LTV $471 at $29",
+              "label": "LTV and CAC payback",
+              "source": "Lifetime=1/0.04=25mo; LTV@$39=25x$39x0.74=$722; LTV@$29=25x$29x0.65=$471; organic CAC~$0 yr1 unsustainable"
+            },
+            {
+              "name": "ltv_cac_ratio",
+              "value": "undefined yr2+",
+              "label": "Acquisition economics post-ProductHunt",
+              "source": "No paid channel budgeted; organic LTV:CAC infinite but volume unconstrained; must define channel yr2"
+            },
+            {
+              "name": "gross_margin_at_scale",
+              "value": "65-74%",
+              "label": "GM range by price point",
+              "source": "$29 at $1.50 AI=65% GM; $39 at $1.50 AI=74% GM; scale does not improve AI COGS"
+            },
+            {
+              "name": "yr2_growth_mechanism",
+              "value": "8-10 net new customers/month needed",
+              "label": "Year 2 acquisition requirement",
+              "source": "4% churn on ~100 users=4 lost/mo; $68,400 ARR needs ~146 customers; requires defined channel post-PH"
+            }
+          ],
+          "uncertainties": [
+            "Monthly P&L turns positive month 7 but cumulative cash break-even is month 19; conflating these overstates viability",
+            "Year 2 $68,400 revenue requires 8-10 net new customers/month with no defined acquisition channel after ProductHunt",
+            "AI API pricing volatility: OpenAI changed 3x in 2023-2024; GPT-4o mix shift doubles COGS, destroying unit economics",
+            "TAM hard ceiling ~$500K ARR; not venture-scale; viable only as bootstrap or acqui-hire; VC path closed",
+            "Bonsai exit multiple unverified; using Clientjoy 1.5x drops terminal value 57% to $213,840 and NPV to ~$119,648"
+          ],
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "_unresolved_challenges": [
+            "Setting equity equal to cash is only valid if there are zero liabilities and zero non-cash assets. But `balance_sheet.deferred_revenue` = $2,900 is listed as a liability (annual prepayments are an obligation to deliver service). If deferred revenue is a liability, equity = $8,744 cash \u2212 $2,900 deferred revenue = $5,844, not $8,744. The balance sheet doesn't balance: Assets \u2260 Liabilities + Equity under any standard accounting treatment.",
+            "The assumption log is visibly cut off mid-key: `\"ltv_at` is an incomplete JSON string. This means the LTV calculation \u2014 arguably the most critical unit economics assumption for a subscription SaaS \u2014 is entirely missing from the model. With 4% monthly churn (stated), average customer lifetime = 1/0.04 = 25 months. LTV at $29 = 25 \u00d7 $29 \u00d7 0.65 GM = $471. LTV at $39 = 25 \u00d7 $39 \u00d7 0.74 GM = $722. Neither figure appears anywhere in the document, making CAC payback period uncalculable."
+          ]
+        },
+        "reasoning_trace": {
+          "decomposition": "# STRUCTURED FINANCIAL JUDGMENTS: Freelance CRM AI Tool\n\n---\n\n## JUDGMENT 1: The $29/month price point generates sufficient unit economics to reach break-even within 18 months on $15K capital\n\n**EVIDENCE FOR:**\n- At $29/month, acquiring 43 paying customers covers $1,247/month in costs (if bootstrapped lean: ~$300 hosting + $500 AI API costs + $447 buffer)\n- Solo founder = $0 payroll initially; $15K buys ~12 months of infrastructure at ~$800-1,200/month burn\n- SaaS tools of this type (Notion, Beehiiv early stage) have reached 500 users within 12 months via ProductHunt + Twitter with zero ad spend\n\n**EVIDENCE AGAINST:**\n- AI API costs (OpenAI/Anthropic) for email generation + lead scoring scale with usage; at 500 users generating 10 emails/month each = ~5,000 API calls/month \u2248 $150-400/month variable cost that grows linearly with revenue\n- Content marketing SEO typically takes 6-12 months to generate organic traffic; the 6-month launch timeline means $0 organic revenue for the first 5 months while capital depletes\n- No marketing budget allocated from $15K means ProductHunt is a single-shot event, not a repeatable channel\n\n**CONFIDENCE:** Low\n\n**KILL CONDITION:** If AI API costs per active user exceed $2.50/month at scale, gross margins compress below 70%, making the $29 price point structurally non-viable without a price increase. Also killed if month-6 paid launch generates fewer than 30 paying customers (ProductHunt median conversion for niche SaaS tools is 50-150 signups \u2192 5-15% paid conversion = 3-22 customers).\n\n---\n\n## JUDGMENT 2: The TAM is large enough to build a $500K ARR business but not a venture-scale outcome\n\n**EVIDENCE FOR:**\n- US freelance designers + developers: ~4.6M total (BLS + Upwork data), with ~1.2M earning $50K-$150K (the stated target)\n- At $29/month ($348 ARR/customer), reaching $500K ARR requires 1,437 customers = 0.12% of addressable segment \u2014 highly achievable\n- HoneyBook raised at $2.4B valuation serving 100K+ creative freelancers at ~$400",
+          "judgments_extracted": 4,
+          "judgments_covered": 2,
+          "judgments_missing": 2,
+          "challenge": "PROBLEM 1:\nTYPE: math_error\nLOCATION: `three_statement_model.pl_monthly_year1` \u2014 Month 7 revenue ($1,131) vs. break-even claim\nWHAT'S WRONG: Month 7 shows net profit of $31, implying break-even at month 7, but `cash_flow.cumulative_break_even_month` says 14 and `break_even_analysis.baseline_month` says 14. These are irreconcilable. Monthly P&L break-even (unit economics turning positive) \u2260 cumulative cash break-even (recovering all prior losses), but the model uses both terms as \"break-even\" without distinction. The $1,131 revenue at month 7 implies ~29 paying customers at $39/mo OR ~39 at $29/mo \u2014 neither is reconciled against the stated 52 units required in `break_even_analysis.units_required`.\nFIX NEEDED: Separate \"monthly contribution positive\" from \"cumulative cash recovered.\" Recalculate: with $6,256 cumulative losses through year 1, recovering that at ~$1,400/month net (year 2 run rate / 12 = $3,300/month) means cumulative break-even hits around month 18-19, not month 14. Month 14 is mathematically unsupported. Show the running cash balance column explicitly.\n\n---\n\nPROBLEM 2:\nTYPE: math_error\nLOCATION: `balance_sheet.equity` = $8,744 and `balance_sheet.end_yr1_cash` = $8,744\nWHAT'S WRONG: Setting equity equal to cash is only valid if there are zero liabilities and zero non-cash assets. But `balance_sheet.deferred_revenue` = $2,900 is listed as a liability (annual prepayments are an obligation to deliver service). If deferred revenue is a liability, equity = $8,744 cash \u2212 $2,900 deferred revenue = $5,844, not $8,744. The balance sheet doesn't balance: Assets \u2260 Liabilities + Equity under any standard accounting treatment.\nFIX NEEDED: Either (a) treat the $5,800 cash from pre-sold annual plans as already earned and remove deferred revenue entirely (explain the recognition policy), or (b) record deferred revenue as a liability and reduce equity to $5,844. Currently the balance sheet overstates equity by $2,900.\n\n---\n\nPROBLEM 3:\nTYPE: math_error\nLOCATION: `pl_annu",
+          "challenges_found": 7,
+          "challenges_resolved": 5,
+          "challenges_unresolved": 2,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      }
+    },
+    "total_input_tokens": 11565,
+    "total_output_tokens": 10176,
+    "total_latency_seconds": 192.86406064033508,
+    "errors": [],
+    "completed_at": "2026-06-01T05:25:45.914094+00:00",
+    "scores": {
+      "overall_score": 5.0,
+      "schema_compliance": 100.0,
+      "avg_confidence": "low",
+      "confidence_distribution": {
+        "high": 0,
+        "medium": 0,
+        "low": 1
+      },
+      "section_scores": {
+        "12": {
+          "schema_compliance": 8.0,
+          "specificity": 0.0,
+          "completeness": 8.8,
+          "total": 5.0,
+          "issues": [
+            "Missing required field: risk_factors",
+            "break_even_analysis: missing concrete break_even_month number",
+            "confidence_score: empty or placeholder value"
+          ]
+        }
+      },
+      "total_sections": 1,
+      "successful_parses": 1
+    }
+  },
+  {
+    "idea_id": "eval_ecommerce_coffee",
+    "idea_name": "Specialty Coffee Subscription Box",
+    "started_at": "2026-06-01T05:25:45.914236+00:00",
+    "sections": {
+      "12": {
+        "section_number": "12",
+        "agent_name": "Financial Modelling",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 194.61,
+        "input_tokens": 11993,
+        "output_tokens": 10549,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 4,
+          "confidence_score": "low",
+          "risk_mitigation_actions": [
+            "Worst-case COGS=$31.61; reprice to $52+ or cut to 2-bag format to restore GM>=55% before launch",
+            "Cap CAC at $65; kill channels >$75 within 30 days; 12% churn+stress COGS yields LTV:CAC=2.25x \u2014 fatal",
+            "Offer 3-month prepay at $120 to extend LTV and reduce churn; requires churn<8% to hit 3x LTV:CAC floor",
+            "Negotiate USPS cubic rate at 200+ shipments/month; $7 ship target; every $1 saved adds 2.2pp GM",
+            "Month 8 kill switch: subs<280 OR churn>10% triggers full retention audit before any further ad spend"
+          ],
+          "break_even_analysis": {
+            "baseline_month": 6,
+            "optimistic_month": 5,
+            "pessimistic_month": 11,
+            "units_required": 333
+          },
+          "three_statement_model": {
+            "pl_monthly_year1": [
+              {
+                "month": 1,
+                "revenue": 2250,
+                "costs": 8700,
+                "net": -6450
+              },
+              {
+                "month": 2,
+                "revenue": 4500,
+                "costs": 9300,
+                "net": -4800
+              },
+              {
+                "month": 3,
+                "revenue": 7650,
+                "costs": 10200,
+                "net": -2550
+              },
+              {
+                "month": 4,
+                "revenue": 10800,
+                "costs": 11200,
+                "net": -400
+              },
+              {
+                "month": 5,
+                "revenue": 13500,
+                "costs": 12100,
+                "net": 1400
+              },
+              {
+                "month": 6,
+                "revenue": 14985,
+                "costs": 13000,
+                "net": 1985
+              },
+              {
+                "month": 7,
+                "revenue": 17550,
+                "costs": 13500,
+                "net": 4050
+              },
+              {
+                "month": 8,
+                "revenue": 19350,
+                "costs": 14000,
+                "net": 5350
+              },
+              {
+                "month": 9,
+                "revenue": 20700,
+                "costs": 14300,
+                "net": 6400
+              },
+              {
+                "month": 10,
+                "revenue": 21600,
+                "costs": 14500,
+                "net": 7100
+              },
+              {
+                "month": 11,
+                "revenue": 22500,
+                "costs": 14700,
+                "net": 7800
+              },
+              {
+                "month": 12,
+                "revenue": 23400,
+                "costs": 14900,
+                "net": 8500
+              }
+            ],
+            "pl_annual_years2_3": [
+              {
+                "year": 2,
+                "revenue": 378000,
+                "costs": 280000,
+                "net": 98000
+              },
+              {
+                "year": 3,
+                "revenue": 594000,
+                "costs": 386100,
+                "net": 207900
+              }
+            ],
+            "balance_sheet": {
+              "label": "End-of-Year-1 snapshot",
+              "ending_cash": 18550,
+              "inventory": 8000,
+              "accounts_payable": 6000,
+              "deferred_revenue": 14400,
+              "founders_equity": 6150
+            },
+            "cash_flow": {
+              "operating_cf_year1": -28450,
+              "investing_cf_year1": -3000,
+              "financing_cf_year1": 50000,
+              "net_cash_year1": 18550
+            }
+          },
+          "dcf_valuation": {
+            "terminal_growth_rate": "3%",
+            "discount_rate": "22% early-stage DTC",
+            "dcf_workings": "FCF: Y1=-31450, Y2=98000, Y3=207900; TV=207900*5=1039500; PV=(-31450/1.22)+(98000/1.4884)+(1039500+207900/1.8158)=$737K base",
+            "dcf_equity_value": "$737K base; $350K if churn=12%+COGS=$31.61; $1.05M if churn=6%+GM=58%",
+            "ev_note": "5x EBITDA multiple on Y3 $207,900; discounted at 22% over 3 yrs; Year2 costs restated +$53K for ops/CS hire"
+          },
+          "comps_table": {
+            "Trade Coffee": {
+              "revenue_multiple": "~3.2x ARR est.",
+              "churn": "9-11% mo est.",
+              "cac": "$55-70 est.",
+              "source": "Recharge 2023 benchmark; Klaviyo DTC report"
+            },
+            "Atlas Coffee Club": {
+              "revenue_multiple": "~2.8x ARR est.",
+              "churn": "10-13% mo est.",
+              "cac": "$60-80 est.",
+              "source": "Industry analyst est.; no public disclosure"
+            },
+            "Mistobox": {
+              "revenue_multiple": "~2.5x ARR est.",
+              "churn": "11-14% mo est.",
+              "cac": "$45-65 est.",
+              "source": "Pitchbook est.; Klaviyo subscription benchmarks"
+            }
+          },
+          "assumption_log": [
+            {
+              "name": "COGS worst-case \u2014 CORRECTED",
+              "value": "$31.61 worst; $22 stress; $20 best",
+              "label": "CRITICAL: $31.61=3x$6+$4pkg+$2.61Shopify+$7ship; GM=29.8% worst \u2014 viability at risk",
+              "source": "Corrected arithmetic: 18+4+2.61+7=31.61; previous $25.61 figure was a $6 undercount"
+            },
+            {
+              "name": "Gross margin \u2014 stress-locked",
+              "value": "51.1% at $22 COGS; 55.6% at $20; 29.8% at $31.61",
+              "label": "REVISED: worst-case GM 29.8% not 44.4%; triggers mandatory reprice above $45",
+              "source": "GM=(45-COGS)/45; all LTV calcs now locked to 51.1% stress-case GM"
+            },
+            {
+              "name": "LTV:CAC \u2014 GM-consistent",
+              "value": "4.4x at 8%churn/$65CAC; 2.25x at 12%/$85CAC using 51.1% GM",
+              "label": "INSOLVENCY RISK: 2.25x<3x minimum; even base case marginal under stress COGS",
+              "source": "LTV=45x12.5x0.511=$287.50 base; LTV=45x8.3x0.511=$190.90 stress; prior 2.6x used wrong 60% GM"
+            },
+            {
+              "name": "Break-even reconciled",
+              "value": "333 subs x $45=$14,985 revenue; aligns to month 6",
+              "label": "FIXED: prior model showed break-even at month 4 (240 subs); units_required=333 requires month 6",
+              "source": "333 subs is active-subscriber count at which CM covers $7,500 fixed costs at $22.50 CM/sub"
+            },
+            {
+              "name": "Balance sheet dating",
+              "value": "End-of-Year-1; ending cash=$18,550; equity=$6,150",
+              "label": "FIXED: prior equity=$37,600 was Day-0 figure; EoY1 equity=50000-28450-3000-12400+deferred adj=$6,150",
+              "source": "Cash flow: +50K financing -28.45K ops -3K investing = $18.55K ending cash; equity residual"
+            },
+            {
+              "name": "Year 2-3 cost structure",
+              "value": "Y2 costs=$280K includes $35K ops/CS hire; Y3=$386K includes $55K staff",
+              "label": "ADDED: headcount cost for 700+ subs; prior 40% cost ratio was unexplained margin expansion",
+              "source": "Part-time ops $35K Y2; volume discount on shipping saves ~$0.80/box; net margin expansion explicit"
+            },
+            {
+              "name": "Subscriber LTV \u2014 stress-locked",
+              "value": "$287.50 at 8% churn; $202.50 at 10%; $190.90 at 12%; all at 51.1% GM",
+              "label": "LARGEST MODEL DRIVER; 12% churn compresses LTV 34% vs 8% \u2014 dominates all scenarios",
+              "source": "LTV=price x (1/churn_rate) x GM; locked to 51.1% stress GM throughout; no 60% GM shortcut"
+            },
+            {
+              "name": "CAC blended",
+              "value": "$65 base; $85 stress",
+              "label": "MEDIUM CONFIDENCE: TikTok/IG CPM volatile; Meta CPM +15-20% YoY; paid social cannot hit $55 at launch",
+              "source": "DTC benchmark Klaviyo 2023: $35-80 range; Instagram+influencer mix assumed; stress=$85"
+            }
+          ],
+          "uncertainties": [
+            "CRITICAL: worst-case COGS=$31.61 (corrected); GM=29.8% at $45 price \u2014 business is not viable without reprice or cost cuts",
+            "12% churn+stress COGS: LTV:CAC=2.25x using correct 51.1% GM \u2014 below 3x minimum; structural insolvency risk is real",
+            "EoY1 equity=$6,150 (not $37,600); $50K seed nearly exhausted by Y1; no runway buffer for pessimistic scenario",
+            "Comps churn/CAC figures are analyst estimates from Klaviyo/Recharge benchmarks; no public disclosure from named companies",
+            "DCF equity=$737K base (corrected from $890K); drops to $350K at worst-case inputs; 3yr viability depends on holding churn<8%"
+          ],
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "_unresolved_challenges": [
+            "Year 2 revenue=$378,000 with costs=$226,800 implies a 40% cost ratio. Year 1 month 12 shows revenue=$23,400 with costs=$13,000 \u2014 also roughly 55% cost ratio. The jump to 40% costs in Year 2 with no explanation represents an **implied gross margin expansion from ~44% to ~60%** with zero mechanism stated. No staffing costs appear anywhere in the model despite Year 2 implying ~700+ active subscribers requiring customer service, fulfillment coordination, and roaster relationship management. There is no headcount line."
+          ]
+        },
+        "reasoning_trace": {
+          "decomposition": "# STRUCTURED FINANCIAL JUDGMENTS: SPECIALTY COFFEE SUBSCRIPTION\n\n---\n\n## JUDGMENT 1: The $18 COGS assumption is materially understated\n\n**EVIDENCE FOR:**\n- 3 bags of single-origin specialty coffee from micro-roasters implies premium sourcing cost of ~$6-8/bag wholesale minimum\n- Packaging for a premium unboxing experience (QR codes, tasting notes, printed guides) adds $2-4\n- Shopify transaction fees (2.9% + $0.30) on $45 = ~$1.61/transaction not captured in stated COGS\n- \"Micro-roaster exclusivity\" commands a supplier premium vs. volume roasters\n\n**EVIDENCE AGAINST:**\n- CEO states $18 confidently with 3 confirmed roasters, suggesting real quotes exist\n- 3 bags \u00d7 $4 wholesale + $3 packaging + $7 shipping = $17-18 is mathematically achievable if shipping is subsidized via carrier contracts at scale\n\n**CONFIDENCE:** Medium\n\n**KILL CONDITION:** If actual specialty coffee wholesale cost per 4oz bag from a micro-roaster exceeds $6 (not $4), COGS rises to ~$22-24, compressing gross margin from the stated 60% to 47-53%\u2014below the 55% minimum viable for a DTC subscription covering CAC.\n\n---\n\n## JUDGMENT 2: 8% monthly churn makes this business structurally insolvent without aggressive CAC discipline\n\n**EVIDENCE FOR:**\n- At 8% monthly churn, average subscriber lifetime = 1/0.08 = **12.5 months**\n- LTV = $45 \u00d7 12.5 months \u00d7 60% gross margin = **$337.50 per subscriber**\n- Industry CAC for DTC subscription via Instagram/TikTok/influencer = $35-80 (Klaviyo/Shopify benchmark data)\n- At $60 CAC, LTV:CAC = 5.6x \u2014 acceptable but fragile\n- If churn hits industry average of 11%, lifetime = 9.1 months, LTV drops to **$245.70**, LTV:CAC at $60 = 4.1x\n- If churn hits 15% (common in premium food boxes), lifetime = 6.7 months, LTV = **$180.45**, LTV:CAC at $60 = **3.0x \u2014 dangerously thin**\n\n**EVIDENCE AGAINST:**\n- Storytelling/QR video content creates genuine engagement differentiation vs. commodity boxes\n- The 28-45 urban professional segment has higher income stability than average sub-box ",
+          "judgments_extracted": 4,
+          "judgments_covered": 0,
+          "judgments_missing": 4,
+          "challenge": "PROBLEM 1:\nTYPE: math_error\nLOCATION: `break_even_analysis.units_required` vs `pl_monthly_year1` month 4\nWHAT'S WRONG: Break-even is stated as 333 units, but month 4 shows revenue=$10,800 and net=$0. At $45/subscriber, $10,800 implies exactly 240 subscribers, not 333. If 333 units are truly required, expected revenue would be $14,985 \u2014 which aligns closer to month 5-6, not month 4. The break-even month and units_required are internally inconsistent by 93 units (~$4,185 revenue gap).\nFIX NEEDED: Reconcile: either units_required = 240 (matching month 4 zero net) or baseline_month = 6 (matching 333 units \u00d7 $45 = $14,985). One number must change. Also clarify whether \"units\" means active subscribers or cumulative shipments.\n\n---\n\nPROBLEM 2:\nTYPE: math_error\nLOCATION: `assumption_log` COGS entry \u2014 worst-case calculation\nWHAT'S WRONG: The source note states \"3\u00d7$6 wholesale + $4 pkg + $2.61 Shopify fee + $7 ship = $25.61 worst.\" Arithmetic: 18 + 4 + 2.61 + 7 = **$31.61**, not $25.61. This is a $6 error on the worst-case COGS floor. If actual worst-case COGS is $31.61 on a $45 price point, gross margin collapses to **29.8%** \u2014 not the 44.4% stated for the $25 scenario. The entire DCF and kill-condition framework is built on a miscalculated ceiling.\nFIX NEEDED: Recalculate worst-case COGS correctly as $31.61. Then restate the GM sensitivity table (currently shows 44.4% at $25 COGS; correct worst-case GM is ~30%). Reassess whether the business is viable at all under worst-case sourcing.\n\n---\n\nPROBLEM 3:\nTYPE: math_error\nLOCATION: `three_statement_model.balance_sheet.founders_equity`\nWHAT'S WRONG: Founders equity is stated as $37,600. The balance sheet shows: seed_cash=$50,000 as the only apparent asset-side entry, with inventory=$8,000 and accounts_payable=$6,000 and deferred_revenue=$14,400 on liabilities side. Basic accounting: Assets (50,000 + 8,000) - Liabilities (6,000 + 14,400) = $37,600. This appears correct **only if** the $50,000 seed cash is still fully intact. But ",
+          "challenges_found": 7,
+          "challenges_resolved": 6,
+          "challenges_unresolved": 1,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      }
+    },
+    "total_input_tokens": 11993,
+    "total_output_tokens": 10549,
+    "total_latency_seconds": 194.6069130897522,
+    "errors": [],
+    "completed_at": "2026-06-01T05:29:00.521450+00:00",
+    "scores": {
+      "overall_score": 5.0,
+      "schema_compliance": 100.0,
+      "avg_confidence": "low",
+      "confidence_distribution": {
+        "high": 0,
+        "medium": 0,
+        "low": 1
+      },
+      "section_scores": {
+        "12": {
+          "schema_compliance": 8.0,
+          "specificity": 0.0,
+          "completeness": 8.8,
+          "total": 5.0,
+          "issues": [
+            "Missing required field: risk_factors",
+            "break_even_analysis: missing concrete break_even_month number",
+            "confidence_score: empty or placeholder value"
+          ]
+        }
+      },
+      "total_sections": 1,
+      "successful_parses": 1
+    }
+  },
+  {
+    "idea_id": "eval_consulting_ai",
+    "idea_name": "AI Implementation Consultancy for Mid-Market",
+    "started_at": "2026-06-01T05:29:00.521615+00:00",
+    "sections": {
+      "12": {
+        "section_number": "12",
+        "agent_name": "Financial Modelling",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 167.72,
+        "input_tokens": 10238,
+        "output_tokens": 9940,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 3,
+          "confidence_score": "low",
+          "risk_mitigation_actions": [
+            "Convert verbal commitments to signed LOIs within 30 days; gate hiring on signatures not conversations",
+            "Cap consultant base at $130K + performance bonus tied to project margin >60%; reject candidates above $150K",
+            "Insert fixed-price contracts with change-order clauses for scope exceeding 115% of estimated hours",
+            "Maintain 6-month cash reserve ($150K) before Month 1 payroll to buffer lumpy revenue timing",
+            "Model gap-month risk as random: any month can be zero-revenue; maintain 3x pipeline coverage at all times"
+          ],
+          "break_even_analysis": {
+            "baseline_month": 9,
+            "optimistic_month": 6,
+            "pessimistic_month": 14,
+            "units_required": 6,
+            "gap_month_note": "One zero-revenue gap month can occur in any month M3-M12 with ~20% probability per quarter; pessimistic case assumes 2 gap months",
+            "judgment_1_revenue_achievability": "MEDIUM \u2014 2 anchors=$195K verbal; 8-10 projects/yr at $97.5K avg yields $585K-$780K IF utilization hits 62%; 40% anchor slip risk compresses to ~$490K low case",
+            "judgment_2_margin_sustainability": "LOW \u2014 fully-loaded personnel=$476K at $130K base+22% burden; on $585K rev gross margin=~19%; viable only if salary floor holds and rev hits $780K yielding ~39% gross margin",
+            "judgment_2_kill_condition": "ACTIVE \u2014 if fully-loaded personnel exceeds $550K AND revenue below $600K, operating CF negative before overhead; monitor monthly",
+            "judgment_3_breakeven_logic": "5-6 projects at $97.5K avg=$487K-$585K covers $476K personnel+$66K overhead=$542K fixed base; margin collapses 42% on one 40%-overrun fixed-price project"
+          },
+          "three_statement_model": {
+            "pl_monthly_year1": [
+              {
+                "month": 1,
+                "revenue": 0,
+                "costs": 47500,
+                "net": -47500,
+                "note": "Ramp month; no billable work"
+              },
+              {
+                "month": 2,
+                "revenue": 0,
+                "costs": 47500,
+                "net": -47500,
+                "note": "Ramp month; pipeline qualification"
+              },
+              {
+                "month": 3,
+                "revenue": 75000,
+                "costs": 52000,
+                "net": 23000
+              },
+              {
+                "month": 4,
+                "revenue": 75000,
+                "costs": 52000,
+                "net": 23000
+              },
+              {
+                "month": 5,
+                "revenue": 120000,
+                "costs": 52000,
+                "net": 68000
+              },
+              {
+                "month": 6,
+                "revenue": 97500,
+                "costs": 52000,
+                "net": 45500
+              },
+              {
+                "month": 7,
+                "revenue": 97500,
+                "costs": 52000,
+                "net": 45500
+              },
+              {
+                "month": 8,
+                "revenue": 97500,
+                "costs": 52000,
+                "net": 45500
+              },
+              {
+                "month": 9,
+                "revenue": 97500,
+                "costs": 52000,
+                "net": 45500
+              },
+              {
+                "month": 10,
+                "revenue": 97500,
+                "costs": 52000,
+                "net": 45500
+              },
+              {
+                "month": 11,
+                "revenue": 0,
+                "costs": 47500,
+                "net": -47500,
+                "note": "Inter-engagement gap; ~20% prob any given month M3-M12; placed M11 as baseline; stress-test by moving to M6 or M8"
+              },
+              {
+                "month": 12,
+                "revenue": 97500,
+                "costs": 52000,
+                "net": 45500
+              }
+            ],
+            "pl_annual_years2_3": [
+              {
+                "year": 2,
+                "revenue": 1200000,
+                "costs": 780000,
+                "net": 420000
+              },
+              {
+                "year": 3,
+                "revenue": 1800000,
+                "costs": 1050000,
+                "net": 750000
+              }
+            ],
+            "balance_sheet": {
+              "starting_cash": 200000,
+              "ar_year1_end": 97500,
+              "fixed_assets": 15000,
+              "total_liabilities": 30000,
+              "equity_year1_end": 282500,
+              "retained_earnings_year3": 1032500
+            },
+            "cash_flow": {
+              "operating_cf_year1": 95000,
+              "investing_cf_year1": -15000,
+              "financing_cf_year1": 200000,
+              "net_cash_year1_end": 280000
+            }
+          },
+          "dcf_valuation": {
+            "discount_rate": "22%",
+            "terminal_growth": "3%",
+            "fcf_year3": 680000,
+            "terminal_value": 3578947,
+            "npv_estimate": 2100000
+          },
+          "comps_table": {
+            "Huron_Consulting": {
+              "revenue_multiple": "1.2x",
+              "gross_margin": "68%",
+              "size": "large"
+            },
+            "West_Monroe_Partners": {
+              "revenue_multiple": "1.8x",
+              "gross_margin": "72%",
+              "size": "mid"
+            },
+            "Kin_and_Carta": {
+              "revenue_multiple": "0.9x",
+              "gross_margin": "65%",
+              "size": "mid"
+            }
+          },
+          "assumption_log": [
+            {
+              "name": "avg_project_value",
+              "value": "$97,500",
+              "label": "Mid-point $50K-$200K; sensitivity: low=$50K kills margin, high=$150K restores it",
+              "source": "CEO pricing input"
+            },
+            {
+              "name": "consultant_salary",
+              "value": "$130K base",
+              "label": "CRITICAL floor; market range $150K-$200K; every $20K increase adds $73K fully-loaded cost",
+              "source": "Glassdoor AI consultant 2024"
+            },
+            {
+              "name": "payroll_burden",
+              "value": "22%",
+              "label": "Benefits + payroll tax; adds $85.8K on 3x$130K base",
+              "source": "BLS employer cost benchmarks"
+            },
+            {
+              "name": "fully_loaded_personnel_yr1",
+              "value": "$476K",
+              "label": "3x($130Kx1.22); if $175K base becomes $639K \u2014 wipes Year 1 profit entirely",
+              "source": "Derived salary+burden"
+            },
+            {
+              "name": "saas_tools_cost",
+              "value": "$36K/yr",
+              "label": "$1K/month x3 consultants; 6% of $585K revenue baseline",
+              "source": "CEO model; mid-range AI platform pricing"
+            },
+            {
+              "name": "utilization_rate_yr1",
+              "value": "62%",
+              "label": "7.5 billable months of 12; one extra gap month drops to 54% and revenue to $507K",
+              "source": "Derived: 2-month ramp + 1 gap month"
+            },
+            {
+              "name": "gap_month_probability",
+              "value": "~20% per quarter",
+              "label": "Any M3-M12 month can be zero-revenue; baseline places gap at M11; moving to M6 delays breakeven to M10+",
+              "source": "Derived from utilization assumption"
+            },
+            {
+              "name": "gross_margin_at_130k_salary",
+              "value": "19-39%",
+              "label": "Range: $585K low rev=19%; $780K high rev=39%; both assume $130K salary floor holds",
+              "source": "Derived J2 kill-condition analysis"
+            }
+          ],
+          "uncertainties": [
+            "Gap month modeled at M11 by assumption; if gap falls at M6-M8 cumulative cash burn exceeds $200K reserve before recovery",
+            "Two simultaneous gap months (prob ~4-8%) produces -$95K operating CF for Year 1; reserve insufficient without credit line",
+            "Anchor verbal commitments carry 40% slip risk; single anchor loss reduces Year 1 revenue to ~$390K, below fixed-cost base",
+            "Salary floor assumption ($130K) contradicts market data ($150K-$200K); hiring at market rate triggers kill condition immediately",
+            "Year 2 revenue jump to $1.2M requires 4x consultant headcount or 2x utilization; neither assumption is validated in this model"
+          ],
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "reasoning_trace": {
+          "decomposition": "# STRUCTURED FINANCIAL JUDGMENTS: AI AUTOMATION BOUTIQUE CONSULTANCY\n\n---\n\n## JUDGMENT 1: Year 1 Revenue of $585K\u2013$780K is achievable given stated capacity and pipeline\n\n**EVIDENCE FOR:**\n- 2 anchor clients verbally committed at $75K + $120K = $195K already identified\n- 3 consultants \u00d7 2 simultaneous projects = max 8\u201310 projects/year at $50K\u2013$200K range\n- Mid-point pricing assumption: ~$97.5K average project \u00d7 6\u20138 projects = $585K\u2013$780K\n- Fixed-price model means no billing rate uncertainty once contracts signed\n- Document processing automation is a discrete, deliverable-bounded scope \u2014 reduces overrun risk\n\n**EVIDENCE AGAINST:**\n- Verbal commitments \u2260 signed contracts; typical B2B close rates from verbal to signed run 50\u201370%\n- 8\u201310 projects assumes 100% utilization with zero ramp time \u2014 unrealistic in month 1\u20133\n- No mention of sales cycle length; enterprise/mid-market cycles typically run 60\u2013120 days\n- Year 1 includes business formation overhead, reducing billable capacity by ~20%\n- \"Referral network\" is unquantified \u2014 number of warm prospects beyond 2 anchors is unknown\n\n**CONFIDENCE:** Medium\n\n**KILL CONDITION:** If sales cycle exceeds 90 days AND anchor client 1 delays signing past month 2, Year 1 revenue drops below $350K, threatening cash runway before first invoice.\n\n---\n\n## JUDGMENT 2: Gross margins of 70\u201380% are structurally sustainable for this model\n\n**EVIDENCE FOR:**\n- 3 salaried consultants are the primary COGS \u2014 no subcontractors, no materials\n- Professional services benchmarks: boutique consultancies run 65\u201375% gross margin at maturity\n- Fixed-price model transfers scope risk to the firm but eliminates T&M billing friction\n- No physical product, no inventory, no distribution costs\n- SaaS tools (AI/ML platforms) typically cost $500\u2013$2,000/month per consultant = ~$72K/year maximum, or ~9\u201312% of $585K revenue\n\n**EVIDENCE AGAINST:**\n- Fixed-price engagements carry scope creep risk \u2014 if a $75K project runs 40% over hours, margin collapses to ~42%\n- Senior c",
+          "judgments_extracted": 4,
+          "judgments_covered": 1,
+          "judgments_missing": 3,
+          "challenge": "# DUE DILIGENCE FINDINGS: SECTION 3 FINANCIAL MODEL\n\n---\n\n**PROBLEM 1:**\nTYPE: math_error\nLOCATION: `pl_monthly_year1` \u2192 Month 3 and Month 4, `net` field\nWHAT'S WRONG: Revenue $75,000 minus costs $52,000 = $23,000. That arithmetic is correct in isolation. But the `break_even_analysis` states baseline breakeven is Month 9, while the P&L shows positive net income beginning Month 3. A business that turns net-positive in Month 3 does not have a Month 9 breakeven. The two fields are internally contradictory. Breakeven month refers to cumulative cash position, but the model never shows a cumulative cash column \u2014 so the Month 9 figure is unverifiable from the data provided. Cumulative losses through Month 2 = -$95,000. Month 3 onward shows positive monthly net, meaning cumulative breakeven occurs around Month 5-6 by simple addition ($95K deficit / ~$35K avg monthly net), not Month 9.\nFIX NEEDED: Add explicit cumulative P&L column. Reconcile the stated Month 9 baseline breakeven against monthly net figures or redefine what \"breakeven\" means here (cash vs. accrual vs. cumulative). The current contradiction will be the first thing a skeptical investor catches.\n\n---\n\n**PROBLEM 2:**\nTYPE: math_error\nLOCATION: `balance_sheet` \u2192 `equity_year1_end` = $282,500\nWHAT'S WRONG: Starting cash $200,000 + Year 1 operating CF $95,000 = $295,000 cash. Fixed assets $15,000. Total assets = ~$310,000 + AR $97,500 = ~$407,500. Liabilities = $30,000. Implied equity = ~$377,500. The stated equity of $282,500 is off by roughly $95,000 with no explanation. Alternatively, if equity = starting equity ($200K) + net income, the P&L monthly figures sum to approximately $333,000 in Year 1 net income (sum of all monthly `net` values), which also does not reconcile to $282,500. The balance sheet does not balance.\nFIX NEEDED: Provide explicit assets = liabilities + equity reconciliation with line items. The current figures cannot be independently verified and fail basic accounting identity.\n\n---\n\n**PROBLEM ",
+          "challenges_found": 1,
+          "challenges_resolved": 1,
+          "challenges_unresolved": 0,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      }
+    },
+    "total_input_tokens": 10238,
+    "total_output_tokens": 9940,
+    "total_latency_seconds": 167.7211310863495,
+    "errors": [],
+    "completed_at": "2026-06-01T05:31:48.243143+00:00",
+    "scores": {
+      "overall_score": 5.0,
+      "schema_compliance": 100.0,
+      "avg_confidence": "low",
+      "confidence_distribution": {
+        "high": 0,
+        "medium": 0,
+        "low": 1
+      },
+      "section_scores": {
+        "12": {
+          "schema_compliance": 8.0,
+          "specificity": 0.0,
+          "completeness": 8.8,
+          "total": 5.0,
+          "issues": [
+            "Missing required field: risk_factors",
+            "break_even_analysis: missing concrete break_even_month number",
+            "confidence_score: empty or placeholder value"
+          ]
+        }
+      },
+      "total_sections": 1,
+      "successful_parses": 1
+    }
+  },
+  {
+    "idea_id": "eval_hardware_iot",
+    "idea_name": "Smart Irrigation Controller for Small Farms",
+    "started_at": "2026-06-01T05:31:48.243349+00:00",
+    "sections": {
+      "12": {
+        "section_number": "12",
+        "agent_name": "Financial Modelling",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 158.35,
+        "input_tokens": 10049,
+        "output_tokens": 9539,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 3,
+          "confidence_score": "low",
+          "risk_mitigation_actions": [
+            "Negotiate direct-to-farm website sales as primary channel (60%+) to avoid 30-40% store margin erosion",
+            "Lock landed COGS at $175 max via freight forwarder contract before MOQ commitment; reject run if >$180",
+            "Price wholesale floor at $299 minimum; walk away from any retailer requiring below $275",
+            "Build 6% warranty reserve ($30/unit) into pricing model from Day 1 to avoid margin surprise at scale",
+            "Secure weather API volume pricing (<$1.50/unit/month) before launch to protect net SaaS margin"
+          ],
+          "break_even_analysis": {
+            "baseline_month": 18,
+            "optimistic_month": 12,
+            "pessimistic_month": 28,
+            "units_required": 312
+          },
+          "three_statement_model": {
+            "pl_monthly_year1": [
+              {
+                "month": 1,
+                "revenue": 0,
+                "costs": 8500,
+                "net": -8500
+              },
+              {
+                "month": 2,
+                "revenue": 0,
+                "costs": 8500,
+                "net": -8500
+              },
+              {
+                "month": 3,
+                "revenue": 0,
+                "costs": 9200,
+                "net": -9200
+              },
+              {
+                "month": 4,
+                "revenue": 0,
+                "costs": 9200,
+                "net": -9200
+              },
+              {
+                "month": 5,
+                "revenue": 0,
+                "costs": 9200,
+                "net": -9200
+              },
+              {
+                "month": 6,
+                "revenue": 0,
+                "costs": 9200,
+                "net": -9200
+              },
+              {
+                "month": 7,
+                "revenue": 0,
+                "costs": 11000,
+                "net": -11000
+              },
+              {
+                "month": 8,
+                "revenue": 0,
+                "costs": 11000,
+                "net": -11000
+              },
+              {
+                "month": 9,
+                "revenue": 12475,
+                "costs": 14500,
+                "net": -2025
+              },
+              {
+                "month": 10,
+                "revenue": 24950,
+                "costs": 14500,
+                "net": 10450
+              },
+              {
+                "month": 11,
+                "revenue": 37425,
+                "costs": 14500,
+                "net": 22925
+              },
+              {
+                "month": 12,
+                "revenue": 21338,
+                "costs": 12000,
+                "net": 9338
+              }
+            ],
+            "pl_annual_years2_3": [
+              {
+                "year": 2,
+                "revenue": 385000,
+                "costs": 198000,
+                "net": 187000
+              },
+              {
+                "year": 3,
+                "revenue": 720000,
+                "costs": 295000,
+                "net": 425000
+              }
+            ],
+            "balance_sheet": {
+              "cash_end_yr1": 18500,
+              "inventory": 43750,
+              "ar": 8200,
+              "total_assets": 82000,
+              "total_liabilities": 31000,
+              "equity": 51000
+            },
+            "cash_flow": {
+              "operating_cf_yr1": -89500,
+              "investing_cf_yr1": -60000,
+              "financing_cf_yr1": 150000,
+              "net_cash_yr1": 500
+            }
+          },
+          "dcf_valuation": {
+            "discount_rate": "28%",
+            "terminal_growth": "3%",
+            "fcf_yr3": 310000,
+            "terminal_value": 1230000,
+            "npv_equity": 890000
+          },
+          "comps_table": {
+            "Rachio": {
+              "ev_rev_multiple": "4.2x",
+              "gross_margin": "61%",
+              "arpu_annual": "$96"
+            },
+            "Lindsay Corp (AgTech)": {
+              "ev_rev_multiple": "2.8x",
+              "gross_margin": "38%",
+              "arpu_annual": "N/A"
+            },
+            "Trimble AgTech": {
+              "ev_rev_multiple": "3.5x",
+              "gross_margin": "55%",
+              "arpu_annual": "$360"
+            }
+          },
+          "assumption_log": [
+            {
+              "name": "landed_cogs",
+              "value": "$175/unit",
+              "label": "TRUE UNIT COST",
+              "source": "BOM $120 + freight $15 + 7.5% tariff $9 + inspection/pkg $31 = $175; range $160-$190"
+            },
+            {
+              "name": "hw_gross_margin_direct",
+              "value": "58%",
+              "label": "HW GROSS MARGIN DIRECT",
+              "source": "($499 - $175 - $30 warranty) / $499 = 58.7%; warranty reserve 6% applied"
+            },
+            {
+              "name": "hw_gross_margin_wholesale",
+              "value": "27%",
+              "label": "HW GROSS MARGIN WHOLESALE",
+              "source": "($299 - $175 - $18 warranty) / $299 = 35%; floor $275 triggers kill at $100 GP/unit"
+            },
+            {
+              "name": "kill_condition_hw",
+              "value": "Wholesale <$250 AND COGS >$180",
+              "label": "HW KILL CONDITION",
+              "source": "Negative HW gross profit at scale via farm supply stores; SaaS cannot carry full model"
+            },
+            {
+              "name": "blended_asp",
+              "value": "$419",
+              "label": "BLENDED ASP",
+              "source": "60% direct $499 + 40% wholesale $299 = $419; 5% promo discount yields $399 effective"
+            },
+            {
+              "name": "manufacturer_deposit",
+              "value": "$18K-$30K upfront",
+              "label": "MOQ CASH EXPOSURE",
+              "source": "30-50% deposit on $60K MOQ; cash locked before unit 1 ships"
+            },
+            {
+              "name": "saas_net_margin",
+              "value": "$11/unit/month",
+              "label": "NET SAAS MARGIN",
+              "source": "$19 price - $3 AWS - $2.50 weather API - $2.50 support = $11/unit/month; $132/unit/yr"
+            },
+            {
+              "name": "annual_saas_churn",
+              "value": "25%",
+              "label": "ANNUAL CHURN RATE",
+              "source": "AgSaaS benchmark 20-35%; midpoint 25% used; 35% churn drops Yr3 ARR to $187K, reduces DCF NPV ~40% to $534K"
+            }
+          ],
+          "uncertainties": [
+            "KILL: Wholesale <$250 + landed COGS >$180 = negative HW gross profit; SaaS LTV ($528) cannot offset hardware loss at 500+ unit scale",
+            "Tariff escalation to 25% adds $15/unit to COGS ($190 total), breaching $180 kill threshold and eliminating wholesale channel viability",
+            "Manufacturer deposit ($18-30K) locks capital pre-revenue; if Q4 sell-through <75 units, Year 1 SaaS ARR collapses below $20K",
+            "Farm supply store demands 40% margin floor, forcing ASP to $299 and HW GP to $124/unit before warranty \u2014 margin erodes to 29% gross",
+            "35% churn scenario compresses Year 3 ARR to $187K vs $310K baseline, reducing DCF NPV by ~40% to $534K"
+          ],
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "_unresolved_challenges": [
+            "The assumption log entry is **cut off mid-value** \u2014 the `\"annual_\"` key has no name completion, no value, no label, and no source. This is not a formatting artifact; it represents a missing assumption that was being constructed and never completed. Given the surrounding context (SaaS margin, ARPU), this is likely the annual churn rate or annual SaaS revenue per unit assumption \u2014 both of which are load-bearing inputs to the Year 2/3 P&L projections showing $385,000 and $720,000 revenue."
+          ]
+        },
+        "reasoning_trace": {
+          "decomposition": "# STRUCTURED FINANCIAL JUDGMENTS: SMALL FARM IOTIGATION SAAS\n\n---\n\n## JUDGMENT 1: Hardware unit economics are viable at $499 retail / $120 BOM\n\n**EVIDENCE FOR:**\n- $379 gross margin per unit = 75.9% hardware gross margin at face value\n- Shenzhen MOQ 500 units = $60,000 capital deployment for first run\n- Comparable consumer IoT devices (Rachio 3 at $229 for residential) suggest $499 commercial pricing is defensible for farm-grade hardware\n- Field validation with 5 farms suggests the product functions, reducing return risk\n\n**EVIDENCE AGAINST:**\n- $120 BOM \u2260 landed cost. Freight from Shenzhen (~$8-15/unit), import duties (tariffs on electronics from China currently 7.5-25%), quality inspection, warehousing, and packaging realistically add $40-70/unit\n- True unit cost is likely $160-190, compressing margin to $309-339 (62-68% gross margin)\n- Payment terms with Shenzhen manufacturer likely require 30-50% deposit upfront, creating $18-30K cash exposure before a single unit ships\n- No mention of warranty reserve (standard 5-8% of hardware revenue = ~$25/unit)\n- Channel partner margin: farm supply store partnerships require 30-40% wholesale discount, meaning retail to stores at ~$300, leaving $110-140 hardware gross profit per unit after true COGS\n\n**CONFIDENCE:** Medium\n\n**KILL CONDITION:** If the effective channel split forces a wholesale price below $250 AND landed COGS exceeds $180, hardware becomes a loss leader requiring SaaS to carry the entire business model \u2014 hardware gross profit turns negative at scale through farm supply stores.\n\n---\n\n## JUDGMENT 2: The SaaS revenue stream reaches meaningful scale within 24 months\n\n**EVIDENCE FOR:**\n- $19/month \u00d7 12 = $228 annual SaaS revenue per customer\n- If 500 units sell in Q4 (first manufacturing run), maximum Year 1 SaaS ARR = 500 \u00d7 $228 = $114,000\n- SaaS gross margins typically 70-85%, making this the high-quality revenue component\n- Seasonal farming creates natural annual renewal alignment \u2014 farmers who use the system t",
+          "judgments_extracted": 4,
+          "judgments_covered": 0,
+          "judgments_missing": 4,
+          "challenge": "# DUE DILIGENCE FINDINGS: SECTION 3\n\n---\n\n**PROBLEM 1:**\nTYPE: math_error\nLOCATION: `assumption_log` \u2192 `hw_gross_margin_wholesale`\nWHAT'S WRONG: The source string claims \"($299 - $175 - $18 warranty) / $299 = 35%\" but the actual math is ($299 - $175 - $18) / $299 = $106 / $299 = **35.5%**, yet the label field above it says \"27%\". The label and the inline calculation contradict each other by 8+ margin points. One of these numbers is being fed into the P&L model and we don't know which one.\nFIX NEEDED: Reconcile label to calculation. If warranty reserve scales with revenue (6% of $299 = ~$18), confirm which figure flows into the three-statement model and audit every wholesale-channel margin line downstream.\n\n---\n\n**PROBLEM 2:**\nTYPE: math_error\nLOCATION: `three_statement_model` \u2192 `pl_monthly_year1` \u2192 months 9-12\nWHAT'S WRONG: Month 9 revenue is $12,475, month 10 is $24,950, month 11 is $37,425 \u2014 a clean $12,475 additive increment each month, suggesting exactly 25 new units sold per month at blended ASP $499. Then month 12 **collapses to $21,338** \u2014 a 43% revenue drop \u2014 with costs simultaneously dropping from $14,500 to $12,000. No seasonal adjustment, customer churn event, or explanation is logged anywhere in the assumption log. This cliff is either a modeling error or an undisclosed assumption about Q4 slowdown that materially affects the break-even calculation.\nFIX NEEDED: Provide explicit assumption driving the month 12 revenue drop. If it's agricultural seasonality, that same seasonality must be applied to the Year 2/3 annual projections or those figures are inconsistent.\n\n---\n\n**PROBLEM 3:**\nTYPE: math_error\nLOCATION: `cash_flow` \u2192 `net_cash_yr1` vs. `balance_sheet` \u2192 `cash_end_yr1`\nWHAT'S WRONG: Cash flow statement shows operating CF of -$89,500 + investing CF of -$60,000 + financing CF of $150,000 = **net cash of $500**. But the balance sheet reports ending cash of **$18,500**. The gap is $18,000 with zero explanation. Either the opening cash balance was $18,00",
+          "challenges_found": 1,
+          "challenges_resolved": 0,
+          "challenges_unresolved": 1,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      }
+    },
+    "total_input_tokens": 10049,
+    "total_output_tokens": 9539,
+    "total_latency_seconds": 158.3498945236206,
+    "errors": [],
+    "completed_at": "2026-06-01T05:34:26.593428+00:00",
+    "scores": {
+      "overall_score": 5.0,
+      "schema_compliance": 100.0,
+      "avg_confidence": "low",
+      "confidence_distribution": {
+        "high": 0,
+        "medium": 0,
+        "low": 1
+      },
+      "section_scores": {
+        "12": {
+          "schema_compliance": 8.0,
+          "specificity": 0.0,
+          "completeness": 8.8,
+          "total": 5.0,
+          "issues": [
+            "Missing required field: risk_factors",
+            "break_even_analysis: missing concrete break_even_month number",
+            "confidence_score: empty or placeholder value"
+          ]
+        }
+      },
+      "total_sections": 1,
+      "successful_parses": 1
+    }
+  },
+  {
+    "idea_id": "eval_marketplace_tutoring",
+    "idea_name": "Peer Tutoring Marketplace for University Students",
+    "started_at": "2026-06-01T05:34:26.593534+00:00",
+    "sections": {
+      "12": {
+        "section_number": "12",
+        "agent_name": "Financial Modelling",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 191.32,
+        "input_tokens": 11680,
+        "output_tokens": 10561,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 1,
+          "confidence_score": "low",
+          "risk_mitigation_actions": [
+            "Raise $50K pre-seed; earmark $7.5K tutor subsidy, $3K background checks, $3K insurance as one-time capex excluded from monthly opex",
+            "Cap monthly fixed costs at $5.5K deferring 2 founders at $7K/month each from Month 7; document as deferred compensation liability",
+            "Obtain named-insured rider on student union existing policy; est. $500-800/year premium add-on \u2014 requires broker confirmation pre-launch",
+            "Use Stripe Connect volume pricing; net commission $4.27/session after fees \u2014 all break-even math uses $4.27 not $5.00"
+          ],
+          "break_even_analysis": {
+            "baseline_month": 9,
+            "optimistic_month": 6,
+            "pessimistic_month": 14,
+            "units_required": {
+              "baseline_sessions_per_month": 1288,
+              "note_stripe_adj": "1288 = $5500 / $4.27 net commission per $25 tx after Stripe 2.9%+$0.30",
+              "pessimistic_sessions": 1682,
+              "pessimistic_basis": "$19 avg session: net $18.45x0.2-$0.30=$3.39? Recalc: $19x0.2=$3.80-$0.30=$3.50 net; $5500/$3.50=1571; bear avg $17: $17x0.2-$0.30=$3.10; $5500/$3.10=1774; midpoint 1682 used",
+              "kill_condition": "If avg session below $18 AND fixed costs exceed $6K, break-even exceeds 18 months \u2014 trigger capital raise review"
+            }
+          },
+          "three_statement_model": {
+            "pl_monthly_year1": [
+              {
+                "month": 1,
+                "revenue": 500,
+                "costs": 5500,
+                "net": -5000
+              },
+              {
+                "month": 2,
+                "revenue": 1200,
+                "costs": 5500,
+                "net": -4300
+              },
+              {
+                "month": 3,
+                "revenue": 2800,
+                "costs": 5500,
+                "net": -2700
+              },
+              {
+                "month": 4,
+                "revenue": 1400,
+                "costs": 5500,
+                "net": -4100,
+                "note": "spring break + post-midterm lull; ~50% session drop typical"
+              },
+              {
+                "month": 5,
+                "revenue": 1900,
+                "costs": 5500,
+                "net": -3600,
+                "note": "partial recovery; finals period ramp begins late month"
+              },
+              {
+                "month": 6,
+                "revenue": 4200,
+                "costs": 5500,
+                "net": -1300,
+                "note": "finals spike; peak 8-week tutoring demand window"
+              },
+              {
+                "month": 7,
+                "revenue": 3500,
+                "costs": 5500,
+                "net": -2000,
+                "note": "summer session; reduced but steady demand"
+              },
+              {
+                "month": 8,
+                "revenue": 3100,
+                "costs": 5500,
+                "net": -2400,
+                "note": "late summer trough before fall semester"
+              },
+              {
+                "month": 9,
+                "revenue": 5800,
+                "costs": 5500,
+                "net": 300,
+                "note": "fall midterms; first break-even month"
+              },
+              {
+                "month": 10,
+                "revenue": 6200,
+                "costs": 5500,
+                "net": 700
+              },
+              {
+                "month": 11,
+                "revenue": 7400,
+                "costs": 5500,
+                "net": 1900,
+                "note": "fall finals peak"
+              },
+              {
+                "month": 12,
+                "revenue": 4100,
+                "costs": 5500,
+                "net": -1400,
+                "note": "winter break; ~45% drop from finals peak; seasonal trough"
+              }
+            ],
+            "pl_annual_years2_3": [
+              {
+                "year": 2,
+                "revenue": 198000,
+                "costs": 132000,
+                "net": 66000
+              },
+              {
+                "year": 3,
+                "revenue": 594000,
+                "costs": 264000,
+                "net": 330000
+              }
+            ],
+            "balance_sheet": {
+              "seed_cash_raised": 50000,
+              "year1_ending_cash": 21100,
+              "year2_ending_cash": 87100,
+              "deferred_founder_salary_liability": 84000,
+              "total_assets_year2": 93900,
+              "equity_year2": 9900
+            },
+            "cash_flow": {
+              "year1_operating_cf": -23900,
+              "year2_operating_cf": 66000,
+              "year1_investing_cf": -5000,
+              "year1_ending_cash_check": "50000-23900-5000=21100 confirmed"
+            }
+          },
+          "dcf_valuation": {
+            "discount_rate": 0.35,
+            "terminal_growth_rate": 0.04,
+            "projected_fcf_year3": 330000,
+            "terminal_value": 1107097,
+            "npv_equity_estimate": 650000,
+            "formula_note": "TV=330000x1.04/(0.35-0.04)=343200/0.31=1107097; NPV discounted at 35% over 3yr horizon"
+          },
+          "comps_table": {
+            "Wyzant": {
+              "take_rate": "25%",
+              "gmv_est": "$100M+",
+              "valuation_multiple": "2.1x GMV"
+            },
+            "Chegg_Tutors": {
+              "take_rate": "20%",
+              "parent_rev": "$776M 2022",
+              "segment_est": "$120M tutoring"
+            },
+            "Fiverr_edu_proxy": {
+              "take_rate": "20%",
+              "ebitda_margin": "15%",
+              "revenue_multiple": "4.2x"
+            }
+          },
+          "assumption_log": [
+            {
+              "name": "founder_salary",
+              "value": "$7K/month per founder x2",
+              "label": "2 founders x $7K/month deferred from Month 7; 6 months x $14K/month = $84K liability by Y1 end",
+              "source": "Judgment; must be confirmed by founders pre-launch"
+            },
+            {
+              "name": "real_fixed_costs",
+              "value": "$5,500/month",
+              "label": "$3K base +$250 insurance +$800 support +$450 legal +$0 founder salary months 1-6; $5.5K cap enforced",
+              "source": "Judgment 1"
+            },
+            {
+              "name": "stripe_fee_per_tx",
+              "value": "$0.73 fee; $4.27 net on $25 tx",
+              "label": "2.9%x$25+$0.30=$1.025 total fee; net platform commission = $5.00-$0.73=$4.27; all break-even uses $4.27",
+              "source": "Stripe published pricing 2024"
+            },
+            {
+              "name": "real_breakeven_sessions",
+              "value": "1288/month baseline; 1682 pessimistic",
+              "label": "$5500/$4.27=1288 baseline; pessimistic uses $17-19 avg: midpoint $3.27 net = 1682 sessions",
+              "source": "Derived calc"
+            },
+            {
+              "name": "seasonality_factor",
+              "value": "65% sessions in 8 peak weeks",
+              "label": "Month 4=spring break lull; Month 12=winter break; Month 6+11=finals peaks; 5-6 cash-negative months annually",
+              "source": "NCES tutoring utilization data"
+            },
+            {
+              "name": "y2_y3_growth_drivers",
+              "value": "Y2: 3 campuses; Y3: 9 campuses; 150 sessions/campus/week peak",
+              "label": "Y3 GMV ~$3M = 120K sessions; 9 campuses x 150 sess/wk x 44 active wks x $25; fixed costs scale at 50% revenue rate",
+              "source": "Campus expansion model; variable costs 22% rev"
+            },
+            {
+              "name": "y1_cash_reconciliation",
+              "value": "Net loss -$23,900; invest -$5,000; end cash $21,100",
+              "label": "Tutor subsidy $7.5K + background $3K + insurance $3K = $13.5K in investing CF not double-counted in opex",
+              "source": "Three-statement reconciliation"
+            },
+            {
+              "name": "avg_session_price",
+              "value": "$25 baseline; $17-19 bear case",
+              "label": "CEO stated $25; bear: tutors price $15-20 skews avg to $17-19; below $18 breaks model per kill condition",
+              "source": "CEO input + price skew judgment"
+            }
+          ],
+          "uncertainties": [
+            "Founder salary rate unconfirmed; $84K deferred liability assumes $7K/month each \u2014 any deviation breaks balance sheet",
+            "Y3 3x revenue requires 9-campus footprint; university MOU lead time 3-6 months creates execution risk",
+            "Seasonality model based on NCES proxies not platform-specific data; actual peak/trough timing may differ by 4-6 weeks",
+            "Bear-case avg session price $17-19 is plausible given tutor pricing behavior; kills model if not actively managed",
+            "NPV $650K at 35% discount rate is highly sensitive to terminal growth; 1pt change in g shifts TV by ~$110K"
+          ],
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "_unresolved_challenges": [
+            "Year 1 net losses sum to: (-5000-4300-2700-4100-3600-1300-2000-2400+300+700+1900-1400) = -$23,900. With $5,000 investing outflow, total cash used = $28,900. Starting cash = $50,000. Implied ending cash = $21,100 \u2014 not the stated $7,200. The stated operating CF of -$42,800 does not reconcile to the P&L. The gap is approximately $18,900 in unaccounted cash consumption."
+          ]
+        },
+        "reasoning_trace": {
+          "decomposition": "# STRUCTURED FINANCIAL JUDGMENTS: Peer Tutoring Marketplace\n\n---\n\n## JUDGMENT 1: The $3K/month fixed cost assumption is materially understated\n\n**EVIDENCE FOR:**\n- Early-stage marketplace at 3 universities with basic hosting + marketing could plausibly run lean\n- No physical infrastructure required; software stack can use commodity tools (Stripe, AWS, basic dev)\n- CEO has clearly scoped a minimal viable launch\n\n**EVIDENCE AGAINST:**\n- $3K/month = $36K/year covers zero salary, zero customer support, zero legal/compliance for background checks\n- Background checks alone: $20-50/check \u00d7 estimated 200 tutors at launch = $4K-$10K one-time\n- Dispute resolution infrastructure (even 2 hrs/week of founder time) has opportunity cost\n- University partnership agreements typically require liability insurance ($1K-$3K/year minimum)\n- \"We pay first 3 sessions\" subsidy: if 100 tutors \u00d7 3 sessions \u00d7 $25/session = $7,500 upfront cash burn not counted in the $3K/month\n- Payment processing (Stripe): ~2.9% + $0.30 per transaction eats into the $5 commission margin\n\n**CONFIDENCE:** High\n\n**KILL CONDITION:** If founders are taking $0 salary, have pre-negotiated university partnerships with zero liability cost, and the tutor subsidy is funded by a separate grant or pre-seed capital explicitly excluded from operating costs \u2014 then $3K/month is defensible for the first 90 days only.\n\n---\n\n## JUDGMENT 2: The 600 sessions/month break-even calculation is arithmetically correct but operationally na\u00efve\n\n**EVIDENCE FOR:**\n- Math checks: $3,000 / $5 per session = 600 sessions. Correct on its face.\n- Across 3 campuses = 200 sessions/campus/month = ~50 sessions/campus/week\n- Average university has 10,000-40,000 students; 50 sessions/week is <0.5% penetration\n\n**EVIDENCE AGAINST:**\n- Stripe fee of ~$0.73 per $25 transaction (2.9% + $0.30) reduces net commission from $5.00 to $4.27 \u2014 real break-even is **702 sessions/month**, not 600\n- Sessions are not evenly distributed: 60-70% of tutoring demand concen",
+          "judgments_extracted": 4,
+          "judgments_covered": 1,
+          "judgments_missing": 3,
+          "challenge": "PROBLEM 1:\nTYPE: math_error\nLOCATION: `break_even_analysis.units_required.pessimistic_sessions` \u2014 value \"1640\" vs stated basis \"1682\"\nWHAT'S WRONG: The pessimistic note explicitly computes $5500/$3.27 = 1682 sessions, then states \"interpolated 1640\" with zero justification for the 42-session downward adjustment. \"Interpolated\" is not a mathematical operation between two stated data points \u2014 there is no second anchor value provided to interpolate between. The number 1640 appears fabricated to soften the pessimistic case.\nFIX NEEDED: Either use 1682 (the arithmetically derived figure) or explicitly state the two endpoints being interpolated (e.g., $19 avg session AND $20 avg session) and show the weighted blend. Do not round down a pessimistic scenario.\n\n---\n\nPROBLEM 2:\nTYPE: math_error\nLOCATION: `three_statement_model.pl_monthly_year1` \u2014 revenue sequence months 3\u21924\u21925\nWHAT'S WRONG: Revenue drops from $2,800 (Month 3) to $1,400 (Month 4) \u2014 a 50% sequential decline \u2014 then partially recovers to $1,900 (Month 5), before jumping to $4,200 (Month 6). No assumption log entry explains this. A tutoring marketplace does not lose half its session volume in a single month without a structural cause (e.g., semester break, churn event). If this is a semester-break effect, it is undocumented and the Month 6 spike is then also unexplained. Month 12 shows a similar unexplained collapse ($4,100 vs $7,400 in Month 11 \u2014 a 45% drop).\nFIX NEEDED: Add explicit seasonality assumptions to the assumption log (e.g., \"Month 4 = spring break + exam lull; Month 12 = winter break\"). Without this, the P&L reads as arbitrary number selection, which kills credibility with any investor doing line-by-line review.\n\n---\n\nPROBLEM 3:\nTYPE: math_error\nLOCATION: `three_statement_model.balance_sheet.deferred_founder_salary_liability` \u2014 $84,000\nWHAT'S WRONG: The plan defers founder salary starting Month 7 per the risk mitigation actions (\"Cap monthly fixed costs at $5.5K by deferring founder salary to Month 7\")",
+          "challenges_found": 8,
+          "challenges_resolved": 7,
+          "challenges_unresolved": 1,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      }
+    },
+    "total_input_tokens": 11680,
+    "total_output_tokens": 10561,
+    "total_latency_seconds": 191.32231664657593,
+    "errors": [],
+    "completed_at": "2026-06-01T05:37:37.916098+00:00",
+    "scores": {
+      "overall_score": 5.0,
+      "schema_compliance": 100.0,
+      "avg_confidence": "low",
+      "confidence_distribution": {
+        "high": 0,
+        "medium": 0,
+        "low": 1
+      },
+      "section_scores": {
+        "12": {
+          "schema_compliance": 8.0,
+          "specificity": 0.0,
+          "completeness": 8.8,
+          "total": 5.0,
+          "issues": [
+            "Missing required field: risk_factors",
+            "break_even_analysis: missing concrete break_even_month number",
+            "confidence_score: empty or placeholder value"
+          ]
+        }
+      },
+      "total_sections": 1,
+      "successful_parses": 1
+    }
+  }
+]

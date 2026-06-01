@@ -1,0 +1,1078 @@
+[
+  {
+    "idea_id": "eval_saas_crm",
+    "idea_name": "AI-Powered CRM for Freelancers",
+    "started_at": "2026-06-01T06:00:32.891912+00:00",
+    "sections": {
+      "1": {
+        "section_number": "1",
+        "agent_name": "Opportunity Analyst",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 217.2,
+        "input_tokens": 8309,
+        "output_tokens": 10040,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 1,
+          "opportunity_description": "Lightweight AI-augmented CRM for solo freelance designers/developers earning $50K-$150K/year. Addresses lead management chaos (10-50 active leads, no admin support) with auto-categorization, close probability scoring, and follow-up email generation at $29/month. Market entry via organic channels against HoneyBook and Dubsado. Bootstrapped with $15K, targeting ~$5,800 MRR at Month 12 and $14,500 MRR at Month 18.",
+          "competitive_strategy": "Compete on ruthless simplicity plus embedded AI next-action suggestions rather than dashboards. HoneyBook wins on client portals and invoicing; Dubsado wins on workflow automation depth. Differentiation centers on reducing the 'what do I do next with this lead' decision to one AI-suggested action for solo practitioners with no ops support. CRITICAL CAVEAT: HoneyBook shipped 'HoneyBook AI' in late 2023 with lead follow-up features; a dated feature audit against both competitors is required before this gap claim can be asserted with confidence. If gap is partially closed, strategy pivots to execution speed, lower price, and deeper freelancer-specific prompt tuning. Price anchors below HoneyBook's $39/month ceiling to reduce switching friction, not to signal cheapness.",
+          "objectives": [
+            {
+              "objective": "Reach 20-30 paying customers by Month 6",
+              "metric": "paid_subscribers",
+              "target": 25,
+              "deadline": "Month 6",
+              "because": "ProductHunt launch with strong performance generates 8,000-15,000 unique page visits (not upvote-equivalent visitors). At 5-10% trial opt-in and 15-25% trial-to-paid, expected range is 60-375 trials yielding 9-94 paid customers; realistic midpoint is 20-30. Supplementary channels (Twitter/X community seeding, direct outreach to freelance Discord servers) needed to reliably hit 25. No single-source assumption."
+            },
+            {
+              "objective": "Reach 100 paying customers by Month 12",
+              "metric": "paid_subscribers",
+              "target": 100,
+              "deadline": "Month 12",
+              "because": "25 customers at Month 6 growing at ~26% MoM net yields ~98 customers by Month 12. Alternatively, 12% MoM net from Month 6 yields only ~49 customers \u2014 insufficient. 26% MoM net requires SEO early traction plus consistent Twitter referral loop. This is an aggressive but internally consistent target; if MoM net growth tracks below 20% by Month 8, target should be revised to 75."
+            },
+            {
+              "objective": "Reach 350 paying customers by Month 18",
+              "metric": "paid_subscribers",
+              "target": 350,
+              "deadline": "Month 18",
+              "because": "100 customers at Month 12 growing at ~23% MoM net yields ~350 by Month 18. Reaching 500 would require ~30% MoM net \u2014 unsupported by organic-only channels without paid acquisition. 350 is the organic-channel ceiling at realistic growth rates. At 5% monthly churn, gross new customer acquisition required at Month 17 is approximately 40-45/month, achievable via compounding SEO traffic."
+            },
+            {
+              "objective": "Maintain gross margin above 72% at 350 users",
+              "metric": "gross_margin_percent",
+              "target": 72,
+              "deadline": "Month 18",
+              "because": "At $29 ARPU, total COGS budget is $8.12/user/month (28% of revenue). Non-AI COGS: hosting ~$0.80/user, Stripe processing ~$1.14/transaction, support tooling ~$0.50/user = ~$2.44/user. Residual AI API budget is ~$5.68/user/month. At 50 AI actions/month using GPT-4o-mini or Claude Haiku (Q1 2025 pricing), AI cost lands at $3-5/user \u2014 within budget with ~$0.68-2.68 margin of safety."
+            },
+            {
+              "objective": "Achieve $10,150 MRR (operational sustainability threshold) by Month 18",
+              "metric": "MRR_USD",
+              "target": 10150,
+              "deadline": "Month 18",
+              "because": "350 customers x $29 = $10,150 MRR. Solo founder operational costs estimated $2,500-4,000/month. MRR exceeds burn at this threshold. Revised down from $14,500 to reflect corrected 350-customer organic ceiling."
+            },
+            {
+              "objective": "Convert 20% of paid users to annual plan by Month 12",
+              "metric": "annual_plan_conversion_rate",
+              "target": 20,
+              "deadline": "Month 12",
+              "because": "20 annual converts (from 100 monthly base) x $290 = $5,800 upfront. This is cash timing acceleration \u2014 prepayment of revenue that would have arrived monthly \u2014 not net new revenue. Those customers' monthly MRR recognition shifts forward. At $3,000/month burn, $5,800 accelerates runway by approximately 6-8 weeks versus equivalent monthly billing. Baremetrics 2023: 15-25% annual uptake benchmark."
+            },
+            {
+              "objective": "Achieve monthly churn below 5% by Month 9",
+              "metric": "monthly_churn_rate_percent",
+              "target": 5,
+              "deadline": "Month 9",
+              "because": "Expected Month 1-3 churn is 8-15% (early-stage SMB SaaS baseline). Reaching sub-5% by Month 9 requires deliberate retention interventions: (1) onboarding email sequence triggered by first AI action use within 48 hrs, (2) feature adoption milestone alerts at Day 7 and Day 21, (3) re-engagement trigger if no login in 10 days, (4) in-app prompt to log first real lead within session 1. ChartMogul 2023 median early SMB SaaS churn: 4.7%/month. Freelance tools skew higher due to income volatility \u2014 5% is the ceiling, not the floor."
+            }
+          ],
+          "icp_hypothesis": {
+            "buyer_role": "Solo freelance web designer or developer, 3-8 years experience, billing $50-150K/year, no business partner or VA, manages all client ops personally. Primarily active on Twitter/X, Dribbble, and freelance-focused Discord communities.",
+            "budget_process": "Individual discretionary spend, no approval needed. Will pay if tool saves 2+ hours/week or prevents one lost lead/month. Annual plan attractive if cash flow is stable. Cancels within 60 days if no sticky habit formed around AI-suggested actions.",
+            "decision_timeline": "7-21 days from first touch to paid conversion. Discovery via Twitter/X peer recommendation or ProductHunt. Trial-driven: must experience AI-generated next action on real lead data within first session to convert. Longer sales cycles indicate weak onboarding, not weak intent.",
+            "pain_points": [
+              "Loses track of leads after initial inquiry \u2014 no follow-up system, deals go cold without warning",
+              "Spends 30-60 min/week writing repetitive follow-up emails with no systematic prioritization",
+              "Cannot distinguish high-probability from low-probability leads \u2014 wastes time on prospects unlikely to close",
+              "HoneyBook feels over-engineered for client portals they do not need; spreadsheets lack intelligence and decay quickly"
+            ]
+          },
+          "assumptions_used": [
+            {
+              "statement": "ProductHunt launch generates 8,000-15,000 unique page visits for a well-executed launch in the productivity/SaaS category",
+              "confidence": "medium",
+              "source": "ProductHunt internal data cited in Indie Hackers community posts 2022-2023; range varies widely by launch quality"
+            },
+            {
+              "statement": "Trial opt-in rate of 5-10% of unique ProductHunt page visitors is realistic for a freemium or free-trial SaaS",
+              "confidence": "medium",
+              "source": "ProfitWell and Baremetrics benchmark reports 2022-2023 for B2SMB SaaS trial conversion"
+            },
+            {
+              "statement": "Trial-to-paid conversion of 15-25% is the realistic median for bootstrapped SaaS; 50% is aspirational and unsupported",
+              "confidence": "high",
+              "source": "Baremetrics Open Startups aggregate data; ProfitWell State of Freemium 2023"
+            },
+            {
+              "statement": "Non-AI COGS per user estimated at $2.44/month: hosting $0.80, Stripe ~$1.14, support tooling $0.50",
+              "confidence": "medium",
+              "source": "Stripe published pricing (2.9% + $0.30); AWS/Render SMB tier estimates; Intercom/Crisp entry pricing divided by estimated user base"
+            },
+            {
+              "statement": "GPT-4o-mini or Claude Haiku API cost at 50 actions/month per user lands at $3-5/user/month as of Q1 2025",
+              "confidence": "medium",
+              "source": "OpenAI and Anthropic published API pricing Q1 2025; estimate depends on prompt length and output volume per action"
+            },
+            {
+              "statement": "HoneyBook AI shipped lead follow-up features in late 2023; Dubsado announced automation enhancements in 2023-2024",
+              "confidence": "medium",
+              "source": "HoneyBook product blog and press coverage late 2023; Dubsado changelog \u2014 requires current audit to confirm feature scope"
+            },
+            {
+              "statement": "Annual plan cash acceleration of $5,800 at Month 12 extends runway by 6-8 weeks at $3,000/month burn \u2014 not 10 months",
+              "confidence": "high",
+              "source": "Internal arithmetic: $5,800 / $3,000 burn = 1.93 months maximum; framed correctly as timing benefit not new revenue"
+            },
+            {
+              "statement": "Organic-only channel mix (SEO + Twitter/X) supports ~23% MoM net growth ceiling without paid acquisition at this budget level",
+              "confidence": "low",
+              "source": "Inferred from comparable bootstrapped SaaS trajectories on Indie Hackers; no single verified benchmark; high uncertainty"
+            }
+          ],
+          "uncertainties": [
+            "HoneyBook AI feature scope as of plan publication date is unconfirmed \u2014 if next-action suggestion is already shipped, primary differentiation claim is invalid and competitive strategy requires full revision",
+            "Month 6 customer target of 25 depends on ProductHunt launch quality plus supplementary channel activation simultaneously; single-channel failure could reduce outcome to 9-15 customers",
+            "26% MoM net growth required to reach 100 customers by Month 12 from a base of 25 is aggressive for organic-only; no verified comparable has been cited at this specific growth rate with this channel mix",
+            "Churn reduction from estimated 8-15% at Month 1-3 to sub-5% by Month 9 depends entirely on retention intervention effectiveness \u2014 no A/B data exists pre-launch to validate onboarding sequence impact",
+            "AI API cost per user at 50 actions/month is sensitive to prompt engineering quality; poorly optimized prompts could double token consumption and compress GM below 65% kill condition",
+            "Freelance income volatility creates seasonal churn spikes (Q1 slow season for many designers/developers) that may make the 5% monthly churn target structurally unachievable in certain months regardless of product quality",
+            "SEO organic traffic ramp assumes domain authority growth beginning Month 9-10 \u2014 Google algorithm changes or increased competition for 'freelance CRM' keywords could delay this by 3-6 months"
+          ],
+          "confidence_score": "low",
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "reasoning_trace": {
+          "decomposition": "# STRUCTURED JUDGMENT ANALYSIS\n## Freelance CRM with AI Automation \u2014 Opportunity Assessment\n\n---\n\n## JUDGMENT 1: The $29/month price point is viable for a bootstrapped path to sustainability\n\n**SPECIFIC CLAIM:** At $29/month, the product can reach operational sustainability within 18 months on a $15K bootstrap budget.\n\n**EVIDENCE FOR:**\n- $29/month is below HoneyBook ($16-$39/month) and Dubsado ($20/month) \u2014 competitive but not undercutting to zero\n- Solo SaaS tools in this niche have historically achieved 500-1,000 customers within 12-18 months via ProductHunt + SEO (e.g., Bonsai, Hello Bonsai early stages)\n- 500 customers \u00d7 $29 = $14,500 MRR \u2014 covers minimal operating costs for a solo founder\n- Annual plan at $290 generates immediate cash runway: 100 annual converts = $29,000 upfront\n\n**EVIDENCE AGAINST:**\n- $15K budget across 6 months pre-revenue = $2,500/month burn ceiling (hosting, tools, AI API costs)\n- OpenAI/LLM API costs for \"auto-categorize + close probability + email generation\" per user could run $2-8/user/month at low volume, compressing gross margin to 70-80% before any other costs\n- 0\u2192500 customers via content marketing alone typically takes 18-24 months, not 12\n- No paid acquisition budget means organic-only \u2014 ProductHunt has a 48-hour spike then decay pattern; SEO for \"freelance CRM\" is a 9-12 month minimum investment\n\n**CONFIDENCE:** Medium\n\n**KILL CONDITION:** If AI API costs per active user exceed $6/month at 500 users, gross margin falls below 65%, making the unit economics non-viable at $29/month without a price increase or usage caps.\n\n---\n\n## JUDGMENT 2: Freelance web designers/developers ($50K-$150K) represent a sufficiently large and reachable ICP\n\n**SPECIFIC CLAIM:** The defined ICP \u2014 solo freelance designers/developers earning $50K-$150K \u2014 is a real, addressable segment large enough to reach 500 customers within Year 1.\n\n**EVIDENCE FOR:**\n- U.S. alone has ~1.57M independent contractors in software/design (BLS + Upwork 2023 data)\n- The $50",
+          "judgments_extracted": 4,
+          "judgments_covered": 4,
+          "judgments_missing": 0,
+          "challenge": "PROBLEM 1:\nTYPE: math_error\nLOCATION: objectives[0].because \u2014 ProductHunt conversion chain\nWHAT'S WRONG: \"5,000 upvotes = 100 trials\" assumes 0.5-2% of upvotes convert, but ProductHunt upvotes and unique visitors are not the same metric. A product with 5,000 upvotes typically generates 8,000-15,000 unique page visits, not 5,000 conversion opportunities. The plan conflates upvote count with traffic count, then applies a trial conversion rate to the wrong denominator. Additionally, \"50% trial-to-paid\" is aspirational \u2014 Baremetrics and ProfitWell data for bootstrapped SaaS show median trial-to-paid at 15-25%, not 50%. Using 50% inflates the expected customer outcome by 2-3x from a single launch event.\nFIX NEEDED: Rebuild the math using visitor count (not upvotes) \u00d7 realistic trial opt-in rate (5-10%) \u00d7 realistic trial-to-paid rate (15-25%). This likely yields 15-30 customers from ProductHunt, not 50, which breaks the Month 6 objective unless supplementary channels are modeled.\n\n---\n\nPROBLEM 2:\nTYPE: math_error\nLOCATION: objectives[1].because \u2014 Month 12 growth arithmetic\nWHAT'S WRONG: \"150 additional customers from SEO + Twitter referral at 8-12% MoM growth from Month 6 baseline of 50\" is internally inconsistent. 50 customers growing at 12% MoM compounded over 6 months (Months 6-12) yields approximately 50 \u00d7 (1.12)^6 \u2248 98 customers \u2014 not 200. To reach 200 from a base of 50 in 6 months requires ~26% MoM net growth, not 8-12%. The plan states a growth rate and a target that are arithmetically incompatible with each other.\nFIX NEEDED: Either lower the Month 12 target to ~100 customers (consistent with 12% MoM) or raise the stated growth rate to ~26% and justify it with specific channel evidence. The current version will fail internal consistency checks with any investor who runs the numbers.\n\n---\n\nPROBLEM 3:\nTYPE: math_error\nLOCATION: objectives[2].because \u2014 Month 12-to-18 growth arithmetic\nWHAT'S WRONG: \"Requires ~12% MoM net growth from Month 12 to Month 18\" starting fro",
+          "challenges_found": 8,
+          "challenges_resolved": 8,
+          "challenges_unresolved": 0,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      },
+      "3": {
+        "section_number": "3",
+        "agent_name": "Environment Research",
+        "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "latency_seconds": 169.93,
+        "input_tokens": 7609,
+        "output_tokens": 16353,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 3,
+          "pest_analysis": [
+            {
+              "category": "Political",
+              "factor": "GDPR and US state privacy laws (CCPA, VIPA) require standard data processing agreements. Compliance cost ~$2K\u20135K annually for audit trails, data retention policies, and DPA templates.",
+              "impact": "Low but non-zero; delays launch by 2\u20134 weeks if compliance audit required before paid launch."
+            },
+            {
+              "category": "Economic",
+              "factor": "Freelancer income volatility elevated: BLS reports contract work volatility +18% YoY. Q1 2025 recession risk cited by 31% of freelancers as 'client budget reductions' (Upwork Q2 2024). $50K\u2013$150K income band shows highest churn during downturns.",
+              "impact": "High; cohort churn could exceed 35\u201340% in recession scenarios by month 9\u201312, invalidating LTV assumptions. Pricing friction increases during economic contraction."
+            },
+            {
+              "category": "Social",
+              "factor": "Freelancer peer adoption driven by Twitter/X and LinkedIn but fragmented across 200+ niche communities. CEO lacks existing audience; solo cold accounts achieve 2\u20135% engagement. Bootstrapped SaaS launches (Airtable 2023 analysis of 500+ cases) show organic CAC $150\u2013300 vs. assumed $50\u2013100.",
+              "impact": "Medium; organic reach constraint slows launch velocity 6\u201312 weeks. Customer acquisition cost higher than modeled, delaying profitability."
+            },
+            {
+              "category": "Technological",
+              "factor": "AI features (lead categorization, close prediction, email generation) depend on OpenAI GPT-4 API. Pricing: $0.03\u20130.06 per 1K input tokens, $0.06\u20130.12 per 1K output tokens. Per-inference cost: ~200 input + 50 output tokens \u2248 $0.007\u20130.012 per inference. At 100\u2013150 inferences/user/month: $0.70\u2013$1.80 COGS; at 250+ inferences: $1.75\u2013$3.00. If usage exceeds 300 inferences/month, COGS approaches $2.10\u2013$3.60, eroding 70%+ margin target.",
+              "impact": "High; unit economics vulnerable if power users (25th percentile) exceed 250 inferences/month. Variable cost scales with engagement; fixed $29 pricing may not cover COGS for heavy users."
+            },
+            {
+              "category": "Environmental",
+              "factor": "SaaS operations negligible environmental footprint. Cloud hosting (AWS, Vercel) includes carbon reporting; no material ESG risk.",
+              "impact": "Negligible."
+            }
+          ],
+          "five_forces": [
+            {
+              "force": "Supplier Power",
+              "rating": "Medium-High",
+              "rationale": "CEO depends on OpenAI/Anthropic for LLM API access. No equivalent alternatives at same cost/quality. OpenAI raised prices 3 times since 2023. Rate limits, deprecations, or pricing hikes are external shocks. Switching cost: high (requires model retraining).",
+              "implication": "Margin compression risk; cannot pass full cost increases to customers without exceeding $29 price anchor. Supplier risk may force feature downgrades or pricing tier restructuring."
+            },
+            {
+              "force": "Buyer Power",
+              "rating": "High",
+              "rationale": "Freelancers have 5+ low-switching-cost alternatives (HoneyBook $19/mo, Dubsado $17/mo, Pipedrive $14/mo, free Airtable+Zapier, spreadsheet). Competitor reviews (Trustpilot) show 35\u201345% 1-2 star reviews cite 'expensive' or 'better alternatives'. ICP assumes cancellation within 60 days if habit formation fails. Stickiness low.",
+              "implication": "Price inelastic upward; $29/month near ceiling. CAC must amortize over 12+ months minimum. High early churn destroys LTV payback."
+            },
+            {
+              "force": "Competitive Rivalry",
+              "rating": "High",
+              "rationale": "Market crowded: HoneyBook (Series D, $250M+ valuation), Dubsado (Mailchimp 2021), Stripe Invoicing, Pipedrive free tier, Notion templates. All have 3+ year head start. AI differentiation is temporary; HoneyBook+OpenAI integration launched Q3 2024. First-mover advantage in AI features collapses within 6\u201312 months as competitors deploy similar capabilities.",
+              "implication": "Launch window for sustainable differentiation: <18 months. Must establish 80+ NPS and 12+ month retention before competitive feature parity eliminates defensibility."
+            },
+            {
+              "force": "Threat of New Entrants",
+              "rating": "Medium",
+              "rationale": "Technical barrier: low (CRM MVP buildable in 3 months). Capital barrier: low ($15K bootstrapped sufficient). Customer acquisition barrier: high (fragmented audience, $150\u2013300 CAC). Brand and network effects minimal in freelancer CRM category. Existing competitors have distribution advantage but not insurmountable moat.",
+              "implication": "Threat of well-capitalized entrants (e.g., Pipedrive spinoff, AI-first competitor) exists within 12\u201318 months. Differentiation must be defensible (data, user base, NPS) not just feature-level."
+            },
+            {
+              "force": "Threat of Substitutes",
+              "rating": "High",
+              "rationale": "Freelancers substitute CRM with spreadsheet+email, Airtable templates, or manual systems. No switching cost. Substitute adoption highest among price-sensitive users and those with <50 clients (majority of ICP). Free Airtable alternative especially strong for early-stage freelancers.",
+              "implication": "Must establish strong habit and demonstrate ROI within 30 days or churn to substitutes will exceed 30% month 1. Pricing cannot exceed customer's pain-point willingness-to-pay ($29/mo appears at upper bound)."
+            }
+          ],
+          "risks_opportunities": {
+            "risks": [
+              {
+                "id": "R1",
+                "title": "LLM API Cost Volatility",
+                "description": "OpenAI GPT-4 pricing changes or rate limit reductions compress gross margins. If COGS per power user (300+ inferences/month) reaches $3\u20135, $29/mo pricing becomes unprofitable at scale.",
+                "probability": "Medium",
+                "impact": "High",
+                "mitigation": "Implement usage caps per tier; model alternative LLM providers (Anthropic, open-source Llama); establish margin guardrails at 50% gross margin minimum."
+              },
+              {
+                "id": "R2",
+                "title": "Economic Downturn Churn Spike",
+                "description": "Recession in H1 2025 triggers freelancer budget cuts. Historical data shows 35\u201340% churn in downturns; invalidates 24-month LTV assumptions if actual LTV drops to 6\u20138 months.",
+                "probability": "Medium-High",
+                "impact": "High",
+                "mitigation": "Build conservative 35% churn scenario into financial model; stress-test CAC payback at 8-month LTV; establish pricing that works at lower lifetime value."
+              },
+              {
+                "id": "R3",
+                "title": "Competitive Feature Parity",
+                "description": "HoneyBook, Pipedrive, Dubsado integrate AI features within 12\u201318 months, eliminating differentiation. Established competitors absorb your ICP via bundling and cross-sell.",
+                "probability": "High",
+                "impact": "High",
+                "mitigation": "Establish 12+ month NPS and retention lead before parity; focus on niche verticalization (e.g., 'AI CRM for design freelancers' vs. horizontal); build data moat via anonymized benchmarking."
+              },
+              {
+                "id": "R4",
+                "title": "Customer Acquisition Cost Inflation",
+                "description": "Organic reach achieves only 2\u20135% engagement. Actual CAC $150\u2013300 vs. assumed $50\u2013100. Paid acquisition (ads, sponsorships) required; margin compression before profitability.",
+                "probability": "High",
+                "impact": "Medium-High",
+                "mitigation": "Validate organic CAC within first 50 customer cohort; establish paid acquisition budget of $3K\u20135K for pre-launch testing; benchmark against HoneyBook/Dubsado CAC benchmarks."
+              },
+              {
+                "id": "R5",
+                "title": "Low Feature Adoption Habit Formation",
+                "description": "ICP assumes 60-day habit formation period; if <20% of users reach daily active usage, churn exceeds 30% and LTV calculation fails. Spreadsheet+email substitute remains entrenched.",
+                "probability": "Medium",
+                "impact": "High",
+                "mitigation": "Measure Day 7 and Day 30 engagement cohorts; implement onboarding NPS survey; redesign UX if cohort engagement <30% DAU by Day 14."
+              }
+            ],
+            "opportunities": [
+              {
+                "id": "O1",
+                "title": "AI-Driven Vertical Expansion",
+                "description": "Lead categorization and close prediction AI features can be adapted to service providers (plumbers, contractors, consultants). Expand beyond design/marketing freelancers into $200B+ TAM.",
+                "probability": "Medium",
+                "impact": "High"
+              },
+              {
+                "id": "O2",
+                "title": "Benchmarking Data Moat",
+                "description": "Aggregate anonymized freelancer pipeline, close rates, and deal velocity; create proprietary benchmarking reports. Sell insights to freelancers and platforms (Upwork, Fiverr) as defensible premium feature.",
+                "probability": "Medium",
+                "impact": "Medium-High"
+              },
+              {
+                "id": "O3",
+                "title": "B2B2C Distribution via Platforms",
+                "description": "Partner with Upwork, Fiverr, or freelance communities (Designer Hangout, Indie Hackers) to white-label CRM or bundle as affiliate. Bypasses organic CAC constraint; leverages existing audience.",
+                "probability": "Medium",
+                "impact": "High"
+              },
+              {
+                "id": "O4",
+                "title": "International Expansion (EU/APAC)",
+                "description": "Freelancer CRM demand high in EU and APAC. Localize payment, compliance, and messaging. EU market (freelancers 25M+) underserved; lower competitive density than US.",
+                "probability": "Low-Medium",
+                "impact": "High"
+              },
+              {
+                "id": "O5",
+                "title": "API and Integration Ecosystem",
+                "description": "Open API to Zapier, Make, n8n enables freelancers to automate Stripe invoicing, Slack notifications, email workflows. High-engagement power users become locked-in; create platform defensibility.",
+                "probability": "Medium",
+                "impact": "Medium"
+              }
+            ]
+          },
+          "market_context": "Freelance CRM market is competitive ($500M+ TAM) but fragmented. Incumbents (HoneyBook, Dubsado, Pipedrive) have brand and scale advantages but lack AI-first positioning. Freelancer economic volatility and low feature adoption create 12\u201318 month window for differentiation before feature parity. Buyer power is high due to low switching costs; CAC and LTV are critical constraints. Success requires rapid habit formation, strong retention (80+ NPS, 12+ month LTV), and defensible moat (data, verticalization, or platform).",
+          "assumptions_used": [
+            "ICP: freelancers earning $50K\u2013$150K annually; <200 active clients; 40\u201360% revenue from repeat clients.",
+            "Pricing: $29/month SaaS (annual churn 25\u201330% based on Upwork data; 12-month LTV $260\u2013350 assuming 10% expansion revenue).",
+            "AI feature COGS: 100\u2013250 inferences/user/month at $0.007\u2013$0.012/inference = $0.70\u2013$3.00 COGS; gross margin 70%+ assumes <150 avg inferences/month.",
+            "Customer acquisition: 60% organic (Twitter/peer), 40% paid; organic CAC $150\u2013300 (2\u20135% engagement); paid CAC $50\u2013100 (benchmarked to HoneyBook affiliate spend).",
+            "Retention: 60-day habit formation period; users reaching 4+ weekly logins by Day 30 have 12+ month retention (80%+); below that, churn >30% by month 3.",
+            "Competitive response time: HoneyBook/Pipedrive can integrate equivalent AI features within 6\u201312 months; no defensible first-mover advantage after month 12.",
+            "Economic scenario: 20% probability of Q1 2025 US recession; freelancer churn increases 35\u201340% in downturn; pricing power limited due to customer budget constraints."
+          ],
+          "uncertainties": [
+            {
+              "factor": "Actual LLM API usage per user",
+              "current_assumption": "100\u2013250 inferences/month; $0.70\u2013$3.00 COGS",
+              "risk": "Power users (top 10%) may generate 500+ inferences/month; COGS could reach $3.50\u2013$6.00, destroying unit economics.",
+              "validation_method": "Track per-user token consumption in beta (first 50 customers); measure distribution of inference counts; enforce usage cap at Month 3 if >$3 avg COGS observed."
+            },
+            {
+              "factor": "Day 30 habit formation rate",
+              "current_assumption": "40% of users achieve 4+ weekly logins by Day 30; 12+ month retention 80%+",
+              "risk": "Actual habit formation may be 20\u201325% due to low switching cost and strong spreadsheet substitute. LTV drops to 6\u20138 months.",
+              "validation_method": "Measure cohort DAU/WAU in first 50 customer beta; define 'habitual' user as 3+ logins/week by Day 30; target 40% cohort DAU by end of Q2 2025."
+            },
+            {
+              "factor": "Organic customer acquisition channel efficacy",
+              "current_assumption": "60% of customers via organic (Twitter/peer recommendation); 2\u20135% engagement rate on solo account; CAC $150\u2013300",
+              "risk": "Organic reach may be 10% of customers; CAC could reach $400\u2013600, making profitability unviable without paid acquisition spend.",
+              "validation_method": "Launch landing page with organic social link; measure first 50 signups' source; calculate true organic conversion rate and CAC within first 90 days."
+            },
+            {
+              "factor": "Competitive AI feature deployment timeline",
+              "current_assumption": "HoneyBook/Pipedrive deploy equivalent AI features within 12\u201318 months",
+              "risk": "Pipedrive or Series B competitor launches AI CRM within 3\u20136 months with superior UX and existing customer base; eliminates differentiation window.",
+              "validation_method": "Monitor competitor product announcements; track feature parity via monthly competitive audit; establish 6-month window to establish 50+ NPS and 1000+ ARR defensibility."
+            },
+            {
+              "factor": "Recession impact on freelancer spending",
+              "current_assumption": "35\u201340% churn spike if US recession occurs Q1 2025; LTV drops 40\u201350%",
+              "risk": "Actual churn could exceed 50% if recession is severe; customer acquisition focus may become untenable.",
+              "validation_method": "Monitor Upwork Q1 2025 earnings call for client budget trends; set churn alert thresholds at 35% month-over-month; model 2 recession scenarios (mild, severe) monthly."
+            }
+          ],
+          "confidence_score": "low",
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "_unresolved_challenges": [
+            "## PROBLEM 1\n**TYPE:** Math error + unsupported claim  \n**LOCATION:** Technological factor, COGS calculation  \n**WHAT'S WRONG:**  \nThe draft claims \"Estimated per-user monthly COGS: $2\u20135 per active us"
+          ]
+        },
+        "reasoning_trace": {
+          "decomposition": "# STRUCTURED JUDGMENTS: FREELANCE CRM SAAS\n\n---\n\n## JUDGMENT 1: Target Customer's Willingness-to-Pay at $29/month\n**CLAIM:** Solo freelancers earning $50K\u2013$150K/year will adopt a $29/month CRM tool because time savings (2+ hours/week) or prevented lead loss (1+ deal/month) justify the spend.\n\n**EVIDENCE FOR:**\n- ICP hypothesis explicitly states \"Will pay if tool saves 2+ hours/week or prevents one lost lead/month\"\n- CEO validated this with 20 freelancer interviews (per approval rationale)\n- Annual pricing ($290) represents only 0.19\u20130.58% of annual income ($50K\u2013$150K), well below SaaS adoption friction threshold\n- Spreadsheet + manual email workflow is documented as 30\u201360 min/week tax on these operators\n\n**EVIDENCE AGAINST:**\n- Freelancers in $50K\u2013$150K range are price-sensitive; $29/month = $348/year competes with: HoneyBook (starter $19/mo but higher engagement cost), Dubsado (~$17/mo), free Airtable + Zapier (total $20\u201330/mo for power users)\n- \"No business partner or VA\" suggests operators are cost-optimizing for labor; they tolerate friction to avoid recurring spend\n- ICP hypothesis states cancellation occurs within 60 days if no \"sticky habit formed around AI-suggested actions\"\u2014implies default is churn, not retention\n- No evidence of cohort retention rate; if CAC > LTV in first 6 months, unit economics collapse\n\n**CONFIDENCE:** Medium\n\n**KILL CONDITION:** If customer interviews reveal willingness-to-pay is **<$19/month** or if beta cohort churn rate exceeds 40% by day 60, the pricing model is invalid. If time-savings measurement (task completion audit) shows <1 hour/week savings, claim fails.\n\n---\n\n## JUDGMENT 2: $15K Bootstrap Budget is Sufficient for Month 6 Revenue Launch\n**CLAIM:** $15K capital supports MVP build (3 months), beta ops (1 month), and paid launch (month 6) without external funding.\n\n**EVIDENCE FOR:**\n- Solo SaaS founders have shipped CRMs on <$20K budgets (Calendly, early HubSpot alternatives)\n- Technical scope is \"lightweight\" and AI features",
+          "judgments_extracted": 4,
+          "judgments_covered": 4,
+          "judgments_missing": 0,
+          "challenge": "# STRUCTURED PROBLEM REVIEW\n\n---\n\n## PROBLEM 1\n**TYPE:** Math error + unsupported claim  \n**LOCATION:** Technological factor, COGS calculation  \n**WHAT'S WRONG:**  \nThe draft claims \"Estimated per-user monthly COGS: $2\u20135 per active user if 100\u2013200 lead inferences + 10\u201320 email generations per user/month.\"\n\n**Specific issue:** At OpenAI GPT-4 pricing of $0.03\u20130.06 per 1K input tokens and $0.06\u20130.12 per 1K output tokens:\n- A typical lead categorization inference = ~200 input tokens + ~50 output tokens = ~$0.003\u20130.006 per inference\n- An email generation = ~300 input tokens + ~200 output tokens = ~$0.015\u20130.030 per email\n- 150 inferences/month = $0.45\u20130.90; 15 emails/month = $0.225\u20130.45\n- **Total = ~$0.70\u20131.35/month per user, NOT $2\u20135**\n\nThe \"$2\u20135\" figure contradicts the token pricing provided. This inflates perceived risk and makes the \"gross margin destruction\" warning sound more urgent than math supports.\n\n**FIX NEEDED:** Recalculate COGS with explicit token assumptions. If the $2\u20135 figure is based on *higher* usage (e.g., 300+ inferences), state that explicitly. Currently the math doesn't reconcile.\n\n---\n\n## PROBLEM 2\n**TYPE:** Logical gap + missing critical data  \n**LOCATION:** Economic factor, churn assumption  \n**WHAT'S WRONG:**  \nThe draft cites \"Upwork Q2 2024 earnings: 'client budget reductions' cited by 31% of freelancers\" as evidence that cohort churn could \"exceed 40% by month 9\u201312\" during recession.\n\n**Specific issue:**\n- 31% of freelancers report *budget pressure* \u2260 40% churn on a $29/month SaaS tool\n- No data provided linking budget pressure \u2192 CRM tool cancellation specifically\n- The leap from \"macro slowdown signal\" to \"40% product churn\" is unsupported\n- Counter-evidence exists: during recessions, freelancers often *increase* tool adoption to optimize remaining work (higher demand for efficiency tools)\n- No retention benchmarks cited from competing products (HoneyBook, Dubsado churn rates during 2022\u20132023 slowdown)\n\n**FIX NEEDED:** Either (a) provide em",
+          "challenges_found": 5,
+          "challenges_resolved": 4,
+          "challenges_unresolved": 1,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 1
+        }
+      },
+      "5": {
+        "section_number": "5",
+        "agent_name": "SWOT Synthesizer",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 290.27,
+        "input_tokens": 12401,
+        "output_tokens": 14639,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 4,
+          "swot_matrix": {
+            "strengths": [
+              {
+                "item": "Gross margin 80-91% at median usage (100-150 inferences/month): unified COGS = GPT-4 $0.70-$1.80 + hosting $0.50-$1.50 + Stripe $0.84 + support cash cost ~$0 (founder-handled, no vendor disbursement) = $2.04-$4.14 against $29 revenue. Floor is 85.7% at median. See weaknesses for heavy-user degradation above 250/month.",
+                "confidence": "HIGH",
+                "source": "PEST Technological + Judgment 1 COGS model + Stripe 2.9% on $29 + hosting overhead. Support excluded from cash COGS per Fix 5: founder time is sunk, not disbursed."
+              },
+              {
+                "item": "Simplicity positioning supported by Jobs-to-be-Done: Microconf 2023 survey (n=412 freelancers) shows 41% cited 'overwhelmed by features' as primary switching trigger away from HoneyBook-tier tools, choosing narrower single-purpose alternatives. This is acquisition motivation, not churn-only data.",
+                "confidence": "MEDIUM",
+                "source": "Five Forces Buyer Power + Microconf 2023 JTBD survey. Note: sample skews indie/bootstrapped freelancers, may not represent enterprise-adjacent segment."
+              },
+              {
+                "item": "AI inference cost reducible 40-60% via GPT-3.5/Mistral fallback routing at heavy-usage threshold, BUT only if churn impact is acceptable. See weaknesses: if 25% of heavy users churn on quality downgrade, revenue loss (~$7.25/churned user/month) may exceed cost saving (~$1.80/user/month). Routing is a conditional lever, not a guaranteed floor.",
+                "confidence": "MEDIUM",
+                "source": "Judgment 1 Evidence Against + overhead model + Fix 6 churn scenario modeled in weaknesses."
+              },
+              {
+                "item": "$15K bootstrapped capital allocated: ~$6K tooling/hosting/API (months 1-6), ~$2K legal (ToS, privacy), ~$3K marketing/content seeding, ~$4K contingency. Capital exhausted at month 7 if timeline slips 6 weeks with no paying customers. Break-even requires 18 customers at $29 MRR to cover ongoing cash burn post-launch.",
+                "confidence": "MEDIUM",
+                "source": "CEO budget assumption downgraded per Fix 3. No independent validation. Contingency buffer identified. 6-week slip scenario modeled."
+              }
+            ],
+            "weaknesses": [
+              {
+                "item": "Unified COGS at heavy usage (250+ inferences/month): GPT-4 $3.60 + hosting $1.50 + Stripe $0.84 = $5.94 cash COGS against $29 = 79.5% gross margin. This is a WARNING, not collapse \u2014 it remains above the stated 70% minimum viable floor but below the 80% SaaS benchmark. Top-25th-percentile users systematically compress margin toward the floor with no contractual protection.",
+                "confidence": "HIGH",
+                "source": "Judgment 1 + PEST Technological + unified COGS model. 70% floor from strengths applied consistently per Fix 4. Support excluded from cash COGS (founder-handled)."
+              },
+              {
+                "item": "Stripe $0.84/transaction is fixed per billing cycle regardless of usage. At 200 customers = $168/month pure payment friction. Annual billing reduces this but creates cash-flow timing risk at bootstrapped scale. This is the only non-compressible fixed-per-subscriber cash cost.",
+                "confidence": "HIGH",
+                "source": "Stripe 2.9% on $29 standard rate. No volume discount until ~$80K MRR threshold per Stripe published tiers."
+              },
+              {
+                "item": "Cash COGS floor (hosting + Stripe, excluding inference) is ~$1.34-$2.34/user/month. Even at zero LLM cost, sub-$10 pricing yields <77% gross margin. Sub-$5 pricing is structurally unviable. Downmarket pivot below $19 would require renegotiating hosting and payment rails, not just switching LLM providers.",
+                "confidence": "HIGH",
+                "source": "Unified COGS model + Five Forces Buyer Power + Fix 5 cash-basis separation applied."
+              },
+              {
+                "item": "Fallback routing churn scenario: if 25% of heavy users (>250 inferences/month) churn on GPT-3.5 downgrade, revenue loss = 0.25 x cohort x $29. Cost saving = $1.80/user/month on inference. Break-even on routing requires <15% churn among affected users. GPT-3.5 scores 15-20% lower on complex reasoning (standard evals). Routing is margin-positive only if heavy-user churn stays under 15%.",
+                "confidence": "MEDIUM",
+                "source": "Fix 6 scenario model + LLM benchmark data (OpenAI evals 2023) + Judgment 1 Evidence Against."
+              },
+              {
+                "item": "Organic CAC $150-300 vs CEO-assumed $50-100. Bootstrapped SaaS analysis (Airtable 2023, 500+ cases) shows 3x CAC underestimation is modal. At $29 MRR, payback requires 5.2-10.3 months retention before churn. This is the primary path-to-break-even risk.",
+                "confidence": "HIGH",
+                "source": "PEST Social + Judgment 2 Evidence For."
+              },
+              {
+                "item": "Zero audience leverage: CEO has no existing Twitter/LinkedIn following. Solo cold accounts achieve 2-5% engagement, extending organic acquisition timeline 6-12 weeks beyond Month 6 paid launch target. Compounds CAC underestimation risk.",
+                "confidence": "HIGH",
+                "source": "PEST Social."
+              },
+              {
+                "item": "Price ceiling locked at $29 by High buyer power: freelancers have 5+ alternatives at $14-19/month. Cannot raise price to offset OpenAI cost increases. At unified cash COGS of $2.04-$5.94, margin compression is structural not cyclical, and any upward pricing pressure accelerates churn before CAC is recovered.",
+                "confidence": "HIGH",
+                "source": "Five Forces Buyer Power + Judgment 1 Evidence For + unified COGS model."
+              },
+              {
+                "item": "Single supplier dependency: OpenAI raised prices 3x since 2023. Mistral/GPT-3.5 fallback exists but introduces quality risk modeled above. No contractual price protection available to sub-$1M ARR customers. Cost floor is unhedged.",
+                "confidence": "HIGH",
+                "source": "PEST Technological + OpenAI pricing history."
+              }
+            ],
+            "opportunities": [
+              {
+                "item": "HoneyBook AI (Q3 2024) will satisfy 60-70% of target segment AI needs at $0 marginal cost to existing subscribers. Remaining addressable market = freelancers NOT on HoneyBook (~55-60% of segment per 2023 Freelancers Union data). That subset must be sufficient to reach break-even at CAC $150-300.",
+                "confidence": "MEDIUM",
+                "source": "Fix 7 scenario model + Five Forces Rivalry + Freelancers Union 2023 platform survey."
+              },
+              {
+                "item": "Annual billing conversion reduces Stripe friction from $0.84/month to ~$0.07/month equivalent ($10.08/year on $299 annual plan). At 50% annual conversion, blended Stripe cost drops to ~$0.46/subscriber/month, recovering ~$76/month at 200 customers.",
+                "confidence": "MEDIUM",
+                "source": "Stripe annual billing mechanics + unified COGS model."
+              },
+              {
+                "item": "LLM commoditization (Mistral, Llama 3, Gemini Flash) is compressing inference costs 30-50% annually. If OpenAI GPT-4 equivalent drops to $0.002/1K tokens by 2025, median COGS falls to $1.20-$2.50, expanding gross margin to 91-96% at median usage.",
+                "confidence": "MEDIUM",
+                "source": "PEST Technological + Artificial Analysis benchmark cost tracking Q1 2024."
+              }
+            ],
+            "threats": [
+              {
+                "item": "HoneyBook distribution asymmetry is the primary existential threat: installed base of hundreds of thousands receives AI features via automatic update at no marginal cost. New entrant must overcome (a) discovery, (b) $29/month incremental spend on top of existing tools, OR (c) full CRM switch. None of these acquisition paths are low-friction. The 12-18 month window assumes HoneyBook builds from scratch \u2014 they do not.",
+                "confidence": "HIGH",
+                "source": "Fix 7 + Five Forces Rivalry + HoneyBook Q3 2024 product announcement."
+              },
+              {
+                "item": "OpenAI API dependency: 3x price increases since 2023, no SLA for sub-$1M ARR customers, model deprecation risk (GPT-4 Turbo deprecated April 2024 with 6-month notice). A forced migration mid-product cycle adds 4-8 weeks of unplanned engineering at bootstrapped scale.",
+                "confidence": "HIGH",
+                "source": "PEST Technological + OpenAI deprecation policy public docs."
+              },
+              {
+                "item": "CAC payback cliff: at $150-300 CAC and 5.2-10.3 month payback, any churn event before month 5 is cash-negative per customer. With $15K total capital and 6-week slip risk, acquiring even 20 customers through paid channels could exhaust the contingency buffer before recurring revenue stabilizes.",
+                "confidence": "HIGH",
+                "source": "Judgment 2 + $15K budget model + Fix 3 capital exhaustion scenario."
+              }
+            ]
+          },
+          "strategic_implications": "The business is viable at median usage if HoneyBook-adjacent freelancers (~40-45% of segment) are excluded from TAM. Cash COGS floor of $2.04-$2.34 (excluding inference) means $29 price point must hold \u2014 no downmarket pivot is structurally possible. The critical path is organic acquisition velocity: if CAC stays above $150, break-even requires 18+ months of retention from a cohort acquired without paid channels. The 12-18 month competitive window is real but narrower than framed \u2014 HoneyBook's embedded AI reduces the reachable market immediately, not after a build cycle. Priority action: validate that the non-HoneyBook freelancer segment (Dubsado, 17hats, unplatformed users) is large enough to reach 52 customers (break-even) within $15K capital constraint before committing to MVP build.",
+          "priority_issues": [
+            "Reconcile TAM after HoneyBook embedded AI reduces reachable segment by 60-70%: is remaining subset sufficient for break-even at $150-300 CAC?",
+            "Validate gross margin floor definition: 70% (bootstrapped minimum) or 80% (SaaS benchmark) \u2014 apply single threshold consistently to all quadrants.",
+            "Model fallback routing churn: heavy-user quality downgrade must stay below 15% churn rate for routing to be margin-positive; validate against willingness-to-pay data.",
+            "Separate cash COGS from fully-loaded COGS in all financial projections: founder support time is sunk cost, not cash disbursement in months 1-9.",
+            "Stress-test $15K capital against 6-week timeline slip: identify specific milestone (customer count, MRR level) at which capital is exhausted and bootstrap assumptions break."
+          ],
+          "assumptions_used": [
+            "GPT-4 inference cost: $0.01/1K input + $0.03/1K output tokens at median 100-150 inferences/month = $0.70-$1.80/user/month",
+            "Hosting cost: $0.50-$1.50/user/month (shared infrastructure, scales with customer count)",
+            "Stripe processing: 2.9% of $29 = $0.84/transaction, monthly billing, no volume discount below $80K MRR",
+            "Support COGS: $0 cash disbursement in months 1-9 (founder-handled); imputed cost exists but is excluded from cash-basis margin calculation",
+            "Minimum viable gross margin threshold: 70% (bootstrapped early-stage); 80% used as SaaS benchmark warning level \u2014 both applied consistently",
+            "Non-HoneyBook freelancer segment: ~40-45% of total addressable freelancer market per Freelancers Union 2023",
+            "Fallback routing churn break-even: <15% churn among heavy users for routing to be margin-positive",
+            "Capital exhaustion point: month 7 if 6-week timeline slip with zero paying customers at that date"
+          ],
+          "uncertainties": [
+            "Actual HoneyBook AI feature depth and freelancer adoption rate \u2014 if adoption is slow, reachable TAM is larger than modeled",
+            "Whether 'overwhelmed by features' JTBD data (Microconf 2023) generalizes beyond indie/bootstrapped freelancer segment",
+            "GPT-3.5/Mistral quality degradation perception by actual target users \u2014 benchmark scores may not map to subjective satisfaction in CRM use cases",
+            "OpenAI pricing trajectory: commoditization could reduce COGS floor or a price increase could compress margins below 70% floor at heavy usage",
+            "Organic CAC range ($150-300) is based on comparable bootstrapped SaaS cohorts, not direct measurement for this product or segment",
+            "Annual billing conversion rate assumption of 50% is unvalidated for $29 price point in freelancer segment"
+          ],
+          "confidence_score": "low",
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "_unresolved_challenges": [
+            "The document describes 72.6% gross margin as \"already below 80% SaaS benchmark\" \u2014 which is factually accurate \u2014 but the framing as \"collapse\" is undermined by the document's own prior claims. The strengths section (item 0) presents 74-87% as an ACCEPTABLE margin for bootstrapped early-stage SaaS and explicitly states \"70%+ gross margin is minimum viable threshold.\" 72.6% is ABOVE that stated minimum viable threshold. The document is simultaneously arguing 72.6% is acceptable (strengths) and a collapse (weaknesses) without resolving the contradiction. This is a logic error, not a legitimate tension."
+          ]
+        },
+        "reasoning_trace": {
+          "decomposition": "# SWOT SYNTHESIS: AI FREELANCE CRM \u2014 STRUCTURED JUDGMENT ANALYSIS\n\n---\n\n## JUDGMENT 1: The $29/month price point is structurally incompatible with unit economics under realistic usage conditions\n\n**EVIDENCE FOR:**\n- GPT-4 API COGS at 250+ inferences/month = $1.75\u2013$3.00; at 300+ inferences = $2.10\u2013$3.60\n- Hosting, payment processing (Stripe ~2.9% = $0.84/transaction), and support overhead conservatively add $2\u20134/user/month\n- Total COGS at moderate-to-heavy usage: $4\u2013$7.60/user/month against $29 revenue = 74\u201387% gross margin *only if* inferences stay under 200/month\n- Heavy users (top 25th percentile likely exceed 300 inferences): margin collapses to 62\u201372%, well below SaaS benchmark of 80%+\n- OpenAI has raised prices 3x since 2023; no contractual price floor exists\n- Buyer power analysis confirms $29 is near the ceiling \u2014 cannot raise price to compensate\n\n**EVIDENCE AGAINST:**\n- 74\u201387% gross margin at median usage (100\u2013150 inferences) is acceptable for early-stage bootstrapped SaaS\n- Usage caps or tiered inference limits could protect margin without changing headline price\n- Fine-tuned smaller models (GPT-3.5, Mistral) could reduce per-inference cost 60\u201370% if deployed as fallback\n\n**CONFIDENCE:** High\n\n**KILL CONDITION:** If average user inference volume stays below 180/month AND OpenAI holds or reduces pricing through 2025, unit economics are viable. A usage audit of beta cohort at Month 4 revealing median <150 inferences/month would invalidate this judgment.\n\n---\n\n## JUDGMENT 2: The AI differentiation window is 12\u201318 months maximum, but customer acquisition timeline means the window may close before defensibility is established\n\n**EVIDENCE FOR:**\n- HoneyBook (Series D, $250M+ valuation) launched OpenAI integration Q3 2024 \u2014 already in market\n- Competitive rivalry rated High; feature parity estimated within 6\u201312 months per Five Forces analysis\n- CEO's timeline: MVP Month 3, beta Month 4, paid launch Month 6 \u2014 first 200 paying customers unlikely before Month 8\u20139\n- O",
+          "judgments_extracted": 4,
+          "judgments_covered": 2,
+          "judgments_missing": 2,
+          "challenge": "# DUE DILIGENCE FINDINGS: SWOT SECTION 4\n\n---\n\nPROBLEM 1:\nTYPE: math_error\nLOCATION: strengths[0] \u2014 \"Gross margin 74-87% at median usage\"\nWHAT'S WRONG: The margin range is arithmetically inconsistent with the COGS figures stated. At the LOW end: $2.70 COGS against $29 revenue = ($29-$2.70)/$29 = **90.7% margin**, not 74%. At the HIGH end: $5.80 COGS against $29 = **80% margin**, not 74%. The floor of \"74%\" only appears if you add ADDITIONAL overhead not included in the stated $2.70-$5.80 range. The document is simultaneously using two different COGS models (one in strengths, a corrected one in weaknesses) without reconciling them. The strength claim is internally contradicted by the weakness section which recalculates COGS upward. You cannot present a \"HIGH confidence\" strength built on numbers your own weakness section disproves.\nFIX NEEDED: Unify the COGS model across all four quadrants. Use a single authoritative calculation. The strength, if retained, must state the margin correctly (~80-91%) and explicitly note the median-usage assumption with a defined inference cap.\n\n---\n\nPROBLEM 2:\nTYPE: logical_gap\nLOCATION: strengths[1] \u2014 \"Ruthless simplicity vs HoneyBook complexity\"\nWHAT'S WRONG: The supporting evidence proves the WRONG thing. \"35-45% of competitor 1-2 star reviews cite 'expensive or better alternatives' \u2014 not 'missing features'\" actually suggests customers are leaving HoneyBook for price reasons or because competitors already beat it \u2014 it does NOT establish that simplicity is a purchasing driver for the target segment. A customer saying \"too expensive\" could be switching to another full-featured tool at lower cost, not to a simpler one. Zero evidence is cited that freelancers who left HoneyBook chose simpler products over complex cheaper ones. This conflates churn motivation with acquisition motivation.\nFIX NEEDED: Cite evidence that freelancers CHOSE simpler tools after leaving HoneyBook, not merely that they left. Alternatively, re-source from onboardi",
+          "challenges_found": 7,
+          "challenges_resolved": 6,
+          "challenges_unresolved": 1,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      },
+      "8": {
+        "section_number": "8",
+        "agent_name": "Marketing Strategy",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 321.22,
+        "input_tokens": 12016,
+        "output_tokens": 14073,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 4,
+          "target_market_analysis": {
+            "primary_segment": "Solo freelance web designers and developers, US-based, earning $50K\u2013$150K/year, managing 10\u201350 active leads without admin support",
+            "segment_size": "BLS 2023: 199K web developers + 261K graphic designers = 460K US freelance designers/developers. Applying 18% income band ($50K\u2013$150K, Bonsai 2023) = ~83K. Applying ~15% CRM-aware filter (HoneyBook 100K+ users as proxy across broader creative freelance market, scaled proportionally) = ~12K realistic TAM.",
+            "segment_size_source": "BLS Occupational Employment 2023 (web developers 199K, graphic designers 261K). Income band share from Bonsai 2023 Freelancer Income Report. CRM-aware proxy from HoneyBook 2022 investor deck scaled to BLS subcategory base.",
+            "willingness_to_pay": "$20\u2013$40/month validated by HoneyBook ($16\u2013$32) and Dubsado ($20\u2013$40) existing paid bases. 20 freelancer interviews (proprietary, conducted Q1 2024): median acceptable spend $25\u2013$35/month for solo CRM. $29 sits within validated range but is not confirmed optimal for a new entrant without brand recognition.",
+            "willingness_to_pay_source": "HoneyBook pricing page 2024; Dubsado pricing page 2024; 20 proprietary freelancer interviews Q1 2024 (n=20, web designers/developers, $50K\u2013$150K income band).",
+            "exclusions": "Freelancers earning under $50K/year: CAC recovery requires 5+ months retention; high churn risk. HoneyBook billing-first power users (~40\u201345% of segment): will not switch to CRM-only tool at feature parity pricing due to stored contracts/invoices switching cost.",
+            "reachable_year1": "Qualified traffic estimate 1,800\u20132,400 via: ProductHunt launch (~200\u2013400 visitors), organic Twitter/LinkedIn compounding to ~500 meaningful impressions/month by Month 9, guest posts/community seeding (~1,100\u20131,500 incremental visitors). Newsletter sponsorships excluded from traffic model (est. 72 clicks at 2% CTR \u2014 negligible). Central estimate: ~2,100 qualified visitors. At 10% trial conversion and 25% trial-to-paid (industry median, OpenView 2023) = ~53 paying customers. Range: 1,800\u00d78%\u00d720%=29 to 2,400\u00d712%\u00d730%=86. Central estimate ~53 customers Year 1."
+          },
+          "competitors": [
+            {
+              "name": "HoneyBook",
+              "pricing": "$16\u2013$32/month (Starter\u2013Essentials); $66/month (Premium)",
+              "pricing_source": "HoneyBook pricing page 2024",
+              "strengths": "Full client lifecycle (contracts, invoices, payments, scheduling); 100K+ paid users; strong brand; mobile app; payment processing built-in; high switching cost via stored contracts/invoices",
+              "weaknesses": "No AI lead scoring or close probability; feature-heavy onboarding is #1 switching trigger (proprietary interviews, 8/20 respondents cited this); billing-first architecture poorly suited for pure lead-management; no GPT-native follow-up",
+              "market_share_estimate": "Dominant in creative freelancer CRM; ~100K paid users stated 2022. Estimated 35\u201340% of addressable freelance CRM market by subscriber count.",
+              "threat_level": "HIGH \u2014 $29 vs $32 is a $3 difference, insufficient as a price wedge alone. Primary moat is switching cost from stored billing data, not price. New entrants must win on workflow simplicity and AI differentiation, not price."
+            },
+            {
+              "name": "Dubsado",
+              "pricing": "$20/month (Starter, 3 clients); $40/month (Premier, unlimited)",
+              "pricing_source": "Dubsado pricing page 2024",
+              "strengths": "Workflow automation; strong community (Facebook group 50K+); unlimited clients at $40; brand loyalty in wedding/event niche",
+              "weaknesses": "Steep learning curve; no AI inference layer; UI complexity drives 'overwhelmed' complaint; $40 full-feature tier creates modest price gap at $29; no predictive lead scoring",
+              "market_share_estimate": "Estimated 20\u201330K paid subscribers based on public community size. ~10\u201315% of addressable market.",
+              "threat_level": "MEDIUM \u2014 $29 vs $40 is a credible price-simplicity wedge, but Dubsado loyalists are workflow-automation users, not simplicity-seekers. Limited direct overlap."
+            },
+            {
+              "name": "Folk CRM",
+              "pricing": "$18/month (Standard); $29/month (Premium)",
+              "pricing_source": "Folk pricing page 2024",
+              "strengths": "AI-native architecture; explicit freelancer/small operator positioning; launched 2023 with active product velocity; cleaner UI than HoneyBook/Dubsado; at or below our price point",
+              "weaknesses": "No freelance-specific lead scoring for web design context; no close-probability inference tuned to project-based sales cycles; smaller US community than HoneyBook",
+              "market_share_estimate": "Early-stage; estimated <5K paid users as of 2024. Not yet dominant but directly occupies the AI-native CRM positioning this product targets.",
+              "threat_level": "HIGH \u2014 Folk is the most direct competitive threat. AI-native, lower or equal price, active growth. Differentiation must rest on vertical specificity (web designer workflows) not AI feature novelty alone."
+            },
+            {
+              "name": "Notion/Airtable DIY CRM + Spreadsheets",
+              "pricing": "$0\u2013$10/month (free tiers cover most solo use cases)",
+              "pricing_source": "Notion Free/Plus pricing 2024; Airtable Free tier 2024",
+              "strengths": "Free or near-free; infinitely customizable; 50K+ Notion CRM template downloads; zero switching cost; zero learning curve for existing users",
+              "weaknesses": "Zero AI automation; requires manual setup/maintenance; no follow-up generation; no close probability scoring; high cognitive overhead \u2014 the core pain point this product addresses",
+              "market_share_estimate": "~30\u201340% of target segment uses Notion/spreadsheet CRM today (Bonsai 2023 freelancer tools survey). Primary competitive force for the ~85% of TAM not yet using paid CRM tools.",
+              "threat_level": "HIGH \u2014 inertia and free tools are the primary barrier to adoption for the majority of the TAM. The real sales motion is convincing spreadsheet users to pay $29/month, not converting HoneyBook users."
+            }
+          ],
+          "competitive_advantages": [
+            {
+              "advantage": "Vertical-specific AI lead scoring tuned to web design project sales cycles (proposal\u2192contract lag, project size signals, ghosting pattern detection) \u2014 not available in HoneyBook, Dubsado, or general-purpose Folk CRM",
+              "defensibility": "MEDIUM \u2014 12\u201318 month lead before Folk or HoneyBook adds equivalent vertical tuning, assuming they prioritize this segment. Requires continuous model improvement to maintain."
+            },
+            {
+              "advantage": "Radically simpler onboarding vs HoneyBook/Dubsado: single-purpose CRM-only tool eliminates invoice/contract complexity that drives the top switching trigger cited in 8/20 proprietary user interviews",
+              "defensibility": "LOW-MEDIUM \u2014 simplicity is copyable but organizational focus is harder to fake; HoneyBook cannot easily remove features without alienating existing billing users"
+            }
+          ],
+          "marketing_mix": {
+            "product": "AI-native CRM for solo freelance web designers: lead pipeline, GPT-powered follow-up generation, close-probability scoring, project-type tagging. No invoicing, no contracts \u2014 CRM-only scope maintained intentionally.",
+            "price": "$29/month flat. Within validated $20\u2013$40 range but NOT confirmed as optimal for new entrant. A $9\u2013$15/month entry tier or freemium layer may be required to overcome status quo inertia and generate trial volume. Price strategy should be revisited after Month 3 conversion data.",
+            "place": "Web app only (Year 1). Distribution via: ProductHunt launch, Twitter/LinkedIn organic, targeted guest posts on freelancer-focused publications (Freelancers Union blog, SitePoint), direct community seeding (r/freelance, Indie Hackers).",
+            "promotion": "Budget: $3,000 Year 1. Line-item allocation: Guest posts/sponsored content $800 (2\u00d7 placements at ~$400 each); Community seeding/tools (Buffer/Typefully) $108; ProductHunt launch prep (assets, outreach) $200; Reserve/contingency $1,892. Newsletter sponsorships excluded: $200\u2013$500/placement \u00d7 6 = $1,200\u2013$3,000 would exhaust full budget for ~72 clicks \u2014 not cost-effective at this stage."
+          },
+          "customer_relations": {
+            "acquisition": "Founder-led content (Twitter/LinkedIn threads on freelancer CRM pain points); ProductHunt launch; community participation in r/freelance, Webflow Forum, Indie Hackers; SEO minimal contribution before Month 12",
+            "retention": "In-app onboarding checklist; weekly AI-generated pipeline digest email; Intercom-based live chat (founder handles personally Year 1); monthly changelog newsletter to maintain engagement",
+            "expansion": "No multi-seat or enterprise tier Year 1. Referral program (1 free month per referred paying user) introduced at Month 6 if NPS >40"
+          },
+          "revenue_assumptions": {
+            "price_per_unit": 29,
+            "volume_year1": 53,
+            "volume_year2": 210,
+            "volume_year3": 580,
+            "sales_cycle_months": 0.5,
+            "notes": "Year 1 central estimate: ~2,100 qualified visitors \u00d7 10% trial conversion \u00d7 25% trial-to-paid = 53 paying customers. Range: 29\u201386. Year 2 assumes SEO contribution begins, referral loop active, CAC improves. Year 3 assumes content flywheel + potential AppSumo or similar deal. All figures are founder estimates; trial-to-paid 25% is industry median (OpenView 2023, Totango 2023) \u2014 materially more conservative than original 40\u201355% assumption."
+          },
+          "cac_assumptions": {
+            "cac_estimate": 57,
+            "cac_source": "Derived: $3,000 Year 1 marketing budget / 53 central-estimate customers = $56.60. Rounds to ~$57. Does not include founder time cost. If founder time valued at $75/hour and 200 hours spent on marketing = $15,000 implied fully-loaded CAC of ~$340 \u2014 noted as key uncertainty.",
+            "confidence": "LOW \u2014 CAC is highly sensitive to trial-to-paid conversion rate. At 20% trial-to-paid (low end), CAC rises to ~$71 cash. At 15% (below median), Year 1 customers fall to 22 and cash CAC rises to ~$136. Fully-loaded CAC materially undermines LTV at $29/month without 12+ month retention."
+          },
+          "market_entry_strategy": "Launch on ProductHunt in Month 2 to generate initial trial cohort. Founder posts 3x/week on Twitter/LinkedIn targeting #freelancedesign and #webdesign communities. Seed 5 high-traffic Notion/freelancer forums with genuine value posts (no spam). Prioritize retaining first 20 customers over acquisition \u2014 use direct interviews to validate AI scoring accuracy and refine onboarding. Do not expand to invoicing or contracts in Year 1; maintain single-purpose positioning as primary differentiator vs HoneyBook and Dubsado. Revisit $29 price point at Month 3 if trial-to-paid conversion falls below 20%.",
+          "assumptions_used": [
+            "BLS 2023 base: 460K US web developers + graphic designers; 18% in $50K\u2013$150K band = 83K; 15% CRM-aware = ~12K TAM",
+            "Trial conversion 10% (central); trial-to-paid 25% (OpenView/Totango 2023 industry median) \u2014 NOT 40\u201355% as in original draft",
+            "Year 1 qualified traffic 1,800\u20132,400; central estimate 2,100 \u2014 newsletter channel excluded from model",
+            "$3,000 Year 1 budget allocated with explicit line items summing to $3,000; newsletter sponsorships excluded as not cost-effective",
+            "$29/month price within validated range but new-entrant discount risk acknowledged; freemium tier may be required",
+            "Folk CRM identified as primary AI-native competitive threat; spreadsheet inertia identified as primary TAM adoption barrier",
+            "Willingness-to-pay evidence sourced from 20 proprietary freelancer interviews; Microconf 2023 data removed as source due to audience mismatch (SaaS operators, not freelancers)"
+          ],
+          "uncertainties": [
+            "TAM could be 12K\u201322K (BLS-based) vs original 110K claim \u2014 5\u20139x overstatement in draft; actual reachable market is small and requires high retention to build viable SaaS",
+            "Trial-to-paid conversion is the single most consequential unknown; at 15% (below median), Year 1 customers = 22, making the financial model non-viable at $29/month",
+            "Folk CRM is a direct AI-native competitor at equal or lower price; differentiation via vertical specificity must be demonstrated in product, not just claimed in positioning",
+            "Fully-loaded CAC including founder time could be $300\u2013$400, implying LTV/CAC <1 unless average retention exceeds 12 months",
+            "$29/month may be insufficient to overcome status quo inertia vs free spreadsheet tools for the ~85% of TAM not yet using paid CRM; freemium entry may be required",
+            "SEO provides zero qualified traffic before Month 12; Year 1 model is entirely dependent on community/founder-led channels with high execution risk"
+          ],
+          "confidence_score": 0.38,
+          "input_tokens": 0,
+          "output_tokens": 0
+        },
+        "reasoning_trace": {
+          "decomposition": "# MARKETING STRATEGY \u2014 STRUCTURED JUDGMENT ANALYSIS\n## Freelance AI-CRM @ $29/month | Bootstrapped $15K\n\n---\n\n## JUDGMENT 1: Content marketing on Twitter/LinkedIn + SEO can achieve a CAC of $150\u2013$300 within the bootstrapped $15K budget\n\n**EVIDENCE FOR:**\n- Freelance designers/developers are disproportionately active on Twitter/X and LinkedIn; organic reach is achievable without paid spend\n- SEO for \"freelance CRM\" is a navigational query with moderate competition (HoneyBook and Dubsado rank, but neither dominates long-tail variants like \"CRM for freelance developers\" \u2014 estimated Ahrefs KD 25\u201340)\n- $3K marketing budget allocated in SWOT covers basic content seeding: ~6 months of tooling (Buffer/Typefully ~$18/month), guest posts ($500\u2013$1,000 flat), and 2\u20133 newsletter sponsorships in freelance-adjacent publications (e.g., Cofolios, Smashing Magazine \u2014 ~$200\u2013$500/placement)\n- 20 freelancer interviews already completed = warm network for initial beta referrals, reducing cold CAC for first 20\u201330 users\n\n**EVIDENCE AGAINST:**\n- Bootstrapped SaaS analysis (Airtable 2023, 500+ cases) shows 3x CAC underestimation is modal; CEO assumes $50\u2013$100 CAC, prior analysis already flags $150\u2013$300 as realistic floor\n- $3K marketing budget buys ~10\u201320 acquired customers at $150\u2013$300 CAC \u2014 that is 10\u201320 customers total from the seeding budget before capital exhaustion at Month 7\n- SEO has a 6\u20139 month lag to rank; MVP launches Month 3, paid launch Month 6 \u2014 SEO produces near-zero organic traffic before Month 12 at realistic competition levels\n- ProductHunt launch produces a spike (median ~200\u2013400 visitors, 2\u20135% conversion to trial = 4\u201320 signups) but decays to near-zero within 72 hours; not a sustainable acquisition channel\n- Twitter/LinkedIn organic reach for B2B SaaS without an existing audience requires 6\u201312 months of consistent posting before compounding; founder has no documented existing following\n\n**CONFIDENCE:** LOW\n\n**KILL CONDITION:** If founder has no existing Twitter/LinkedIn a",
+          "judgments_extracted": 4,
+          "judgments_covered": 4,
+          "judgments_missing": 0,
+          "challenge": "PROBLEM 1:\nTYPE: math_error\nLOCATION: segment_size \u2014 CRM-aware filter logic\nWHAT'S WRONG: The 15% \"CRM-aware\" filter is derived from HoneyBook's 100K+ paid users as a proxy. But HoneyBook's 100K users divided by the prior filtered pool of 738K = 13.5%, which is close enough \u2014 however the chain collapses earlier. The 4.1M Upwork figure covers ALL US freelancers in design/dev, while BLS counts only 199K web developers + 261K graphic designers = 460K. These are not the same population. Upwork's 4.1M almost certainly includes writers, marketers, video editors, and other \"creative\" categories bundled under their taxonomy. Using 4.1M as the base then applying BLS subcategory filters to it is methodologically incoherent \u2014 you cannot use Upwork's broad count as a universe and then validate it with BLS's narrow occupational codes. The true overlapping number is likely 460K\u2013800K, not 4.1M, which would reduce the realistic TAM from ~110K to roughly 12K\u201322K.\nFIX NEEDED: Pick one source and stay consistent. Either use BLS 460K as base (apply income band \u2192 ~83K, apply CRM-aware filter \u2192 ~12K TAM), or defend why Upwork's 4.1M is the right universe by citing their exact category definitions and confirming web designers/developers are the dominant subset. The current blended approach overstates TAM by 5\u20139x.\n\n---\n\nPROBLEM 2:\nTYPE: math_error\nLOCATION: reachable_year1 \u2014 newsletter sponsorship calculation\nWHAT'S WRONG: \"6 newsletter sponsorships yield ~3,600 impressions at 2% CTR = 72 clicks.\" This is internally consistent math but the input is wrong for the stated $3K budget. The plan allocates \"$200\u2013$500/placement\" \u00d7 6 placements = $1,200\u2013$3,000, which already exhausts the entire $3K marketing budget on newsletters alone \u2014 leaving $0 for the Buffer/Typefully tooling ($108/year), guest posts ($500\u2013$1,000), and any other seeding. The budget allocation is not self-consistent across the document. Additionally, 72 total clicks from newsletter sponsorships as a meaningful contribution to a",
+          "challenges_found": 6,
+          "challenges_resolved": 6,
+          "challenges_unresolved": 0,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      },
+      "12": {
+        "section_number": "12",
+        "agent_name": "Financial Modelling",
+        "model": "us.anthropic.claude-sonnet-4-6",
+        "latency_seconds": 202.31,
+        "input_tokens": 14367,
+        "output_tokens": 10628,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 9,
+          "confidence_score": "low",
+          "risk_mitigation_actions": [
+            "Cap AI inference at $1.50/user/mo via GPT-3.5 fallback; reserve GPT-4 for close-scoring only",
+            "Beta Month 4 with 10 users at $19=$190 MRR; reduces pre-revenue burn window before full launch",
+            "Kill trigger: if trial-to-paid <20% by Month 8, raise price to $39 and narrow ICP to 1 niche to lift LTV above $400",
+            "Pre-sell 20 annual licenses at $290=$5,800 upfront; book as deferred revenue liability, recognize $24/mo per customer",
+            "Hard infra cap $150/mo via billing alerts until 100 customers; Vercel+Supabase stack validated at $2.34/user floor"
+          ],
+          "break_even_analysis": {
+            "baseline_month": 11,
+            "optimistic_month": 9,
+            "pessimistic_month": 22,
+            "units_required": 112,
+            "notes": "112 units \u00d7 $29 \u00d7 92% margin = $3,002 vs $3,000 P&L Month 11 costs. Pessimistic: AI $4/user + CAC doubling \u2192 150 units. Prior 138-unit figure used $3,500 cost floor inconsistent with P&L."
+          },
+          "three_statement_model": {
+            "pl_monthly_year1": [
+              {
+                "month": 1,
+                "revenue": 0,
+                "costs": 2200,
+                "net": -2200
+              },
+              {
+                "month": 2,
+                "revenue": 0,
+                "costs": 2200,
+                "net": -2200
+              },
+              {
+                "month": 3,
+                "revenue": 0,
+                "costs": 2300,
+                "net": -2300
+              },
+              {
+                "month": 4,
+                "revenue": 190,
+                "costs": 2300,
+                "net": -2110
+              },
+              {
+                "month": 5,
+                "revenue": 380,
+                "costs": 2300,
+                "net": -1920
+              },
+              {
+                "month": 6,
+                "revenue": 580,
+                "costs": 2500,
+                "net": -1920,
+                "cost_note": "+$200: Stripe fees on annual presales + Resend tier bump at 500 contacts"
+              },
+              {
+                "month": 7,
+                "revenue": 820,
+                "costs": 2600,
+                "net": -1780,
+                "rev_note": "20 annual customers recognize $24/mo=$480 + ~14 monthly \u00d7 $29=$406 - $66 churn; +$200 cost: infra tier"
+              },
+              {
+                "month": 8,
+                "revenue": 1160,
+                "costs": 2700,
+                "net": -1540
+              },
+              {
+                "month": 9,
+                "revenue": 1600,
+                "costs": 2800,
+                "net": -1200
+              },
+              {
+                "month": 10,
+                "revenue": 2100,
+                "costs": 2900,
+                "net": -800
+              },
+              {
+                "month": 11,
+                "revenue": 3050,
+                "costs": 3000,
+                "net": 50
+              },
+              {
+                "month": 12,
+                "revenue": 3800,
+                "costs": 3100,
+                "net": 700
+              }
+            ],
+            "pl_annual_years2_3": [
+              {
+                "year": 2,
+                "revenue": 72540,
+                "costs": 42000,
+                "net": 30540
+              },
+              {
+                "year": 3,
+                "revenue": 200940,
+                "costs": 98000,
+                "net": 102940
+              }
+            ],
+            "balance_sheet": {
+              "opening_cash": 15000,
+              "cumulative_burn_yr1": 16000,
+              "cash_end_yr1": 850,
+              "deferred_revenue_liability": 2900,
+              "ar_yr1": 0,
+              "equity_end_yr1": -2050
+            },
+            "cash_flow": {
+              "operating_cf_yr1": -14150,
+              "operating_cf_yr2": 28000,
+              "capex": 0,
+              "ending_cash_yr2": 28850
+            }
+          },
+          "dcf_valuation": {
+            "discount_rate": 0.35,
+            "terminal_growth": 0.05,
+            "terminal_value_undiscounted": 316667,
+            "dcf_bridge": "Y1 FCF -$16,000 PV=-$11,852; Y2 FCF $28,000 PV=$15,365; Y3 FCF $95,000 PV=$38,588; TV PV=$128,727; Sum=$170,828 rounded to $148,000 at 15% execution haircut",
+            "npv_equity": 148000
+          },
+          "comps_table": {
+            "HoneyBook": {
+              "arr": "~$300M est (implied from $2.4B 2021 raise at ~8x); not $80M \u2014 prior figure was 3-4x understated",
+              "multiple": "8x ARR funded; apply 75% haircut for bootstrapped comp = 2x effective"
+            },
+            "Dubsado": {
+              "arr": "~$12-18M est via SimilarWeb traffic proxy + $20-40 ARPU; unverified",
+              "multiple": "~6x ARR funded; 75% haircut = 1.5x effective for early-stage bootstrapped"
+            },
+            "Bonsai": {
+              "arr": "~$8-12M est; no public filing",
+              "multiple": "~5x ARR funded; 75% haircut = 1.25x effective; comps do NOT validate $148K NPV directly"
+            }
+          },
+          "assumption_log": [
+            {
+              "name": "break_even_cost_floor",
+              "value": "$3,000 at Month 11",
+              "label": "Revised",
+              "source": "P&L Month 11 costs=$3,000; break-even=112 units. Prior $3,500 floor was inconsistent with P&L \u2014 eliminated."
+            },
+            {
+              "name": "month6_cost_increase",
+              "value": "+$200 to $2,500",
+              "label": "Itemized",
+              "source": "Stripe fees on $5,800 annual presale batch ~$168 + Resend email tier bump at 500 contacts ~$32 = $200"
+            },
+            {
+              "name": "month7_revenue_driver",
+              "value": "$820 (+41% MoM)",
+              "label": "Revised-Down",
+              "source": "20 annual customers \u00d7 $24/mo recognition + 14 new monthly \u00d7 $29 minus churn. Prior $900 implied 53% jump with no catalyst \u2014 revised to 41% with annual recognition included."
+            },
+            {
+              "name": "cash_cac_achievability",
+              "value": "$57 cash CAC",
+              "label": "Judgment2-Contested",
+              "source": "Organic only; $3,000 yr1 cash marketing / 53 customers = $57. Requires 2,100 qualified visitors via SEO. Any paid spend raises CAC to $120-$180."
+            },
+            {
+              "name": "ltv_cac_ratio",
+              "value": "5.9x cash; 0.98x fully-loaded",
+              "label": "Judgment2-Verified",
+              "source": "LTV=$334 net / $57 cash CAC=5.9x. Founder time fully-loaded=$340/customer yields 0.98x \u2014 below 3x benchmark. Ratio valid only if founder time excluded."
+            },
+            {
+              "name": "deferred_revenue_treatment",
+              "value": "$5,800 presale = liability",
+              "label": "Corrected",
+              "source": "20 \u00d7 $290 annual licenses recognized at $24.17/mo/customer over 12 months. Balance sheet now shows $2,900 deferred liability at yr-end (6 months remaining)."
+            },
+            {
+              "name": "kill_trigger_fallback",
+              "value": "Price increase to $39 + niche narrowing",
+              "label": "Revised",
+              "source": "Outbound DMs yield 0.98x LTV/CAC (founder time fully-loaded) \u2014 destroys economics. Fallback now: raise price to $39, LTV=$488, cash ratio=8.6x, fully-loaded=1.4x \u2014 still marginal but defensible."
+            },
+            {
+              "name": "comps_multiple_discount",
+              "value": "75% haircut vs funded comps",
+              "label": "Judgment1-Applied",
+              "source": "Damodaran private co discount + size illiquidity; HoneyBook $2.4B raise implies ~$300M ARR not $80M. Effective multiple for bootstrapped early-stage: 1.25-2x ARR."
+            }
+          ],
+          "uncertainties": [
+            "P&L cumulative burn revised to ~$16,000; opening cash $15,000 leaves <$1K buffer \u2014 runway is critically thin with zero slack",
+            "Annual presale deferred revenue adds $2,900 liability at yr-end; equity turns negative (-$2,050) \u2014 balance sheet is technically insolvent yr1",
+            "Kill trigger revised to price increase; if $39 price reduces trial conversion below 15%, both CAC and churn assumptions break simultaneously",
+            "HoneyBook ARR was 3-4x understated in prior draft; comps framework unreliable without verified figures \u2014 valuation anchor is weak",
+            "Month 7-10 revenue now includes annual recognition; if 20 presale customers churn at renewal, yr2 revenue forecast overstated by ~$5,800"
+          ],
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "_unresolved_challenges": [
+            "HoneyBook, Dubsado, and Bonsai are all labeled \"est\" with no source. HoneyBook raised at a $2.4B valuation in 2021 \u2014 applying an 8x ARR multiple backward implies ~$300M ARR, not $80M. The $80M figure is unsubstantiated and if wrong by 3-4x, the comparable multiple framework collapses. Dubsado and Bonsai have no public filings; the ARR figures are unverifiable. Using unverified comps to anchor a valuation implies the NPV of $148,000 is validated by market comparables when it is not. The multiples (5-8x ARR) are also applied to bootstrapped private companies with no liquidity premium adjustment or size discount \u2014 a $148K NPV business is not comparable to an $80M ARR company at any multiple."
+          ]
+        },
+        "reasoning_trace": {
+          "decomposition": "# STRUCTURED FINANCIAL JUDGMENTS: AI FREELANCE CRM\n\n---\n\n## JUDGMENT 1: The business reaches cash break-even within 18 months on $15K bootstrap capital\n\n**EVIDENCE FOR:**\n- Month 12 target of ~200 paying customers \u00d7 $29 = $5,800 MRR\n- Year 1 cash marketing budget is $3,000 (from CAC derivation: $3,000 / 53 = $57)\n- Infrastructure COGS floor of ~$2.04\u2013$2.34/customer/month means gross margin ~92% at scale\n- Fixed costs are near-zero bootstrapped (no salaries, no office) \u2014 primary burn is founder living expenses + infra + marketing\n\n**EVIDENCE AGAINST:**\n- $15K savings must cover 6 months pre-revenue (MVP + beta = Months 1\u20136), implying a burn rate ceiling of $2,500/month before a single dollar arrives\n- AI inference costs are explicitly excluded from the $2.04\u2013$2.34 COGS floor \u2014 GPT-4 class API calls for email generation + lead scoring could add $1\u20134/user/month at heavy usage, compressing gross margin to 79\u201386%\n- At 53 Year 1 customers arriving non-linearly (most in Months 7\u201312), average MRR across Year 1 is closer to $800\u2013$1,200, not $5,800 \u2014 cumulative Year 1 revenue likely $8,000\u2013$12,000, not $18,468 (53 \u00d7 $29 \u00d7 12)\n- Month 6 launch means 6 months of pure burn before any revenue: $15K \u2212 (6 \u00d7 $2,500 minimum) = $0 buffer at launch\n\n**CONFIDENCE:** LOW\n\n**KILL CONDITION:** If monthly infrastructure + AI inference costs exceed $400/month before 100 customers are onboarded, the $15K capital is fully consumed before MRR can cover ongoing costs, forcing a funding event or shutdown before Month 9.\n\n---\n\n## JUDGMENT 2: $57 cash CAC is achievable and LTV/CAC > 3.0 at steady state\n\n**EVIDENCE FOR:**\n- $3,000 Year 1 marketing budget / 53 customers = $56.60 cash CAC\n- Organic channels (Twitter, SEO, ProductHunt) have near-zero marginal cost per lead at scale\n- Industry median trial-to-paid of 25% (OpenView 2023, Totango 2023) is the basis \u2014 not an aggressive assumption\n- LTV at $29/month \u00d7 12-month median retention = $348 \u2192 LTV/CAC = 6.1\u00d7 at $57 cash CAC\n\n**EVIDENCE AGAINST:**\n-",
+          "judgments_extracted": 4,
+          "judgments_covered": 3,
+          "judgments_missing": 1,
+          "challenge": "PROBLEM 1:\nTYPE: math_error\nLOCATION: `pl_monthly_year1` Month 6 net calculation\nWHAT'S WRONG: Revenue $580 minus costs $2,500 = -$1,920, not -$1,920. Wait \u2014 that's actually correct. BUT Month 5: $380 - $2,300 = -$1,920, which matches Month 6's net despite Month 6 having higher revenue ($580 vs $380) and higher costs ($2,500 vs $2,300). The delta is identical (-$1,920) when it should improve. $580 - $2,500 = -$1,920 and $380 - $2,300 = -$1,920. Arithmetically both are correct, but the model shows zero improvement in net loss between Month 5 and Month 6 despite $200 more revenue. This is not wrong math but masks a cost jump that exactly offsets revenue growth \u2014 the $200 cost increase in Month 6 is never explained and suspiciously precise. More critically: Month 7 net is -$1,700 implying $900 - $2,600 = -$1,700, which is correct, but the revenue jump from $580 to $900 (+$310, ~53%) in one month with no stated catalyst is unsubstantiated.\nFIX NEEDED: Itemize what drives the $200 cost increase in Month 6 and justify the 53% MoM revenue acceleration in Month 7. Without this, the model is a smooth curve drawn backward from a desired outcome.\n\n---\n\nPROBLEM 2:\nTYPE: math_error\nLOCATION: `break_even_analysis` notes vs. `pl_monthly_year1`\nWHAT'S WRONG: Break-even notes state \"138 customers \u00d7 $29 \u00d7 92% gross margin = $3,680 vs ~$3,500 fixed cost floor.\" But the P&L shows Month 11 costs at $3,000 and Month 12 at $3,100 \u2014 neither of which is $3,500. The \"fixed cost floor\" used in break-even analysis ($3,500) does not appear anywhere in the monthly P&L. If costs are $3,000-$3,100 at the actual break-even month (Month 11, per the P&L), then break-even units required is closer to 112 ($3,000 / ($29 \u00d7 0.92)), not 138. The model overstates required units by ~23%, making the business look harder to break even than the P&L itself implies. These two sub-models contradict each other and were not reconciled.\nFIX NEEDED: The break-even unit calculation must use the same cost assumptions as",
+          "challenges_found": 6,
+          "challenges_resolved": 5,
+          "challenges_unresolved": 1,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      },
+      "13": {
+        "section_number": "13",
+        "agent_name": "Launch & Contingency",
+        "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "latency_seconds": 143.83,
+        "input_tokens": 11652,
+        "output_tokens": 13087,
+        "parsed_successfully": true,
+        "output": {
+          "section_number": 9,
+          "launch_programme": [
+            {
+              "milestone": "MVP complete: lead categorization, scoring, email engine",
+              "target_date": "Month 3",
+              "success_metric": "AI accuracy \u226570% on 50+ target-segment labeled leads; inference cost <$1.80/user/month validated; <2s response time",
+              "dependency": "OpenAI API integration live; 50 labeled leads sourced from freelancers; staging load test complete"
+            },
+            {
+              "milestone": "Pricing validation: WTP study with 15+ target-segment freelancers ($50K\u2013$150K income)",
+              "target_date": "Month 3.5",
+              "success_metric": "\u226560% accept $29/month; if <60%, reprice to $19/month before beta launch",
+              "dependency": "Interview slots booked; $19/$29/$49 scenarios tested; updated margin calcs if repricing"
+            },
+            {
+              "milestone": "Beta cohort (20 users) onboarded via direct outreach + Twitter seeding",
+              "target_date": "Month 4\u20135",
+              "success_metric": "\u226570% activation (14+ users); \u22655 complete first email; NPS \u226520",
+              "dependency": "Onboarding video recorded; AI accuracy \u226570% confirmed; Twitter >500 impressions/post sustained"
+            },
+            {
+              "milestone": "ProductHunt launch with Hunter (>50K followers), Press Kit, Day-of callout",
+              "target_date": "Month 6",
+              "success_metric": "400\u20131,000 trial signups; >350 upvotes; \u226512% activation by Day 7",
+              "dependency": "Hunter locked; landing page <3.5s load; retargeting audience built; social calendar live"
+            },
+            {
+              "milestone": "Trial-to-paid conversion checkpoint (Month 7 decision gate)",
+              "target_date": "Month 7",
+              "success_metric": "\u226516% of Month 6 cohort converts paid by Day 30; <16% triggers pivot or paid ads strategy",
+              "dependency": "30-day trial enforced; nurture sequence active; churn \u226580% MoM; CAC tracked"
+            },
+            {
+              "milestone": "20 paying customers + organic engine; break-even path validated",
+              "target_date": "Month 8\u201311",
+              "success_metric": "MRR \u2265$580 (20 @ $29); CAC \u2264$150; 112-customer path visible; cumulative burn \u2264$15K",
+              "dependency": "Retention \u226580% MoM; 5\u201310 SEO articles ranked; organic CAC <$80; Twitter \u22652K followers"
+            }
+          ],
+          "prerequisite_conditions": [
+            {
+              "condition": "AI inference cost validated <$1.80/user/month at 100 leads/user load via 50-user staging mock. If \u2265$2.10, contribution margin drops from 80% to <72%, pushing break-even to Month 14+.",
+              "rationale": "$29 \u2212 $0.50 payment \u2212 $2.00 COGS (cloud, labor excl. inference) \u2212 inference cost must leave \u2265$24 margin (80%). Cost overage by $0.30 cuts margin by 8%, reducing MRR target feasibility by Month 11."
+            },
+            {
+              "condition": "Pricing WTP: \u226560% of 15 target-segment freelancers accept $29/month. If <60%, pivot to $19/month (extending break-even 3 months) OR validate willingness for $39/month tier before ProductHunt.",
+              "rationale": "Founder revised contribution margin assumption from 92% to 80% without WTP evidence. <60% acceptance at $29 invalidates $3,248 MRR target; repricing is mandatory gate before Month 6 launch."
+            },
+            {
+              "condition": "ProductHunt launch locked: Hunter (>50K followers) confirmed by Month 5; Press Kit, Day-of callout, retargeting audience finalized. ProductHunt delivers 60% of Month 6 signups (60\u20131,000 trials); unstructured launch \u2192 <300 trials \u2192 revenue miss.",
+              "rationale": "Single largest acquisition lever. Unstructured approach cuts trial cohort by 70%, missing Year 1 revenue by $30K+. Hunter + Press Kit are non-negotiable; risk: high without pre-commitment."
+            },
+            {
+              "condition": "Founder commits 3x/week Twitter+LinkedIn posts; track impressions weekly. If <500 avg impressions/post by Month 3, kill organic channel by Month 5; activate $2K/month paid ads contingency reserve.",
+              "rationale": "Organic strategy assumes 0.5% engagement on 500K combined followers = 2,500 monthly visits. Untested assumption; discipline + early measurement prevent Month 6\u20137 acquisition collapse."
+            }
+          ],
+          "capital_plan": "Bootstrap $15K covers $0.97K/month baseline (cloud, API, payment processing) through Month 15. If organic CAC exceeds $150 by Month 8 or ProductHunt underperforms (<300 signups), activate $3K\u2013$5K paid ads reserve; requires pre-seed $6K\u2013$10K decision by Month 5. Contingency: if conversion <12% by Month 7, reserve extended trial + retention budget ($2K) to validate product before capital raise.",
+          "critical_path_item": "Trial-to-paid conversion must reach \u226516% by Month 7 (Month 6 ProductHunt cohort). <16% extends break-even to Month 14\u201316; <12% triggers product pivot or paid acquisition strategy overhaul. This metric gates viability; failure requires capital or pivot decision by Month 8.",
+          "contingency_scenarios": [
+            {
+              "scenario": "ProductHunt underperforms: <300 signups vs. 400\u20131,000 target",
+              "trigger": "By Day 7 of launch, cumulative trials <300",
+              "response": "Activate $3K AdWords budget (Month 7); extend paid trial from 30 to 45 days; double nurture email sequences; shift CAC budget to cold outreach ($1\u20132/lead). Reassess break-even at Month 10."
+            },
+            {
+              "scenario": "AI inference cost exceeds $2.10/user/month",
+              "trigger": "Staging load test (50-user mock) shows cost >$2.10 at 100 leads/user",
+              "response": "Negotiate OpenAI volume pricing or migrate to Anthropic Claude (test cost <$1.50). If negotiation fails, reduce feature scope (remove email drafting in MVP; add Month 4); contribution margin drops to 72%, break-even extends to Month 13."
+            },
+            {
+              "scenario": "Trial-to-paid conversion <12% by Month 7",
+              "trigger": "Month 6 ProductHunt cohort: <12% converts to paid by Day 30",
+              "response": "Pause new acquisition; extend trial 15 days; analyze churn drivers via user interviews; if churn >40% MoM, product pivot required (shift to freemium tier or API model). Require pivot decision by Month 8 to avoid cash burn beyond Month 16."
+            }
+          ],
+          "exit_conditions": "PIVOT GATE (Month 7): If trial-to-paid <16%, evaluate product pivot (freemium, white-label, or B2B2C). CAPITAL GATE (Month 10): If MRR <$400 and organic CAC still >$150, require $50K pre-seed by Month 11 or wind down. SUCCESS GATE (Month 14): If MRR \u2265$2,500 with \u226580% retention and CAC <$120, plan Series A by Month 16.",
+          "assumptions_used": [
+            "Contribution margin 80% ($29 price, $1.80 inference, $2.00 COGS, $0.50 payment)",
+            "ProductHunt delivers 60% of Month 6 trial signups; 400\u20131,000 target realistic with >50K-follower hunter",
+            "Trial-to-paid 16% achievable via 30-day trial + nurture sequence; industry baseline 10\u201320%",
+            "Retention \u226580% MoM based on niche freelancer cohort; churn >40% MoM signals product-market fit gap",
+            "Organic CAC <$80 via Twitter + SEO by Month 8; requires founder discipline and 500K+ combined followers"
+          ],
+          "uncertainties": [
+            "WTP pricing validation incomplete; <60% acceptance at $29 likely; repricing to $19 untested vs. $29 economics",
+            "AI accuracy \u226570% on real freelancer leads unvalidated; internal team bias may inflate accuracy; target-segment data needed",
+            "ProductHunt hunter (>50K followers) not yet locked; failure to secure hunter cuts Month 6 cohort by 50%+",
+            "Organic CAC <$80 assumption depends on founder reaching 500K+ followers; current Twitter/LinkedIn reach unknown"
+          ],
+          "confidence_score": "low",
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "_unresolved_challenges": [
+            "# RUTHLESS DUE DILIGENCE REVIEW",
+            "## PROBLEM 1\n**TYPE:** Unsupported claim + circular logic  \n**LOCATION:** MVP success metric \u2014 \"3 internal beta users input 5 leads each; AI returns categorization + score in <2s\"  \n**WHAT'S WRONG:** "
+          ]
+        },
+        "reasoning_trace": {
+          "decomposition": "# STRUCTURED JUDGMENTS: FREELANCE AI CRM LAUNCH\n\n---\n\n## JUDGMENT 1: Trial-to-Paid Conversion of 25% is Achievable and Sustainable\n\n**SPECIFIC CLAIM:**  \nThe founder can convert 25% of trial users to paid customers (industry median) and retain this rate through Month 12, yielding 53 paying customers by EOY1.\n\n**EVIDENCE FOR:**\n- OpenView & Totango 2023 benchmarks cited; 25% is median SaaS rate, not outlier\n- Founder has 20 pre-launch interviews validating pain point (lead chaos)\n- Single-purpose positioning (no feature creep to invoicing/contracts) reduces onboarding friction\n- First 5 customers targeted for direct interviews \u2192 tight feedback loop improves retention\n- Low technical barrier to entry ($29/month) reduces buyer hesitation\n\n**EVIDENCE AGAINST:**\n- **Founder's original assumption was 40\u201355%** \u2014 downward revision to 25% is a 45% cut, suggesting founder over-confidence\n- No trial cohort data yet; \"achieved conversion\" exists only in category benchmarks, not this product\n- Competing products (HoneyBook, Dubsado) already offer invoicing/contracts bundled \u2192 users may churn after trial if they want integrated workflows\n- \"Lead management chaos\" pain point validated via interviews \u2260 willingness to pay $29/month; no pricing test documented\n- Target segment ($50K\u2013$150K/year freelancers) may include price-sensitive practitioners; no willingness-to-pay study shown\n- CAC unknown until Month 2 ProductHunt launch; organic acquisition velocity untested\n\n**CONFIDENCE:** Medium (50\u201360% credible)\n\n**KILL CONDITION:**  \nIf trial-to-paid conversion in Month 4\u20135 beta cohort falls below **16%** (lower bound of 29\u201386 range), the entire Year 1 revenue model breaks and CAC repayment window extends beyond 18 months, triggering cash crisis by Month 18.\n\n---\n\n## JUDGMENT 2: Organic Acquisition (Content + ProductHunt) Can Deliver 2,100 Qualified Visitors in Year 1 Without Paid Media\n\n**SPECIFIC CLAIM:**  \nFounder can attract 2,100 qualified visitors (web designers/developers searchin",
+          "judgments_extracted": 4,
+          "judgments_covered": 3,
+          "judgments_missing": 1,
+          "challenge": "# RUTHLESS DUE DILIGENCE REVIEW\n\n---\n\n## PROBLEM 1\n**TYPE:** Unsupported claim + circular logic  \n**LOCATION:** MVP success metric \u2014 \"3 internal beta users input 5 leads each; AI returns categorization + score in <2s\"  \n**WHAT'S WRONG:**  \n- \"Internal beta users\" \u2260 target customers. Testing with founders/team members validates *technology*, not *product-market fit* or *usability for freelancers*. A 2-second response time means nothing if the categorization is wrong or UX is confusing.\n- No mention of *accuracy validation*. Speed without correctness is worthless. What's the acceptable false-positive rate for lead categorization? Unstated.\n- Dependency says \"inference cost validated <$2/user/month\" but MVP milestone doesn't include cost validation\u2014it's only speed + basic function. If cost test fails *after* MVP ships, the entire unit economics collapse mid-beta.\n\n**FIX NEEDED:**  \nRevise MVP success metric to include: **(a) AI categorization accuracy \u226570% against 50+ manually-labeled leads from target segment (not internal team);** **(b) inference cost per lead documented + monthly load tested to 100\u2013200 leads;** **(c) at least 1 external beta user (freelancer) completes onboarding + validates UX (not just speed).**\n\n---\n\n## PROBLEM 2\n**TYPE:** Math error / contribution margin collapse  \n**LOCATION:** Prerequisite condition #2 \u2014 AI inference cost justification  \n**WHAT'S WRONG:**  \n- Claim: \"$29 price \u2212 $0.50 payment processing \u2212 $2.04\u2013$2.34 COGS (excl. inference) = $24\u2013$26 margin required\"\n- **This math is incomplete.** $2.04\u2013$2.34 is listed as \"excl. inference,\" implying it's *other COGS* (hosting, support, etc.). But then the condition says \"if AI cost >$3, unit economics fail.\"\n- **Actual margin**: $29 \u2212 $0.50 \u2212 $2.34 \u2212 $3.00 = **$23.16 gross margin** (if inference hits $3).\n- **Contribution margin assumption stated as 92%** in the rationale. $23.16 / $29 = **80%**, not 92%. This is a **12-point gap** and invalidates the break-even math in Milestone 6 ($3,248 MRR ",
+          "challenges_found": 5,
+          "challenges_resolved": 3,
+          "challenges_unresolved": 2,
+          "revision_count": 1,
+          "revisions_applied": true,
+          "reasoning_budget": 3,
+          "generic_phrase_count": 0
+        }
+      }
+    },
+    "total_input_tokens": 66354,
+    "total_output_tokens": 78820,
+    "total_latency_seconds": 1344.7535951137543,
+    "errors": [],
+    "completed_at": "2026-06-01T06:22:57.652572+00:00",
+    "scores": {
+      "overall_score": 8.9,
+      "schema_compliance": 100.0,
+      "avg_confidence": "low",
+      "confidence_distribution": {
+        "high": 0,
+        "medium": 0,
+        "low": 5
+      },
+      "section_scores": {
+        "1": {
+          "schema_compliance": 10.0,
+          "specificity": 10.0,
+          "completeness": 8.6,
+          "total": 9.6,
+          "issues": [
+            "confidence_score: empty or placeholder value"
+          ]
+        },
+        "3": {
+          "schema_compliance": 10.0,
+          "specificity": 10.0,
+          "completeness": 8.6,
+          "total": 9.6,
+          "issues": [
+            "confidence_score: empty or placeholder value"
+          ]
+        },
+        "5": {
+          "schema_compliance": 10.0,
+          "specificity": 10.0,
+          "completeness": 8.3,
+          "total": 9.5,
+          "issues": [
+            "confidence_score: empty or placeholder value"
+          ]
+        },
+        "8": {
+          "schema_compliance": 10.0,
+          "specificity": 10.0,
+          "completeness": 10.0,
+          "total": 10.0,
+          "issues": []
+        },
+        "12": {
+          "schema_compliance": 8.0,
+          "specificity": 0.0,
+          "completeness": 8.8,
+          "total": 5.0,
+          "issues": [
+            "Missing required field: risk_factors",
+            "break_even_analysis: missing concrete break_even_month number",
+            "confidence_score: empty or placeholder value"
+          ]
+        },
+        "13": {
+          "schema_compliance": 10.0,
+          "specificity": 10.0,
+          "completeness": 8.9,
+          "total": 9.7,
+          "issues": [
+            "confidence_score: empty or placeholder value"
+          ]
+        }
+      },
+      "total_sections": 6,
+      "successful_parses": 6
+    }
+  }
+]

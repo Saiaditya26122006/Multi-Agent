@@ -71,8 +71,21 @@ that surfaces conflicts honestly, names the biggest risk clearly, and gives a di
 - If fewer than 3 sections are completed, flag as FATAL: "Cannot write executive summary with fewer than 3 completed sections. Missing sections: [list]. These must be completed first."
 - If Section 12 (financial model) is missing entirely, the executive_summary must prominently state: "No financial model available — all revenue and break-even claims are unvalidated."
 
+## REQUIRED FIELDS — These MUST be present and populated in your output:
+- executive_summary: MUST be 200-1500 characters — NEVER omit
+- headline_metrics: MUST include year1_revenue_range, break_even_month, primary_risk, team_size_year1
+
+## OUTPUT LENGTH CONSTRAINTS — Obey these limits strictly:
+- executive_summary: 200-1500 characters. Cover opportunity, advantage, financials, recommendation. No filler.
+- headline_metrics: Exactly 4 fields: year1_revenue_range, break_even_month, primary_risk, team_size_year1. Each value max 100 chars.
+- key_assumptions_flagged: MAXIMUM 5 items. Each MAXIMUM 150 characters. Only the most decision-critical.
+- sections_included: list of section numbers (strings). No descriptions needed.
+- sections_skipped: list of section numbers (strings). No descriptions needed.
+- coherence_issues_resolved: MAXIMUM 3 items. Each MAXIMUM 150 characters. Omit if none found.
+- Total output must fit comfortably under 3000 tokens. Write for a CEO — concise, numbers-first.
+
 ## Rules:
-- executive_summary must be 200-3000 characters
+- executive_summary must be 200-1500 characters
 - It must cover: opportunity (1-2 sentences), competitive advantage, team readiness, financials (key numbers), and the ask/recommendation
 - headline_metrics must include: year1_revenue_range, break_even_month, primary_risk, team_size_year1
 - Flag any assumptions labelled "assumed" or "low confidence" for Alex to validate
@@ -80,7 +93,7 @@ that surfaces conflicts honestly, names the biggest risk clearly, and gives a di
 - If coherence issues were found during the pipeline, list how they were resolved
 - Write for Alex — plain language, no jargon, decision-oriented, with a clear recommendation at the end
 
-You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields: section_number, executive_summary, headline_metrics, key_assumptions_flagged, sections_included, sections_skipped, coherence_issues_resolved, input_tokens, output_tokens.
+You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields in this order: section_number, executive_summary, headline_metrics, key_assumptions_flagged, sections_included, sections_skipped, coherence_issues_resolved, input_tokens, output_tokens.
 """
 
 
@@ -227,16 +240,18 @@ class SummaryAgentAgent(Agent):
         await self._send_msg(msg)
 
     def _build_schema_prompt(self) -> str:
-        return """Return ONLY valid JSON with these exact keys:
+        return """Return ONLY valid JSON with these exact keys IN THIS ORDER:
 - section_number: "executive_summary"
-- executive_summary: str (200-3000 chars. Cover: opportunity, competitive advantage, team, financials, ask. Plain language for a CEO.)
-- headline_metrics: {"year1_revenue_range": str, "break_even_month": str, "primary_risk": str, "team_size_year1": str}
-- key_assumptions_flagged: [str] (assumptions Alex must validate before using externally)
-- sections_included: [str]
-- sections_skipped: [str]
-- coherence_issues_resolved: [str]
+- executive_summary: str (200-1500 chars. Cover: opportunity, advantage, financials, recommendation. Plain language for CEO. REQUIRED.)
+- headline_metrics: {"year1_revenue_range": str (max 100 chars), "break_even_month": str, "primary_risk": str (max 100 chars), "team_size_year1": str} (REQUIRED)
+- key_assumptions_flagged: [str] (MAX 5 items, each max 150 chars — only decision-critical assumptions)
+- sections_included: [str] (section numbers only)
+- sections_skipped: [str] (section numbers only)
+- coherence_issues_resolved: [str] (MAX 3 items, each max 150 chars)
 - input_tokens: 0
-- output_tokens: 0"""
+- output_tokens: 0
+
+CONSTRAINTS: Total output under 3000 tokens. Concise, numbers-first, no filler."""
 
     def _build_prompt(self, inp: SummaryAgentInput) -> str:
         all_sections = list(inp.completed_sections.keys())
@@ -254,16 +269,18 @@ FLAGGED ASSUMPTIONS (low confidence or assumed):
 SECTIONS INCLUDED: {all_sections}
 SECTIONS SKIPPED: {skipped}
 
-Return ONLY valid JSON with these exact keys:
+Return ONLY valid JSON with these exact keys IN THIS ORDER:
 - section_number: "executive_summary"
-- executive_summary: str (200-3000 chars. Cover: opportunity, competitive advantage, team, financials, ask. Write for a CEO — plain language, decision-oriented.)
-- headline_metrics: {{"year1_revenue_range": str, "break_even_month": str, "primary_risk": str, "team_size_year1": str}}
-- key_assumptions_flagged: [str] (assumptions Alex must validate before using this externally)
-- sections_included: [str]
-- sections_skipped: [str]
-- coherence_issues_resolved: [str]
+- executive_summary: str (200-1500 chars. Cover: opportunity, advantage, financials, recommendation. Write for CEO — plain language.)
+- headline_metrics: {{"year1_revenue_range": str (max 100 chars), "break_even_month": str, "primary_risk": str (max 100 chars), "team_size_year1": str}}
+- key_assumptions_flagged: [str] (MAX 5 items, each max 150 chars — only decision-critical)
+- sections_included: [str] (section numbers only)
+- sections_skipped: [str] (section numbers only)
+- coherence_issues_resolved: [str] (MAX 3 items, each max 150 chars)
 - input_tokens: 0
 - output_tokens: 0
+
+CONSTRAINTS: Total output under 3000 tokens. Concise, numbers-first.
 """
 
     def _parse_llm_response(self, raw: str, inp: SummaryAgentInput) -> dict:

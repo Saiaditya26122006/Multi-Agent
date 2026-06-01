@@ -84,11 +84,16 @@ AGENT_CONFIGS = {
         "role": "Financial Modelling — build 3-statement models, break-even analysis, DCF valuation, integrate Monte Carlo simulation",
         "model_env": "CLAUDE_SONNET_MODEL",
         "schema_prompt": (
-            "Return ONLY valid JSON with these fields: section_number, three_statement_model (P&L, balance sheet, cash flow), "
-            "break_even_analysis (with break_even_month, break_even_units, scenarios), "
-            "probability_distribution (P10, P50, P90 outcomes), dcf_valuation (if applicable), "
-            "assumption_log (list with statement, status, source), risk_factors (list), "
-            "confidence_score, input_tokens (0), output_tokens (0)"
+            "Return ONLY valid JSON with these keys IN THIS ORDER: section_number, "
+            "confidence_score (REQUIRED: high|medium|low), "
+            "risk_mitigation_actions (REQUIRED: 2-5 items, each max 150 chars), "
+            "break_even_analysis (baseline_month, optimistic_month, pessimistic_month, units_required), "
+            "three_statement_model (pl_monthly_year1: MAX 12 rows each {month, revenue, costs, net}; "
+            "pl_annual_years2_3: 2 rows; balance_sheet: max 6 fields; cash_flow: max 4 fields), "
+            "dcf_valuation (dict|null, max 5 fields), comps_table (dict|null, max 3 companies), "
+            "assumption_log (MAX 8 items with name, value, label, source), "
+            "uncertainties (MAX 5 items, each max 150 chars), input_tokens (0), output_tokens (0). "
+            "CONSTRAINTS: Total output under 4000 tokens. Numbers and short phrases, not paragraphs."
         ),
     },
     "13": {
@@ -96,10 +101,60 @@ AGENT_CONFIGS = {
         "role": "Launch & Contingency — build start-up programme with milestones, capital plan, critical path, contingency scenarios",
         "model_env": "CLAUDE_HAIKU_MODEL",
         "schema_prompt": (
-            "Return ONLY valid JSON with these fields: section_number, launch_programme (list of milestones with dates), "
-            "prerequisite_conditions (list), capital_plan (funding needs and timeline), "
-            "contingency_scenarios (list of what-if scenarios), exit_conditions (list), "
-            "assumptions_used, uncertainties, confidence_score, input_tokens (0), output_tokens (0)"
+            "Return ONLY valid JSON with these fields: section_number, launch_programme (MAX 6 milestones with dates), "
+            "prerequisite_conditions (MAX 4 items), capital_plan (2-3 sentences on funding needs), "
+            "critical_path_item (1-2 sentences), contingency_scenarios (MAX 3 scenarios), "
+            "exit_conditions (2-3 sentences with quantitative triggers), "
+            "assumptions_used (MAX 5), uncertainties (MAX 4), confidence_score, input_tokens (0), output_tokens (0). "
+            "Keep all string values under 200 characters. Be concise — brevity over exhaustiveness."
+        ),
+    },
+    "4": {
+        "name": "Organisation Designer",
+        "role": "Organisation Designer — design company structure, roles, capability gaps, headcount plan, personnel policy tied to revenue milestones",
+        "model_env": "CLAUDE_HAIKU_MODEL",
+        "schema_prompt": (
+            "Return ONLY valid JSON with these keys IN THIS ORDER: section_number, "
+            "confidence_score (REQUIRED: high|medium|low), "
+            "capability_gaps (REQUIRED: 2-5 items, each {gap (max 100 chars), severity, resolution}), "
+            "roles_and_responsibilities (MAX 6 roles, each {title, responsibilities (max 3), required_skills (max 3), hire_timeline, assigned_to}), "
+            "headcount_plan ({year_1: {count, cost}, year_2: {count, cost}, year_3: {count, cost}}), "
+            "org_structure (max 200 chars), personnel_policy (50-300 chars), "
+            "knowledge_gaps (MAX 4 items, each max 100 chars), "
+            "assumptions_used (MAX 6 items with statement (max 120 chars), confidence, source, source_detail), "
+            "uncertainties (MAX 4 items, each max 120 chars), input_tokens (0), output_tokens (0). "
+            "CONSTRAINTS: Total output under 4000 tokens. Short phrases, not paragraphs."
+        ),
+    },
+    "10": {
+        "name": "Operations",
+        "role": "Operations — define production/delivery process, cost structure with dollar amounts, capacity plan with bottleneck analysis, supplier strategy",
+        "model_env": "CLAUDE_HAIKU_MODEL",
+        "schema_prompt": (
+            "Return ONLY valid JSON with these keys IN THIS ORDER: section_number, "
+            "confidence_score (REQUIRED: high|medium|low), "
+            "production_process (REQUIRED: 50-400 chars, concise delivery steps), "
+            "cost_structure ({fixed_costs: MAX 6 items, variable_costs: MAX 4 items, cogs_per_unit: float, source_labels}), "
+            "capacity_plan (max 300 chars — 2x and 5x bottlenecks), "
+            "supplier_strategy (max 200 chars|null), rd_plan (max 200 chars|null), ip_analysis (max 200 chars|null), "
+            "assumptions_used (MAX 6 items with statement (max 120 chars), confidence, source, source_detail), "
+            "uncertainties (MAX 4 items, each max 120 chars), input_tokens (0), output_tokens (0). "
+            "CONSTRAINTS: Total output under 4000 tokens. Numbers and short phrases, not paragraphs."
+        ),
+    },
+    "executive_summary": {
+        "name": "Executive Summary",
+        "role": "Executive Summary — synthesize all section outputs into a one-page CEO brief with conflicts, primary risk, recommendation, and key assumptions to validate",
+        "model_env": "CLAUDE_HAIKU_MODEL",
+        "schema_prompt": (
+            "Return ONLY valid JSON with these keys IN THIS ORDER: section_number, "
+            "executive_summary (REQUIRED: 200-1500 chars, cover opportunity/advantage/financials/recommendation for CEO), "
+            "headline_metrics (REQUIRED: {year1_revenue_range, break_even_month, primary_risk (max 100 chars), team_size_year1}), "
+            "key_assumptions_flagged (MAX 5 items, each max 150 chars — only decision-critical), "
+            "sections_included ([str] section numbers), sections_skipped ([str] section numbers), "
+            "coherence_issues_resolved (MAX 3 items, each max 150 chars), "
+            "input_tokens (0), output_tokens (0). "
+            "CONSTRAINTS: Total output under 3000 tokens. Concise, numbers-first, no filler."
         ),
     },
 }
@@ -112,7 +167,7 @@ class EvalRunner:
         self.bedrock = boto3.client(
             "bedrock-runtime",
             region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
-            config=Config(read_timeout=120, connect_timeout=10, retries={"max_attempts": 2}),
+            config=Config(read_timeout=300, connect_timeout=10, retries={"max_attempts": 0}),
         )
         self.sonnet_model = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
         self.haiku_model = os.getenv("CLAUDE_HAIKU_MODEL", "claude-haiku-4-5-20251001")
@@ -141,7 +196,8 @@ class EvalRunner:
             "errors": [],
         }
 
-        target_sections = sections or list(AGENT_CONFIGS.keys())
+        default_order = ["1", "3", "4", "5", "8", "10", "12", "13", "executive_summary"]
+        target_sections = sections or [s for s in default_order if s in AGENT_CONFIGS]
         prior_outputs = {}
 
         for section_num in target_sections:
@@ -265,6 +321,33 @@ class EvalRunner:
             if "12" in prior_outputs:
                 base["break_even_analysis"] = prior_outputs["12"].get("break_even_analysis", {})
                 base["probability_distribution"] = prior_outputs["12"].get("probability_distribution", [])
+            return base
+
+        if section_num == "4":
+            if "1" in prior_outputs:
+                base["opportunity_description"] = prior_outputs["1"].get("opportunity_description", "")
+            return base
+
+        if section_num == "10":
+            if "1" in prior_outputs:
+                base["opportunity_description"] = prior_outputs["1"].get("opportunity_description", "")
+            if "8" in prior_outputs:
+                base["revenue_assumptions"] = prior_outputs["8"].get("revenue_assumptions", {})
+            if "5" in prior_outputs:
+                base["swot_matrix"] = prior_outputs["5"].get("swot_matrix", {})
+            return base
+
+        if section_num == "executive_summary":
+            base["completed_sections"] = prior_outputs
+            flagged = []
+            for sec_output in prior_outputs.values():
+                if isinstance(sec_output, dict):
+                    for assumption in sec_output.get("assumptions_used", []):
+                        if isinstance(assumption, dict) and assumption.get("confidence") == "low":
+                            flagged.append(assumption.get("statement", str(assumption)))
+                        elif isinstance(assumption, dict) and assumption.get("source") == "assumed":
+                            flagged.append(assumption.get("statement", str(assumption)))
+            base["flagged_assumptions"] = flagged[:10]
             return base
 
         return base

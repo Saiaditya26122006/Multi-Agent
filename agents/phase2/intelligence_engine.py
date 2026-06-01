@@ -820,9 +820,12 @@ If everything checks out, return an empty array: []""",
         return []
 
     async def _call(self, system: str, user: str, max_tokens: int = 4096, retries: int = 3) -> tuple[Optional[str], dict]:
-        """Make a single LLM call with exponential backoff on throttling."""
+        """Make a single LLM call. Retries throttling up to `retries` times; timeouts get ONE retry only."""
         import asyncio
         from botocore.exceptions import ReadTimeoutError, ConnectTimeoutError
+
+        timeout_attempts = 0
+        max_timeout_retries = 1
 
         for attempt in range(retries):
             try:
@@ -843,8 +846,12 @@ If everything checks out, return an empty array: []""",
                 logger.warning("[IntelligenceEngine] Throttled — retrying in %ds (attempt %d/%d)", wait, attempt + 1, retries)
                 await asyncio.sleep(wait)
             except (self.bedrock.exceptions.ModelTimeoutException, ReadTimeoutError, ConnectTimeoutError):
-                wait = 3 ** attempt
-                logger.warning("[IntelligenceEngine] Timeout — retrying in %ds (attempt %d/%d)", wait, attempt + 1, retries)
+                timeout_attempts += 1
+                if timeout_attempts > max_timeout_retries:
+                    logger.error("[IntelligenceEngine] Timeout — already retried %d time(s), giving up", max_timeout_retries)
+                    return None, {}
+                wait = 5
+                logger.warning("[IntelligenceEngine] Timeout — retrying once in %ds", wait)
                 await asyncio.sleep(wait)
             except Exception as e:
                 logger.error("[IntelligenceEngine] LLM call failed: %s", e)
@@ -854,28 +861,37 @@ If everything checks out, return an empty array: []""",
         return None, {}
 
     def _parse_output(self, raw: Optional[str]) -> Optional[dict]:
-        """Attempt to parse JSON from raw LLM output."""
+        """Parse JSON from raw LLM output with progressive repair for truncated responses."""
         if not raw:
             return None
+
         text = strip_markdown_json(raw)
+
+        # Slice to outermost braces (handles prose before/after JSON)
+        first_brace = text.find("{")
+        if first_brace == -1:
+            return None
+        last_brace = text.rfind("}")
+        if last_brace == -1:
+            # Truncated output — no closing brace at all; take everything from first {
+            text = text[first_brace:]
+        else:
+            text = text[first_brace:last_brace + 1]
+
+        # Attempt 1: strict parse
         try:
             return json.loads(text)
         except (json.JSONDecodeError, ValueError):
             pass
 
-        # Fallback: find the first { ... } block in the text
-        start = text.find("{")
-        if start == -1:
-            return None
-        depth = 0
-        for i in range(start, len(text)):
-            if text[i] == "{":
-                depth += 1
-            elif text[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    try:
-                        return json.loads(text[start:i + 1])
-                    except (json.JSONDecodeError, ValueError):
-                        return None
+        # Attempt 2: json-repair (handles truncation, trailing commas, unescaped chars)
+        try:
+            from json_repair import repair_json
+            repaired = repair_json(text)
+            result = json.loads(repaired)
+            if isinstance(result, dict):
+                return result
+        except Exception:
+            pass
+
         return None

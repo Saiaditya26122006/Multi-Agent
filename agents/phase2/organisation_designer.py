@@ -65,6 +65,21 @@ its existence through contribution to revenue milestones or risk mitigation.
 - If opportunity_description is missing AND business_type is missing, flag as FATAL: "Cannot design an organisation without knowing what the business does."
 - If there is zero information about the founder (no profile, no assumptions, no context), flag the entire capability_gaps section as "speculative — no founder data available."
 
+## REQUIRED FIELDS — These MUST be present and populated in your output:
+- confidence_score: MUST be "high", "medium", or "low" — NEVER omit this field
+- capability_gaps: MUST have 2-5 items with gap, severity, resolution
+- roles_and_responsibilities: MUST have 2-6 roles
+
+## OUTPUT LENGTH CONSTRAINTS — Obey these limits strictly:
+- roles_and_responsibilities: MAXIMUM 6 roles. Each role: {title, responsibilities (max 3), required_skills (max 3), hire_timeline, assigned_to}.
+- capability_gaps: MAXIMUM 5 items. Each: {gap, severity, resolution} — gap string max 100 chars.
+- knowledge_gaps: MAXIMUM 4 items. Each MAXIMUM 100 characters.
+- assumptions_used: MAXIMUM 6 items. Each: {statement (max 120 chars), confidence, source, source_detail}.
+- uncertainties: MAXIMUM 4 items. Each MAXIMUM 120 characters.
+- org_structure: MAXIMUM 200 characters.
+- personnel_policy: 50-300 characters. Be concise.
+- Total output must fit comfortably under 4000 tokens. Prefer short phrases over paragraphs.
+
 ## Rules:
 - Each role must have: title, responsibilities, required_skills, hire_timeline, assigned_to
 - assigned_to must be one of: founder, hire, outsource, tbd
@@ -73,7 +88,7 @@ its existence through contribution to revenue milestones or risk mitigation.
 - capability_gaps must include gap, severity, and resolution (build/buy/partner)
 - If team information is missing, flag as uncertainty — do not assume
 
-You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields: section_number, org_structure, capability_gaps, roles_and_responsibilities, headcount_plan, personnel_policy, knowledge_gaps, assumptions_used, uncertainties, confidence_score, input_tokens, output_tokens.
+You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields in this order: section_number, confidence_score, capability_gaps, roles_and_responsibilities, headcount_plan, org_structure, personnel_policy, knowledge_gaps, assumptions_used, uncertainties, input_tokens, output_tokens.
 """
 
 
@@ -210,19 +225,21 @@ class OrganisationDesignerAgent(Agent):
         await self._send_msg(msg)
 
     def _build_schema_prompt(self) -> str:
-        return """Return ONLY valid JSON with these exact keys:
+        return """Return ONLY valid JSON with these exact keys IN THIS ORDER:
 - section_number: "4"
-- org_structure: str (description of hierarchical structure — flat/functional/matrix, reporting lines)
-- capability_gaps: list of {"gap": str, "severity": "high"|"medium"|"low", "resolution": "build"|"buy"|"partner"}
-- roles_and_responsibilities: list of {"title": str, "responsibilities": [str], "required_skills": [str], "hire_timeline": str, "assigned_to": "founder"|"hire"|"outsource"|"tbd"}
+- confidence_score: "high"|"medium"|"low" (REQUIRED — never omit)
+- capability_gaps: list of {"gap": str (max 100 chars), "severity": "high"|"medium"|"low", "resolution": "build"|"buy"|"partner"} (2-5 items — REQUIRED)
+- roles_and_responsibilities: list of {"title": str, "responsibilities": [str] (max 3), "required_skills": [str] (max 3), "hire_timeline": str, "assigned_to": "founder"|"hire"|"outsource"|"tbd"} (MAX 6 roles)
 - headcount_plan: {"year_1": {"count": int, "cost": float}, "year_2": {"count": int, "cost": float}, "year_3": {"count": int, "cost": float}}
-- personnel_policy: str (min 50 chars — remote/hybrid, equity, culture)
-- knowledge_gaps: [str]
-- assumptions_used: list of {"statement": str, "confidence": "high"|"medium"|"low", "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source_detail": str|null}
-- uncertainties: [str]
-- confidence_score: "high"|"medium"|"low"
+- org_structure: str (max 200 chars — flat/functional/matrix, reporting lines)
+- personnel_policy: str (50-300 chars — remote/hybrid, equity, culture)
+- knowledge_gaps: [str] (MAX 4 items, each max 100 chars)
+- assumptions_used: list of {"statement": str (max 120 chars), "confidence": "high"|"medium"|"low", "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source_detail": str|null} (MAX 6 items)
+- uncertainties: [str] (MAX 4 items, each max 120 chars)
 - input_tokens: 0
-- output_tokens: 0"""
+- output_tokens: 0
+
+CONSTRAINTS: Total output under 4000 tokens. Short phrases, not paragraphs."""
 
     def _build_prompt(self, inp: OrganisationDesignerInput) -> str:
         return f"""Design the organisation structure for this business.
@@ -234,19 +251,21 @@ TEAM COMPOSITION: {json.dumps(inp.team_composition) if inp.team_composition else
 BUDGET CONSTRAINTS: {inp.budget_constraints or 'Not provided'}
 STRATEGIC IMPLICATIONS: {inp.strategic_implications or 'Not yet available'}
 
-Return ONLY valid JSON with these exact keys:
+Return ONLY valid JSON with these exact keys IN THIS ORDER:
 - section_number: "4"
-- org_structure: str (description of hierarchical structure)
-- capability_gaps: list of {{"gap": str, "severity": "high"|"medium"|"low", "resolution": "build"|"buy"|"partner"}}
-- roles_and_responsibilities: list of {{"title": str, "responsibilities": [str], "required_skills": [str], "hire_timeline": str, "assigned_to": "founder"|"hire"|"outsource"|"tbd"}}
+- confidence_score: "high"|"medium"|"low" (REQUIRED — never omit)
+- capability_gaps: list of {{"gap": str (max 100 chars), "severity": "high"|"medium"|"low", "resolution": "build"|"buy"|"partner"}} (2-5 items)
+- roles_and_responsibilities: list of {{"title": str, "responsibilities": [str] (max 3), "required_skills": [str] (max 3), "hire_timeline": str, "assigned_to": "founder"|"hire"|"outsource"|"tbd"}} (MAX 6 roles)
 - headcount_plan: {{"year_1": {{"count": int, "cost": float}}, "year_2": {{"count": int, "cost": float}}, "year_3": {{"count": int, "cost": float}}}}
-- personnel_policy: str (min 50 chars)
-- knowledge_gaps: [str]
-- assumptions_used: list of {{"statement": str, "confidence": "high"|"medium"|"low", "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source_detail": str|null}}
-- uncertainties: [str]
-- confidence_score: "high"|"medium"|"low"
+- org_structure: str (max 200 chars)
+- personnel_policy: str (50-300 chars)
+- knowledge_gaps: [str] (MAX 4 items, each max 100 chars)
+- assumptions_used: list of {{"statement": str (max 120 chars), "confidence": "high"|"medium"|"low", "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "source_detail": str|null}} (MAX 6 items)
+- uncertainties: [str] (MAX 4 items, each max 120 chars)
 - input_tokens: 0
 - output_tokens: 0
+
+CONSTRAINTS: Total output under 4000 tokens. Short phrases, not paragraphs.
 """
 
     def _parse_llm_response(self, raw: str, inp: OrganisationDesignerInput) -> dict:
