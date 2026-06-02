@@ -6,12 +6,45 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import asyncio
 import json
 import logging
+from datetime import datetime
 
 from agents.phase2.base_child_agent import BaseChildAgent, run_child_agent
 from schemas.inputs.opportunity_analyst import OpportunityAnalystInput
 from schemas.outputs.opportunity_analyst import OpportunityAnalystOutput
+from services.search_service import search_for_section
 
 logger = logging.getLogger(__name__)
+
+SEARCH_QUERIES = {
+    "1": [
+        "academic manuscript validation software market size 2025",
+        "epistemic validation tools universities Europe market",
+        "pre-submission research diagnostics SaaS competitors"
+    ]
+}
+
+
+def _get_live_market_data(section_number: str) -> str:
+    """Run section-specific queries and format results for prompt injection."""
+    queries = SEARCH_QUERIES.get(section_number, [])
+    if not queries:
+        return ""
+
+    all_results = []
+    for query in queries:
+        results = search_for_section(section_number, query)
+        all_results.extend(results)
+
+    if not all_results:
+        return "No live market data retrieved for this section."
+
+    lines = [f"Retrieved {datetime.utcnow().strftime('%Y-%m-%d')}:"]
+    for i, r in enumerate(all_results[:8], 1):
+        lines.append(
+            f"[{i}] {r['title']} — {r['snippet'][:200]} "
+            f"(Source: {r['url']}, Freshness: {r['freshness']})"
+        )
+    return "\n".join(lines)
 
 SYSTEM_PROMPT = """You are the Opportunity Analyst agent in a multi-agent business plan system.
 Your role: rigorously assess a business idea and produce a structured, evidence-backed evaluation
@@ -117,6 +150,7 @@ class OpportunityAnalystAgent(BaseChildAgent):
             "ceo_assumptions": input_package.get("ceo_assumptions", []),
             "approved_decision": input_package.get("approved_decision", {}),
             "acceptance_criteria": input_package.get("acceptance_criteria", ""),
+            "live_market_data": _get_live_market_data("1"),
         }
 
     def _build_schema_prompt(self) -> str:

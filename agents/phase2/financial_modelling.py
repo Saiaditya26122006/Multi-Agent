@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import os
+from datetime import datetime
 from typing import Optional
 
 import boto3
@@ -20,8 +21,40 @@ from agents.phase2.intelligence_engine import IntelligenceEngine
 from schemas.inputs.financial_modelling import FinancialModellingInput
 from schemas.outputs.financial_modelling import FinancialModellingOutput
 from simulation.financial_sim import run_simulation
+from services.search_service import search_for_section
 
 logger = logging.getLogger(__name__)
+
+SEARCH_QUERIES = {
+    "12": [
+        "B2B SaaS gross margin benchmarks institutional 2025",
+        "academic software CAC payback period benchmarks",
+        "university SaaS contract value annual recurring revenue"
+    ]
+}
+
+
+def _get_live_market_data(section_number: str) -> str:
+    """Run section-specific queries and format results for prompt injection."""
+    queries = SEARCH_QUERIES.get(section_number, [])
+    if not queries:
+        return ""
+
+    all_results = []
+    for query in queries:
+        results = search_for_section(section_number, query)
+        all_results.extend(results)
+
+    if not all_results:
+        return "No live market data retrieved for this section."
+
+    lines = [f"Retrieved {datetime.utcnow().strftime('%Y-%m-%d')}:"]
+    for i, r in enumerate(all_results[:8], 1):
+        lines.append(
+            f"[{i}] {r['title']} — {r['snippet'][:200]} "
+            f"(Source: {r['url']}, Freshness: {r['freshness']})"
+        )
+    return "\n".join(lines)
 
 SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "skills" / "financial"
 
@@ -218,6 +251,7 @@ class FinancialModellingAgent(Agent):
             "market_context": input_package.get("market_context", ""),
             "simpy_simulation_results": sim_results,
             "financial_skills": skills_content[:3000] if skills_content else "No skill files loaded",
+            "live_market_data": _get_live_market_data("12"),
         }
 
         parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(

@@ -2,20 +2,87 @@
   "_meta": {
     "source": "EpistemicOS Source-of-Truth",
     "section": "4. Target Users, Buyers, and ICP",
-    "last_updated": "2026-06-02"
+    "last_updated": "2026-06-02T14:40:20.578016"
   },
   "buyer_personas": [
-    {"buyer": "Associate Dean for Research", "need": "Improve publication quality and research reputation", "buying_power": "High", "budget": "School research budget", "trigger": "Publication-quality initiative", "barrier": "Proof of reliability, faculty acceptance", "status": "ASSUMPTION"},
-    {"buyer": "Research Director", "need": "Research support infrastructure", "buying_power": "Medium/high", "budget": "Research office", "barrier": "GDPR, DPA, accuracy evidence", "status": "ASSUMPTION"},
-    {"buyer": "Doctoral Program Director", "need": "Improve doctoral manuscript quality", "buying_power": "Medium", "barrier": "Budget cycle; proof of usefulness", "status": "ASSUMPTION"},
-    {"buyer": "Editor-in-Chief", "need": "Improve review consistency and triage", "buying_power": "Medium/high", "trigger": "Reviewer overload", "barrier": "Editorial legitimacy and workflow integration", "status": "ASSUMPTION"},
-    {"buyer": "CIO / IT / Security", "need": "Safe deployment and compliance", "buying_power": "Veto power", "barrier": "Data security, DPA, DPIA, vendor risk", "status": "CONFIRMED"},
-    {"buyer": "Procurement / Legal", "need": "Contractual and data-processing compliance", "buying_power": "Veto power", "barrier": "DPA, data retention, IP, GDPR, AI Act classification", "status": "CONFIRMED"}
+    {
+      "buyer": "Associate Dean for Research",
+      "need": "Improve publication quality and research reputation",
+      "buying_power": "High",
+      "budget": "School research budget",
+      "trigger": "Publication-quality initiative",
+      "barrier": "Proof of reliability, faculty acceptance",
+      "status": "ASSUMPTION"
+    },
+    {
+      "buyer": "Research Director",
+      "need": "Research support infrastructure",
+      "buying_power": "Medium/high",
+      "budget": "Research office",
+      "barrier": "GDPR, DPA, accuracy evidence",
+      "status": "ASSUMPTION"
+    },
+    {
+      "buyer": "Doctoral Program Director",
+      "need": "Improve doctoral manuscript quality",
+      "buying_power": "Medium",
+      "barrier": "Budget cycle; proof of usefulness",
+      "status": "ASSUMPTION"
+    },
+    {
+      "buyer": "Editor-in-Chief",
+      "need": "Improve review consistency and triage",
+      "buying_power": "Medium/high",
+      "trigger": "Reviewer overload",
+      "barrier": "Editorial legitimacy and workflow integration",
+      "status": "ASSUMPTION"
+    },
+    {
+      "buyer": "CIO / IT / Security",
+      "need": "Safe deployment and compliance",
+      "buying_power": "Veto power",
+      "barrier": "Data security, DPA, DPIA, vendor risk",
+      "status": "CONFIRMED"
+    },
+    {
+      "buyer": "Procurement / Legal",
+      "need": "Contractual and data-processing compliance",
+      "buying_power": "Veto power",
+      "barrier": "DPA, data retention, IP, GDPR, AI Act classification",
+      "status": "CONFIRMED"
+    }
   ],
   "icp": [
-    {"segment": "Business schools", "high_fit": "Research-active; Q1/Q2 targets; doctoral activity; research reputation pressure; existing tooling spend", "exclusion": "Teaching-only; low publication; no doctoral ecosystem; no tooling budget", "status": "CONFIRMED"},
-    {"segment": "Academic journals", "high_fit": "Q1/Q2 journals; high submission volume; reviewer bottlenecks; rigor concerns", "exclusion": "Predatory/low-rigor; no budget; speed-over-rigor", "status": "CONFIRMED"},
-    {"segment": "Publishers", "high_fit": "Research integrity pressure; editorial workflow burden", "exclusion": "No innovation budget; low review-consistency concern", "status": "ASSUMPTION"},
-    {"segment": "Research offices", "high_fit": "Need institutional quality control and auditability", "exclusion": "No mandate or budget for quality tooling", "status": "ASSUMPTION"}
+    {
+      "segment": "Business schools",
+      "high_fit": "Research-active; Q1/Q2 targets; doctoral activity; research reputation pressure; existing tooling spend",
+      "exclusion": "Teaching-only; low publication; no doctoral ecosystem; no tooling budget",
+      "status": "CONFIRMED"
+    },
+    {
+      "segment": "Academic journals",
+      "high_fit": "Q1/Q2 journals; high submission volume; reviewer bottlenecks; rigor concerns",
+      "exclusion": "Predatory/low-rigor; no budget; speed-over-rigor",
+      "status": "CONFIRMED"
+    },
+    {
+      "segment": "Publishers",
+      "high_fit": "Research integrity pressure; editorial workflow burden",
+      "exclusion": "No innovation budget; low review-consistency concern",
+      "status": "ASSUMPTION"
+    },
+    {
+      "segment": "Research offices",
+      "high_fit": "Need institutional quality control and auditability",
+      "exclusion": "No mandate or budget for quality tooling",
+      "status": "ASSUMPTION"
+    }
+  ],
+  "facts": [
+    {
+      "fact": "spoke to one research dean at IESE, confirmed awareness of claim validation problem but no budget discussion yet",
+      "status": "ASSUMPTION",
+      "added_at": "2026-06-02T14:40:20.578009"
+    }
   ]
 }

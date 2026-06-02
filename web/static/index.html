@@ -1128,6 +1128,288 @@
 
         .trace-ctrl-btn:hover { border-color: #cbd5e1; color: #1e293b; }
 
+        /* ============ KNOWLEDGE BASE ============ */
+        .knowledge-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+        }
+
+        .knowledge-container::-webkit-scrollbar { width: 4px; }
+        .knowledge-container::-webkit-scrollbar-track { background: transparent; }
+        .knowledge-container::-webkit-scrollbar-thumb { background: rgba(115,118,134,0.2); border-radius: 10px; }
+
+        .knowledge-header {
+            max-width: 1000px;
+            margin: 0 auto 32px;
+        }
+
+        .knowledge-title {
+            font-family: 'Geist', sans-serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .knowledge-subtitle {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .knowledge-loading {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 24px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .knowledge-loading .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #e2e8f0;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        .knowledge-topics {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .topic-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .topic-card.gap-card {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            opacity: 0.7;
+        }
+
+        .topic-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .topic-name {
+            font-family: 'Geist', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .topic-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #64748b;
+            padding: 2px 8px;
+            background: #f1f5f9;
+            border-radius: 9999px;
+        }
+
+        .fact-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .fact-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 2px solid transparent;
+        }
+
+        .fact-item.confirmed { border-left-color: #16a34a; }
+        .fact-item.assumption { border-left-color: #f59e0b; }
+        .fact-item.inferred { border-left-color: #3b82f6; }
+        .fact-item.contradiction { border-left-color: #ef4444; }
+
+        .status-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+
+        .status-badge.confirmed { background: #dcfce7; color: #166534; }
+        .status-badge.assumption { background: #fef3c7; color: #92400e; }
+        .status-badge.inferred { background: #dbeafe; color: #1e40af; }
+        .status-badge.contradiction { background: #fee2e2; color: #991b1b; }
+        .status-badge.no-data { background: #e2e8f0; color: #475569; }
+
+        .fact-text {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #374151;
+            flex: 1;
+        }
+
+        .gap-message {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .knowledge-add-section {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 24px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .add-section-title {
+            font-family: 'Geist', sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 16px;
+        }
+
+        .knowledge-add-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .form-input {
+            padding: 10px 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            color: #374151;
+            background: #ffffff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: rgba(37,99,235,0.4);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+        }
+
+        .form-input::placeholder { color: #94a3b8; }
+
+        .status-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+        }
+
+        .status-btn {
+            padding: 10px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-btn:hover {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+
+        .status-btn.active {
+            border-color: #2563eb;
+            background: #eff6ff;
+            color: #2563eb;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .status-indicator.status-confirmed { background: #16a34a; }
+        .status-indicator.status-assumption { background: #f59e0b; }
+        .status-indicator.status-inferred { background: #3b82f6; }
+        .status-indicator.status-contradiction { background: #ef4444; }
+
+        .submit-btn {
+            padding: 12px 20px;
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Geist', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 2px 6px rgba(37,99,235,0.2);
+        }
+
+        .submit-btn:hover { background: #1d4ed8; }
+        .submit-btn:active { transform: scale(0.98); }
+        .submit-btn:disabled {
+            background: #e2e8f0;
+            color: #94a3b8;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .submit-btn .material-symbols-outlined { font-size: 18px; }
+
         /* ============ RESPONSIVE ============ */
         @media (max-width: 768px) {
             .sidebar {
@@ -1219,6 +1501,7 @@
             <div class="tab-bar">
                 <button class="tab-btn active" data-tab="chat" onclick="switchTab('chat')">Chat</button>
                 <button class="tab-btn" data-tab="trace" onclick="switchTab('trace')">Pipeline Trace</button>
+                <button class="tab-btn" data-tab="knowledge" onclick="switchTab('knowledge')">Knowledge Base</button>
             </div>
             <div class="header-right">
                 <div class="connection-badge" id="connection-badge">
@@ -1352,6 +1635,64 @@
 
             <div class="trace-minimap" id="trace-minimap">
                 <div class="trace-minimap-viewport" id="trace-minimap-vp"></div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="tab-knowledge">
+            <div class="knowledge-container">
+                <div class="knowledge-header">
+                    <h2 class="knowledge-title">Knowledge Base</h2>
+                    <p class="knowledge-subtitle">Current knowledge with epistemic status tags</p>
+                </div>
+
+                <div class="knowledge-loading" id="knowledge-loading">
+                    <div class="spinner"></div>
+                    <span>Loading knowledge base...</span>
+                </div>
+
+                <div class="knowledge-topics" id="knowledge-topics"></div>
+
+                <div class="knowledge-add-section">
+                    <h3 class="add-section-title">Add New Fact</h3>
+                    <form class="knowledge-add-form" id="knowledge-add-form">
+                        <div class="form-group">
+                            <label class="form-label">Topic</label>
+                            <select class="form-input" id="fact-topic" required>
+                                <option value="">Select topic...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Fact</label>
+                            <textarea class="form-input" id="fact-text" rows="3" placeholder="Enter the fact..." required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Epistemic Status</label>
+                            <div class="status-buttons">
+                                <button type="button" class="status-btn" data-status="CONFIRMED">
+                                    <span class="status-indicator status-confirmed"></span>
+                                    Confirmed
+                                </button>
+                                <button type="button" class="status-btn" data-status="ASSUMPTION">
+                                    <span class="status-indicator status-assumption"></span>
+                                    Assumption
+                                </button>
+                                <button type="button" class="status-btn" data-status="INFERRED">
+                                    <span class="status-indicator status-inferred"></span>
+                                    Inferred
+                                </button>
+                                <button type="button" class="status-btn" data-status="CONTRADICTION">
+                                    <span class="status-indicator status-contradiction"></span>
+                                    Contradiction
+                                </button>
+                            </div>
+                            <input type="hidden" id="fact-status" required>
+                        </div>
+                        <button type="submit" class="submit-btn">
+                            <span class="material-symbols-outlined">add</span>
+                            Add to Knowledge Base
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </main>
@@ -1526,7 +1867,218 @@
         function switchTab(tab) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+
+            if (tab === 'knowledge' && !window.knowledgeLoaded) {
+                loadKnowledgeBase();
+            }
         }
+
+        // ============ KNOWLEDGE BASE ============
+        window.knowledgeLoaded = false;
+        let knowledgeData = null;
+
+        async function loadKnowledgeBase() {
+            const loading = document.getElementById('knowledge-loading');
+            const topics = document.getElementById('knowledge-topics');
+
+            loading.style.display = 'flex';
+            topics.innerHTML = '';
+
+            try {
+                const resp = await fetch(`/api/knowledge-base?token=${TOKEN}`);
+                if (!resp.ok) throw new Error('Failed to load');
+
+                const data = await resp.json();
+                knowledgeData = data.topics;
+
+                loading.style.display = 'none';
+                renderKnowledgeBase(data.topics);
+                populateTopicDropdown(data.topics);
+                window.knowledgeLoaded = true;
+            } catch (e) {
+                loading.innerHTML = '<span style="color:#ef4444">Failed to load knowledge base. Please refresh.</span>';
+                console.error('Knowledge base load error:', e);
+            }
+        }
+
+        function renderKnowledgeBase(topics) {
+            const container = document.getElementById('knowledge-topics');
+            container.innerHTML = '';
+
+            const topicNames = Object.keys(topics).sort();
+
+            if (topicNames.length === 0) {
+                container.innerHTML = '<div class="empty-state-desc" style="text-align:center;padding:48px">No topics yet. Add your first fact below.</div>';
+                return;
+            }
+
+            topicNames.forEach(topicKey => {
+                const topicData = topics[topicKey];
+                const card = document.createElement('div');
+
+                if (typeof topicData === 'string') {
+                    card.className = 'topic-card';
+                    card.innerHTML = `
+                        <div class="topic-header">
+                            <div class="topic-name">${formatTopicName(topicKey)}</div>
+                            <div class="topic-count">TEXT</div>
+                        </div>
+                        <div class="fact-text" style="white-space:pre-wrap">${escapeHtml(topicData.substring(0, 200))}${topicData.length > 200 ? '...' : ''}</div>
+                    `;
+                    container.appendChild(card);
+                    return;
+                }
+
+                const facts = extractFacts(topicData);
+
+                if (facts.length === 0 || (facts.length === 1 && facts[0].status === 'no_data')) {
+                    card.className = 'topic-card gap-card';
+                    const gapReason = facts[0]?.gap_reason || 'No data available';
+                    card.innerHTML = `
+                        <div class="topic-header">
+                            <div class="topic-name">${formatTopicName(topicKey)}</div>
+                            <span class="status-badge no-data">Gap</span>
+                        </div>
+                        <div class="gap-message">${escapeHtml(gapReason)}</div>
+                    `;
+                } else {
+                    card.className = 'topic-card';
+                    card.innerHTML = `
+                        <div class="topic-header">
+                            <div class="topic-name">${formatTopicName(topicKey)}</div>
+                            <div class="topic-count">${facts.length} fact${facts.length !== 1 ? 's' : ''}</div>
+                        </div>
+                        <div class="fact-list">
+                            ${facts.map(fact => renderFact(fact)).join('')}
+                        </div>
+                    `;
+                }
+
+                container.appendChild(card);
+            });
+        }
+
+        function extractFacts(topicData) {
+            const facts = [];
+
+            if (topicData.status === 'no_data') {
+                facts.push(topicData);
+                return facts;
+            }
+
+            Object.keys(topicData).forEach(key => {
+                if (key === '_meta') return;
+
+                const value = topicData[key];
+
+                if (Array.isArray(value)) {
+                    value.forEach(item => {
+                        if (typeof item === 'object' && item.status) {
+                            facts.push({...item, field: key});
+                        }
+                    });
+                } else if (typeof value === 'object' && value !== null && value.status) {
+                    facts.push({...value, field: key});
+                }
+            });
+
+            return facts;
+        }
+
+        function renderFact(fact) {
+            if (fact.status === 'no_data') {
+                return `<div class="fact-item"><span class="status-badge no-data">No Data</span><div class="fact-text">${escapeHtml(fact.gap_reason || 'Gap')}</div></div>`;
+            }
+
+            const status = (fact.status || 'ASSUMPTION').toLowerCase();
+            const content = fact.fact || fact.description || fact.buyer || fact.segment || JSON.stringify(fact).substring(0, 100);
+
+            return `
+                <div class="fact-item ${status}">
+                    <span class="status-badge ${status}">${fact.status || 'ASSUMPTION'}</span>
+                    <div class="fact-text">${escapeHtml(content)}</div>
+                </div>
+            `;
+        }
+
+        function formatTopicName(key) {
+            return key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        }
+
+        function populateTopicDropdown(topics) {
+            const select = document.getElementById('fact-topic');
+            select.innerHTML = '<option value="">Select topic...</option>';
+
+            Object.keys(topics).sort().forEach(key => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = formatTopicName(key);
+                select.appendChild(option);
+            });
+
+            const newOption = document.createElement('option');
+            newOption.value = '__new__';
+            newOption.textContent = '+ New topic...';
+            select.appendChild(newOption);
+        }
+
+        document.querySelectorAll('.status-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById('fact-status').value = this.dataset.status;
+            });
+        });
+
+        document.getElementById('knowledge-add-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            let topic = document.getElementById('fact-topic').value;
+            const fact = document.getElementById('fact-text').value.trim();
+            const status = document.getElementById('fact-status').value;
+
+            if (!topic || !fact || !status) {
+                alert('Please fill all fields');
+                return;
+            }
+
+            if (topic === '__new__') {
+                topic = prompt('Enter new topic name (lowercase, use underscores):');
+                if (!topic) return;
+                topic = topic.toLowerCase().replace(/\s+/g, '_');
+            }
+
+            const submitBtn = this.querySelector('.submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px"></div> Adding...';
+
+            try {
+                const resp = await fetch('/api/knowledge-base/add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({topic, fact, status, token: TOKEN})
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Failed to add fact');
+                }
+
+                document.getElementById('fact-text').value = '';
+                document.getElementById('fact-status').value = '';
+                document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+
+                window.knowledgeLoaded = false;
+                await loadKnowledgeBase();
+
+                alert('✓ Fact added successfully');
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span class="material-symbols-outlined">add</span> Add to Knowledge Base';
+            }
+        });
 
         // ============ PIPELINE TRACE — UNIFIED CANVAS WITH PAN/ZOOM/DRAG ============
         (function() {

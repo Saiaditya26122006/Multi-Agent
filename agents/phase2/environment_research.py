@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import os
+from datetime import datetime
 from typing import Optional
 
 import boto3
@@ -19,8 +20,40 @@ from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
 from agents.phase2.intelligence_engine import IntelligenceEngine
 from schemas.inputs.environment_research import EnvironmentResearchInput
 from schemas.outputs.environment_research import EnvironmentResearchOutput
+from services.search_service import search_for_section
 
 logger = logging.getLogger(__name__)
+
+SEARCH_QUERIES = {
+    "3": [
+        "EU AI Act academic research software compliance 2025",
+        "GDPR SaaS academic procurement requirements Europe",
+        "European academic publishing market regulation 2025"
+    ]
+}
+
+
+def _get_live_market_data(section_number: str) -> str:
+    """Run section-specific queries and format results for prompt injection."""
+    queries = SEARCH_QUERIES.get(section_number, [])
+    if not queries:
+        return ""
+
+    all_results = []
+    for query in queries:
+        results = search_for_section(section_number, query)
+        all_results.extend(results)
+
+    if not all_results:
+        return "No live market data retrieved for this section."
+
+    lines = [f"Retrieved {datetime.utcnow().strftime('%Y-%m-%d')}:"]
+    for i, r in enumerate(all_results[:8], 1):
+        lines.append(
+            f"[{i}] {r['title']} — {r['snippet'][:200]} "
+            f"(Source: {r['url']}, Freshness: {r['freshness']})"
+        )
+    return "\n".join(lines)
 
 SYSTEM_PROMPT = """You are the Environment Research agent in a multi-agent business plan system.
 Your role: conduct rigorous external environment analysis — PEST, Porter's Five Forces, market sizing,
@@ -152,6 +185,7 @@ class EnvironmentResearchAgent(Agent):
             "business_type": input_package.get("business_type", ""),
             "icp_hypothesis": input_package.get("icp_hypothesis", {}),
             "acceptance_criteria": task.get("acceptance_criteria", ""),
+            "live_market_data": _get_live_market_data("3"),
         }
 
         parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(

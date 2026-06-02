@@ -8,6 +8,7 @@ import os
 import logging
 import asyncio
 import uuid
+import json
 from typing import Dict, Set
 from pathlib import Path
 from datetime import datetime
@@ -80,6 +81,15 @@ class SendMessageRequest(BaseModel):
     """Payload for POST /api/messages."""
 
     text: str
+    token: str
+
+
+class AddFactRequest(BaseModel):
+    """Payload for POST /api/knowledge-base/add."""
+
+    topic: str
+    fact: str
+    status: str
     token: str
 
 
@@ -228,3 +238,72 @@ async def websocket_endpoint(websocket: WebSocket, session_key: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket, session_key)
+
+
+@app.get("/api/knowledge-base")
+async def get_knowledge_base(token: str = ""):
+    """Return all CEO knowledge base data with epistemic tags."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    from ceo_data.loader import load_all_ceo_data
+
+    try:
+        data = load_all_ceo_data()
+        return {"topics": data}
+    except Exception as e:
+        logger.error(f"Error loading knowledge base: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load knowledge base")
+
+
+@app.post("/api/knowledge-base/add")
+async def add_knowledge_fact(req: AddFactRequest):
+    """Add a new fact to the knowledge base."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not req.fact.strip():
+        raise HTTPException(status_code=400, detail="Fact cannot be empty")
+
+    if req.status not in ["CONFIRMED", "ASSUMPTION", "INFERRED", "CONTRADICTION"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    ceo_data_dir = Path(__file__).parent.parent / "ceo_data"
+    topic_file = ceo_data_dir / f"{req.topic}.json"
+
+    try:
+        if topic_file.exists():
+            with open(topic_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            data = {
+                "_meta": {
+                    "source": "Web Interface",
+                    "created": datetime.utcnow().isoformat(),
+                    "last_updated": datetime.utcnow().isoformat(),
+                },
+                "facts": [],
+            }
+
+        if "facts" not in data:
+            data["facts"] = []
+
+        new_fact = {
+            "fact": req.fact.strip(),
+            "status": req.status,
+            "added_at": datetime.utcnow().isoformat(),
+        }
+        data["facts"].append(new_fact)
+
+        if "_meta" in data:
+            data["_meta"]["last_updated"] = datetime.utcnow().isoformat()
+
+        with open(topic_file, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Added fact to {req.topic}: {req.fact[:50]}...")
+        return {"success": True, "topic": req.topic, "fact_added": req.fact}
+
+    except Exception as e:
+        logger.error(f"Error adding fact: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to add fact: {str(e)}")

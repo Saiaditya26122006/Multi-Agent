@@ -568,6 +568,7 @@ Return ONLY valid JSON. Start with {{ end with }}.""",
             "ceiling": "",
             "uncertainties": "",
             "ceo_data": "",
+            "live_data": "",
             "learning": "",
         }
 
@@ -633,6 +634,14 @@ Return ONLY valid JSON. Start with {{ end with }}.""",
             ctx["ceo_data"] = (
                 "\n\nCEO-PROVIDED DATA (prioritize over inferences):\n"
                 + json.dumps(ceo_provided, indent=2, default=str)[:3000]
+            )
+
+        live_data = input_data.get("live_market_data", "")
+        if live_data:
+            ctx["live_data"] = (
+                "\n\nLIVE MARKET DATA (retrieved from web, treat as current "
+                "external evidence — verify source before treating as fact):\n"
+                + str(live_data)[:2000]
             )
 
         if learning_context:
