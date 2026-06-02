@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "1. Executive Snapshot + 2. Product Definition",
+    "last_updated": "2026-06-02"
+  },
+  "facts": [
+    {"field": "product_name", "value": "EpistemicOS", "status": "CONFIRMED"},
+    {"field": "definition", "value": "Pre-submission manuscript diagnostics platform — assesses whether claims are supported, methodologically justified, inference-transparent, citation-grounded, and reviewer-ready", "status": "CONFIRMED"},
+    {"field": "category", "value": "Pre-submission manuscript diagnostics / claim-level epistemic validation / research auditability layer", "status": "CONFIRMED"},
+    {"field": "primary_problem", "value": "Academic manuscripts contain unsupported claims, weak inference, method-conclusion mismatch, citation gaps, and reviewer-facing risks before submission", "status": "CONFIRMED"},
+    {"field": "what_it_is_not", "value": "Not a writing tool, not a generic AI assistant, not a peer-review replacement, not an autonomous editorial decision-maker", "status": "CONFIRMED"},
+    {"field": "primary_workflow", "value": "Manuscript uploaded → claims extracted → classified → evidence mapped → inference/method assessed → risks flagged → revision directives produced", "status": "CONFIRMED"},
+    {"field": "current_stage", "value": "Early concept/prototype/MVP framing — no working product evidence, pilot data, or usage evidence available", "status": "CONTRADICTION"},
+    {"field": "domain_focus", "value": "Management research, business schools, doctoral research, interdisciplinary social science", "status": "CONFIRMED"},
+    {"field": "main_strategic_risk", "value": "Whether researcher interest can translate into institutional procurement under GDPR, trust, and academic-legitimacy constraints", "status": "CONFIRMED"},
+    {"field": "evidence_strength", "value": "Strong internal conceptual definition; weak external validation; no confirmed interviews, WTP evidence, pilots, accuracy data, or procurement commitments", "status": "CONFIRMED"}
+  ]
+}

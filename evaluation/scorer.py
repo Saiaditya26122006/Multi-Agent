@@ -13,6 +13,7 @@ Each dimension is scored 0-10. Overall score is weighted average.
 
 import json
 import logging
+import re
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -20,10 +21,13 @@ logger = logging.getLogger(__name__)
 REQUIRED_FIELDS = {
     "1": ["opportunity_description", "competitive_strategy", "objectives", "icp_hypothesis", "assumptions_used", "confidence_score"],
     "3": ["pest_analysis", "five_forces", "risks_opportunities", "market_context", "confidence_score"],
+    "4": ["confidence_score", "capability_gaps", "roles_and_responsibilities", "headcount_plan", "assumptions_used", "uncertainties"],
     "5": ["swot_matrix", "strategic_implications", "confidence_score"],
     "8": ["target_market_analysis", "competitors", "competitive_advantages", "marketing_mix", "revenue_assumptions", "cac_assumptions", "market_entry_strategy", "confidence_score"],
-    "12": ["three_statement_model", "break_even_analysis", "assumption_log", "risk_factors", "confidence_score"],
+    "10": ["confidence_score", "production_process", "cost_structure", "capacity_plan", "assumptions_used", "uncertainties"],
+    "12": ["three_statement_model", "break_even_analysis", "assumption_log", "risk_mitigation_actions", "confidence_score"],
     "13": ["launch_programme", "prerequisite_conditions", "capital_plan", "contingency_scenarios", "confidence_score"],
+    "executive_summary": ["executive_summary", "headline_metrics", "key_assumptions_flagged", "confidence_score"],
 }
 
 MIN_LENGTHS = {
@@ -32,6 +36,11 @@ MIN_LENGTHS = {
     "market_entry_strategy": 50,
     "strategic_implications": 50,
     "market_context": 50,
+    "production_process": 50,
+    "capacity_plan": 50,
+    "executive_summary": 200,
+    "org_structure": 30,
+    "personnel_policy": 30,
 }
 
 LIST_MIN_COUNTS = {
@@ -39,10 +48,18 @@ LIST_MIN_COUNTS = {
     "competitive_advantages": 2,
     "objectives": 1,
     "assumptions_used": 1,
-    "risk_factors": 1,
+    "risk_mitigation_actions": 1,
     "launch_programme": 2,
     "contingency_scenarios": 1,
+    "capability_gaps": 2,
+    "roles_and_responsibilities": 2,
+    "knowledge_gaps": 1,
+    "uncertainties": 1,
+    "key_assumptions_flagged": 1,
+    "coherence_issues_resolved": 1,
 }
+
+VALID_SHORT_ENUMS = {"high", "medium", "low", "yes", "no", "none", "null"}
 
 
 def score_section_output(section_num: str, output: Optional[dict]) -> dict:
@@ -106,19 +123,36 @@ def score_section_output(section_num: str, output: Optional[dict]) -> dict:
     if isinstance(rev, dict):
         specificity_checks += 1
         numeric_fields = ["price_per_unit", "volume_year1", "volume_year2", "volume_year3"]
-        has_numbers = sum(1 for f in numeric_fields if f in rev and _is_numeric(rev[f]))
+        has_numbers = sum(
+            1 for f in numeric_fields
+            if f in rev and _has_numeric_content(rev[f])
+        )
         if has_numbers >= 3:
             specificity_points += 1
         else:
-            issues.append(f"revenue_assumptions: only {has_numbers}/4 numeric fields populated")
+            issues.append(f"revenue_assumptions: only {has_numbers}/4 fields with numeric content")
 
     be = output.get("break_even_analysis")
     if isinstance(be, dict):
         specificity_checks += 1
-        if "break_even_month" in be and _is_numeric(be["break_even_month"]):
+        month_value = be.get("baseline_month") or be.get("break_even_month")
+        if month_value is not None and _has_numeric_content(month_value):
             specificity_points += 1
         else:
-            issues.append("break_even_analysis: missing concrete break_even_month number")
+            issues.append("break_even_analysis: missing concrete break-even month number")
+
+    # Check headline_metrics for exec summary
+    hm = output.get("headline_metrics")
+    if isinstance(hm, dict):
+        specificity_checks += 1
+        substantive_metrics = sum(
+            1 for v in hm.values()
+            if v is not None and str(v).strip()
+        )
+        if substantive_metrics >= 3:
+            specificity_points += 1
+        else:
+            issues.append("headline_metrics: too few populated metrics")
 
     specificity_score = round((specificity_points / max(specificity_checks, 1)) * 10, 1)
 
@@ -202,13 +236,31 @@ def score_pipeline_run(run_result: dict) -> dict:
     }
 
 
+def _has_numeric_content(value) -> bool:
+    """Check if a value contains meaningful numeric content.
+
+    Accepts pure numbers, currency-prefixed strings, and qualified strings
+    that contain at least one real number (e.g. '€15,000 pilot Year 1').
+    Rejects empty strings, pure text with no numbers, and placeholders.
+    """
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            return False
+        numbers_found = re.findall(r"[\d]+[,.]?[\d]*", cleaned)
+        return len(numbers_found) > 0
+    return False
+
+
 def _is_numeric(value) -> bool:
     """Check if a value is numeric (int, float, or numeric string)."""
     if isinstance(value, (int, float)):
         return True
     if isinstance(value, str):
         try:
-            float(value.replace(",", "").replace("$", "").replace("£", ""))
+            float(value.replace(",", "").replace("$", "").replace("£", "").replace("€", ""))
             return True
         except ValueError:
             return False
@@ -216,10 +268,17 @@ def _is_numeric(value) -> bool:
 
 
 def _is_substantive(value) -> bool:
-    """Check if a value has real content (not empty, None, or placeholder)."""
+    """Check if a value has real content (not empty, None, or placeholder).
+
+    Recognizes valid short enum values (high/medium/low) as substantive.
+    Still flags genuinely empty or placeholder short strings.
+    """
     if value is None:
         return False
     if isinstance(value, str):
+        stripped = value.strip().lower()
+        if stripped in VALID_SHORT_ENUMS:
+            return True
         return len(value.strip()) > 5
     if isinstance(value, list):
         return len(value) > 0

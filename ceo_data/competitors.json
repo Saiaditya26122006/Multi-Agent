@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "8. Market and Competitive Context",
+    "last_updated": "2026-06-02"
+  },
+  "status": "no_data",
+  "gap": true,
+  "gap_reason": "Source document section 8 (Market and Competitive Context) is an empty header — no competitor names, positioning, pricing, or differentiation data was provided.",
+  "differentiation_claim": {
+    "fact": "EpistemicOS positions as claim-level epistemic validation, not text generation or generic AI — competitors focus on text integrity not claim validity.",
+    "status": "ASSUMPTION"
+  }
+}

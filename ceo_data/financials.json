@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "11. Financials and Funding / 12. Missing Financial Data Table",
+    "last_updated": "2026-06-02"
+  },
+  "status": "no_data",
+  "gap": true,
+  "gap_reason": "Source document sections 11 and 12 contain headers only — no revenue, cost, funding, or projection data was provided by the CEO.",
+  "monetization_hypothesis": {
+    "fact": "Institutional SaaS subscription (annual contracts, per-school/department/seat). Individual researcher subscriptions secondary.",
+    "status": "ASSUMPTION"
+  }
+}

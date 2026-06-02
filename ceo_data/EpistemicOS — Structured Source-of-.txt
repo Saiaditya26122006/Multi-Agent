@@ -1,0 +1,745 @@
+EpistemicOS — Structured Source-of-Truth Dataset
+EpistemicOS is a B2B SaaS platform for epistemic validation and reviewer-readiness assessment of academic manuscripts.
+The product operates as a pre-submission research verification layer that evaluates whether a paper’s claims are:
+supported by appropriate evidence,
+methodologically justified,
+inferentially coherent,
+traceable to sources,
+and aligned with reviewer and journal expectations.
+The system works at the claim level rather than the document level. It extracts claims, classifies claim types, maps evidence, evaluates inference validity, identifies methodological and theoretical weaknesses, detects citation-support gaps, and surfaces reviewer-facing risks before submission.
+EpistemicOS is not designed as a generative writing assistant or autonomous peer-review replacement system. Its primary function is epistemic auditability and structured research validation.
+Initial domain focus:
+management research,
+business schools,
+doctoral research,
+interdisciplinary social science environments.
+Long-term positioning:
+epistemic infrastructure for trustworthy academic knowledge production.
+
+Initial Buyer Hypotheses
+Primary Buyer Hypothesis
+Research-intensive business schools and universities.
+Potential institutional buyers:
+research deans,
+doctoral program directors,
+research support offices,
+academic integrity/research quality functions,
+institutional research infrastructure teams.
+Primary institutional value:
+higher manuscript quality,
+reduced avoidable rejection risk,
+stronger reviewer readiness,
+improved publication outcomes,
+research governance support.
+
+Secondary Buyer Hypothesis
+Individual researchers and doctoral students.
+Value drivers:
+pre-submission diagnostics,
+structured reviewer-risk detection,
+methodological consistency checks,
+claim/evidence validation support.
+This segment may function as:
+early adoption channel,
+bottom-up institutional advocacy mechanism,
+pilot-validation source.
+
+Tertiary Buyer Hypothesis
+Academic journals and publishers.
+Potential use cases:
+editorial triage support,
+reviewer augmentation,
+methodological screening,
+auditability workflows,
+structured manuscript diagnostics.
+This is likely a later-stage market due to:
+procurement complexity,
+workflow integration requirements,
+reputational and governance sensitivity.
+
+Geographic Scope Hypothesis
+Initial Scope
+Spain first, then broader EU expansion.
+Reasons:
+existing academic network access,
+proximity to pilot institutions,
+easier qualitative validation,
+lower GTM complexity during early-stage iteration,
+alignment with GDPR-first positioning.
+
+Expansion Scope
+Research-intensive institutions globally.
+Priority expansion regions:
+Western Europe
+UK
+North America
+Asia-Pacific research universities
+Global expansion depends on:
+institutional trust,
+GDPR and data-governance robustness,
+multilingual capability,
+discipline generalizability,
+integration maturity.
+
+Initial Monetization Hypothesis
+Primary Monetization Model
+Institutional SaaS subscription.
+Likely pricing units:
+per institution,
+per department/school,
+or researcher-seat bundles.
+Initial hypothesis:
+annual institutional contracts.
+Reasoning:
+aligns with academic procurement,
+reduces per-user friction,
+supports organizational embedding,
+increases switching costs,
+creates more stable revenue.
+
+Secondary Monetization Hypothesis
+Individual premium researcher subscriptions.
+Potential use:
+doctoral students,
+independent researchers,
+pre-institutional adoption.
+Strategic function:
+early traction,
+usage data collection,
+institutional land-and-expand pathway.
+
+Future Monetization Extensions
+Possible later-stage models:
+per-submission pricing,
+journal workflow integrations,
+reviewer diagnostic tools,
+API access,
+institutional analytics dashboards,
+research-governance modules,
+compliance and audit reporting.
+
+Current Strategic Assumption Set
+Current architecture implicitly assumes:
+pre-submission workflow,
+institutional primary buyer,
+researcher operational user,
+SaaS subscription model,
+Spain/EU-first GTM,
+MVP-stage product maturity,
+trust/auditability positioning rather than productivity positioning.
+These assumptions should be treated as working hypotheses requiring empirical validation rather than fixed truths.
+
+The largest unresolved uncertainty is now:
+whether epistemic validation is perceived as sufficiently valuable to become a repeated institutional workflow behavior rather than an interesting research-quality concept.
+
+
+1. Executive Data Snapshot
+
+
+Field
+Extracted data
+Epistemic status
+Project name
+EpistemicOS
+CONFIRMED
+Current one-sentence definition
+A pre-submission manuscript diagnostics platform for academic research that assesses whether manuscript claims are supported, methodologically justified, inference-transparent, citation-grounded, and reviewer-ready.
+CONFIRMED
+Product category
+Pre-submission manuscript diagnostics / claim-level epistemic validation / research auditability layer.
+CONFIRMED
+Primary problem
+Academic manuscripts may contain unsupported claims, weak inference, method–conclusion mismatch, citation gaps, and reviewer-facing risks before submission or editorial evaluation.
+CONFIRMED
+Primary user
+Researchers, doctoral students, faculty, supervisors, reviewers, associate editors, editorial analysts.
+CONFIRMED
+Primary buyer
+Research-intensive business schools, doctoral programmes, research offices, journals, publishers, and possibly libraries/research infrastructure functions.
+ASSUMPTION
+Current stage
+Early concept / prototype / MVP-stage framing appears in prior context, but no working product evidence, pilot data, or usage evidence is available in the extracted material.
+CONTRADICTION
+Initial geography
+Spain/EU first; later global relevance if GDPR, data governance, and institutional trust are solved.
+CONFIRMED
+Business model hypothesis
+Institutional subscription, possibly by school, department, seat, manuscript, claim volume, or journal workflow; individual researcher subscription remains possible but secondary.
+ASSUMPTION
+Main unresolved strategic risk
+Whether researcher/user interest can translate into institutional procurement, especially under GDPR, trust, validation, and academic-legitimacy constraints.
+CONFIRMED
+Evidence strength
+Strong internal conceptual definition; weak external validation; no confirmed interviews, WTP evidence, pilots, accuracy data, or procurement commitments.
+CONFIRMED
+
+
+
+2. Product Definition
+
+
+Item
+Extracted data
+Epistemic status
+What EpistemicOS is
+A claim-level diagnostics platform for assessing epistemic reliability of academic manuscripts before submission or editorial evaluation.
+CONFIRMED
+What it is not
+Not a writing tool, not a generic AI assistant, not a peer-review replacement, not an autonomous editorial decision-maker.
+CONFIRMED
+Core use case
+Pre-submission reviewer-readiness: detecting claim, evidence, inference, method, and citation risks before journal submission.
+CONFIRMED
+Secondary use case
+Editorial triage / reviewer-support for journals and publishers.
+ASSUMPTION
+Primary workflow
+Manuscript uploaded or processed → claims extracted → claims classified → evidence mapped → inference and method fit assessed → risks flagged → revision directives produced.
+CONFIRMED
+Output generated
+Structured diagnostic report showing where a manuscript is submission-ready, where revision is required, and which claims need stronger evidence or clearer justification.
+CONFIRMED
+Claim-level diagnostic logic
+Claim → evidence → inference → uncertainty → risk → recommendation chain.
+CONFIRMED
+Product boundaries
+System should assist human judgement, not determine truth or enforce publication decisions.
+CONFIRMED
+Current product state
+Stated as early MVP/prototype in prior context, but no artifact, demo, pilot, or product usage evidence was available.
+CONTRADICTION
+Main category risk
+“Epistemic validation software” is differentiated but may be too abstract; “pre-submission manuscript diagnostics” is clearer but may sound narrower.
+INFERRED
+
+
+
+3. Problem and Jobs-to-Be-Done
+
+
+Stakeholder
+Problem
+Job-to-be-done
+Pain intensity
+Existing workaround
+Why workaround is insufficient
+Evidence gap
+Status
+Researchers
+Difficulty verifying whether claims are properly supported and defensible.
+Make manuscripts more defensible before submission.
+Unknown; hypothesized high among advanced researchers using AI.
+Manual checking, coauthor review, prior knowledge, AI tools, literature tools.
+Fragmented, time-consuming, no audit trail.
+No interview evidence.
+ASSUMPTION
+Doctoral students
+Weak claim–evidence alignment and dependence on supervisors.
+Identify weak claims before supervisor or journal review.
+Hypothesized medium/high.
+Supervisor feedback, methodology courses, peer feedback.
+Slow, inconsistent, human bottleneck.
+No cohort data, no WTP evidence.
+ASSUMPTION
+Supervisors
+Repeated effort detecting weak reasoning in manuscripts.
+Quickly identify epistemic weaknesses in student/faculty manuscripts.
+Unknown.
+Manual review and comments.
+High time cost; inconsistent depth.
+No supervisor interviews.
+ASSUMPTION
+Research offices
+Need institutional research quality control.
+Support publication quality and reduce avoidable rejection risk.
+Unknown; strategically plausible.
+Internal review, workshops, databases, research support staff.
+Not systematic at claim level.
+No procurement evidence.
+ASSUMPTION
+Business schools
+Publication quality, rankings, accreditation pressure, research reputation.
+Improve manuscript readiness and research governance.
+Hypothesized high for research-active schools.
+Faculty review, doctoral training, methodology support.
+Fragmented and hard to audit.
+No buyer interviews.
+ASSUMPTION
+Journals
+Reviewer overload, inconsistent review quality, weak triage.
+Identify high-risk manuscripts before or during editorial evaluation.
+Hypothesized high for Q1/Q2 and high-volume journals.
+Desk review, peer review, editorial judgement.
+Slow, inconsistent, reviewer-dependent.
+No editor/journal evidence.
+ASSUMPTION
+Editors
+Need faster, more consistent evaluation signals.
+Triage manuscripts and focus reviewers on key risks.
+Unknown.
+Editorial screening, reviewer assignment.
+Does not standardize claim-level reasoning checks.
+No editor interviews.
+ASSUMPTION
+Reviewers
+Cognitive/time burden in checking methods, evidence, and claims.
+Reduce repetitive validity-checking burden while preserving judgement.
+Unknown; likely varies by field.
+Partial checking, heuristics, manual reading.
+May miss hidden errors; no traceable diagnostic.
+No reviewer interviews yet.
+ASSUMPTION
+Publishers
+Research-integrity risk, review burden, AI-assisted submissions.
+Add scalable manuscript risk screening.
+Unknown.
+Plagiarism tools, editorial systems, peer review.
+Existing tools focus more on text integrity than claim validity.
+No publisher validation.
+ASSUMPTION
+Institutions
+Need stronger research governance without overstepping academic autonomy.
+Improve quality control while preserving human authority.
+Unknown.
+Policies, research offices, committees.
+Slow, non-operational, not claim-level.
+
+
+
+
+
+
+4. Target Users, Buyers, and ICP
+
+4.1 User Personas
+
+
+User persona
+Need
+Buying power
+Budget source
+Adoption trigger
+Procurement barrier
+Evidence status
+Status
+Faculty researcher
+Reviewer-ready manuscript diagnostics.
+Low/medium individually.
+Personal, department, research office.
+Preparing journal submission.
+May resist AI evaluation; may not pay personally.
+Internal ICP material.
+ASSUMPTION
+Doctoral student / DBA candidate
+Pre-submission feedback and claim-level risk detection.
+Low.
+Personal, programme, school.
+Thesis/paper submission.
+Budget and supervisor approval.
+Internal ICP material.
+ASSUMPTION
+Supervisor
+Faster diagnosis of student manuscript weaknesses.
+Medium influence, low direct budget.
+Doctoral programme or school.
+Repeated review bottlenecks.
+Fear of replacing expert judgement.
+Prior context.
+ASSUMPTION
+Reviewer
+Support for checking claim/evidence/method risks.
+Low.
+Journal/publisher.
+Manuscript review assignment.
+Journal approval; legitimacy concern.
+Pre-JTBD setup.
+ASSUMPTION
+Associate editor
+Triage support and reviewer-question generation.
+Medium influence.
+Journal/publisher.
+High submission volume.
+Editorial workflow integration.
+ICP journal notes.
+ASSUMPTION
+Research assistant
+Claim mapping and literature verification support.
+Low.
+Research group.
+Literature review or manuscript support.
+Tool access and training.
+Inferred from workflow.
+INFERRED
+
+
+4.2 Buyer Personas
+
+
+Buyer persona
+Need
+Buying power
+Budget source
+Adoption trigger
+Procurement barrier
+Evidence status
+Status
+Associate Dean for Research
+Improve publication quality and research reputation.
+High.
+School research budget.
+Publication-quality initiative.
+Proof of reliability, faculty acceptance.
+Pasted ICP.
+ASSUMPTION
+Research Director
+Research support infrastructure.
+Medium/high.
+Research office.
+Manuscript pipeline inefficiency.
+GDPR, DPA, accuracy evidence.
+Pasted ICP and compliance notes.
+ASSUMPTION
+Doctoral Program Director
+Improve doctoral manuscript quality.
+Medium.
+Programme budget.
+DBA/PhD cohort needs.
+Budget cycle; proof of usefulness.
+Pasted ICP.
+ASSUMPTION
+Library / Research Infrastructure Director
+Research tooling procurement.
+Medium/high.
+Library/research infrastructure budget.
+Demand from researchers/school.
+Vendor/security review.
+Prior and pasted context.
+ASSUMPTION
+Editor-in-Chief
+Improve review consistency and triage.
+Medium/high depending journal governance.
+Journal/publisher.
+Reviewer overload.
+Editorial legitimacy and workflow integration.
+Pasted journal ICP.
+ASSUMPTION
+Managing Editor
+Operational review efficiency.
+Medium.
+Journal operations.
+Submission volume and delays.
+Budget and publisher approval.
+Pasted journal ICP.
+ASSUMPTION
+Publisher innovation / integrity team
+Scalable integrity and review-support infrastructure.
+High.
+Publisher technology/integrity budget.
+AI-assisted submission risk, review bottlenecks.
+Security, DPA, integration, validation burden.
+Pasted materials.
+ASSUMPTION
+CIO / IT / Security
+Safe deployment and compliance.
+Veto power.
+IT/security budget indirectly.
+Institutional procurement review.
+Data security, DPA, DPIA, vendor risk.
+Compliance notes.
+CONFIRMED
+Procurement / legal
+Contractual and data-processing compliance.
+Veto power.
+Institutional procurement.
+Vendor purchase.
+DPA, data retention, IP, GDPR, AI Act classification.
+Compliance notes.
+CONFIRMED
+
+
+4.3 ICP Summary
+
+
+ICP
+High-fit conditions
+Exclusion conditions
+Status
+Business schools
+Research-active; Q1/Q2 publication targets; doctoral/postdoctoral activity; research centers; research reputation pressure; existing research tooling spend.
+Teaching-only; low publication activity; no doctoral ecosystem; no research tooling budget.
+CONFIRMED as internal ICP hypothesis
+Academic journals
+Q1/Q2 or recognized field journals; high submission volume; reviewer bottlenecks; rigor concerns; technology readiness.
+Predatory/low-rigor journals; volunteer-only with no budget; speed-over-rigor incentives; highly interpretive domains initially.
+CONFIRMED as internal ICP hypothesis
+Publishers
+Research integrity pressure; editorial workflow burden; technology infrastructure.
+No innovation budget; inability to integrate; low concern about review consistency.
+ASSUMPTION
+Research offices
+Need institutional quality control and auditability.
+No mandate or budget for research quality tooling.
+ASSUMPTION
+
+
+
+5. Value Proposition
+
+
+Value layer
+Extracted proposition
+What must be proven
+Status
+Core value proposition
+Reduce avoidable rejection risk and improve reviewer-readiness by diagnosing claim-level weaknesses before submission.
+Diagnostic validity, reviewer agreement, user willingness to act on outputs.
+ASSUMPTION
+Functional value
+Extracts claims, maps evidence, checks inference, flags method–claim mismatch, detects citation-support gaps.
+Technical accuracy against expert-labelled manuscripts.
+CONFIRMED as intended function
+Institutional value
+Supports research quality control, publication competitiveness, doctoral supervision, and governance.
+Institutional buyer WTP and procurement feasibility.
+ASSUMPTION
+Risk-reduction value
+Reduces unsupported claims, causal overreach, weak inference, and AI-induced epistemic risk.
+Evidence that detected risks are meaningful and actionable.
+ASSUMPTION
+Reviewer-readiness value
+Surfaces issues reviewers are likely to question.
+Predictive validity against actual reviewer comments.
+ASSUMPTION
+Auditability/transparency value
+Provides traceable claim → evidence → inference → risk → recommendation chain.
+Output reproducibility and source-bounded diagnostics.
+CONFIRMED as product principle
+Differentiation value
+Not text generation; research validation/audit layer.
+Competitive matrix showing alternatives lack claim-level diagnostics.
+ASSUMPTION
+Credibility threshold
+Must demonstrate senior-reviewer-level reliability, explainability, and human-review compatibility.
+Expert benchmarking and inter-rater studies.
+CONFIRMED as needed validation
+
+
+
+6. Product Capabilities and Modules
+
+
+Capability/module
+Description
+User value
+Required input
+Output
+Human verification required?
+Technical uncertainty
+Validation requirement
+Status
+Claim extraction
+Identify significant manuscript claims.
+Makes analysis granular.
+Manuscript text.
+Claim list.
+Yes.
+Claim boundary detection across disciplines.
+Expert-labelled claim benchmark.
+CONFIRMED
+Claim classification
+Classify claims as descriptive, causal, conceptual, review-based, normative, prescriptive, etc.
+Applies correct validation standard.
+Extracted claims.
+Claim-type taxonomy.
+Yes.
+Field-sensitive classification.
+Inter-rater agreement with experts.
+CONFIRMED
+Evidence mapping
+Link each claim to supporting evidence/passages/sources.
+Shows support status.
+Manuscript, references, cited passages.
+Claim–evidence map.
+Yes.
+Citation interpretation and source access.
+Claim-evidence alignment accuracy.
+CONFIRMED
+Inference checking
+Assess whether conclusions follow from evidence and method.
+Detects overreach.
+Claims, methods, results, evidence.
+Inference-risk flags.
+Yes.
+Reasoning formalization in social science.
+Expert review comparison.
+CONFIRMED
+Method–conclusion alignment
+Identify gaps between design/methods and claims.
+Prevents method-claim mismatch.
+Methods/results/conclusion sections.
+Method-fit diagnostic.
+Yes.
+Methodological diversity.
+Domain expert assessment.
+CONFIRMED
+Citation support checking
+Detect weak, missing, or misaligned citation support.
+Improves defensibility.
+References and claims.
+Citation-support risk.
+Yes.
+Access to cited content; citation context.
+Manual citation audit benchmark.
+CONFIRMED
+Unsupported mechanism detection
+Detect mechanisms asserted without evidence.
+Reduces theory overclaim.
+Theory/discussion sections.
+Unsupported-mechanism flags.
+Yes.
+Mechanism inference is judgement-heavy.
+Expert-coded benchmark.
+CONFIRMED
+Reviewer-risk detection
+Surface issues reviewers may challenge.
+Improves pre-submission readiness.
+Full manuscript diagnostic.
+Reviewer-facing risk report.
+Yes.
+Predictive validity uncertain.
+Compare with real reviewer comments.
+CONFIRMED
+Submission-readiness diagnostic
+Overall diagnostic of readiness and revision needs.
+Actionable output.
+Full manuscript analysis.
+Structured report.
+Yes.
+Scoring thresholds.
+Expert-panel calibration.
+CONFIRMED
+Audit trail
+Preserve traceability from diagnostic to source passage.
+Institutional trust.
+Analysis logs, source locations.
+Auditable chain.
+Yes.
+Versioning and provenance integrity.
+Reproducibility tests.
+CONFIRMED
+Source-of-truth repository
+Human-governed canonical repository for business/product knowledge.
+Prevents epistemic drift in business planning.
+Verified sources, assumptions, decisions.
+Governed knowledge base.
+Yes.
+Governance discipline.
+Source audit and update rules.
+CONFIRMED
+Agentic workflow layer
+Multiple agents support GTM, product, research, finance, dependency mapping.
+Operational efficiency.
+Approved context and constraints.
+Structured outputs for human review.
+Yes.
+Hallucination and overreach risk.
+Human approval gates.
+CONFIRMED
+Interview-to-task/uncertainty extraction
+Convert transcripts into tasks, assumptions, uncertainties.
+Better customer discovery discipline.
+Interview transcripts.
+Insight/task/uncertainty database.
+Yes.
+Misclassification and missing nuance.
+Human review of transcript coding.
+CONFIRMED
+Compliance knowledge base
+Structured repository of laws, policies, DPAs, AI governance constraints.
+Procurement readiness.
+Regulations, policies, legal notes.
+Compliance matrix.
+Legal review required.
+Legal classification.
+Specialist legal review.
+CONFIRMED
+Revision compliance tracker
+Map reviewer comments → author response → manuscript change.
+Supports revision quality.
+Reviewer comments and revised manuscript.
+Response/change trace.
+Yes.
+Change detection and intent matching.
+Editor/reviewer benchmark.
+ASSUMPTION
+Journal/editorial API
+Integrate diagnostics into editorial systems.
+Workflow embedding.
+Editorial system data.
+Embedded diagnostic feed.
+Yes.
+Integration feasibility.
+Publisher pilot.
+ASSUMPTION
+Construct validity module
+Assess definitions, measures, level of analysis, discriminant validity.
+High value in management/SCM research.
+Theory, methods, measures.
+Construct-validity flags.
+Yes.
+Domain-specific complexity.
+Methodologist validation.
+ASSUMPTION
+Systematic review audit
+Assess review methods, search logic, inclusion/exclusion, synthesis claims.
+Relevant for review papers.
+Review manuscript + method details.
+Review-method risk report.
+Yes.
+Discipline-specific standards.
+Review-method expert benchmark.
+ASSUMPTION
+
+
+7. EpistemicOS Knowledge Architecture
+
+
+8. Market and Competitive Context
+
+
+9. GTM and Sales Motion
+
+
+10. Business Model and Pricing
+
+
+11. Financials and Funding
+
+
+12. Missing Financial Data Table
+
+
+12. Validation and Evidence Requirements
+
+
+13. Compliance, Legal, and Risk
+
+
+14. Interviews, Customer Notes, and Field Evidence
+
+
+15. Strategic Assumptions Register
+
+
+16. Decision Register
+
+
+17. Open Questions
+
+
+18. Contradictions and Ambiguities
+
+
+19. Tasks
+
+

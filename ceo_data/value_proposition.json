@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "5. Value Proposition",
+    "last_updated": "2026-06-02"
+  },
+  "facts": [
+    {"layer": "Core", "proposition": "Reduce avoidable rejection risk and improve reviewer-readiness by diagnosing claim-level weaknesses before submission", "must_prove": "Diagnostic validity, reviewer agreement, user willingness to act", "status": "ASSUMPTION"},
+    {"layer": "Functional", "proposition": "Extracts claims, maps evidence, checks inference, flags method-claim mismatch, detects citation-support gaps", "must_prove": "Technical accuracy against expert-labelled manuscripts", "status": "CONFIRMED"},
+    {"layer": "Institutional", "proposition": "Supports research quality control, publication competitiveness, doctoral supervision, governance", "must_prove": "Institutional buyer WTP and procurement feasibility", "status": "ASSUMPTION"},
+    {"layer": "Risk-reduction", "proposition": "Reduces unsupported claims, causal overreach, weak inference, AI-induced epistemic risk", "must_prove": "Evidence that detected risks are meaningful and actionable", "status": "ASSUMPTION"},
+    {"layer": "Auditability", "proposition": "Traceable claim-evidence-inference-risk-recommendation chain", "must_prove": "Output reproducibility and source-bounded diagnostics", "status": "CONFIRMED"},
+    {"layer": "Differentiation", "proposition": "Not text generation; research validation/audit layer — competitors lack claim-level diagnostics", "must_prove": "Competitive matrix showing this gap", "status": "ASSUMPTION"},
+    {"layer": "Credibility threshold", "proposition": "Must demonstrate senior-reviewer-level reliability, explainability, human-review compatibility", "must_prove": "Expert benchmarking and inter-rater studies", "status": "CONFIRMED"}
+  ]
+}

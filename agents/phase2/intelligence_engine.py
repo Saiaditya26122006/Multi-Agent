@@ -133,6 +133,9 @@ class IntelligenceEngine:
             logger.warning("[IE] REVISE unparseable — falling back to draft")
             parsed = self._parse_output(draft_raw)
 
+        if parsed:
+            parsed = self._normalize_confidence(parsed)
+
         # ENFORCEMENT: Force confidence downgrade if unresolved challenges remain
         if parsed and unresolved:
             parsed["confidence_score"] = "low"
@@ -822,7 +825,11 @@ If everything checks out, return an empty array: []""",
     async def _call(self, system: str, user: str, max_tokens: int = 4096, retries: int = 3) -> tuple[Optional[str], dict]:
         """Make a single LLM call. Retries throttling up to `retries` times; timeouts get ONE retry only."""
         import asyncio
-        from botocore.exceptions import ReadTimeoutError, ConnectTimeoutError
+        from botocore.exceptions import (
+            ReadTimeoutError,
+            ConnectTimeoutError,
+            ConnectionClosedError,
+        )
 
         timeout_attempts = 0
         max_timeout_retries = 1
@@ -845,13 +852,18 @@ If everything checks out, return an empty array: []""",
                 wait = 2 ** attempt
                 logger.warning("[IntelligenceEngine] Throttled — retrying in %ds (attempt %d/%d)", wait, attempt + 1, retries)
                 await asyncio.sleep(wait)
-            except (self.bedrock.exceptions.ModelTimeoutException, ReadTimeoutError, ConnectTimeoutError):
+            except (
+                self.bedrock.exceptions.ModelTimeoutException,
+                ReadTimeoutError,
+                ConnectTimeoutError,
+                ConnectionClosedError,
+            ):
                 timeout_attempts += 1
                 if timeout_attempts > max_timeout_retries:
-                    logger.error("[IntelligenceEngine] Timeout — already retried %d time(s), giving up", max_timeout_retries)
+                    logger.error("[IntelligenceEngine] Timeout/connection-closed — already retried %d time(s), giving up", max_timeout_retries)
                     return None, {}
                 wait = 5
-                logger.warning("[IntelligenceEngine] Timeout — retrying once in %ds", wait)
+                logger.warning("[IntelligenceEngine] Timeout/connection-closed — retrying in %ds (attempt %d)", wait, timeout_attempts)
                 await asyncio.sleep(wait)
             except Exception as e:
                 logger.error("[IntelligenceEngine] LLM call failed: %s", e)
@@ -895,3 +907,29 @@ If everything checks out, return an empty array: []""",
             pass
 
         return None
+
+    @staticmethod
+    def _normalize_confidence(parsed: dict) -> dict:
+        """Coerce confidence_score to string enum (high/medium/low)."""
+        conf = parsed.get("confidence_score")
+        if conf is None:
+            parsed["confidence_score"] = "low"
+            return parsed
+        if isinstance(conf, str):
+            conf_lower = conf.strip().lower()
+            if conf_lower in ("high", "medium", "low"):
+                parsed["confidence_score"] = conf_lower
+                return parsed
+            try:
+                conf = float(conf_lower)
+            except ValueError:
+                parsed["confidence_score"] = "low"
+                return parsed
+        if isinstance(conf, (int, float)):
+            if conf > 0.66:
+                parsed["confidence_score"] = "high"
+            elif conf > 0.33:
+                parsed["confidence_score"] = "medium"
+            else:
+                parsed["confidence_score"] = "low"
+        return parsed

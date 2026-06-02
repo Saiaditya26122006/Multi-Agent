@@ -1,0 +1,13 @@
+EpistemicOS — Executive Summary (from Source-of-Truth)
+
+Product: EpistemicOS [CONFIRMED]
+Definition: Pre-submission manuscript diagnostics platform for academic research — assesses whether claims are supported, methodologically justified, inference-transparent, citation-grounded, and reviewer-ready. [CONFIRMED]
+Category: Claim-level epistemic validation / research auditability layer. [CONFIRMED]
+Primary problem: Manuscripts contain unsupported claims, weak inference, method-conclusion mismatch, citation gaps, reviewer-facing risks. [CONFIRMED]
+Primary users: Researchers, doctoral students, faculty, supervisors, reviewers, editors. [CONFIRMED]
+Primary buyers: Business schools, doctoral programmes, research offices, journals, publishers. [ASSUMPTION]
+Stage: Early concept/MVP framing — no working product, pilot data, or usage evidence. [CONTRADICTION]
+Geography: Spain/EU first; global later pending GDPR, trust, multilingual capability. [CONFIRMED]
+Model: Institutional SaaS subscription (annual contracts). [ASSUMPTION]
+Key risk: Whether researcher interest translates into institutional procurement. [CONFIRMED]
+Evidence strength: Strong internal definition; weak external validation; zero interviews, WTP evidence, or procurement commitments. [CONFIRMED]

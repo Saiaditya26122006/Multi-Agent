@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "8. Market and Competitive Context / 9. GTM and Sales Motion",
+    "last_updated": "2026-06-02"
+  },
+  "status": "no_data",
+  "gap": true,
+  "gap_reason": "Source document sections 8 (Market Context) and 9 (GTM/Sales) are empty headers — no TAM/SAM, market sizing, growth rates, or sales motion data was provided.",
+  "geographic_hypothesis": {
+    "fact": "Spain/EU first, then Western Europe, UK, North America, Asia-Pacific research universities.",
+    "status": "CONFIRMED",
+    "rationale": "Existing academic network access, proximity to pilots, GDPR-first positioning."
+  }
+}

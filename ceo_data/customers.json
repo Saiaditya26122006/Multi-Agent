@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "3. Problem and Jobs-to-Be-Done",
+    "last_updated": "2026-06-02"
+  },
+  "facts": [
+    {"stakeholder": "Researchers", "problem": "Difficulty verifying claims are properly supported and defensible", "job": "Make manuscripts more defensible before submission", "pain_intensity": "Unknown; hypothesized high among AI-using researchers", "evidence_gap": "No interview evidence", "status": "ASSUMPTION"},
+    {"stakeholder": "Doctoral students", "problem": "Weak claim-evidence alignment; dependence on supervisors", "job": "Identify weak claims before supervisor or journal review", "pain_intensity": "Hypothesized medium/high", "evidence_gap": "No cohort data, no WTP evidence", "status": "ASSUMPTION"},
+    {"stakeholder": "Business schools", "problem": "Publication quality, rankings, accreditation pressure", "job": "Improve manuscript readiness and research governance", "pain_intensity": "Hypothesized high for research-active schools", "evidence_gap": "No buyer interviews", "status": "ASSUMPTION"},
+    {"stakeholder": "Journals/Editors", "problem": "Reviewer overload, inconsistent review quality, weak triage", "job": "Identify high-risk manuscripts before editorial evaluation", "pain_intensity": "Hypothesized high for Q1/Q2 journals", "evidence_gap": "No editor/journal evidence", "status": "ASSUMPTION"},
+    {"stakeholder": "Publishers", "problem": "Research-integrity risk, AI-assisted submissions", "job": "Add scalable manuscript risk screening", "evidence_gap": "No publisher validation", "status": "ASSUMPTION"}
+  ],
+  "interviews_conducted": {"status": "no_data", "gap": true, "gap_reason": "Section 14 (Interviews, Customer Notes, Field Evidence) is empty — zero interviews or field evidence provided."}
+}

@@ -1,0 +1,27 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "Current Strategic Assumptions + Compliance notes",
+    "last_updated": "2026-06-02"
+  },
+  "strategic_assumptions": [
+    {"constraint": "Pre-submission workflow (not post-publication)", "status": "CONFIRMED"},
+    {"constraint": "Institutional primary buyer, researcher operational user", "status": "ASSUMPTION"},
+    {"constraint": "SaaS subscription model (annual institutional contracts)", "status": "ASSUMPTION"},
+    {"constraint": "Spain/EU-first GTM", "status": "CONFIRMED"},
+    {"constraint": "MVP-stage product maturity", "status": "CONTRADICTION"},
+    {"constraint": "Trust/auditability positioning (not productivity positioning)", "status": "CONFIRMED"},
+    {"constraint": "System assists human judgement — does not determine truth or enforce publication decisions", "status": "CONFIRMED"}
+  ],
+  "compliance_requirements": [
+    {"requirement": "GDPR-first data governance", "status": "CONFIRMED"},
+    {"requirement": "DPA/DPIA required for institutional deployment", "status": "CONFIRMED"},
+    {"requirement": "AI Act classification must be assessed", "status": "CONFIRMED"},
+    {"requirement": "Data retention and IP policies needed", "status": "CONFIRMED"}
+  ],
+  "largest_unresolved_uncertainty": {
+    "fact": "Whether epistemic validation is perceived as sufficiently valuable to become a repeated institutional workflow behavior rather than an interesting concept",
+    "status": "CONFIRMED"
+  },
+  "legal_risk_data": {"status": "no_data", "gap": true, "gap_reason": "Section 13 (Compliance, Legal, and Risk) is an empty header — no detailed legal/risk analysis provided."}
+}

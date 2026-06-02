@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "6. Product Capabilities and Modules",
+    "last_updated": "2026-06-02"
+  },
+  "confirmed_capabilities": [
+    {"module": "Claim extraction", "description": "Identify significant manuscript claims", "uncertainty": "Claim boundary detection across disciplines", "status": "CONFIRMED"},
+    {"module": "Claim classification", "description": "Classify as descriptive, causal, conceptual, review-based, normative, prescriptive", "uncertainty": "Field-sensitive classification", "status": "CONFIRMED"},
+    {"module": "Evidence mapping", "description": "Link each claim to supporting evidence/passages/sources", "uncertainty": "Citation interpretation and source access", "status": "CONFIRMED"},
+    {"module": "Inference checking", "description": "Assess whether conclusions follow from evidence and method", "uncertainty": "Reasoning formalization in social science", "status": "CONFIRMED"},
+    {"module": "Method-conclusion alignment", "description": "Identify gaps between design/methods and claims", "status": "CONFIRMED"},
+    {"module": "Citation support checking", "description": "Detect weak, missing, or misaligned citation support", "status": "CONFIRMED"},
+    {"module": "Reviewer-risk detection", "description": "Surface issues reviewers may challenge", "uncertainty": "Predictive validity uncertain", "status": "CONFIRMED"},
+    {"module": "Submission-readiness diagnostic", "description": "Overall diagnostic of readiness and revision needs", "status": "CONFIRMED"},
+    {"module": "Audit trail", "description": "Preserve traceability from diagnostic to source passage", "status": "CONFIRMED"}
+  ],
+  "assumed_capabilities": [
+    {"module": "Revision compliance tracker", "description": "Map reviewer comments to author response to manuscript change", "status": "ASSUMPTION"},
+    {"module": "Journal/editorial API", "description": "Integrate diagnostics into editorial systems", "status": "ASSUMPTION"},
+    {"module": "Construct validity module", "description": "Assess definitions, measures, level of analysis", "status": "ASSUMPTION"},
+    {"module": "Systematic review audit", "description": "Assess review methods, search logic, synthesis claims", "status": "ASSUMPTION"}
+  ]
+}
