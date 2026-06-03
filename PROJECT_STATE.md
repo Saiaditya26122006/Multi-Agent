@@ -1,6 +1,6 @@
 # Multi-Agent AI System — Project State
 
-**Last updated:** 2026-06-02  
+**Last updated:** 2026-06-03  
 **Phase:** 2 (Active)  
 **Project path:** /home/saiaditya26122006/multi-agent-system
 
@@ -35,9 +35,9 @@
 | `agents/phase2/marketing_strategy.py` | ✓ Operational | Section 8: TAM/SAM, pricing, GTM, revenue model, CAC |
 | `agents/phase2/operations.py` | ✓ Operational | Section 10: Production process, cost structure, capacity planning |
 | `agents/phase2/financial_modelling.py` | ✓ Operational | Section 12: 3-statement model, break-even, DCF, risk mitigation |
-| `agents/phase2/launch_contingency.py` | ⚠️ Intermittent | Section 13: Launch program, prerequisites, capital plan. **Bedrock connection-closed errors** |
+| `agents/phase2/launch_contingency.py` | ✓ Operational | Section 13: Launch program, prerequisites, capital plan. **Connection retry fix applied** |
 | `agents/phase2/summary_agent.py` | ✓ Operational | Executive summary, contradictions, key assumptions |
-| `evaluation/run_grounded_eval.py` | ✓ Operational | End-to-end pipeline runner against real EpistemicOS data. Last run: June 2, 2026, 8/9 sections parsed, 202k tokens, 28 minutes, score 8.9/10 |
+| `evaluation/run_grounded_eval.py` | ✓ Operational | End-to-end pipeline runner against real EpistemicOS data. **Search integration added June 3**. Last run: June 3, 2026, 9/9 sections parsed, 210k tokens, 26.5 minutes, no errors |
 | `evaluation/scorer.py` | ✓ Operational | Automated scorer: schema 30%, specificity 40%, completeness 30%. Mechanical bugs fixed June 2: REQUIRED_FIELDS, MIN_LENGTHS, field name mappings. Re-scored 6.6→8.9 |
 | `ceo_data/loader.py` | ✓ Operational | Loads 22,881-char EpistemicOS source-of-truth. Preserves epistemic tags (CONFIRMED, ASSUMPTION, INFERRED, CONTRADICTION). Section-scoped injection under 2,900-char budget. 11 topics loaded. |
 | `simulation/financial_sim.py` | ✓ Operational | SimPy Monte Carlo: 1000 runs, 36-month horizon. Returns `runs_completed`, `probability_distribution`, `primary_risk_factor` |
@@ -99,6 +99,20 @@
 
 **Key insight:** Eval runner proves Intelligence Engine + 9 child agents work in isolation. Everything above Intelligence Engine (Mother Agent, gates, DA, Council) and everything cross-cutting (MessageBus, Coherence Auditor, Document Compiler) has never run in a real end-to-end execution. They exist as code but are untested in the actual pipeline.
 
+### Search Service — Built, Not Yet Tested in Eval
+
+| File | Status | What it does |
+|------|--------|--------------|
+| `services/search_service.py` | ✓ Built | Tavily AI Search API integration. `search(query, context, max_results)` returns list of dicts with title, snippet, url, date, freshness. `search_for_section(section_number, query)` wrapper with logging. Synchronous calls, never raises exceptions (returns `[]` on failure). |
+| `services/test_search.py` | ✓ Tested | Standalone test script verified working with real Tavily API key. Returns 5 results with valid URLs. Dates missing from API responses (all flagged "unknown" freshness). |
+| `agents/phase2/intelligence_engine.py` | ✓ Modified | Added `live_data` context slot. Extracts `live_market_data` from `input_data`, injects into user prompt with 2000-char limit. Label: "LIVE MARKET DATA (retrieved from web, treat as current external evidence — verify source before treating as fact)". |
+| `agents/phase2/opportunity_analyst.py` | ✓ Wired | 3 queries: manuscript validation market, epistemic tools, diagnostics SaaS competitors. Calls `_get_live_market_data("1")` before Intelligence Engine reasoning. |
+| `agents/phase2/environment_research.py` | ✓ Wired | 3 queries: EU AI Act compliance, GDPR SaaS procurement, academic publishing regulation. Calls `_get_live_market_data("3")`. |
+| `agents/phase2/marketing_strategy.py` | ✓ Wired | 3 queries: institutional SaaS pricing, academic procurement, research tools pricing. Calls `_get_live_market_data("8")`. |
+| `agents/phase2/financial_modelling.py` | ✓ Wired | 3 queries: B2B SaaS gross margins, academic CAC benchmarks, university ARR. Calls `_get_live_market_data("12")`. |
+
+**Status:** Code complete, imports verified. Search calls are synchronous (no async/await). If search fails, agents inject "No live market data retrieved for this section" string rather than crashing. **Not yet tested in full evaluation run** — unknown whether search results improve output quality or whether Tavily date extraction works for business research queries.
+
 ---
 
 ## 3. NOT BUILT
@@ -106,7 +120,6 @@
 
 | Component | Status | Why Missing |
 |-----------|--------|-------------|
-| **Search service** | Not built | Shared retrieval function for outward agents (Opportunity §1, Environment §3, Marketing §8, Financial §12). Architecture decision: search is a function, not an agent. Every retrieved fact carries source URL + date + freshness flag. Human vets source credibility at gate. |
 | **Human Gate 2** | Not built | Sufficiency check before agents run. Validates whether input brief has enough information for agents to proceed. |
 | **Human Gate 4** | Not built | Final output approval before delivery to CEO. Alex reviews compiled business plan, approves or requests revision. |
 | **Section 11 HR agent** | Not built | No code exists. Marked `always_required: true` in roster YAML but never implemented. |
@@ -158,12 +171,13 @@ Staged rollout (do not skip ahead):
 *In order — do not skip ahead*
 
 1. ✅ **PROJECT_STATE.md updated** (this file)
-2. **Search service** — shared retrieval function, outward agents only
-3. **SPADE → MessageBus swap** — remove SPADE scaffolding, wire MessageBus
-4. **Mother Agent sequencing** — one group proven before scaling
-5. **Human gates 2 and 4** — sufficiency check + final approval
-6. **Operating rules files** — guardrails, business plan process, workflow rules
-7. **Roster YAML fix** — correct agent/section ownership mappings
+2. ✅ **Search service built** — `services/search_service.py` with Tavily API integration. **SMOKE TEST PASSED** (June 3, 2026). Search now integrated into grounded eval via Option C (direct injection in eval script). Section 3 test: 3 queries, 15 results, 2969 chars live data, real URLs retrieved. See `evaluation/SEARCH_INTEGRATION_COMPLETE.md`.
+3. ⏸️ **Full eval with search** — Smoke test complete, awaiting approval to run full 9-section eval with live market data active
+4. **SPADE → MessageBus swap** — remove SPADE scaffolding, wire MessageBus
+5. **Mother Agent sequencing** — one group proven before scaling
+6. **Human gates 2 and 4** — sufficiency check + final approval
+7. **Operating rules files** — guardrails, business plan process, workflow rules
+8. **Roster YAML fix** — correct agent/section ownership mappings
 
 ---
 

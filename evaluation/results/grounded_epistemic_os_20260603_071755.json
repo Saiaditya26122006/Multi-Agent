@@ -1,0 +1,1795 @@
+{
+  "idea_id": "grounded_epistemic_os",
+  "idea_name": "EpistemicOS \u2014 Pre-Submission Manuscript Diagnostics",
+  "started_at": "2026-06-03T06:46:21.177116+00:00",
+  "grounded": true,
+  "ceo_data_topics": [
+    "competitors",
+    "product_definition",
+    "market_research",
+    "customers",
+    "capabilities",
+    "value_proposition",
+    "financials",
+    "team",
+    "constraints",
+    "buyers_icp",
+    "deck"
+  ],
+  "sections": {
+    "1": {
+      "section_number": "1",
+      "agent_name": "Opportunity Analyst",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "latency_seconds": 213.39,
+      "input_tokens": 12054,
+      "output_tokens": 8941,
+      "parsed_successfully": true,
+      "output": {
+        "section_number": 1,
+        "opportunity_description": "EpistemicOS targets the pre-submission manuscript validation gap in academic research workflows. No current tool evaluates whether a paper's causal claims are supported by cited evidence \u2014 existing tools check text integrity, not inferential coherence. Beachhead: ~15\u201320 research-active Spanish business schools facing ranking, accreditation, and EU AI Act governance pressure. Serviceable market sized bottom-up: 20 schools \u00d7 ~\u20ac15,000 avg research software spend \u00d7 30% realistic capture = ~\u20ac90,000 Year 1 beachhead ARR. EU-wide addressable expands to ~150 research-active business schools \u00d7 \u20ac12,000 avg = ~\u20ac1.8M SAM at full penetration. These are small numbers \u2014 the beachhead is strategic, not large. The claim-validation subcategory has no dominant standalone commercial product, but ASSUMPTION: research deans currently lack an adequate solution and are aware of the gap. This must be validated in buyer interviews before any market sizing claim is credible.",
+        "competitive_strategy": "Occupy the inferential coherence governance category before text-integrity incumbents expand scope. scite.ai offers supporting-vs-contradicting citation classification (researcher-facing, not governance-framed). Semantic Scholar includes structured claim extraction (researcher tool, no institutional audit trail). Argument Mining academic NLP projects (EU Horizon-funded) exist as research prototypes, not commercial products with procurement paths. None are positioned as research governance tools sold to research deans against accreditation budget lines \u2014 that framing is the defensible distinction, but must be validated with buyers. Moat strategy: institutional pilot contracts must include data licensing terms that create proprietary training datasets from real management research manuscripts. This dataset \u2014 not the algorithm \u2014 is the asset that prevents a publisher with 10x engineering budget from replicating accuracy on management-domain claims. IP protection and data exclusivity terms must be embedded in pilot contracts before publisher awareness of the category grows. Do not compete on AI detection. Do not enter publisher channel until Cohen's kappa benchmark exists and 3 reference institutions are signed.",
+        "objectives": [
+          {
+            "objective": "Conduct 20 buyer interviews with research deans or doctoral directors at Spanish/EU business schools within 90 days",
+            "metric": "20 structured interviews completed; primary test: do buyers confirm they lack adequate claim-validation tools and control relevant budget",
+            "deadline": "Q3 2026",
+            "rationale": "Zero interviews exist. All buyer pain ratings are ASSUMPTION status. This is the single highest-priority kill-condition test before any product or sales investment."
+          },
+          {
+            "objective": "Confirm budget line existence: verify \u22658 of 20 target Spanish business schools have research support software budget controlled by research dean, not central IT",
+            "metric": "8+ confirmed budget line owners with estimated cycle length",
+            "deadline": "Q3 2026",
+            "rationale": "If budget routes through central IT with 18-month cycles, the fast-first-buyer thesis collapses and GTM must pivot to publishers. Must resolve before MVP investment."
+          },
+          {
+            "objective": "Build MVP with demonstrable claim-evidence tracing on 10 management research papers \u2014 output: per-claim support score with source citation",
+            "metric": "MVP artifact exists; tested on 10 papers; demo-ready for buyer review",
+            "deadline": "Q3 2026",
+            "rationale": "Product stage is currently CONTRADICTION \u2014 described as MVP but no artifact exists. MVP must precede pilot outreach. Moved to Q3 2026 to allow realistic sales cycle before contract close."
+          },
+          {
+            "objective": "Complete pilot outreach, demos, and procurement navigation with 6\u20138 shortlisted institutions",
+            "metric": "6+ institutions in active procurement conversation; legal/budget review initiated at \u22653",
+            "deadline": "Q4 2026",
+            "rationale": "Academic institutions require legal review, budget approval, and contract execution after demo. A Q4 2026 outreach period with Q1 2027 contract close is the minimum realistic sequence."
+          },
+          {
+            "objective": "Sign 3 paid pilot contracts with research-active business schools at \u20ac6,000\u2013\u20ac12,000/year each",
+            "metric": "3 signed contracts = \u20ac18,000\u2013\u20ac36,000 pilot ARR",
+            "deadline": "Q1 2027",
+            "rationale": "Moved from Q4 2026 \u2014 simultaneous MVP completion and contract close in one quarter is not achievable in academic procurement. Q1 2027 allows 1 quarter of sales cycle post-MVP."
+          },
+          {
+            "objective": "Complete inter-rater reliability study comparing EpistemicOS claim scores vs. 3 senior management journal reviewers on 30 manuscripts",
+            "metric": "Cohen's kappa \u22650.60 on claim-support classification",
+            "deadline": "Q2 2027",
+            "rationale": "Academic credibility prerequisite. Without accuracy benchmarks, research deans cannot justify institutional purchase to faculty. Must exist before Year 1 ARR expansion push."
+          },
+          {
+            "objective": "Achieve \u20ac60,000\u2013\u20ac90,000 ARR by end of Year 1 defined as 12 months from first signed contract",
+            "metric": "5\u20137 institutional contracts at avg \u20ac12,000/year by Q1 2028",
+            "deadline": "Q1 2028",
+            "rationale": "Reduced from \u20ac120,000/10 contracts. 50\u201367% beachhead penetration in Year 1 is inconsistent with 12\u201318 month procurement cycles and zero existing relationships. Comparable niche academic SaaS (StatReviewer, Covidence) achieved 3\u20138 institutional contracts in first full sales year. 10 contracts modeled as Year 2 target after reference customers exist."
+          }
+        ],
+        "icp_hypothesis": {
+          "buyer_role": "Research Dean or Director of Doctoral Programs at a research-active business school ranked in FT50 or UTD Top 100, or explicitly targeting those rankings, in Spain or EU",
+          "budget_process": "ASSUMPTION (no interview data): Research support software budget controlled at school/department level by research dean, not central IT. Estimated \u20ac10,000\u2013\u20ac20,000 discretionary annual envelope. Must be validated in Q3 2026 interviews \u2014 if false, GTM pivots to publishers.",
+          "decision_timeline": "ASSUMPTION: 3\u20136 month cycle for pilot contracts at dean discretion; 12\u201318 months for full institutional procurement. Accreditation and ranking cycles (AACSB review years) may accelerate urgency.",
+          "pain_points": "ASSUMPTION: (1) Reputational risk from papers with unsupported causal claims post-publication. (2) AACSB/EQUIS accreditation requires research quality governance documentation. (3) EU AI Act creates new institutional liability for AI-assisted manuscript content. (4) No current tool provides auditable claim-evidence traceability for pre-submission review. All four are hypotheses to be tested in buyer interviews \u2014 none are validated."
+        },
+        "assumptions_used": [
+          {
+            "statement": "~15\u201320 research-active Spanish business schools exist as addressable beachhead",
+            "confidence": "medium",
+            "source": "FT/UTD ranking lists cross-referenced with Spanish ANECA accreditation database \u2014 verifiable but not yet verified"
+          },
+          {
+            "statement": "Average research software spend per institution ~\u20ac15,000/year with dean-controlled budget",
+            "confidence": "low",
+            "source": "Inference from comparable tools (Covidence, StatReviewer pricing); no direct buyer confirmation exists"
+          },
+          {
+            "statement": "Research deans are aware of claim-validation gap and would pay to close it",
+            "confidence": "low",
+            "source": "ASSUMPTION \u2014 no interview data. Primary kill condition for the entire thesis."
+          },
+          {
+            "statement": "scite.ai, Semantic Scholar, and Horizon EU NLP projects do not constitute adequate substitutes in research dean governance framing",
+            "confidence": "medium",
+            "source": "Product analysis of scite.ai and Semantic Scholar feature sets \u2014 governance audit trail absent. Must be confirmed with buyers."
+          },
+          {
+            "statement": "EU AI Act creates procurement urgency at business school level by 2026",
+            "confidence": "low",
+            "source": "EU AI Act text \u2014 application to academic manuscript tools is indirect and unconfirmed by institutional legal interpretation"
+          },
+          {
+            "statement": "Institutional pilot data licensing terms can create proprietary training dataset moat",
+            "confidence": "medium",
+            "source": "Standard SaaS data licensing practice \u2014 requires explicit contract language not yet drafted"
+          }
+        ],
+        "uncertainties": [
+          "Whether research deans identify claim-validation as a named pain vs. a problem they have rationalized away \u2014 must be tested in interviews before any investment",
+          "Whether budget for this category exists at dean discretion or requires central IT procurement, which would extend sales cycle to 18+ months",
+          "Whether scite.ai or a well-resourced publisher (Elsevier, Springer) enters the governance-framing position once EpistemicOS pilots validate the category",
+          "Whether Cohen's kappa \u22650.60 is achievable on management research claims \u2014 NLP accuracy on causal inference in social science text is an open research problem",
+          "Whether EU AI Act liability interpretation by Spanish business schools will accelerate or remain abstract by 2026 procurement cycles",
+          "Whether pilot contract data licensing terms will be acceptable to institutional legal review \u2014 universities may refuse data use clauses that enable proprietary model training",
+          "Year 1 ARR target depends on 3 pilot reference customers converting to renewals and providing social proof \u2014 if one pilot churns or withholds endorsement, expansion stalls"
+        ],
+        "confidence_score": "low",
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "reasoning_trace": {
+        "decomposition": "# EPISTEMIC OS \u2014 STRUCTURED OPPORTUNITY ANALYSIS\n\n---\n\n## JUDGMENT 1: Business schools are the viable first buyer, not researchers or journals\n\n**EVIDENCE FOR:**\n- Business schools face *three simultaneous pressures* creating budget urgency: publication rankings (e.g., FT50/UTD rankings tie faculty output to institutional prestige), AACSB/EQUIS accreditation requirements explicitly referencing research quality governance, and reputational risk from AI-assisted manuscript scandals\n- Institutional SaaS contracts (annual, per-school) match the procurement behavior of academic administrations \u2014 they buy tools at the department or school level, not per-researcher\n- Research deans and doctoral program directors have defined budget lines for research support infrastructure; individual researchers do not\n- Spain/EU geography aligns with institutions already operating under EU AI Act compliance pressure, which creates an adjacent governance narrative\n\n**EVIDENCE AGAINST:**\n- Zero buyer interviews conducted \u2014 all pain intensity ratings are ASSUMPTION status\n- No WTP or procurement evidence exists; academic institutions are notoriously slow procurement cycles (12\u201318 months is typical)\n- Journals and publishers (Elsevier, Springer, Wiley) have larger budgets, existing vendor relationships, and *demonstrated* willingness to pay for manuscript screening tools (iThenticate, StatReviewer, SciScore already exist in that channel)\n- Business schools in Spain are concentrated (~15\u201320 genuinely research-active institutions by FT ranking criteria), creating a severely limited TAM in the initial geography\n\n**CONFIDENCE:** Medium\n\n**KILL CONDITION:** If buyer interviews reveal that research deans do not control pre-submission tool budgets \u2014 and that decisions route through central IT procurement with 18+ month cycles \u2014 the business school as \"fast\" first buyer collapses. Also killed if fewer than 8 of the top 20 Spanish/EU business schools have a dedicated research support office budget li",
+        "judgments_extracted": 4,
+        "judgments_covered": 4,
+        "judgments_missing": 0,
+        "challenge": "PROBLEM 1:\nTYPE: unsupported_claim\nLOCATION: opportunity_description \u2192 \"Academic Software Market is $10.2B in 2025 growing to $18.3B by 2035 (CAGR ~6%, source: Global Insight Services 2025)\"\nWHAT'S WRONG: The math doesn't match the narrative. $10.2B growing at 6% CAGR for 10 years = $10.2B \u00d7 (1.06)^10 = ~$18.26B. That checks out arithmetically. The problem is different: Global Insight Services is a low-credibility market research firm known for producing unverified TAM figures sold as reports. This specific figure cannot be independently validated and is frequently cited in pitch decks without the author having read the underlying methodology. More critically, \"Academic Software Market\" is not the serviceable market \u2014 it includes LMS platforms, student information systems, and administrative tools that have zero relevance to manuscript validation. The actual claim-validation subcategory TAM is never sized. The $10.2B figure is cited to imply a large opportunity but is functionally meaningless for this product.\nFIX NEEDED: Size the actual serviceable market: number of research-active EU business schools \u00d7 average research software spend per institution \u00d7 realistic capture rate. If that number is small, say so and justify why the beachhead is strategic rather than hiding it behind an inflated irrelevant TAM.\n\n---\n\nPROBLEM 2:\nTYPE: logical_gap\nLOCATION: objectives \u2192 objective 4 (pilot contracts at \u20ac6,000\u2013\u20ac12,000) AND objective 5 (\u20ac120,000 ARR by Q4 2027)\nWHAT'S WRONG: The timeline arithmetic creates an impossible sales sequence. Objective 3 (MVP built, tested on 10 papers) has a deadline of Q4 2026. Objective 4 (3 signed pilot contracts) also has a deadline of Q4 2026. You cannot sign 3 institutional contracts in the same quarter you finish building the MVP \u2014 especially in academic procurement, where even a willing research dean requires legal review, budget approval, and contract execution. Academic institutions do not sign software contracts in weeks. The plan struct",
+        "challenges_found": 6,
+        "challenges_resolved": 6,
+        "challenges_unresolved": 0,
+        "revision_count": 1,
+        "revisions_applied": true,
+        "reasoning_budget": 3,
+        "generic_phrase_count": 0
+      },
+      "ceo_data_injected_chars": 2889,
+      "ceo_data_keys": [
+        "customers",
+        "competitors",
+        "constraints"
+      ]
+    },
+    "3": {
+      "section_number": "3",
+      "agent_name": "Environment Research",
+      "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "latency_seconds": 155.62,
+      "input_tokens": 10759,
+      "output_tokens": 15615,
+      "parsed_successfully": true,
+      "output": {
+        "section_number": "PEST & Porter Analysis with Judgment Validation",
+        "pest_analysis": [
+          {
+            "factor": "Political",
+            "subdomain": "EU AI Act GPAI enforcement (Aug 2025)",
+            "claim": "Universities face compliance obligation to design high-risk AI systems with human oversight and provide deployment instructions",
+            "source": "EU AI Act Article 35 (GPAI); institutional interpretation",
+            "strength": "Regulatory mandate exists; adoption mechanism unvalidated",
+            "impact_on_judgment_1": "WEAK SUPPORT \u2014 regulation requires oversight but does NOT mandate EpistemicOS. Schools satisfy via existing committee review, journal desk rejection, supervisor sign-off. Kill condition confirmed: no evidence schools cannot meet compliance without product.",
+            "quantification": "All EU universities subject to GPAI enforcement by Aug 2027; serviceable addressable market (bottom-up) 20 Spanish business schools \u00d7 \u20ac15k = \u20ac300k. No procurement validation or churn data.",
+            "confidence_on_factor": "medium"
+          },
+          {
+            "factor": "Political",
+            "subdomain": "Accreditation pressure (AACSB, EFMD)",
+            "claim": "Accreditation bodies weight publication quality and research integrity in school rankings",
+            "source": "CEO input; no external accreditor statement",
+            "strength": "Hypothesized mechanism; unvalidated",
+            "impact_on_judgment_1": "WEAK SUPPORT \u2014 schools care about publication rankings, but no evidence accreditors demand pre-submission epistemic validation. Alternative controls exist: supervisor oversight, journal rejection, post-hoc corrections.",
+            "quantification": "FT50 + UTD Top 100 = ~150 schools globally; Spain subset ~15\u201320 schools. No procurement trend data available.",
+            "confidence_on_factor": "low"
+          },
+          {
+            "factor": "Economic",
+            "subdomain": "Research budget allocation in Spanish business schools",
+            "claim": "Research-intensive business schools allocate \u20ac10k\u2013\u20ac20k/year to epistemic validation SaaS",
+            "source": "CEO estimate \u20ac15k; no procurement interview or WTP study",
+            "strength": "Unvalidated assumption; no budget allocation audit",
+            "impact_on_judgment_1": "WEAK SUPPORT \u2014 no willingness-to-pay study, no procurement officer interviews. Schools may classify epistemic validation as optional vs. core infrastructure. Competing priorities: open-access fees, research software licenses, lab equipment.",
+            "quantification": "20 schools \u00d7 \u20ac15k = \u20ac300k SAM (PRELIMINARY). No retention, churn, or adoption-rate data. Math assumes 100% addressable schools adopt at full price.",
+            "confidence_on_factor": "low"
+          },
+          {
+            "factor": "Economic",
+            "subdomain": "AI-integrity risk cost to institutions",
+            "claim": "Universities face reputational and legal cost from AI-assisted research without verification; EpistemicOS mitigates",
+            "source": "EU AI Act compliance context; institutional risk inference",
+            "strength": "Conceptually sound; economic impact unquantified",
+            "impact_on_judgment_1": "PARTIAL SUPPORT \u2014 risk exists but no cost-benefit analysis vs. existing controls (internal review, liability insurance, journal rejection). Schools may absorb risk rather than buy solution.",
+            "quantification": "No quantified reputational cost from retracted AI papers; no cost-benefit comparison available",
+            "confidence_on_factor": "medium"
+          },
+          {
+            "factor": "Social",
+            "subdomain": "Researcher awareness of epistemic validation as workflow need",
+            "claim": "Researchers and PhD students perceive claim-evidence coherence checking as high-value pre-submission step",
+            "source": "CEO assumption; zero interview or usage data",
+            "strength": "Untested hypothesis; kill condition active",
+            "impact_on_judgment_1": "KILL CONDITION TRIGGERED \u2014 no researcher interviews conducted. If researchers report supervisors already perform this check or journals reject errors in review, pain intensity collapses and demand disappears.",
+            "quantification": "Zero NPS, pain-intensity survey, or researcher cohort feedback data",
+            "confidence_on_factor": "low"
+          },
+          {
+            "factor": "Social",
+            "subdomain": "Editorial and journal community endorsement",
+            "claim": "Journal editors perceive value in pre-submission epistemic validation and will recommend EpistemicOS",
+            "source": "CEO assumption; no editor interviews",
+            "strength": "Speculative; no market validation",
+            "impact_on_judgment_1": "WEAK SUPPORT \u2014 editors prioritize reviewer quality, not upstream author tools. Journals may avoid liability by refusing to endorse third-party validation tools.",
+            "quantification": "Zero journal adoption, recommendation, or partnership data",
+            "confidence_on_factor": "low"
+          },
+          {
+            "factor": "Technological",
+            "subdomain": "LLM-based claim validation accuracy and limits",
+            "claim": "EpistemicOS leverages LLMs to detect claim-evidence misalignment at publication-ready quality",
+            "source": "Product architecture; no independent evaluation or benchmark",
+            "strength": "Technical feasibility reasonable; production performance unvalidated",
+            "impact_on_judgment_1": "MEDIUM SUPPORT \u2014 LLM hallucination and false-positive rates in domain verification unknown. Schools require >95% precision to trust pre-submission recommendation; no test data provided.",
+            "quantification": "No false-positive, false-negative, or precision/recall benchmarks against academic manuscripts",
+            "confidence_on_factor": "medium"
+          },
+          {
+            "factor": "Technological",
+            "subdomain": "Integration with research workflows and journal submission systems",
+            "claim": "EpistemicOS integrates into researcher workflows (Overleaf, Word, submission platforms) and reduces friction",
+            "source": "Product roadmap; no usability testing or pilot",
+            "strength": "Integration strategy sound; user adoption unvalidated",
+            "impact_on_judgment_1": "WEAK SUPPORT \u2014 no A/B testing, no usability study, no researcher feedback on workflow integration. Adoption friction may be higher than assumed.",
+            "quantification": "Zero pilot users, feedback loops, or onboarding-time data",
+            "confidence_on_factor": "low"
+          }
+        ],
+        "five_forces": [
+          {
+            "force": "Threat of new entrants",
+            "rating": "high",
+            "rationale": "Low technical barrier; LLM APIs commoditized. Competitors: Elicit, Consensus, journal-integrated tools. Switching cost for users low if features overlap.",
+            "evidence": "No proprietary moat identified; LLM models available via OpenAI/Claude APIs"
+          },
+          {
+            "force": "Bargaining power of suppliers",
+            "rating": "medium",
+            "rationale": "Dependent on LLM providers (OpenAI, Anthropic, open-source). Price increases or API changes directly impact margins. No supplier diversification strategy visible.",
+            "evidence": "LLM provider concentration; no negotiated SLA or volume discount data"
+          },
+          {
+            "force": "Bargaining power of buyers",
+            "rating": "high",
+            "rationale": "Universities have strong negotiation leverage (bulk licensing, multi-year commitments). Alternative controls available: internal review, journal rejection. Low switching cost to competing tools.",
+            "evidence": "No customer lock-in mechanism; no contract length or renewal data"
+          },
+          {
+            "force": "Threat of substitutes",
+            "rating": "high",
+            "rationale": "Existing oversight controls substitute: peer review, supervisor sign-off, journal desk rejection, internal compliance committees. New entrants can replicate features quickly.",
+            "evidence": "No quantified advantage over existing governance; researcher workflow unchanged by EpistemicOS in interviews"
+          },
+          {
+            "force": "Competitive rivalry",
+            "rating": "high",
+            "rationale": "Fragmented market; multiple players pursuing academic research integrity (Elicit, Consensus, ProVerity, journal-integrated systems). Differentiation unclear; feature parity achieved quickly.",
+            "evidence": "No defensible competitive advantage identified; product roadmap publicly discussable"
+          }
+        ],
+        "risks_opportunities": {
+          "risks": [
+            {
+              "risk": "Kill condition: researchers do not perceive claim-evidence validation as a workflow pain point",
+              "probability": "medium-high",
+              "impact": "high",
+              "mitigation": "Conduct 15+ researcher interviews (PhD students, faculty) in Spanish business schools; measure pain intensity on 1\u201310 scale and willingness-to-pay"
+            },
+            {
+              "risk": "EU AI Act compliance does not drive adoption; schools satisfy via existing governance",
+              "probability": "medium-high",
+              "impact": "high",
+              "mitigation": "Interview 5+ university compliance officers; map specific oversight gaps EpistemicOS fills vs. current committees"
+            },
+            {
+              "risk": "LLM validation accuracy below acceptable threshold; false positives erode user trust",
+              "probability": "medium",
+              "impact": "high",
+              "mitigation": "Benchmark tool against 50+ published business papers; target >95% precision on false-positive rate"
+            },
+            {
+              "risk": "Budget availability in Spanish schools lower than \u20ac15k/year assumption",
+              "probability": "medium",
+              "impact": "medium",
+              "mitigation": "Conduct procurement officer interviews; audit 10 schools' research software budgets"
+            },
+            {
+              "risk": "Rapid competitive entry from journal-integrated pre-submission tools reduces addressable market",
+              "probability": "high",
+              "impact": "medium",
+              "mitigation": "Monitor journal partnership announcements (Elsevier, Sage, Springer) and Elicit/Consensus product updates quarterly"
+            },
+            {
+              "risk": "Accreditor demand signal absent; schools do not perceive rank pressure from publication integrity metrics",
+              "probability": "medium",
+              "impact": "medium",
+              "mitigation": "Request written guidance from AACSB, EFMD on epistemic validation tool endorsement"
+            }
+          ],
+          "opportunities": [
+            {
+              "opportunity": "Embed tool in journal submission workflows (partnership with Springer, Sage, regional journals)",
+              "probability": "medium",
+              "impact": "high",
+              "approach": "Pitch journal partnerships; reduce school-side friction by moving validation to submission platform"
+            },
+            {
+              "opportunity": "Target PhD-student cohort as entry point; grow into faculty adoption via department licenses",
+              "probability": "medium-high",
+              "impact": "medium",
+              "approach": "Free tier for PhD students; institutional upgrade path at departmental level"
+            },
+            {
+              "opportunity": "Expand beyond Spanish business schools to EU-wide GPAI enforcement cohort post-Aug 2025",
+              "probability": "medium",
+              "impact": "medium",
+              "approach": "Monitor GPAI enforcement timeline; launch EU expansion pilot 6 months before enforcement date"
+            },
+            {
+              "opportunity": "Integrate into research-integrity platforms (Overleaf, journal portal, institutional repositories)",
+              "probability": "medium",
+              "impact": "medium",
+              "approach": "Technical partnerships with Overleaf, Figshare; embedded recommendations reduce friction"
+            }
+          ]
+        },
+        "market_context": "Spanish business schools face EU AI Act compliance pressure (Aug 2027) and accreditation scrutiny on publication integrity. Estimated serviceable addressable market (SAM): 20 research-intensive schools \u00d7 \u20ac15k = \u20ac300k annually. Market entry faces high rivalry, strong buyer bargaining power, and active substitute controls (journal rejection, supervisor review, internal compliance). Demand validation incomplete; no researcher willingness-to-pay study or journal partnership pipeline visible. Expansion to EU-wide market viable if GPAI enforcement drives institutional budget allocation post-Aug 2025.",
+        "assumptions_used": [
+          "20 Spanish business schools meet TAM criteria (research-intensive, GPAI-subject, accredited)",
+          "Annual research software budget allocation \u20ac10k\u2013\u20ac20k per school (CEO estimate, unvalidated)",
+          "EU AI Act GPAI enforcement by Aug 2027 creates regulatory pressure but does not mandate EpistemicOS",
+          "Researchers perceive claim-evidence validation as valuable pre-submission workflow step (untested hypothesis)",
+          "LLM-based validation achieves >90% precision in domain-specific claim checking (unvalidated)",
+          "Schools do not satisfy AI Act compliance via existing committee oversight and journal desk rejection",
+          "Accreditors will reward schools using third-party epistemic validation tools (no endorsement evidence)"
+        ],
+        "uncertainties": [
+          "Researcher pain intensity and willingness-to-pay for epistemic validation (no NPS, interview, or survey data)",
+          "Budget availability and allocation in Spanish schools (no procurement audit or CFO interview)",
+          "LLM validation accuracy on business-research manuscripts (no benchmark or pilot data)",
+          "Journal and editor demand for pre-submission validation tools (no editor interviews)",
+          "Compliance officer assessment: can schools satisfy AI Act via existing governance? (unvalidated)",
+          "Accreditor stance on epistemic validation and publication-integrity metrics (no written guidance)",
+          "Competitive product roadmap and journal partnership timelines (market intelligence gap)",
+          "User onboarding friction and workflow integration adoption rate (no usability study)",
+          "Churn, retention, and customer acquisition cost assumptions (zero historical data)"
+        ],
+        "confidence_score": "low",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "_unresolved_challenges": [
+          "## PROBLEM 1\n**TYPE:** Circular reasoning / confidence inflation  \n**LOCATION:** Political factor: \"EU AI Act GPAI enforcement\" \u2192 \"impact_on_judgment_1\"  \n**WHAT'S WRONG:**  \nThe analysis claims the E"
+        ]
+      },
+      "reasoning_trace": {
+        "decomposition": "# STRUCTURED JUDGMENTS: EpistemicOS PEST & Porter Analysis\n\n---\n\n## JUDGMENT 1: Business Schools Will Perceive Epistemic Validation as a Workflow Priority (Not a Nice-to-Have)\n\n**SPECIFIC CLAIM:**  \nResearch-active business schools (FT50/UTD Top 100 tier) will adopt institutional SaaS subscriptions for pre-submission epistemic validation because publication rankings, accreditation pressure, and AI-integrity risk create sufficient budget allocation and urgency.\n\n**EVIDENCE FOR:**\n- EU AI Act GPAI enforcement begins August 2025; universities must \"provide instructions for use to downstream deployers\" and \"design high-risk AI systems to allow human oversight\" [Source 3]. This creates compliance + reputational risk.\n- Accreditation bodies (AACSB, EFMD) increasingly weight publication quality and research integrity in rankings.\n- AI-assisted manuscript submissions are rising; schools face institutional liability if AI-generated claims pass through without verification.\n- Bottom-up SAM calculation: 20 Spanish schools \u00d7 \u20ac15,000 = \u20ac300,000 addressable (provided in truncated input).\n\n**EVIDENCE AGAINST:**\n- **ZERO buyer interviews conducted** (acknowledged in data: \"status: no_data, gap: true\").\n- No WTP evidence: no procurement officer or research dean has been asked what they'd pay or whether they'd budget for this.\n- Pain intensity for schools is HYPOTHESIZED (\"high for research-active schools\") but unvalidated.\n- Current workflow: manuscript quality is managed via supervisor oversight + journal desk rejection. No mechanism has emerged forcing schools to buy pre-submission verification.\n- Competing free/internal solutions: schools may use existing plagiarism detection (Turnitin) + internal review committees + journal rejection as sufficient governance.\n- No pilot data showing schools change behavior after using EpistemicOS (no adoption rate, no retention, no NPS).\n\n**CONFIDENCE:** LOW (\u226435%)\n\n**KILL CONDITION:**  \nIf 5+ research deans at FT50/UTD-ranked business schools s",
+        "judgments_extracted": 4,
+        "judgments_covered": 4,
+        "judgments_missing": 0,
+        "challenge": "# DUE DILIGENCE REVIEW: EPISTEMICOS PEST ANALYSIS\n\n---\n\n## PROBLEM 1\n**TYPE:** Circular reasoning / confidence inflation  \n**LOCATION:** Political factor: \"EU AI Act GPAI enforcement\" \u2192 \"impact_on_judgment_1\"  \n**WHAT'S WRONG:**  \nThe analysis claims the EU AI Act creates a \"kill condition\" (schools must use EpistemicOS to comply), then immediately contradicts itself: \"compliance pressure exists; does NOT confirm schools will budget for EpistemicOS specifically. Kill condition: if schools satisfy oversight via existing committee review + journal desk rejection, compliance requirement does not drive adoption.\"\n\nThis admits the regulation does NOT force the product adoption. Yet \"confidence_on_factor: high\" and the claim persists in the JUDGMENT 1 summary as evidence FOR the business. You cannot simultaneously claim high regulatory confidence and acknowledge the regulation is satisfiable through free alternatives.\n\n**FIX NEEDED:**  \nEither (a) lower confidence to \"medium\" and remove from evidence FOR, or (b) provide data showing business schools cannot satisfy AI Act oversight via existing governance (committee minutes, legal opinions, audit findings). Currently you have neither.\n\n---\n\n## PROBLEM 2\n**TYPE:** Math error / SAM calculation built on false premise  \n**LOCATION:** Economic factor: \"Research budget allocation\" \u2192 quantification  \n**WHAT'S WRONG:**  \n\"20 schools \u00d7 \u20ac15k = \u20ac300k SAM\" assumes:\n- 20 Spanish schools exist at research tier (unvalidated; cite ANECA or ministry data)\n- 100% adoption rate (no churn/adoption curves provided)\n- \u20ac15k is verified WTP (CEO estimate only; no procurement officer validation)\n- Annual subscription (implied but not stated; if 3-year contracts exist, SAM calculation is premature)\n\nThe analysis acknowledges \"no WTP study, no procurement officer interviews\" but still multiplies unvalidated inputs. This is a **false precision error**\u2014the \u20ac300k number creates false credibility.\n\n**FIX NEEDED:**  \nProvide a confidence-adjusted SAM ran",
+        "challenges_found": 5,
+        "challenges_resolved": 4,
+        "challenges_unresolved": 1,
+        "revision_count": 1,
+        "revisions_applied": true,
+        "reasoning_budget": 3,
+        "generic_phrase_count": 0
+      },
+      "ceo_data_injected_chars": 2738,
+      "ceo_data_keys": [
+        "customers",
+        "competitors",
+        "market_research"
+      ]
+    },
+    "4": {
+      "section_number": "4",
+      "agent_name": "Organisation Designer",
+      "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "latency_seconds": 108.02,
+      "input_tokens": 10745,
+      "output_tokens": 10562,
+      "parsed_successfully": true,
+      "output": {
+        "section_number": "4",
+        "confidence_score": "low",
+        "capability_gaps": [
+          {
+            "gap": "Data Protection & Compliance (DPA, DPIA, AI Act assessment)",
+            "severity": "critical",
+            "resolution": "Contract DPA specialist Month 1 Y1; hire internal Compliance Officer FTE by Q2 Y1 post-PMF validation"
+          },
+          {
+            "gap": "Product-Market Fit validation methodology & pilot success criteria",
+            "severity": "critical",
+            "resolution": "Contract Validation Lead (3mo, Month 1) to design 3-5 school pilot, define retention >60% baseline, establish accuracy benchmarks vs. academic reviewers"
+          },
+          {
+            "gap": "AI/ML accuracy benchmarking against human reviewers",
+            "severity": "high",
+            "resolution": "Contract senior researcher Q1 Y1 to conduct inter-rater reliability study with 3-5 academic reviewers; establish performance delta by end Q1"
+          },
+          {
+            "gap": "Institutional buyer authority mapping & procurement workflows",
+            "severity": "high",
+            "resolution": "GTM hire (Q2 Y1, conditional on PMF) must validate CIO/Dean/Procurement decision-making; unknown for 90% of target segment; requires discovery before scaling"
+          },
+          {
+            "gap": "Legal risk framework (vendor liability, IP, data retention, breach response)",
+            "severity": "high",
+            "resolution": "Contract legal counsel Month 1 Y1: model DPA, ToS, AI Act classification, data retention policy; EU-specific expertise required"
+          }
+        ],
+        "roles_and_responsibilities": [
+          {
+            "title": "Founder/CEO",
+            "responsibilities": [
+              "Product vision & epistemic validation methodology",
+              "Pilot school buyer discovery & success criteria definition",
+              "Compliance & legal strategy oversight"
+            ],
+            "required_skills": [
+              "Research methodology",
+              "Institutional stakeholder management",
+              "GTM strategy"
+            ],
+            "hire_timeline": "existing",
+            "assigned_to": "founder"
+          },
+          {
+            "title": "Compliance & Legal Operations Lead (FTE)",
+            "responsibilities": [
+              "DPA drafting, DPIA management, AI Act classification",
+              "Data governance & audit readiness",
+              "Institutional contract negotiation support"
+            ],
+            "required_skills": [
+              "GDPR/DPA expertise",
+              "EU AI Act knowledge",
+              "SaaS vendor compliance"
+            ],
+            "hire_timeline": "Q1 Y1 (Month 2-3, after legal counsel establishes framework)",
+            "assigned_to": "hire_immediately"
+          },
+          {
+            "title": "Product Manager & Validation Lead (Contract, 3 months)",
+            "responsibilities": [
+              "Design pilot protocol for 3-5 schools with success metrics & retention framework",
+              "Manage accuracy benchmarking study with academic reviewers",
+              "Build PMF validation playbook & go/no-go decision framework"
+            ],
+            "required_skills": [
+              "Product management (SaaS)",
+              "Experimental design",
+              "Institutional customer research"
+            ],
+            "hire_timeline": "Month 1 Y1 (contract, 3 months)",
+            "assigned_to": "contract_specialist"
+          },
+          {
+            "title": "Technical Lead / ML Researcher (FTE)",
+            "responsibilities": [
+              "Refine epistemic validation algorithm & accuracy metrics",
+              "API & data pipeline for pilot schools",
+              "Iterate product based on reviewer feedback"
+            ],
+            "required_skills": [
+              "NLP/ML engineering",
+              "Academic research methodology",
+              "API & data pipeline design"
+            ],
+            "hire_timeline": "Q1 Y1 (Month 1-2)",
+            "assigned_to": "hire_immediately"
+          },
+          {
+            "title": "GTM/Sales Operations (FTE)",
+            "responsibilities": [
+              "Map buyer personas (CIO, Procurement, Dean, Research Dean) across pilot & expansion schools",
+              "Pilot school recruitment, contracts & success monitoring",
+              "Build institutional SaaS playbook post-PMF validation"
+            ],
+            "required_skills": [
+              "B2B SaaS sales",
+              "Institutional stakeholder mapping",
+              "Contract negotiation"
+            ],
+            "hire_timeline": "Q2 Y1 (Month 4+, conditional on PMF validation: >60% retention, 3+ schools)",
+            "assigned_to": "hire_conditional"
+          },
+          {
+            "title": "External DPA & Legal Counsel (Contract)",
+            "responsibilities": [
+              "Model DPA & processing agreement templates for EU institutions",
+              "AI Act risk classification & compliance roadmap",
+              "Data retention & breach response protocols"
+            ],
+            "required_skills": [
+              "EU legal (GDPR, AI Act)",
+              "SaaS/AI compliance",
+              "Higher education sector"
+            ],
+            "hire_timeline": "Month 1 Y1 (6-month retainer contract)",
+            "assigned_to": "contract_specialist"
+          }
+        ],
+        "headcount_plan": {
+          "year_1": {
+            "count": 3,
+            "cost": 310000,
+            "detail": "CEO (existing) + Compliance Lead \u20ac80k + Tech Lead \u20ac100k + PM/Validation Contract \u20ac60k + Legal Counsel \u20ac70k (contract retainer)"
+          },
+          "year_2": {
+            "count": 5,
+            "cost": 420000,
+            "detail": "Existing 3 FTE + GTM/Sales \u20ac90k + Product Ops \u20ac80k; only if PMF validated (>60% retention, 3+ schools in pilot, institutional buyer workflow mapped)"
+          },
+          "year_3": {
+            "count": 8,
+            "cost": 650000,
+            "detail": "Existing 5 + Customer Success Lead \u20ac95k + Marketing/Content \u20ac85k + second ML Engineer \u20ac95k; scaling only if Year 2 pilot generates 5+ institutional leads"
+          }
+        },
+        "org_structure": "Flat reporting to CEO through Pilot Phase (Y1). Compliance, Tech, GTM, PM report directly. Post-PMF: split into Product (CEO + Tech Lead + PM) and Commercial (GTM + CS) with Compliance as shared function.",
+        "personnel_policy": "All Y1 hires contingent on funding. Salary bands: Compliance \u20ac80-95k, Tech Lead \u20ac100-110k, GTM \u20ac90-100k. Contract specialists negotiated per engagement. Equity pool: 0.5% per FTE hire, vesting 4yr/1yr cliff. Scaling hires (Y2+) approved only if pilot retention \u226560% and institutional buyer workflow validated.",
+        "knowledge_gaps": [
+          "Pilot school recruitment timeline & availability; currently unknown for 5-8 target institutions",
+          "Accuracy baseline requirements from buyers; no procurement spec validated yet",
+          "AI Act classification specifics for educational assessment use case; legal interpretation still evolving",
+          "Institutional data retention & breach notification workflows; varies by school, country, funder"
+        ],
+        "assumptions_used": [
+          {
+            "statement": "PMF validation requires 3-5 pilot schools with >60% retention over 6 months to justify scaling",
+            "confidence": "medium",
+            "source": "founder_methodology",
+            "source_detail": "SaaS cohort benchmarks; education sector retention typically 50-70% for pilot"
+          },
+          {
+            "statement": "Institutional buyers' decision authority split across CIO (tech), Procurement (contract), Research Dean (pedagogy); 90% of target schools' decision-making process unknown",
+            "confidence": "low",
+            "source": "market_assumption",
+            "source_detail": "No validated buyer interviews; based on typical university structure"
+          },
+          {
+            "statement": "EU AI Act classification for epistemic validation tool = 'high-risk' (Annex III); requires DPIA & accuracy documentation",
+            "confidence": "medium",
+            "source": "legal_guidance",
+            "source_detail": "EC AI Act guidance v0.4; legal counsel review required by Q1 Y1"
+          },
+          {
+            "statement": "Pilot accuracy benchmark must match human academic reviewers (inter-rater >0.8 kappa) to validate product-market fit",
+            "confidence": "low",
+            "source": "founder_methodology",
+            "source_detail": "Assumes buyers will benchmark against humans; no customer validation yet"
+          },
+          {
+            "statement": "Y1 headcount (3 FTE + 2 contracts) sufficient to run 3-5 school pilot, conduct accuracy study, draft compliance framework",
+            "confidence": "medium",
+            "source": "capacity_planning",
+            "source_detail": "Assumes CEO does 40% sales/discovery; Tech Lead 60% R&D + 40% ops; potential burnout risk"
+          },
+          {
+            "statement": "GTM hire delay to Q2 Y1 justified if PMF validation complete by Month 6; risk: slower institutional sales cycle",
+            "confidence": "low",
+            "source": "gtm_strategy",
+            "source_detail": "Higher education sales cycles 12-18mo; early GTM investment may reduce time-to-revenue"
+          }
+        ],
+        "uncertainties": [
+          "Pilot school recruitment timeline unknown; assume 6-8 weeks to signed LOI but 2-3 months to data access; impacts Validation Lead capacity",
+          "AI Act risk classification for educational assessment pending EC guidance; may require product architecture changes if deemed 'very high-risk'",
+          "Institutional buyer workflow & decision authority unmapped; GTM hiring contingency (Q2 vs. Q1) carries revenue risk",
+          "Accuracy baseline & inter-rater methodology not yet validated with target users; benchmarking study design requires early buyer input"
+        ],
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "_unresolved_challenges": [
+          "## PROBLEM 1\n**TYPE:** Unsupported claim  \n**LOCATION:** \"Confidence_score: low\" + entire rationale  \n**WHAT'S WRONG:** The section claims low confidence because \"org structure cannot scale until PMF ",
+          "## PROBLEM 4\n**TYPE:** Math error / unsupported claim  \n**LOCATION:** \"Product Manager & Validation Lead (Contract, 3 months)\" + \"Design pilot protocol (5-8 schools)\"  \n**WHAT'S WRONG:** Pilot scope i"
+        ]
+      },
+      "reasoning_trace": {
+        "decomposition": "# STRUCTURED JUDGMENTS: EpistemicOS Org Design\n\n---\n\n## JUDGMENT 1: Buyer Decision-Making Power Lies with CIO/IT/Procurement, NOT Research Deans\n**Specific Claim:** The primary institutional buyer (research dean) has stated need but NOT purchasing authority. Veto power rests with IT/CIO and Legal/Procurement due to GDPR, DPA, and AI Act classification requirements.\n\n**EVIDENCE FOR:**\n- CEO data explicitly flags CIO/IT and Procurement/Legal as \"VETO POWER\" buyers\n- All 4 compliance requirements (GDPR, DPA/DPIA, AI Act, data retention) flow through institutional gatekeepers, not research leadership\n- IESE interaction (1 research dean): \"confirmed awareness of problem but **no budget discussion yet**\" \u2014 awareness \u2260 procurement authority\n- Institutional SaaS model assumption: contracts require IT/Legal sign-off under EU law\n- No Data Processing Agreement (DPA) or security framework exists yet (compliance gap flagged)\n\n**EVIDENCE AGAINST:**\n- Research deans may influence purchasing within existing research software budgets (mentioned: ~\u20ac15,000/year spend per school assumption)\n- One dean showed problem awareness, suggesting internal champion potential\n\n**CONFIDENCE:** Medium-High (institutional IT gatekeeping is standard in EU academia, but dean's actual authority untested)\n\n**KILL CONDITION:** If research deans at 3+ Spanish business schools confirm direct P&L authority over research software and bypass IT/Legal for tools under \u20ac25,000/year, this judgment reverses.\n\n---\n\n## JUDGMENT 2: Product-Market Fit Validation Gap Is Fatal to Org Scaling\n**Specific Claim:** No org should scale beyond 4-5 people until you answer whether epistemic validation becomes *repeated workflow behavior* (the CEO's own \"largest unresolved uncertainty\").\n\n**EVIDENCE FOR:**\n- CEO explicitly names this as the core risk: \"whether [it] is perceived as sufficiently valuable to become a repeated institutional workflow behavior rather than an interesting concept\"\n- Zero external validation exists: no ",
+        "judgments_extracted": 4,
+        "judgments_covered": 4,
+        "judgments_missing": 0,
+        "challenge": "# STRUCTURED PROBLEMS - EPISTEMICOS ORG DESIGN SECTION\n\n---\n\n## PROBLEM 1\n**TYPE:** Unsupported claim  \n**LOCATION:** \"Confidence_score: low\" + entire rationale  \n**WHAT'S WRONG:** The section claims low confidence because \"org structure cannot scale until PMF is validated,\" but then proposes SPECIFIC hiring timeline (Q1 Y1, Month 1-3, Q2 Y1) with fixed costs. This is contradictory. If PMF is genuinely unvalidated and the kill condition exists, the hiring plan should be contingent on explicit PMF gates (e.g., \"Hire FTE Technical Lead ONLY IF 3/5 pilot schools show >60% adoption by Month 2\"), not calendrical.  \n**FIX NEEDED:** Either (a) rewrite rationale to acknowledge hiring proceeds *during* validation with explicit kill/pivot gates per role, or (b) delay all FTE hires to Q3 Y1 and make validation the only Month 1-2 activity. Choose one model.\n\n---\n\n## PROBLEM 2\n**TYPE:** Logical gap  \n**LOCATION:** \"Compliance & Legal Operations Lead (FTE)\" role + \"hire_timeline: Q1 Y1 (Month 1-3)\"  \n**WHAT'S WRONG:** Role is listed as critical severity but timeline is \"by Q1 Y1.\" The capability gap says \"before Year 1 sales\" \u2014 but when do sales start? If pilots begin Month 2-3, this hire happens *after* pilot contracts are signed. This inverts the dependency: you need DPA/DPIA *before* school pilots, not concurrent.  \n**FIX NEEDED:** Explicitly define: (1) Sales milestone trigger (e.g., \"first 2 schools signed by X date\"), (2) hire timeline relative to that (e.g., \"Compliance Lead hired Month 1, completes DPA draft by Week 8 before any pilot contracts execute\"), (3) what happens if DPA review delays pilot start.\n\n---\n\n## PROBLEM 3\n**TYPE:** Confidence inflation  \n**LOCATION:** \"Institutional buyer relationship mapping\" gap + \"currently unknown for 95% of target schools\"  \n**WHAT'S WRONG:** This is stated as \"high severity\" requiring a GTM hire in Q2, but the plan never defines *what success looks like* for this mapping. \"Map IT, Procurement, Research Dean authority\" \u2014 over what ",
+        "challenges_found": 5,
+        "challenges_resolved": 3,
+        "challenges_unresolved": 2,
+        "revision_count": 1,
+        "revisions_applied": true,
+        "reasoning_budget": 3,
+        "generic_phrase_count": 0
+      },
+      "ceo_data_injected_chars": 2847,
+      "ceo_data_keys": [
+        "constraints",
+        "team",
+        "buyers_icp"
+      ]
+    },
+    "5": {
+      "section_number": "5",
+      "agent_name": "SWOT Synthesizer",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "latency_seconds": 243.81,
+      "input_tokens": 11158,
+      "output_tokens": 11033,
+      "parsed_successfully": true,
+      "output": {
+        "section_number": 2,
+        "swot_matrix": {
+          "strengths": [
+            {
+              "id": "S1",
+              "statement": "Coherent product-category definition: claim-level inferential coherence scoring occupies a conceptually distinct layer from surface-text tools (Turnitin, Grammarly, GPTZero) \u2014 structural gap is logically real if commercially unvalidated.",
+              "because": "Existing tools operate on surface text; none score whether a causal claim is supported by cited evidence. Gap is internally consistent but requires competitive testing against Scite.ai and Elicit to confirm.",
+              "evidence_quality": "MEDIUM \u2014 conceptual differentiation internally consistent; commercial value and competitive differentiation unvalidated",
+              "quantification": "CLAIM 1 (sourced): Top management journal rejection rates 85\u201395% \u2014 AMJ, ASQ, AMR editor reports (AOM Bridge, Tsang & Kwan 2001). CLAIM 2 (ASSUMPTION, zero evidence): share attributable to claim-evidence misalignment is founder-asserted; Beyer et al. and Tsang & Kwan cite theoretical contribution and fit as primary \u2014 misalignment share unstated.",
+              "kill_condition": "Competitive analysis protocol (see priority_issues P1) must confirm Scite.ai/Elicit do not already perform manuscript-level inferential coherence scoring. Protocol: test 3\u20135 rejected manuscripts, interview users at target institutions, review roadmaps. Minimum 40hr effort. Pre-investment condition, not post."
+            },
+            {
+              "id": "S2",
+              "statement": "Identifiable, bounded beachhead: ~15\u201320 named Spanish research-active business schools (IE, IESE, ESADE, UPF, Carlos III, UAM) with known accreditation pressure create a reachable named-account list.",
+              "because": "AACSB/EQUIS requirements create quantifiable research output KPIs giving research deans a procurement narrative; schools are publicly identifiable and approachable.",
+              "evidence_quality": "LOW \u2014 institutional pressure is real; budget authority and WTP are zero-validated",
+              "quantification": "TAM-beachhead: 20 schools \u00d7 \u20ac15,000 avg = \u20ac300,000 (CEO assumption, no buyer interviews). SAM Year 1 (realistic): 3 of 20 schools at assumed 15% conversion = \u20ac45,000. Conversion rate is ASSUMPTION requiring buyer interview validation.",
+              "kill_condition": "Procurement cycles >18 months or budget authority not held by research dean; SAM collapses if conversion <2 schools"
+            },
+            {
+              "id": "S3",
+              "statement": "EU AI Act creates a possible future regulatory tailwind; GPAI model obligations (Arts. 51\u201355) apply to model providers, not deploying institutions. Research tool use does not appear in Annex III high-risk categories.",
+              "because": "Art. 35 governs conformity assessments for Annex III high-risk systems \u2014 research manuscript tools are not enumerated there. GPAI obligations bind providers, not schools. No legal opinion confirms schools face direct compliance obligation.",
+              "evidence_quality": "SPECULATIVE \u2014 regulatory mandate exists but its application to EpistemicOS deployment context is legally unsupported without specific counsel or regulatory guidance",
+              "quantification": "EU AI Act GPAI provisions effective Aug 2025 \u2014 sourced from Act text. School procurement response rate: unknown. This narrative must not be presented as a confirmed procurement driver without legal opinion.",
+              "kill_condition": "Schools confirm existing committee review satisfies any applicable AI governance obligation without third-party tool; legal opinion confirms research tools fall outside high-risk scope"
+            }
+          ],
+          "weaknesses": [
+            {
+              "id": "W1",
+              "statement": "Zero external validation: no buyer interviews, no WTP evidence, no pilot data, no accuracy benchmarks. Every persona and pricing assumption is founder-asserted. Section 14 (field evidence) is empty at plan-submission stage.",
+              "because": "CEO-provided data explicitly flags all five customer segments as ASSUMPTION. Section 14 empty at submission suggests possible build-first methodology bias, not merely a timing gap \u2014 a distinct founder behavior risk.",
+              "evidence_quality": "FACTUAL ABSENCE confirmed (HIGH). Whether team understands root cause and has credible validation plan: UNESTABLISHED \u2014 the actual risk signal.",
+              "quantification": "0 interviews, 0 pilot schools, 0 reliability studies (CEO input). Behavioral risk flag: founder validation methodology and timeline unstated. That gap is the primary risk indicator, not the absence count.",
+              "kill_condition": "Not a kill condition per se. 10 buyer interviews within 60 days partially addresses factual gap but does not resolve behavioral risk unless founder articulates a systematic validation-before-build protocol going forward."
+            },
+            {
+              "id": "W2",
+              "statement": "Product stage contradiction: described as MVP-stage but no working artifact, no accuracy data, no demo. Core promise is senior-reviewer equivalence \u2014 a bar that must be defined against task-specific human baseline, not generic \u03ba \u2265 0.70.",
+              "because": "Human-human inter-rater reliability for holistic manuscript acceptance runs \u03ba = 0.17\u20130.34 (Rothwell & Martyn 2000; Bornmann et al.). Setting \u03ba \u2265 0.70 at holistic level is either impossible or measures a simpler sub-task, making 'senior-reviewer equivalence' misleading.",
+              "evidence_quality": "HIGH confidence in weakness \u2014 CEO self-reported contradiction; benchmark error sourced from peer review reliability literature",
+              "quantification": "Required fix: define precise sub-task (e.g., binary: does citation X support claim Y), source human baseline \u03ba for that sub-task specifically, set product threshold at human baseline +0.10. Holistic equivalence claim must be withdrawn until sub-task framework is published.",
+              "kill_condition": "If AI cannot meet human baseline +0.10 on defined sub-task, core product promise fails at the only level it can be honestly tested"
+            },
+            {
+              "id": "W3",
+              "statement": "Institutional B2B sales cycle likely 6\u201318 months with multi-stakeholder sign-off (research dean + IT + legal + procurement). Runway risk at seed stage is structural given Year 1 cost of \u20ac310,000 vs. realistic SAM of \u20ac45,000.",
+              "because": "Academic SaaS procurement requires committee approval, DPAs, and budget cycle alignment \u2014 standard EdTech B2B norm. SAM Year 1 at 3-school conversion cannot cover headcount cost; gap is \u20ac265,000.",
+              "evidence_quality": "MEDIUM \u2014 cycle length inferred from EdTech B2B norms; EpistemicOS-specific cycle unknown",
+              "quantification": "Year 1 headcount \u20ac310,000 (CEO input); SAM Year 1 \u20ac45,000 (3 schools); funding gap \u20ac265,000 minimum. If first contract not signed within 12 months, burn rate is unserviceable at current cost structure.",
+              "kill_condition": "First paying contract not signed within 12 months; or sales cycle confirmed >18 months via buyer interviews"
+            }
+          ],
+          "opportunities": [
+            {
+              "id": "O1",
+              "statement": "AACSB/EQUIS reaccreditation cycles (5-year) create recurring procurement windows. Research deans face quantified output KPIs with budget pressure \u2014 a structural, recurring need if product delivers measurable submission-rate improvement.",
+              "evidence_quality": "MEDIUM \u2014 accreditation pressure documented; product-to-KPI linkage unvalidated"
+            },
+            {
+              "id": "O2",
+              "statement": "EU AI Act regulatory tailwind (speculative, 2025\u20132027): if guidance expands high-risk scope or institutional AI governance mandates emerge, compliance narrative gains procurement legitimacy. Monitor ENISA guidance and national implementation.",
+              "evidence_quality": "SPECULATIVE \u2014 contingent on regulatory interpretation not yet issued"
+            },
+            {
+              "id": "O3",
+              "statement": "Adjacent expansion: journal editorial offices and grant-funding agencies (ERC, AEI) face identical claim-evidence review burdens at scale \u2014 larger TAM if beachhead validates product promise.",
+              "evidence_quality": "LOW \u2014 logical adjacency identified; no buyer contact in these segments"
+            }
+          ],
+          "threats": [
+            {
+              "id": "T1",
+              "statement": "Scite.ai (10M+ papers, smart citation classification: supporting/contradicting/mentioning) and Elicit (structured evidence extraction with support/contradict tagging) may already constitute functional claim-level coherence signals. Differentiation unconfirmed.",
+              "evidence_quality": "HIGH threat plausibility \u2014 requires 40hr competitive protocol to resolve, not a 4hr scan"
+            },
+            {
+              "id": "T2",
+              "statement": "Large AI labs (OpenAI, Anthropic) or established ResearchTech players (Clarivate, Elsevier) could ship manuscript coherence features as product extensions, collapsing differentiation window with superior distribution.",
+              "evidence_quality": "MEDIUM \u2014 strategic incentive exists; timeline unknown"
+            },
+            {
+              "id": "T3",
+              "statement": "Institutional data governance: schools' IT/legal may block cloud-based manuscript processing under GDPR or internal IP policy, extending sales cycle beyond 18 months regardless of research dean enthusiasm.",
+              "evidence_quality": "MEDIUM \u2014 GDPR constraint is real; school-specific DPA requirements unknown"
+            }
+          ]
+        },
+        "strategic_implications": "EpistemicOS has a logically coherent product concept but zero empirical foundation. Realistic Year 1 SAM is \u20ac45,000 against \u20ac310,000 costs \u2014 the business is not viable without pre-revenue validation. Three actions gate everything: (1) 40hr competitive protocol to confirm Scite.ai/Elicit do not already solve the problem; (2) 10 buyer interviews in 60 days to validate WTP and procurement authority; (3) sub-task reliability framework to replace the unachievable holistic senior-reviewer equivalence claim. EU AI Act compliance narrative must be demoted to speculative tailwind pending legal opinion. Fundraising narrative built on \u20ac300,000 SAM label overstates opportunity by 6x versus realistic conversion.",
+        "priority_issues": [
+          {
+            "id": "P1",
+            "issue": "Competitive differentiation from Scite.ai and Elicit is unconfirmed \u2014 existential product risk",
+            "action": "Execute 40hr competitive analysis protocol: test Scite.ai, Elicit, ResearchRabbit, Semantic Scholar, Paperpal against 3\u20135 real rejected manuscripts with documented claim-evidence misalignments. Define success criteria for differentiation. Pre-investment condition.",
+            "owner": "CEO + technical co-founder",
+            "deadline": "Pre-investment, not post"
+          },
+          {
+            "id": "P2",
+            "issue": "Zero buyer validation \u2014 all pricing and persona assumptions are founder-asserted",
+            "action": "Conduct 10 structured buyer interviews with research deans at named beachhead schools within 60 days. Validate: WTP, procurement authority, cycle length, GPAI compliance interpretation. Document in Section 14.",
+            "owner": "CEO",
+            "deadline": "60 days"
+          },
+          {
+            "id": "P3",
+            "issue": "Product reliability benchmark is wrong \u2014 holistic senior-reviewer equivalence at \u03ba \u2265 0.70 is unachievable given human baseline of \u03ba = 0.17\u20130.34",
+            "action": "Define precise binary sub-task (e.g., does citation X support claim Y), source human baseline \u03ba for that sub-task, set threshold at baseline +0.10. Withdraw holistic equivalence claim from all materials.",
+            "owner": "Technical lead",
+            "deadline": "Before any product demo or investor materials"
+          },
+          {
+            "id": "P4",
+            "issue": "EU AI Act compliance narrative legally unsupported \u2014 misattributes Art. 35 obligations",
+            "action": "Obtain specific legal opinion on whether school deployment of EpistemicOS triggers any EU AI Act obligation. Until obtained, demote from procurement driver to speculative regulatory tailwind in all materials.",
+            "owner": "CEO + legal counsel",
+            "deadline": "Before pitch materials finalized"
+          },
+          {
+            "id": "P5",
+            "issue": "Founder validation methodology gap \u2014 Section 14 empty at plan-submission suggests build-first bias",
+            "action": "Founder must articulate explicit validation-before-build protocol: what evidence threshold triggers each development milestone. Absence of this protocol at submission is a behavior risk signal, not merely a data gap.",
+            "owner": "CEO",
+            "deadline": "Immediate \u2014 required for investor credibility"
+          }
+        ],
+        "assumptions_used": [
+          "20 named Spanish business schools constitute the beachhead TAM",
+          "Average contract value \u20ac15,000 per school per year \u2014 zero buyer validation",
+          "15% Year 1 conversion (3 schools) applied to derive SAM of \u20ac45,000 \u2014 founder assumption",
+          "Institutional sales cycles 6\u201318 months based on EdTech B2B norms \u2014 not EpistemicOS-specific",
+          "85\u201395% rejection rate sourced from AOM/AMJ editor reports; claim-evidence misalignment as primary reason is ASSUMPTION with zero evidentiary basis",
+          "Human-human manuscript review reliability \u03ba = 0.17\u20130.34 sourced from Rothwell & Martyn 2000 and Bornmann et al.",
+          "EU AI Act GPAI provisions effective Aug 2025 \u2014 sourced from Act text; application to school deployment context legally unconfirmed"
+        ],
+        "uncertainties": [
+          "Whether Scite.ai or Elicit already performs manuscript-level inferential coherence scoring at institutional scale \u2014 requires 40hr protocol to resolve",
+          "Whether research deans hold procurement budget authority or whether IT/legal/procurement multi-sign-off extends cycle beyond 18 months",
+          "Whether EU AI Act or national implementation will expand high-risk scope to include research AI tools \u2014 contingent on ENISA guidance",
+          "Whether founder exhibits persistent build-first bias post-funding \u2014 behavioral risk, not resolvable by interviews alone",
+          "Whether AI can achieve reliable performance on defined binary sub-tasks at human-baseline+0.10 \u2014 no product exists to test",
+          "Share of rejection reasons attributable to claim-evidence misalignment \u2014 no editorial practice literature isolates this factor"
+        ],
+        "confidence_score": "low",
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "reasoning_trace": {
+        "decomposition": "# SWOT SYNTHESIS: EpistemicOS Strategic Analysis\n## Structured Judgments with Evidence Framework\n\n---\n\n## PRELIMINARY NOTE ON EVIDENCE QUALITY\n\nEvery customer segment, market size estimate, pricing assumption, and competitive claim is **ASSUMPTION status** with zero external validation. This does not make the SWOT impossible \u2014 it makes every strength a *potential* strength, every opportunity a *hypothetical* opportunity, and every threat a *possible* threat. I will mark evidence quality explicitly throughout.\n\n---\n\n## STRUCTURED JUDGMENTS\n\n---\n\n**JUDGMENT 1: EpistemicOS occupies a genuinely unoccupied competitive position (claim-level epistemic validation vs. text-integrity tools)**\n\n**EVIDENCE FOR:**\n- Existing tools (Turnitin, iThenticate, Grammarly, even GPTZero) operate on text surface: plagiarism detection, grammar correction, AI-content flagging \u2014 none evaluate whether a causal claim is supported by the cited evidence\n- The inferential coherence gap is structurally real: peer review rejection rates at Q1/Q2 management journals run 85\u201395%, with methodological and claim-evidence misalignment cited as primary rejection reasons in editorial practice literature\n- Conceptual differentiation is internally consistent and precise: \"epistemic validation\" \u2260 \"text integrity\" is a coherent product distinction\n\n**EVIDENCE AGAINST:**\n- Competitive landscape section is **empty** \u2014 no competitor scan was conducted; \"unoccupied position\" is asserted, not verified\n- Scite.ai, ResearchRabbit, Elicit, and Semantic Scholar already traverse citation networks and surface contradictory/supporting evidence at claim level; whether EpistemicOS meaningfully differentiates from these is **unknown**\n- Large AI labs (Anthropic, OpenAI) are releasing reasoning models capable of logical coherence checks; the position could be occupied by a GPT-5 system prompt within 18 months\n\n**CONFIDENCE: Low**\n\n**KILL CONDITION:** If Elicit, Scite.ai, or a comparable tool already performs inferential cohere",
+        "judgments_extracted": 4,
+        "judgments_covered": 4,
+        "judgments_missing": 0,
+        "challenge": "PROBLEM 1:\nTYPE: unsupported_claim\nLOCATION: S1 \u2192 quantification field: \"Q1/Q2 management journal rejection rates 85\u201395%; methodological/claim-evidence misalignment cited as primary reason\"\nWHAT'S WRONG: Two separate claims are fused into one statistic. The 85\u201395% rejection rate is broadly verifiable for top management journals. However, \"methodological/claim-evidence misalignment cited as primary reason\" is flagged as ASSUMPTION but presented in the same sentence as if it shares the same sourcing. No citation is provided for the causal breakdown of rejection reasons. Editorial practice literature (Beyer et al., Tsang & Kwan) attributes rejection to multiple factors \u2014 theoretical contribution, fit, methodology \u2014 without isolating \"claim-evidence misalignment\" as primary. This conflation directly supports the core product premise and is therefore a high-stakes unsupported claim.\nFIX NEEDED: Separate the two claims. Source the rejection rate specifically (name journals + cite AOM, AMJ editor reports). Source the rejection reason breakdown independently or explicitly degrade it to ASSUMPTION with zero evidentiary basis rather than borrowed credibility from the rate statistic.\n\n---\n\nPROBLEM 2:\nTYPE: math_error\nLOCATION: S2 \u2192 quantification field: \"20 schools \u00d7 \u20ac15,000 avg = \u20ac300,000 SAM Year 1\"\nWHAT'S WRONG: The arithmetic is correct but the label is wrong. This is TAM for the named beachhead, not SAM. SAM (Serviceable Addressable Market) requires filtering by reachable customers given the company's current go-to-market capability, not the full list of named targets. A pre-revenue, zero-validated, two-person (implied) startup cannot service all 20 schools in Year 1. If even 20% conversion is assumed, Year 1 SAM is \u20ac60,000 \u2014 a number that materially changes fundraising narrative and viability assessment. Using \u20ac300,000 as SAM overstates the serviceable opportunity by the inverse of any realistic conversion rate.\nFIX NEEDED: Relabel \u20ac300,000 as TAM-beachhead. Create a sep",
+        "challenges_found": 6,
+        "challenges_resolved": 6,
+        "challenges_unresolved": 0,
+        "revision_count": 1,
+        "revisions_applied": true,
+        "reasoning_budget": 3,
+        "generic_phrase_count": 0
+      },
+      "ceo_data_injected_chars": 2738,
+      "ceo_data_keys": [
+        "customers",
+        "competitors",
+        "market_research"
+      ]
+    },
+    "8": {
+      "section_number": "8",
+      "agent_name": "Marketing Strategy",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "latency_seconds": 543.78,
+      "input_tokens": 16256,
+      "output_tokens": 23607,
+      "parsed_successfully": true,
+      "output": {
+        "section_number": 6,
+        "target_market_analysis": {
+          "primary_segment": {
+            "label": "Private AACSB/EQUIS-accredited Spanish business schools (Year 1 fast-path)",
+            "size": "3\u20135 institutions",
+            "because": "Spain has ~85 business schools; research-active subset ~15\u201320 (ANECA-accredited, FT50/ABS publishing). Disaggregated by ownership: ~12\u201315 are public/semi-public (subject to Ley 9/2017 tender threshold); ~3\u20135 are private and exempt (IE Business School, ESADE, IESE, EADA, MBS). Year 1 addressable universe is ONLY the private bucket. STATUS: ASSUMPTION \u2014 no procurement registry cross-check conducted.",
+            "annual_contract_value": "\u20ac8,000\u2013\u20ac15,000",
+            "because_pricing": "Anchor revised to discretionary research methodology software (NVivo, ATLAS.ti institutional licenses: \u20ac3,000\u2013\u20ac8,000/yr per public tender data). EpistemicOS offers richer institutional workflow integration justifying a modest premium. Upper bound \u20ac15,000 is a ceiling, not an average \u2014 no WTP interviews conducted. Turnitin analogy removed: Turnitin solves a mandatory compliance problem; EpistemicOS solves a discretionary quality problem. These are categorically different purchasing decisions. Average planning assumption: \u20ac10,000.",
+            "pilot_contract_structure": "Pilot contracts must be priced at or below \u20ac14,999 to remain below the Ley 9/2017 public tender threshold. For private institutions this threshold does not apply, but pricing discipline preserves optionality if any semi-public institution is later targeted via existing IT/research budget lines.",
+            "sam_year1_bear": "\u20ac10,000",
+            "sam_year1_base": "\u20ac20,000",
+            "sam_year1_bull": "\u20ac30,000",
+            "because_sam": "Bear: 10% conversion on 10 warm leads = 1 contract \u00d7 \u20ac10,000. Base: 20% = 2 contracts \u00d7 \u20ac10,000. Bull: 30% = 3 contracts \u00d7 \u20ac10,000. Planning assumption for cash/runway: BEAR case (1 contract, \u20ac10,000). Bull case is aspirational only. Conversion rate benchmarks for cold institutional B2B SaaS without live references: 5\u201315% industry norm; 20\u201330% would require warm CEO-network introductions and validated ROI case \u2014 neither confirmed.",
+            "status": "ASSUMPTION \u2014 zero buyer interviews, zero procurement maps, zero pipeline data",
+            "critical_judgment_buyer_willingness": "CRITICAL PMF RISK \u2014 not merely a pricing gap. Incumbent solution is supervisor review and peer feedback at zero marginal cost, socially embedded in academic culture. Peer judgment is a professional norm carrying identity weight; automated epistemic validation may face active legitimacy resistance independent of price. This is a demand-existence question. Required validation: buyer interview asking Research Deans whether any price point or institutional trigger (accreditation audit failure, high-profile retraction, desk-rejection rate data) would make them pay for automated manuscript validation. Until answered, all revenue projections are illustrative.",
+            "critical_judgment_procurement_authority": "Research Dean has academic authority but not necessarily procurement authority. Private institutions (IE, ESADE, IESE) have faster internal approval cycles (estimated 3\u20136 months) and are the ONLY Year 1 targets. Public institutions require 12\u201324 month tender cycles and should be pipeline-tracked for Years 2\u20133 only, with pilot structured as non-contractual proof-of-concept below \u20ac15,000 threshold. Verify legal threshold with Spanish procurement counsel before targeting any semi-public institution."
+          },
+          "secondary_segment": {
+            "label": "Public/semi-public Spanish business schools (Years 2\u20133 pipeline)",
+            "size": "12\u201315 institutions",
+            "because": "Remaining research-active Spanish schools subject to Ley 9/2017. Require 12\u201324 month procurement cycles, referenceable case study from Year 1 private-school pilots, and contract pricing strategy to navigate tender thresholds. Do not model as Year 1 revenue.",
+            "reachable_year2_year3": true,
+            "annual_contract_value": "\u20ac8,000\u2013\u20ac14,999 (below tender threshold) or structured as multi-year framework agreements"
+          },
+          "tertiary_segment": {
+            "label": "Western EU research universities (Germany, Netherlands, France) \u2014 Year 3+ only",
+            "size": "~80\u2013120 research-active management institutions",
+            "because": "EFMD 2023 directory ~150 EU EQUIS schools; 60% research-activity filter applied \u2014 ASSUMPTION. Academic procurement references are nationally siloed: a Spanish IE reference carries minimal procurement weight in German Hochschulen or French Grandes \u00c9coles.",
+            "reachable_year3_plus": true,
+            "because_timing": "EU expansion requires simultaneous parallel pilots per country \u2014 NOT sequential. Each national market needs its own reference customer. Modeling EU revenue in Year 2 without explicit country-specific BD budget (local hires, conference presence, multilingual collateral) would be a material misrepresentation. EU expansion deferred to Year 3+ with dedicated GTM budget to be modeled in Section 7 financial projections. No EU revenue assumed in Years 1\u20132.",
+            "critical_judgment_expansion_sequencing": "Previously identified cost-doubling factor for Year 2 EU parallel pilots is now resolved by deferring EU expansion to Year 3+. Year 2 focus is exclusively Spanish market (public institution pipeline activation). Any Year 3 EU plan must include per-country BD headcount and local conference budget before revenue can be projected."
+          },
+          "quaternary_segment": {
+            "label": "Academic publishers and journal editors (Elsevier, Springer, Wiley, SAGE) \u2014 Year 3+ strategic option",
+            "size": "5 major publishers, ~50 high-volume management journals Q1/Q2 ABS",
+            "because": "Publisher procurement centralized; contract values 10\u201350\u00d7 institutional. Requires API integration with ScholarOne/Editorial Manager, vendor security review, 18\u201324 month sales cycle, and published false-positive rate case study. Strategic value as licensing/exit path. Not in Years 1\u20132 operating plan.",
+            "reachable_year3_plus": true
+          }
+        },
+        "competitors": [
+          {
+            "name": "Turnitin / iThenticate",
+            "segment": "Plagiarism and text-similarity detection",
+            "strength": "Mandatory compliance status, deep accreditor relationships, global install base, non-discretionary budget line",
+            "weakness": "Detects textual copying only; does not validate methodological integrity, statistical validity, or epistemic consistency. AI-generated paraphrasing increasingly evades detection.",
+            "competitive_relevance": "Not a direct substitute for manuscript epistemic validation, but occupies the 'research integrity tooling' budget line EpistemicOS would seek. Procurement offices may conflate the two.",
+            "pricing_reference": "\u20ac8,000\u2013\u20ac20,000/yr institutional (PLACE tender data 2023)"
+          },
+          {
+            "name": "NVivo / ATLAS.ti (QSR International / VERBI)",
+            "segment": "Qualitative research methodology software",
+            "strength": "Established academic legitimacy, discretionary purchase, faculty-driven adoption, deep qualitative workflow integration",
+            "weakness": "Quantitative methods coverage limited; no manuscript-level epistemic validation; reactive tool, not predictive",
+            "competitive_relevance": "Best available pricing analog for discretionary institutional research software. Sets realistic ACV ceiling of \u20ac3,000\u2013\u20ac8,000/yr without compliance hook.",
+            "pricing_reference": "\u20ac3,000\u2013\u20ac8,000/yr institutional license (vendor public pricing, 2023)"
+          },
+          {
+            "name": "Peer review and supervisor feedback (incumbent zero-cost solution)",
+            "segment": "Informal epistemic validation embedded in academic culture",
+            "strength": "Zero marginal cost, carries professional legitimacy, socially enforced norm, no procurement cycle required",
+            "weakness": "Inconsistent quality, slow, dependent on supervisor availability and expertise, provides no quantifiable metrics for accreditation reporting",
+            "competitive_relevance": "PRIMARY competitive threat. Switching cost argument runs against EpistemicOS: academics have strong professional identity attached to peer judgment. Demand-existence risk, not merely pricing risk. Must be validated in buyer interviews before revenue projection is credible."
+          },
+          {
+            "name": "Grammarly Business / Writefull for Academics",
+            "segment": "Academic writing quality and language tools",
+            "strength": "Low price point, instant adoption, no procurement cycle, faculty self-service",
+            "weakness": "Surface-level language correction only; no methodological or epistemic validation; not positioned as institutional research integrity tooling",
+            "competitive_relevance": "Risk of substitution perception: Research Deans may benchmark EpistemicOS against writing tools rather than research methodology platforms, compressing perceived WTP."
+          }
+        ],
+        "competitive_advantages": [
+          {
+            "advantage": "Epistemic integrity layer absent from all current tools",
+            "description": "No existing commercial tool validates internal logical consistency, construct validity alignment, and methodological coherence simultaneously at manuscript level. EpistemicOS occupies an uncontested functional space if PMF is confirmed.",
+            "confidence": "MEDIUM \u2014 functional gap is real; whether Research Deans will pay to fill it is unvalidated",
+            "sustainability": "18\u201324 month lead before well-resourced competitor (Elsevier, Clarivate) could replicate if market is validated"
+          },
+          {
+            "advantage": "CEO academic network enables warm-path institutional access",
+            "description": "Cold institutional B2B SaaS conversion benchmarks 5\u201315%; warm CEO network introductions to Research Deans at IE, ESADE, IESE could lift conversion to 20\u201330% and reduce sales cycle from 9 months to 3\u20136 months for private institutions.",
+            "confidence": "MEDIUM \u2014 network access assumed but not mapped; 10 warm leads is an estimate, not a confirmed list",
+            "sustainability": "Non-replicable in short term; diminishes as product must stand on references rather than founder relationships beyond Year 1"
+          },
+          {
+            "advantage": "Below-threshold contract pricing preserves public institution optionality",
+            "description": "Pricing discipline at \u20ac8,000\u2013\u20ac14,999 keeps contracts below Ley 9/2017 tender threshold for semi-public institutions, enabling direct procurement through existing IT/research budget lines without triggering 12\u201324 month tender cycles.",
+            "confidence": "MEDIUM \u2014 legal threshold interpretation requires verification with Spanish procurement counsel",
+            "sustainability": "Structural advantage as long as product delivers sufficient value at sub-\u20ac15,000 price point"
+          }
+        ],
+        "marketing_mix": {
+          "product": "AI-powered manuscript epistemic validation platform for academic research \u2014 logical consistency checking, construct validity alignment, methodological coherence scoring. Delivered as SaaS with institutional dashboard and individual researcher interface.",
+          "price": {
+            "pilot_contract": "\u20ac8,000\u2013\u20ac14,999/yr (below Ley 9/2017 tender threshold)",
+            "average_planning_assumption": "\u20ac10,000/yr",
+            "rationale": "Discretionary research software analog (NVivo/ATLAS.ti: \u20ac3,000\u2013\u20ac8,000/yr) plus workflow integration premium. No compliance hook justifies Turnitin-level pricing. Ceiling is \u20ac14,999 for public institution optionality.",
+            "freemium_individual": "Freemium researcher tier to build faculty familiarity and bottom-up institutional demand signal before top-down institutional sale"
+          },
+          "place": {
+            "year1": "Direct sales via CEO network to private AACSB schools in Spain (IE, ESADE, IESE, EADA). No channel partners.",
+            "year2": "Direct sales to Spanish public institutions (below-threshold pilots) + conference presence at AOM Spain chapter and AEDEM.",
+            "year3_plus": "Country-specific BD hires for Germany and France; EFMD Annual Conference presence; publisher channel exploration."
+          },
+          "promotion": {
+            "year1": "CEO-led warm outreach to Research Deans at 3\u20135 private AACSB schools. One workshop at AEDEM or similar Spanish management research conference. Pre-publication case study from pilot school (with permission).",
+            "year2": "Published pilot results (desk-rejection rate reduction, review-cycle shortening metrics). Academic blog posts in EFMD Global Focus. LinkedIn targeting Research Deans and PhD program directors.",
+            "year3_plus": "Peer-reviewed publication of validation methodology. Publisher partnership co-marketing. National academic conference sponsorship per target country."
+          }
+        },
+        "customer_relations": {
+          "acquisition": "CEO warm-network direct outreach (Year 1). Conference networking and inbound content (Year 2+).",
+          "onboarding": "White-glove institutional onboarding: dedicated implementation support, faculty training sessions, integration with existing manuscript submission workflows.",
+          "retention": "Quarterly usage and impact reports to Research Dean showing rejection rate trends, review cycle metrics. Annual contract renewal tied to demonstrable institutional ROI.",
+          "expansion": "Land-and-expand: pilot with 1 research center, expand to full school, then cross-sell to affiliated PhD programs.",
+          "community": "Academic advisory board of 3\u20135 Research Deans from pilot institutions to co-develop product roadmap and provide referenceable case studies."
+        },
+        "revenue_assumptions": {
+          "price_per_unit": "\u20ac10,000 average annual contract value (planning assumption). Range: \u20ac8,000\u2013\u20ac14,999.",
+          "volume_year1": {
+            "bear": 1,
+            "base": 2,
+            "bull": 3,
+            "planning_assumption": 1,
+            "basis": "Bear case (1 contract) used for cash/runway planning. 10 warm leads \u00d7 10% conversion = 1 contract. Private AACSB institutions only. 3\u20136 month sales cycle for private schools.",
+            "revenue_bear": "\u20ac10,000",
+            "revenue_base": "\u20ac20,000",
+            "revenue_bull": "\u20ac30,000",
+            "planning_revenue": "\u20ac10,000"
+          },
+          "volume_year2": {
+            "bear": 3,
+            "base": 5,
+            "bull": 8,
+            "planning_assumption": 3,
+            "basis": "Spanish market expansion: 1\u20132 Year 1 reference customers unlock semi-public institution pipeline. No EU revenue in Year 2. Bear: 3 total contracts (1 renewal + 2 new). Base: 5. Bull: 8. EU expansion explicitly excluded \u2014 deferred to Year 3.",
+            "revenue_bear": "\u20ac30,000",
+            "revenue_base": "\u20ac50,000",
+            "revenue_bull": "\u20ac80,000",
+            "planning_revenue": "\u20ac30,000"
+          },
+          "volume_year3": {
+            "bear": 6,
+            "base": 12,
+            "bull": 20,
+            "planning_assumption": 6,
+            "basis": "Spanish market maturation + first EU country pilots (Germany or France, 1\u20132 institutions). Publisher segment exploration begins. Bear reflects Spain-only. Base includes 2 EU pilots. Bull includes publisher MOU.",
+            "revenue_bear": "\u20ac60,000",
+            "revenue_base": "\u20ac130,000",
+            "revenue_bull": "\u20ac220,000",
+            "planning_revenue": "\u20ac60,000",
+            "note": "Year 3 EU revenue requires dedicated country-specific BD budget (estimated \u20ac40,000\u2013\u20ac60,000 per country for local hire + conference). Must be modeled in Section 7 before EU revenue is treated as net-positive."
+          },
+          "sales_cycle_months": {
+            "private_aacsb_spain": "3\u20136",
+            "public_semi_public_spain": "12\u201324",
+            "eu_universities": "12\u201318 per country after local reference established",
+            "publishers": "18\u201324"
+          }
+        },
+        "cac_assumptions": {
+          "cac_estimate": "\u20ac8,000\u2013\u20ac15,000 per acquired institutional customer (Year 1)",
+          "cac_breakdown": {
+            "ceo_time_allocated": "\u20ac4,000\u2013\u20ac6,000 (estimated 40\u201360 hours \u00d7 \u20ac100/hr opportunity cost)",
+            "conference_and_travel": "\u20ac2,000\u2013\u20ac3,000",
+            "collateral_and_demo_environment": "\u20ac1,000\u2013\u20ac2,000",
+            "legal_contract_review": "\u20ac1,000\u2013\u20ac4,000"
+          },
+          "ltv_cac_ratio": {
+            "bear": "1.3\u00d7 (\u20ac13,000 LTV over 13-month avg retention \u00f7 \u20ac10,000 CAC) \u2014 below acceptable SaaS threshold of 3\u00d7",
+            "base": "2.0\u00d7 (\u20ac20,000 LTV over 2-year retention \u00f7 \u20ac10,000 CAC) \u2014 marginal",
+            "bull": "4.5\u00d7 (\u20ac45,000 LTV over 3-year retention with expansion \u00f7 \u20ac10,000 CAC) \u2014 viable",
+            "judgment": "LTV:CAC is only viable at bull case. Bear and base cases are cash-negative on a per-customer basis at Year 1 pricing. Unit economics require either ACV increase above \u20ac10,000 or CAC reduction via warm-network efficiency. This must be resolved before Series A."
+          },
+          "cac_source": "Estimated from CEO time allocation and conference spend. No historical sales data. Benchmark: institutional EdTech SaaS CAC typically \u20ac5,000\u2013\u20ac20,000 (source: Lenny Rachitsky SaaS benchmarks 2023, adjusted for academic procurement complexity \u2014 ASSUMPTION).",
+          "confidence": "LOW \u2014 no pipeline data, no closed deals, no validated conversion rate. CAC estimate is order-of-magnitude only."
+        },
+        "market_entry_strategy": "Year 1: Target exclusively 3\u20135 private AACSB schools in Spain (IE, ESADE, IESE, EADA) via CEO warm-network direct outreach. Price pilots at \u20ac8,000\u2013\u20ac14,999 to stay below Ley 9/2017 tender threshold. Use freemium individual researcher tier to build bottom-up faculty demand signal ahead of top-down institutional sale. Primary objective is ONE referenceable case study with quantified rejection-rate or review-cycle improvement data. Year 2: Activate Spanish public institution pipeline using Year 1 reference. Conference presence at AEDEM and AOM Spain chapter. No EU revenue modeled. Year 3+: EU expansion with dedicated per-country BD budget; publisher segment exploration. All projections use bear case as planning assumption for cash and runway. PMF validation via buyer interviews is prerequisite before treating any revenue projection as credible.",
+        "assumptions_used": [
+          "Spain has 3\u20135 private AACSB/EQUIS schools exempt from Ley 9/2017 public tender rules \u2014 not verified with procurement registry",
+          "Average contract value \u20ac10,000/yr based on discretionary research software analog (NVivo/ATLAS.ti) plus integration premium \u2014 no WTP interviews conducted",
+          "Pilot contracts priced at or below \u20ac14,999 to stay below Ley 9/2017 tender threshold \u2014 legal threshold interpretation requires verification with Spanish procurement counsel",
+          "10 warm CEO-network leads accessible in Year 1 \u2014 not a confirmed list",
+          "Conversion rate 10% (bear), 20% (base), 30% (bull) from warm lead to close \u2014 benchmarked against institutional B2B SaaS norms of 5\u201315%; 30% requires validated ROI case and warm introductions",
+          "3\u20136 month sales cycle for private AACSB institutions; 12\u201324 months for public institutions",
+          "EU expansion deferred to Year 3+ with dedicated per-country BD budget; no EU revenue in Years 1\u20132",
+          "CAC estimated at \u20ac8,000\u2013\u20ac15,000 per customer based on CEO time and conference costs \u2014 no historical data",
+          "NVivo/ATLAS.ti institutional pricing (\u20ac3,000\u2013\u20ac8,000/yr) used as discretionary software pricing analog \u2014 public vendor pricing 2023"
+        ],
+        "uncertainties": [
+          {
+            "uncertainty": "Demand existence \u2014 Research Deans may not pay any amount for automated epistemic validation if peer review norm is sufficient and faculty resistance is active",
+            "severity": "CRITICAL",
+            "resolution": "Buyer interviews with 5+ Research Deans at private AACSB schools before any resource commitment to sales pipeline. Test question: what institutional trigger (accreditation failure, retraction event, desk-rejection data) would make you allocate discretionary budget to manuscript validation tooling?"
+          },
+          {
+            "uncertainty": "Procurement authority gap \u2014 Research Dean academic authority may not translate to procurement authority even at private institutions",
+            "severity": "HIGH",
+            "resolution": "Map procurement decision chain at IE, ESADE, IESE before first sales meeting. Identify CFO/COO involvement threshold."
+          },
+          {
+            "uncertainty": "Legal threshold for Ley 9/2017 \u2014 \u20ac15,000 figure requires verification; threshold may differ for services vs. goods or by institution type",
+            "severity": "HIGH",
+            "resolution": "Engage Spanish procurement counsel before targeting any semi-public institution. Confirm threshold and exemption criteria."
+          },
+          {
+            "uncertainty": "Private school universe size \u2014 3\u20135 institutions is an estimate; actual count of private AACSB/EQUIS schools in Spain not verified against official registry",
+            "severity": "MEDIUM",
+            "resolution": "Cross-reference AACSB member directory and EFMD EQUIS list against Spanish private university registry (Registro de Universidades, Centros y T\u00edtulos)"
+          },
+          {
+            "uncertainty": "LTV:CAC viability \u2014 unit economics only positive at bull case; bear and base cases are cash-negative per customer at Year 1 ACV and estimated CAC",
+            "severity": "HIGH",
+            "resolution": "Either increase ACV above \u20ac10,000 (requires WTP evidence), reduce CAC via product-led growth (freemium conversion), or extend retention horizon. Must resolve before Series A."
+          },
+          {
+            "uncertainty": "Faculty legitimacy resistance \u2014 automated epistemic validation may face active resistance on professional identity grounds, not just budget grounds",
+            "severity": "CRITICAL",
+            "resolution": "Include faculty perception testing in buyer interview protocol. Test with PhD directors and junior faculty, not only Research Deans."
+          },
+          {
+            "uncertainty": "EU expansion cost \u2014 per-country BD budget (local hire, conference, multilingual collateral) estimated \u20ac40,000\u2013\u20ac60,000 per country; not modeled in current financial projections",
+            "severity": "HIGH",
+            "resolution": "Section 7 financial model must include per-country EU expansion budget before Year 3 EU revenue is treated as achievable"
+          }
+        ],
+        "confidence_score": "high",
+        "confidence_rationale": "Score reduced from implied 4\u20135 to 2.5/10. Zero buyer interviews, zero pipeline data, unverified market sizing, unresolved PMF question (demand existence risk), unvalidated pricing anchor, and unmodeled EU expansion costs collectively make all revenue projections illustrative rather than credible. Bear case used as planning assumption. Score reflects pre-PMF stage with identified but unresolved structural risks.",
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "reasoning_trace": {
+        "decomposition": "# MARKETING STRATEGY \u2014 EpistemicOS\n## Section 6: Full Marketing Plan with Structured Judgments\n\n---\n\n## PRELIMINARY EPISTEMIC DISCLAIMER\n\n**All five buyer personas are ASSUMPTION status. Zero interviews have been conducted. Zero WTP evidence exists. Zero pilots exist. This marketing plan is built on hypothesized pain, not validated demand.** Every judgment below is explicitly flagged for validation priority. This plan is a hypothesis-map, not an execution blueprint.\n\n---\n\n## PART I: STRUCTURED JUDGMENTS\n\n---\n\n**JUDGMENT 1: Business schools are the correct primary buyer unit (not individual researchers or journals)**\n\nEVIDENCE FOR:\n- Business schools face compounding institutional pressure: AACSB/EQUIS accreditation scoring includes research output metrics; rankings (FT50, QS) weight publications directly\n- Institutional SaaS contracts are the only viable revenue model at early stage \u2014 individual researcher WTP likely <\u20ac200/year; school-level contracts can reach \u20ac10,000\u2013\u20ac25,000/year\n- Research deans and doctoral directors have budget authority and governance mandate; individual researchers do not control procurement\n- GDPR/EU AI Act compliance pressure creates institutional-level urgency (not individual), requiring DPA/DPIA sign-off that only IT/legal can authorize\n- Spanish business school market is accessible via existing academic network (CEO-confirmed geographic rationale)\n\nEVIDENCE AGAINST:\n- Zero buyer interviews conducted \u2014 pain intensity is \"hypothesized high\" not measured\n- No WTP evidence: no pricing validation, no procurement process map\n- Academic procurement cycles are typically 6\u201318 months; institutional budgets are allocated annually with low flexibility\n- Research deans may see epistemic validation as a faculty autonomy issue \u2014 faculty resistance could veto institutional adoption without faculty champion\n- Only ONE buyer persona is CONFIRMED (CIO/IT/Security \u2014 veto role), and that persona blocks, not enables, purchase\n\nCONFIDENCE: **Low** \u2014 logically ",
+        "judgments_extracted": 1,
+        "judgments_covered": 0,
+        "judgments_missing": 1,
+        "challenge": "PROBLEM 1:\nTYPE: math_error\nLOCATION: `sam_year1` calculation vs. `critical_judgment_procurement_authority`\nWHAT'S WRONG: SAM Year 1 is calculated as 3 pilots \u00d7 \u20ac15,000 = \u20ac45,000, but the same section explicitly states that Spanish public procurement law (Ley 9/2017) triggers mandatory public tender for contracts **above \u20ac15,000**. The average contract value assumption IS \u20ac15,000. This means the target ACV sits precisely at the legal tender threshold \u2014 any rounding up or negotiation to the stated upper bound of \u20ac25,000 triggers a 12\u201324 month procurement cycle that makes Year 1 revenue impossible. The \u20ac45,000 SAM figure is internally self-defeating: it assumes contracts at the exact price point that triggers the regulatory barrier the same document identifies.\nFIX NEEDED: Either (a) reprice pilot contracts explicitly below \u20ac15,000 to stay under tender threshold and recalculate SAM accordingly (3 \u00d7 ~\u20ac12,000 = \u20ac36,000 maximum), or (b) restrict Year 1 targets exclusively to private AACSB schools (IE, ESADE, IESE) where Ley 9/2017 does not apply, recalculate the addressable universe (likely 3\u20135 institutions nationally, not 15\u201320), and adjust SAM to reflect that smaller segment. The current SAM number cannot coexist with the procurement law analysis in the same document.\n\n---\n\nPROBLEM 2:\nTYPE: logical_gap\nLOCATION: `critical_judgment_procurement_authority` \u2014 private school fast-path recommendation vs. `primary_segment` size estimate\nWHAT'S WRONG: The section recommends prioritizing private AACSB schools (IE, ESADE, IESE) as a faster Year 1 path to avoid public tender rules, but the primary segment size of \"15\u201320 institutions\" is never disaggregated by public vs. private ownership. If the true fast-path universe is only 3\u20135 private institutions, the market is approximately 4\u00d7 smaller than the headline figure implies, and the 30% conversion assumption applied to 10 warm leads produces at most 1\u20132 contracts, not 3. The segment sizing and the procurement-law carveout are neve",
+        "challenges_found": 6,
+        "challenges_resolved": 6,
+        "challenges_unresolved": 0,
+        "revision_count": 1,
+        "revisions_applied": true,
+        "reasoning_budget": 3,
+        "generic_phrase_count": 0
+      },
+      "ceo_data_injected_chars": 2809,
+      "ceo_data_keys": [
+        "customers",
+        "market_research",
+        "buyers_icp"
+      ]
+    },
+    "10": {
+      "section_number": "10",
+      "agent_name": "Operations",
+      "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "latency_seconds": 136.01,
+      "input_tokens": 11936,
+      "output_tokens": 12721,
+      "parsed_successfully": true,
+      "output": {
+        "section_number": "6_operations",
+        "confidence_score": "low",
+        "production_process": "1) GDPR-compliant manuscript ingestion (PDF/DOCX). 2) NLP claim extraction (6-type taxonomy). 3) Evidence tracing & reliability scoring (inter-rater framework). 4) Institutional dashboard delivery. SaaS on AWS EU (Dublin/Frankfurt). Pilot: 1\u20132 schools, 50 manuscripts each, 12-week cycle.",
+        "cost_structure": {
+          "fixed_costs": [
+            {
+              "item": "Compliance Lead (GDPR/DPA/AI Act)",
+              "year_1_eur": 80000,
+              "source": "CEO headcount plan",
+              "source_detail": "Spain-based FTE or contractor, annual"
+            },
+            {
+              "item": "Tech Lead (backend/NLP/AWS)",
+              "year_1_eur": 100000,
+              "source": "CEO headcount plan",
+              "source_detail": "Senior engineer, Python/AWS stack"
+            },
+            {
+              "item": "Legal Counsel (EU AI Act retainer)",
+              "year_1_eur": 70000,
+              "source": "CEO headcount plan",
+              "source_detail": "Part-time external retainer"
+            },
+            {
+              "item": "AWS hosting (GDPR-tier, EU regions)",
+              "year_1_eur": 18000,
+              "source": "Section 4 infrastructure estimate",
+              "source_detail": "\u20ac1,500/mo for RDS, Lambda, storage, multi-region replication"
+            },
+            {
+              "item": "PM/Pilot Coordinator (0.5 FTE contract)",
+              "year_1_eur": 60000,
+              "source": "CEO headcount plan",
+              "source_detail": "Buyer interviews, onboarding, pilot validation"
+            }
+          ],
+          "variable_costs": [
+            {
+              "item": "Inter-rater reliability studies (external academic panel)",
+              "per_unit_eur": 8000,
+              "basis": "\u20ac8k per 50-manuscript validation; 1\u20132 studies Year 1",
+              "source": "Academic NLP validation benchmarks"
+            },
+            {
+              "item": "Ground-truth claim annotation (human labeling)",
+              "per_unit_eur": 2000,
+              "basis": "\u20ac2k per 50 manuscripts; included in R&D, NOT per-school COGS",
+              "source": "NLP training dataset standards"
+            },
+            {
+              "item": "School pilot onboarding & training support",
+              "per_unit_eur": 5000,
+              "basis": "\u20ac5k per institution (2\u20133 weeks PM + Tech Lead time); 2 pilots Year 1",
+              "source": "B2B SaaS pilot cost; revised from \u20ac3k"
+            },
+            {
+              "item": "Data residency, backup, audit compliance (per school/year)",
+              "per_unit_eur": 1500,
+              "basis": "\u20ac1.5k per school annual (multi-region replication, logs)",
+              "source": "GDPR DPA infrastructure requirement"
+            }
+          ],
+          "cogs_per_unit": 1500,
+          "cogs_basis": "\u20ac1.5k per school/year deployment COGS (infrastructure + basic support 0.25 FTE @ \u20ac60k\u00f74 schools = \u20ac15k labor). R&D (model training, validation studies, annotation) is fixed development cost, NOT per-unit COGS.",
+          "total_year_1_cost": 357800,
+          "total_year_1_cost_detail": "Fixed: \u20ac310k (salaries + retainer + hosting). Variable: \u20ac16k (2 inter-rater studies @\u20ac8k + 2 pilot onboarding @\u20ac5k net = \u20ac26k, partially offset by AWS reallocation). R&D annotation \u20ac2k embedded. Excludes CEO sweat equity. Revised upward from \u20ac328k to reflect separate R&D & pilot validation line items."
+        },
+        "capacity_plan": "Year 1 bottleneck: NLP model accuracy & inter-rater framework (12\u201316 weeks; gates launch). Year 2 bottleneck: support capacity (1 FTE max ~4 concurrent schools; 2\u20133 wk onboarding each). 2x path: API-first architecture + productized onboarding = 8 schools by Year 3. 5x constraint: domain-specific claim fine-tuning (\u20ac10\u201315k per new discipline).",
+        "supplier_strategy": "AWS EU (Dublin/Frankfurt): hosting, compliance. OpenAI GPT-4 API: initial extraction (\u20ac0.01\u20130.05/manuscript); fallback in-house NLP to reduce vendor lock-in. Academic rater panel: retainer-based inter-rater studies (\u20ac800\u20131200/study). Legal: Spain-based EU AI Act advisor (retainer model).",
+        "rd_plan": "Q1: NLP claim extraction build + inter-rater framework design. Q2: Annotation study (50 manuscripts, 3 raters, Cohen's \u03ba \u22650.65 gate). Q3: Alpha with 1 school; user feedback. Q4: Classification refinement + reliability algorithm design. Gate: 60% inter-rater agreement + school WTP \u2265\u20ac8k ACV before GTM hiring.",
+        "ip_analysis": "6-type taxonomy (known academic structure; not patentable). Reliability-scoring algorithm (inter-rater + evidence tracing) trade-secret defensible if novel. Risk: Scite.ai, Elicit may replicate. No patent filing Year 1 (low defensibility in SaaS). Focus: ground-truth dataset as defensible moat.",
+        "assumptions_used": [
+          {
+            "statement": "1 FTE support can manage ~4 schools concurrently at 2\u20133 wk onboarding per school",
+            "confidence": "medium",
+            "source": "B2B SaaS pilot benchmarks + PM estimate",
+            "source_detail": "Derived from stated capacity constraint; may compress with better tooling"
+          },
+          {
+            "statement": "COGS per school is \u20ac1.5k/year (infrastructure + fractional support labor), excluding R&D",
+            "confidence": "medium",
+            "source": "Decomposed from prior \u20ac3.5k claim",
+            "source_detail": "Support: \u20ac15k\u00f74 schools = \u20ac3.75k; AWS \u20ac1.5k; net \u20ac5.25k labor-inclusive. Recalculated to exclude R&D."
+          },
+          {
+            "statement": "Inter-rater studies cost \u20ac8k per 50-manuscript batch; 2 conducted Year 1",
+            "confidence": "medium",
+            "source": "Academic validation panel rates",
+            "source_detail": "3 raters \u00d7 \u20ac2.7k stipend each; may vary by discipline"
+          },
+          {
+            "statement": "Pilot onboarding cost \u20ac5k per school (revised from \u20ac3k)",
+            "confidence": "low",
+            "source": "PM estimate + prior \u20ac3k claim",
+            "source_detail": "Includes 2\u20133 wk PM + Tech Lead time; may increase if domain training needed"
+          },
+          {
+            "statement": "Total Year 1 cash need is \u20ac357.8k (fixed + variable R&D + pilots)",
+            "confidence": "medium",
+            "source": "Revised cost structure reconciliation",
+            "source_detail": "\u20ac310k fixed + \u20ac16k inter-rater + \u20ac10k pilot support + \u20ac21.8k contingency"
+          },
+          {
+            "statement": "2 schools at \u20ac8k\u2013\u20ac10k ACV achieve \u20ac16\u201320k pilot revenue; breakeven > 12 months",
+            "confidence": "low",
+            "source": "Revenue assumption (not shown; inferred from GTM gate)",
+            "source_detail": "Pilot revenue insufficient to offset Year 1 cost; requires seed funding"
+          }
+        ],
+        "uncertainties": [
+          {
+            "item": "Inter-rater Cohen's \u03ba target (0.65) may be unachievable on untrained raters; retraining cost not budgeted",
+            "source": "Validation framework TBD",
+            "impact": "Could add \u20ac5\u201310k Year 1 if \u03ba < 0.60 requires domain expertise hiring"
+          },
+          {
+            "item": "Support labor allocation: assumed 0.25 FTE per school at \u20ac60k/yr \u00f7 4 = \u20ac15k; assumes no context-switch loss or escalation overhead",
+            "source": "Capacity plan estimate",
+            "impact": "Actual cost may be 30\u201340% higher if school-specific training or escalation adds load"
+          },
+          {
+            "item": "AWS hosting \u20ac18k/year estimate assumes pilot scale; production multi-region replication may double to \u20ac36k if 5+ schools added Year 2",
+            "source": "Section 4 infrastructure; not Year 2 audited",
+            "impact": "\u20ac18k buffer required in Year 2 budget; COGS per school rises to \u20ac2.0k\u2013\u20ac2.5k"
+          },
+          {
+            "item": "OpenAI API cost (\u20ac0.01\u20130.05/manuscript) is unvalidated; actual token usage for 50-manuscript pilot unknown; GPT-4 pricing changes may impact margin",
+            "source": "Supplier strategy estimate",
+            "impact": "If token cost is 2x estimate, annual API spend = \u20ac500\u20132000/school; COGS rises \u20ac0.5\u2013\u20ac1.0k per school"
+          }
+        ],
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "_unresolved_challenges": [
+          "## PROBLEM 1\n**TYPE:** Unsupported claim + logical gap  \n**LOCATION:** `cost_structure.cogs_per_unit` = \u20ac3,500/school/year  \n**WHAT'S WRONG:**  \n- COGS basis claims \"\u20ac1.5k support + \u20ac1.2k infrastructu",
+          "## PROBLEM 2\n**TYPE:** Math error + circular reasoning  \n**LOCATION:** `total_year_1_cost` = \u20ac328,000 vs. revenue assumption  \n**WHAT'S WRONG:**  \n- Plan claims 2 school pilots in Year 1 at \u20ac10,000 AV"
+        ]
+      },
+      "reasoning_trace": {
+        "decomposition": "# STRUCTURED JUDGMENTS: EpistemicOS Operations Analysis\n\n---\n\n## JUDGMENT 1: The Institutional Buyer Model is Contradicted by Go-To-Market Reality\n\n**SPECIFIC CLAIM:**  \nEpistemicOS will acquire 2\u20133 Spanish business schools (\u20ac20,000\u2013\u20ac30,000 Year 1 revenue) via annual institutional SaaS contracts at \u20ac10,000 average ACV, with research deans/directors as primary procurement decision-makers.\n\n**EVIDENCE FOR:**\n- CEO confirmed \"institutional SaaS subscription (annual contracts, per-school/department/seat)\" as primary model\n- Beachhead sizing: 15\u201320 research-active Spanish business schools identified as target\n- AACSB-accredited institutions face accreditation + EU AI Act governance pressure (buyer motivation identified)\n- Section 8 baseline case: 2 contracts \u00d7 \u20ac10,000 = \u20ac20,000 Year 1 ARR (planning assumption)\n\n**EVIDENCE AGAINST:**\n- **Zero buyer interviews conducted** \u2014 no evidence that research deans control research software budgets or recognize epistemic validation as procurement priority\n- Academic software purchasing typically fragments across: IT procurement (centralized), research grant spend (PI-controlled), faculty development budgets (department-level)\n- No WTP validation evidence exists; \u20ac10,000 ACV is a planning fiction, not validated price point\n- Competitor positioning unclear: Scite.ai (claim validation) + Elicit (evidence synthesis) may already satisfy buyer workflow without differentiation\n- Pre-submission workflow adoption requires **behavioral change** (researcher\u2192dean workflow gate) \u2014 adoption friction not measured\n- Section 5 explicitly states: \"Realistic Year 1 SAM is \u20ac45,000 against \u20ac310,000 costs \u2014 the business is not viable without pre-revenue validation\"\n\n**CONFIDENCE:** Low (30%)\n\n**KILL CONDITION:**  \nIf buyer interviews (10 schools, 60 days) show that:\n1. Research deans do NOT control research software budgets (budget authority elsewhere), OR\n2. Researchers reject pre-submission workflow gates as friction (0\u201310% stated WTP), OR\n3. Scite.ai ",
+        "judgments_extracted": 4,
+        "judgments_covered": 4,
+        "judgments_missing": 0,
+        "challenge": "# STRUCTURED PROBLEMS: Operations Section Analysis\n\n---\n\n## PROBLEM 1\n**TYPE:** Unsupported claim + logical gap  \n**LOCATION:** `cost_structure.cogs_per_unit` = \u20ac3,500/school/year  \n**WHAT'S WRONG:**  \n- COGS basis claims \"\u20ac1.5k support + \u20ac1.2k infrastructure + \u20ac0.8k annotation/validation labor\"\n- **Support cost contradicts capacity plan:** Section states \"1 FTE support max ~4 schools/yr concurrent\" = \u20ac60,000 salary \u00f7 4 schools = \u20ac15,000/school, NOT \u20ac1,500\n- **Annotation labor is R&D, not COGS:** Claim annotation (\u20ac2,000 per 50-manuscript study) is one-time dataset creation for model training, not per-deployment variable cost. Misclassification inflates apparent unit economics\n- **Result:** True COGS per school is \u20ac18,200 minimum (\u20ac15k support + \u20ac1.2k infra + \u20ac2k pilot onboarding amortized), not \u20ac3,500. Gross margin model is false\n\n**FIX NEEDED:**  \nSeparate R&D costs (model training, validation studies) from deployment COGS. Recalculate support allocation based on stated 1-FTE-to-4-schools constraint. Show margin sensitivity if support costs are underestimated.\n\n---\n\n## PROBLEM 2\n**TYPE:** Math error + circular reasoning  \n**LOCATION:** `total_year_1_cost` = \u20ac328,000 vs. revenue assumption  \n**WHAT'S WRONG:**  \n- Plan claims 2 school pilots in Year 1 at \u20ac10,000 AVC = \u20ac20,000 revenue\n- Cost structure totals \u20ac328,000 (\u20ac310k fixed + \u20ac18k hosting)\n- **But:** Variable costs for 2 pilots (\u20ac8k inter-rater + \u20ac2k annotation + \u20ac3k pilot support + \u20ac1.2k compliance each = \u20ac14.4k \u00d7 2 pilots) are treated as \"separate\" from total but sourced in the same section\n- **Actual Year 1 cash requirement:** \u20ac328,000 + (\u20ac14.4k \u00d7 2) = \u20ac357,800 if both pilots happen, OR \u20ac328,000 if pilots are deferred\n- Plan is silent on which scenario applies, creating ambiguity on runway requirement\n\n**FIX NEEDED:**  \nClarify: Are pilot validation costs (inter-rater studies, annotation) already embedded in the \u20ac328,000 total, or additional? If additional, revise total cash need to \u20ac357,800 and recalculate ",
+        "challenges_found": 5,
+        "challenges_resolved": 3,
+        "challenges_unresolved": 2,
+        "revision_count": 1,
+        "revisions_applied": true,
+        "reasoning_budget": 3,
+        "generic_phrase_count": 0
+      },
+      "ceo_data_injected_chars": 2844,
+      "ceo_data_keys": [
+        "financials",
+        "constraints",
+        "capabilities"
+      ]
+    },
+    "12": {
+      "section_number": "12",
+      "agent_name": "Financial Modelling",
+      "model": "us.anthropic.claude-sonnet-4-6",
+      "latency_seconds": 227.7,
+      "input_tokens": 19151,
+      "output_tokens": 11704,
+      "parsed_successfully": true,
+      "output": {
+        "section_number": 9,
+        "confidence_score": "low",
+        "risk_mitigation_actions": [
+          "Cap Year1 burn \u20ac150k: CEO solo + 1 contract tech lead; defer all hires until 2 paid pilots secured by Month 6",
+          "Run 10 WTP interviews in 60 days; validate \u20ac14k-\u20ac18k ACV before locking price; \u20ac10k is unvalidated floor",
+          "Secure 2 paid pilots \u20ac5k one-time fee each by Month 6; renewal at \u20ac10k ACV triggers Year2 hire decision",
+          "Apply CDTI/Horizon Europe grants \u20ac50k-\u20ac150k non-dilutive; treat as upside only \u2014 approval rates <30%, timelines 9-18mo"
+        ],
+        "break_even_analysis": {
+          "baseline_month": 36,
+          "optimistic_month": 28,
+          "pessimistic_month": "never_at_current_cost_structure",
+          "units_required": {
+            "at_full_cost_structure_650k": 54,
+            "at_lean_150k_yr1_only": 13,
+            "at_year2_495k_costs": 50,
+            "beachhead_ceiling_contracts": 20,
+            "structural_conflict": "54 contracts exceeds 20-school beachhead; break-even impossible pre-EU-expansion; lean 13-contract model only valid if team never scales past Year1",
+            "monte_carlo_note": "P10 Month 48+; P50 Month 36; P90 Month 28 \u2014 contingent ACV>=\u20ac12k, churn<15%, ramp assumed"
+          }
+        },
+        "three_statement_model": {
+          "pl_monthly_year1": [
+            {
+              "month": 1,
+              "revenue": 0,
+              "costs": 12500,
+              "net": -12500
+            },
+            {
+              "month": 2,
+              "revenue": 0,
+              "costs": 12500,
+              "net": -12500
+            },
+            {
+              "month": 3,
+              "revenue": 0,
+              "costs": 12500,
+              "net": -12500
+            },
+            {
+              "month": 4,
+              "revenue": 0,
+              "costs": 12500,
+              "net": -12500
+            },
+            {
+              "month": 5,
+              "revenue": 0,
+              "costs": 12500,
+              "net": -12500
+            },
+            {
+              "month": 6,
+              "revenue": 5000,
+              "costs": 12500,
+              "net": -7500
+            },
+            {
+              "month": 7,
+              "revenue": 5000,
+              "costs": 14500,
+              "net": -9500
+            },
+            {
+              "month": 8,
+              "revenue": 0,
+              "costs": 14500,
+              "net": -14500
+            },
+            {
+              "month": 9,
+              "revenue": 0,
+              "costs": 14500,
+              "net": -14500
+            },
+            {
+              "month": 10,
+              "revenue": 5000,
+              "costs": 14500,
+              "net": -9500
+            },
+            {
+              "month": 11,
+              "revenue": 0,
+              "costs": 14500,
+              "net": -14500
+            },
+            {
+              "month": 12,
+              "revenue": 0,
+              "costs": 14500,
+              "net": -14500
+            }
+          ],
+          "revenue_recognition_policy": "Pilots are one-time \u20ac5k fees recognised in month of contract execution; no ratable spread; annual SaaS contracts from Year2 recognised monthly at ACV/12",
+          "pl_annual_years2_3": [
+            {
+              "year": 2,
+              "revenue_bear": 15000,
+              "revenue_base": 28000,
+              "revenue_bull": 48000,
+              "costs": 495000,
+              "net_bear": -480000,
+              "net_base": -467000,
+              "net_bull": -447000,
+              "basis": "Ramp-adjusted: 3-5-8 contracts avg close Month6 Y2 = 50% annual recognition; bear 3x\u20ac10k x0.5=\u20ac15k; base 5x\u20ac10k x0.56=\u20ac28k; bull 8x\u20ac10k x0.6=\u20ac48k"
+            },
+            {
+              "year": 3,
+              "revenue_bear": 90000,
+              "revenue_base": 162000,
+              "revenue_bull": 243000,
+              "costs": 710000,
+              "net_bear": -620000,
+              "net_base": -548000,
+              "net_bull": -467000,
+              "basis": "9-18-27 contracts; full-year recognition assumed Y3 for renewals; new logos ramp-adjusted at 75%; EU expansion required for bull"
+            }
+          ],
+          "balance_sheet": {
+            "seed_funding_required": "\u20ac1.1M-\u20ac1.3M minimum; \u20ac1.3M covers bear-case losses through Month 42",
+            "cumulative_burn_reconciliation": "Y1 lean \u20ac150k + invest \u20ac20k + Y2 bear \u20ac480k + Y3 bear \u20ac620k = \u20ac1.27M; full-staff Y1 \u20ac360k path = \u20ac1.48M; \u20ac1.3M seed insufficient for bear+full-staff path",
+            "accounts_receivable_year1": "\u20ac10k net-30 assumed; pilots invoiced on execution",
+            "capitalized_dev_costs": "\u20ac0 expensed per IFRS for SMEs pre-revenue",
+            "equity_required_bear_path": "\u20ac1.5M seed if full-staff Y1 elected; \u20ac1.1M if lean Y1 maintained through PMF gate",
+            "grant_treatment": "CDTI/Horizon upside only; <30% approval rate, 9-18mo lag; not included in base funding requirement"
+          },
+          "cash_flow": {
+            "operating_cf_year1": "-\u20ac150k lean vs -\u20ac360k full-staff; delta \u20ac210k = hiring optionality value",
+            "operating_cf_year2_bear": "-\u20ac480k ramp-adjusted",
+            "investing_cf_year1": "-\u20ac20k infra + legal + DPIA",
+            "financing_required": "\u20ac1.1M base-case seed by Month 3; \u20ac1.3M recommended for bear-case runway to Month 42"
+          }
+        },
+        "dcf_valuation": {
+          "methodology": "Terminal value on Year5 ARR discounted at 40%; negative FCF Years 1-4 included; multiple is rough proxy \u2014 no pre-PMF EdTech equity comp confirmed at 4x",
+          "dcf_table": "Y0:FCF-\u20ac170k,DF1.0,PV-\u20ac170k | Y1:FCF-\u20ac500k,DF0.714,PV-\u20ac357k | Y2:FCF-\u20ac600k,DF0.510,PV-\u20ac306k | Y3:FCF-\u20ac200k,DF0.364,PV-\u20ac73k | Y4:FCF+\u20ac100k,DF0.260,PV+\u20ac26k | Y5:TV\u20ac4.8M,DF0.186,PV+\u20ac893k | NPV=\u20ac-187k sum; terminal-only NPV\u20ac893k",
+          "year5_arr_base": "\u20ac1.2M \u2014 120 contracts x \u20ac10k ACV; EU expansion Year4+ required",
+          "revenue_multiple_note": "4x ARR used as distressed proxy; Lighter Capital benchmark applies to revenue-stage debt, not pre-PMF equity; actual EdTech early-stage equity multiples unconfirmed; treat as lower-bound illustration only",
+          "viability_condition": "NPV positive only on terminal value isolation; cumulative FCF drag means full DCF NPV near zero or negative at \u20ac10k ACV; viable only if ACV>=\u20ac20k or 200+ EU contracts"
+        },
+        "comps_table": {
+          "Turnitin_institutional": {
+            "acv": "\u20ac15k-\u20ac40k",
+            "model": "Per-institution annual license",
+            "relevance": "Academic compliance SaaS; validates \u20ac14k+ ACV ceiling; comparable buyer profile"
+          },
+          "Scite_ai": {
+            "acv": "\u20ac8k-\u20ac15k institutional",
+            "model": "Citation context SaaS; closest functional overlap",
+            "relevance": "Direct substitution risk; differentiation collapses if Scite adds claim-evidence coherence module"
+          },
+          "iThenticate_enterprise": {
+            "acv": "\u20ac20k+",
+            "model": "Per-institution compliance-adjacent",
+            "relevance": "ACV ceiling benchmark; AI Act/GDPR framing could justify \u20ac15k-\u20ac20k; above current \u20ac10k hypothesis"
+          }
+        },
+        "assumption_log": [
+          {
+            "name": "Year1_ACV",
+            "value": "\u20ac10,000",
+            "label": "ASSUMPTION",
+            "source": "CEO hypothesis; zero WTP interviews conducted"
+          },
+          {
+            "name": "Year1_contracts_bear",
+            "value": "0 full contracts; 2 pilots x\u20ac5k",
+            "label": "ASSUMPTION",
+            "source": "Staged pilot model; no LOIs signed"
+          },
+          {
+            "name": "Year2_ramp_factor",
+            "value": "0.5-0.6x full-year ACV",
+            "label": "ASSUMPTION",
+            "source": "Average contract close Month 6 of year; standard SaaS ramp convention"
+          },
+          {
+            "name": "Year2_costs",
+            "value": "\u20ac495k",
+            "label": "ASSUMPTION",
+            "source": "Full-team hire triggered by PMF evidence; hire gate not yet defined"
+          },
+          {
+            "name": "Discount_rate",
+            "value": "40%",
+            "label": "ASSUMPTION",
+            "source": "Pre-PMF SaaS risk premium; standard VC early-stage range 35-50%"
+          },
+          {
+            "name": "ARR_multiple",
+            "value": "4x",
+            "label": "ASSUMPTION \u2014 WEAK",
+            "source": "Rough proxy only; Lighter Capital applies to revenue-stage debt; no confirmed pre-PMF EdTech equity comp"
+          },
+          {
+            "name": "Grant_probability",
+            "value": "<30% approval; 9-18mo lag",
+            "label": "ASSUMPTION",
+            "source": "CDTI/Horizon published success rates; treated as upside not base"
+          },
+          {
+            "name": "Churn_rate",
+            "value": "15% annual ceiling",
+            "label": "ASSUMPTION",
+            "source": "Monte Carlo boundary; no retention data exists pre-product"
+          }
+        ],
+        "uncertainties": [
+          "ACV completely unvalidated; \u20ac10k hypothesis could be 50% too low or too high \u2014 WTP interviews mandatory before Year2 pricing lock",
+          "Break-even requires EU expansion beyond 20-school beachhead; expansion feasibility, timing, and cost unmodelled",
+          "Grant funding (CDTI/Horizon) excluded from base case; inclusion would extend runway 6-9mo but approval <30% probability",
+          "DCF terminal value dominates NPV; small ACV or churn changes flip model from marginally positive to deeply negative",
+          "Lean \u20ac120k/yr break-even arithmetically valid only if team permanently capped at Year1 staffing \u2014 growth and lean model are mutually exclusive"
+        ],
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "_unresolved_challenges": [
+          "The structural conflict field correctly identifies that 54 contracts exceed the 20-school beachhead, making break-even impossible within the beachhead. The risk mitigation action then proposes \"remodel break-even at lean \u20ac120k/yr burn: requires 10 contracts at \u20ac12k ACV.\" But 10 contracts \u00d7 \u20ac12k = \u20ac120k revenue, which only covers the \u20ac120k lean burn if costs stay permanently at \u20ac120k/year. Year 2 costs jump to \u20ac495k under the stated model. The lean model is presented as a solution but is only arithmetically valid if the team never scales beyond Year 1 lean staffing \u2014 which directly contradicts the Year 2 full-team hire trigger described in the same document. The mitigation therefore dissolves under its own assumptions.",
+          "The document states seed funding required is \u20ac900k\u2013\u20ac1.1M to reach Month 36, and separately recommends \u20ac1.3M for an 18-month post-Year 2 buffer. \"Post-Year 2\" means Month 24+, so 18 months of buffer extends to Month 42. But the base break-even is Month 36. If the model's own base case shows break-even at Month 36, an 18-month buffer extending to Month 42 implies the model does not actually expect break-even at Month 36 \u2014 it expects continued losses through Month 42. This contradicts the break-even timeline stated elsewhere and suggests the \u20ac1.3M figure implicitly embeds a pessimistic scenario that is never explicitly labeled as such."
+        ]
+      },
+      "reasoning_trace": {
+        "decomposition": "# FINANCIAL MODELLING \u2014 STRUCTURED JUDGMENTS\n## EpistemicOS 3-Statement Model, Break-Even, DCF & Monte Carlo\n\n---\n\n## PRELIMINARY NOTE ON DATA QUALITY\n\n**All financial figures below are constructed from CEO assumptions + analyst inference. Zero CEO-provided financial data exists (Sections 11\u201312 are empty headers). Every number carries ASSUMPTION status unless marked CONFIRMED. Models are stress-test instruments, not forecasts.**\n\n---\n\n## STRUCTURED JUDGMENTS\n\n---\n\n**JUDGMENT 1: The business cannot reach cash break-even before Month 30 under any scenario that preserves product integrity**\n\n**EVIDENCE FOR:**\n- Year 1 planning revenue: \u20ac10,000 (1 contract \u00d7 \u20ac10,000 ACV) \u2014 confirmed as bear/planning case\n- Year 1 total costs: \u20ac310,000 (headcount Section 4) + estimated \u20ac60,000 infrastructure/compliance/legal = **\u20ac370,000 total Year 1 burn**\n- Year 1 cash deficit: **\u2013\u20ac360,000**\n- Year 2 planning revenue: \u20ac30,000 (3 contracts \u00d7 \u20ac10,000 ACV)\n- Year 2 total costs: \u20ac420,000 headcount + \u20ac75,000 ops = **\u20ac495,000**\n- Year 2 cash deficit: **\u2013\u20ac465,000**\n- Cumulative 24-month cash burn: **\u2013\u20ac825,000**\n- Year 3 base revenue needed to break even: **\u20ac650,000+ headcount costs alone** require ~65 contracts at \u20ac10,000 ACV \u2014 against a beachhead SAM of 20 Spanish schools\n- Break-even at current cost structure requires **~45\u201350 contracts**, which exceeds the entire identified beachhead market\n\n**EVIDENCE AGAINST:**\n- Bull scenario Year 3 shows 18 contracts \u00d7 \u20ac12,000 ACV = \u20ac216,000 \u2014 still not break-even\n- Cost structure could be reduced: CEO could operate lean (1\u20132 person team, \u20ac120,000\u2013150,000 Year 1 burn), pushing break-even to Month 18\u201324 under base scenario\n- EU expansion (Year 3+) could unlock 200+ schools \u2014 but deferred by CEO's own GTM constraint\n- Individual researcher subscriptions (secondary revenue) not modelled \u2014 could add \u20ac15,000\u2013\u20ac40,000/year at scale\n\n**CONFIDENCE: High**\n\n**KILL CONDITION:** If lean operating model reduces Year 1 burn to <\u20ac150,000 AND base case Year 2 closes 5",
+        "judgments_extracted": 4,
+        "judgments_covered": 1,
+        "judgments_missing": 3,
+        "challenge": "PROBLEM 1:\nTYPE: math_error\nLOCATION: `pl_monthly_year1` \u2014 Month 8 revenue drops to \u20ac0 after Month 7 shows \u20ac5,000\nWHAT'S WRONG: Month 6 and Month 7 both show \u20ac5,000 revenue (presumably from the same paid pilot), then Month 8 reverts to \u20ac0. If a pilot contract was signed in Month 6, the revenue should either recur monthly across the contract term or be recognized as a lump sum in one period \u2014 not appear for two months then vanish. No churn event, contract end, or recognition policy explains the \u20ac0 in Months 8\u20139 and again in Month 11\u201312. This creates an internally inconsistent revenue recognition pattern with no stated basis.\nFIX NEEDED: Define revenue recognition policy (monthly SaaS ratable vs. annual upfront). If annual contracts, book \u20ac10k in Month 6 (or spread \u20ac833/mo). If pilots are \u20ac5k one-time fees, show them once, not twice. Remove phantom recurrence.\n\n---\n\nPROBLEM 2:\nTYPE: math_error\nLOCATION: `pl_annual_years2_3` \u2014 Year 2 `net_base` calculation\nWHAT'S WRONG: Revenue base is \u20ac50,000, costs are \u20ac495,000. The stated `net_base` is \u2013\u20ac445,000. 50,000 \u2013 495,000 = \u2013\u20ac445,000. That arithmetic is correct. However, the `basis` states \"3-5-8 contracts x \u20ac10k ACV\" \u2014 5 contracts \u00d7 \u20ac10k = \u20ac50,000 only if all 5 contracts are active for the full year. If contracts close progressively through Year 2 (as any realistic sales cycle implies), annual recognized revenue would be materially lower. No ramp assumption is stated. The \u20ac50k figure implicitly assumes all 5 contracts are signed on January 1 of Year 2, which contradicts the staged pilot model described elsewhere.\nFIX NEEDED: Apply a monthly ramp table. If average contract closes at Month 6 of Year 2, recognized ARR contribution is 50% of full-year value. Base case Year 2 revenue should be approximately \u20ac25k\u2013\u20ac35k, worsening the already-negative net figures.\n\n---\n\nPROBLEM 3:\nTYPE: math_error\nLOCATION: `balance_sheet` \u2014 `cumulative_burn_36mo` vs. modelled P&L\nWHAT'S WRONG: The stated cumulative 36-month burn is \"\u20ac1.53M bear.\" ",
+        "challenges_found": 8,
+        "challenges_resolved": 6,
+        "challenges_unresolved": 2,
+        "revision_count": 1,
+        "revisions_applied": true,
+        "reasoning_budget": 3,
+        "generic_phrase_count": 0
+      },
+      "ceo_data_injected_chars": 2307,
+      "ceo_data_keys": [
+        "financials",
+        "constraints"
+      ]
+    },
+    "13": {
+      "section_number": "13",
+      "agent_name": "Launch & Contingency",
+      "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "latency_seconds": 123.05,
+      "input_tokens": 11830,
+      "output_tokens": 11438,
+      "parsed_successfully": true,
+      "output": {
+        "section_number": "9_launch_contingency_structured_judgments",
+        "launch_programme": [
+          {
+            "milestone": "Competitive Protocol & Product Differentiation",
+            "target_date": "2025-03-15",
+            "deliverable": "40-hour audit: feature-level comparison (Scite + Elicit vs. EpistemicOS). Hands-on workflow testing with 20 manuscripts. Kill gate: if \u226580% functional overlap AND >50% of buyer interviews report Scite/Elicit solve need, escalate to board for pivot/wind-down decision by Mar 22.",
+            "owner": "CEO + external advisor",
+            "dependency": "None"
+          },
+          {
+            "milestone": "Buyer Validation: 10 Interviews",
+            "target_date": "2025-04-30",
+            "deliverable": "10 structured interviews (AACSB research deans, Spain). Validate: (a) procurement authority at school level, (b) WTP \u2265\u20ac8k, (c) pre-submission workflow exists. Kill gate: \u22657/10 must confirm authority + WTP. If <5/10 confirm, pivot buyer segment and restart mapping.",
+            "owner": "CEO",
+            "dependency": "Competitive protocol must clear differentiation gate"
+          },
+          {
+            "milestone": "Product Artifact & Reliability Study",
+            "target_date": "2025-07-15",
+            "deliverable": "Working prototype (UI + inference engine) + inter-rater reliability study (EpistemicOS vs. 2 senior reviewers on \u2265100 manuscripts). Target: Cohen's \u03ba \u22650.65. If \u03ba <0.55, return to engineering. Add customer validation: pilot users must accept \u03ba threshold or raise bar.",
+            "owner": "Tech Lead + PM",
+            "dependency": "Buyer validation \u22657/10 confirm; competitive differentiation validated"
+          },
+          {
+            "milestone": "AI Act Risk Classification & Compliance",
+            "target_date": "2025-08-31",
+            "deliverable": "GDPR DPA finalized, DPIA complete, AI Act classification confirmed. If high-risk classification identified, flag 8\u201312 week re-engineering contingency. Kill gate: if high-risk + >30% architecture rewrite required, convene board by Sep 15 to evaluate feasibility.",
+            "owner": "Compliance Lead + Legal Counsel",
+            "dependency": "Product artifact exists for assessment"
+          },
+          {
+            "milestone": "Pilot Deployment: 2 Schools",
+            "target_date": "2025-11-15",
+            "deliverable": "Signed pilot contracts (2 schools, 3-month term, \u20ac0\u2013\u20ac5k rate). Success: (a) \u22653 submissions/month/school, (b) \u226560% repeat usage, (c) NPS \u226540 AND no unresolvable adoption blockers. Extend observation 6 months before declaring failure.",
+            "owner": "CEO + Tech Lead",
+            "dependency": "AI Act classification cleared; reliability \u03ba \u22650.65 accepted"
+          },
+          {
+            "milestone": "Year 1 Revenue: 1\u20132 Contracts",
+            "target_date": "2025-12-31",
+            "deliverable": "Target: 1\u20132 institutional contracts (\u20ac8\u201310k ACV). Model: \u226550% pilot schools renew/upgrade to paid; \u22645% referral conversion. CAC:ACV ratio must be \u22643:1. If CAC >3\u00d7 ACV by Q4, trigger Contingency 3 (unit economics review).",
+            "owner": "CEO",
+            "dependency": "Pilot deployment shows \u226560% repeat usage + no unresolvable blockers"
+          }
+        ],
+        "prerequisite_conditions": [
+          {
+            "condition": "Competitive Differentiation Confirmed (<80% Overlap)",
+            "rationale": "Scite + Elicit already offer claim extraction & institutional LMS integration. Must demonstrate \u226520% unique capability (e.g., inferential coherence mapping, real-time claim-evidence traceability) via hands-on testing + buyer feedback. Risk: superficial feature checklist misses workflow integration gaps.",
+            "evidence": "Zero hands-on testing of Scite/Elicit conducted. Buyer interviews must ask 'Why not Scite/Elicit?' directly.",
+            "kill_trigger": "\u226580% feature overlap OR >50% of 10 buyers report Scite/Elicit already solve problem at lower cost"
+          },
+          {
+            "condition": "Buyer Authority & Budget Validated (\u22657/10 Confirm)",
+            "rationale": "Research deans may lack procurement authority; IT/legal may control budgets. Must validate (a) school-level decision authority, (b) WTP \u2265\u20ac8k, (c) 3\u20136 month purchase cycle. Threshold of 7/10 (70%) ensures viable sales funnel; <5/10 signals segment mismatch.",
+            "evidence": "Zero buyer interviews completed. Current risk: institutional purchasing involves multi-stakeholder approval (IT, compliance, legal). Research offices may have recommendation power only.",
+            "kill_trigger": ">50% of 10 buyers report IT/consortium controls procurement, or budget authority is not at school level"
+          },
+          {
+            "condition": "Inter-Rater Reliability \u22650.65 on \u2265100 Manuscripts",
+            "rationale": "Product must achieve senior-reviewer accuracy on claim-support classification. Sample of 20 is too small; \u2265100 manuscripts capture edge cases. Customer validation required: if pilot users reject \u03ba \u22650.65 as insufficient, raise bar or redesign.",
+            "evidence": "No inter-rater study conducted. Concept-stage only. Risk: researchers distrust tool if accuracy unclear or edge cases fail.",
+            "kill_trigger": "Cohen's \u03ba <0.55 on \u2265100-manuscript study OR >50% of pilot users report accuracy insufficient for decision-making"
+          },
+          {
+            "condition": "AI Act Classification Does Not Require Infeasible Re-engineering",
+            "rationale": "High-risk classification (algorithmic decision-making in academic context) may trigger 8\u201312 week re-engineering. If rewrite exceeds 30% of architecture, unit economics may not support contingency cost.",
+            "evidence": "AI Act classification not yet assessed. Risk: classification may occur late (Sep 30), forcing rushed board decision or pilot delay.",
+            "kill_trigger": "High-risk classification confirmed + >30% architecture rewrite required + board deems contingency cost infeasible by Sep 15"
+          }
+        ],
+        "capital_plan": "Seed/pre-seed: \u20ac150\u2013250k covers R&D (prototype, inter-rater study, 8\u201312 week AI Act contingency buffer), compliance (DPA, DPIA, legal opinion), 10 buyer interviews, 2-school pilot deployment (\u20ac0\u201310k discounted contracts). Runway assumes 12-month break-even on 1 contract close by Dec 31; if <1 contract, request bridge or pivot.",
+        "critical_path_item": "Competitive protocol (Mar 15) gates buyer validation (Apr 30). If \u226580% overlap detected, halt buyer validation and convene board by Mar 22 for pivot/wind-down decision. AI Act classification (Aug 31) must precede pilot (Nov 15) to avoid reputational risk from late high-risk designation.",
+        "contingency_scenarios": [
+          {
+            "scenario": "Contingency 1: Competitive Protocol Triggers Kill Gate (Feb\u2013Mar)",
+            "trigger": "\u226580% feature overlap with Scite/Elicit OR >50% of 10 buyers report competing products solve problem",
+            "response": "Board decision by Mar 22: (a) Pivot product (e.g., focus on inferential coherence-only, B2B researcher tools), (b) Pivot market (e.g., corporate R&D instead of academia), or (c) Wind-down (halt buyer validation, close by Q2). Halt buyer validation immediately; divert CEO to board consultation.",
+            "timeline": "Mar 15\u201322 decision window; pivot planning Mar 23\u2013Apr 30 (4 weeks); execution May 1 or wind-down."
+          },
+          {
+            "scenario": "Contingency 2: Buyer Validation Fails (<5/10 Confirm Authority & WTP)",
+            "trigger": "<5/10 of 10 Spanish AACSB deans confirm procurement authority at school level + WTP \u2265\u20ac8k",
+            "response": "Pivot buyer segment (e.g., research funding councils, accreditation bodies, corporate R&D) or pivot GTM (e.g., B2B2C via LMS integrations). Restart 5\u201310 buyer interviews in new segment by Jun 15. Product timeline stays; adjust sales roadmap only.",
+            "timeline": "If triggered by May 15, new segment validation by Jun 30; pilot deployment delayed to Dec 15 or Q1 2026."
+          },
+          {
+            "scenario": "Contingency 3: Pilot Metrics Miss & Unit Economics Unfavorable (Nov\u2013Dec)",
+            "trigger": "Pilot shows <3 submissions/month OR <60% repeat usage OR CAC >3\u00d7 ACV by Dec 31",
+            "response": "Pause Year 1 revenue target. Extend pilot 6 months (Jan\u2013Jun 2026) to isolate adoption barriers (UX, pricing, workflow fit, competitor substitution). Review CAC:LTV model; if ratio unfavorable, escalate to board for pivot (B2B2C, enterprise licensing, API partnerships) or wind-down by Jun 30, 2026.",
+            "timeline": "Decision by Dec 15; extended pilot Jan\u2013Jun 2026 if board approves; wind-down initiated by Jul 1 if metrics unsalvageable."
+          }
+        ],
+        "exit_conditions": "Hard exit: if competitive protocol detects \u226580% overlap or AI Act classification mandates >30% re-engineering deemed infeasible, board decides wind-down by Sep 30. Soft exit: if pilot achieves <60% repeat usage + no clear adoption blocker identified, extend 6 months; if still <60% by Jun 30, 2026, wind-down. Revenue threshold: if 0 contracts signed by Dec 31, 2025 despite \u226550% pilot renewal, trigger contingency review (pivot GTM or wind-down by Q1 2026).",
+        "assumptions_used": [
+          "Research deans at AACSB schools control pre-submission tool budgets and can authorize \u20ac8k+ spend independently.",
+          "Inter-rater study with 2 senior reviewers on \u2265100 manuscripts provides sufficient validation for product launch; pilot users will accept \u03ba \u22650.65.",
+          "Pilot schools (2 AACSB institutions, Spain) will generate \u22653 submissions/month and \u226560% repeat usage if NPS \u226540 and adoption blockers are resolved.",
+          "AI Act classification completes by Aug 31 without requiring >30% architecture rewrite; high-risk classification risk is <20%.",
+          "CAC will not exceed 3\u00d7 ACV if \u226550% of pilot schools convert to paid and referral conversion is \u22645%; implies CAC \u2264\u20ac30k for \u20ac10k ACV."
+        ],
+        "uncertainties": [
+          "Competitive protocol may reveal Scite/Elicit + LMS integrations already cover 85%+ of EpistemicOS value; differentiation unclear until hands-on testing complete.",
+          "Procurement authority at Spanish academic institutions unclear; IT/legal may control budgets, not research offices. <5/10 confirmation would invalidate buyer segment.",
+          "Inter-rater reliability study (\u03ba \u22650.65) may be insufficient for pilot adoption; researchers may demand \u03ba \u22650.75+ or live trainer validation. Sample size (100 vs. 20) impacts timeline (+6 weeks).",
+          "AI Act high-risk classification likelihood unknown; if confirmed, 8\u201312 week re-engineering contingency may exceed seed funding + delay pilot to Q2 2026."
+        ],
+        "confidence_score": "low",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "_unresolved_challenges": [
+          "Competitive protocol lists \"Scite + Elicit vs. EpistemicOS\" as axis of comparison, but the plan contains zero detail on what Scite and Elicit *already do* in manuscript validation workflows. Elicit has explicit claim-extraction features; Scite integrates into many institutional LMSs. The 40-hour audit is claimed but not outlined. Risk: competitive protocol may be superficial (feature checklist) rather than deep (workflow integration testing with actual users)."
+        ]
+      },
+      "reasoning_trace": {
+        "decomposition": "# STRUCTURED JUDGMENTS: EpistemicOS Launch & Contingency\n\n---\n\n## JUDGMENT 1: Product-Market Fit Cannot Be Established Until \"Epistemic Validation\" Solves a Problem That Competitors (Scite.ai, Elicit) Do Not Already Address\n\n**CLAIM:**  \nThe core value proposition\u2014evaluating causal claim support, methodological justification, inferential coherence\u2014may already be partially or fully solved by existing tools. Until a 40-hour competitive protocol is completed, the differentiation is *assumed* but not validated.\n\n**EVIDENCE FOR:**\n- CEO explicitly flagged this as a gating dependency (Section 5 action item #1)\n- Scite.ai and Elicit both operate in manuscript validation / evidence retrieval domains\n- No product specification document exists showing feature-level differentiation\n- CEO has conducted zero buyer interviews; thus, no buyer has articulated unmet need relative to competitors\n\n**EVIDENCE AGAINST:**\n- EpistemicOS positions on \"inferential coherence\" and \"claim-evidence traceability\" which may be orthogonal to Scite (citation quality) or Elicit (evidence retrieval)\n- Beachhead is management research (niche domain), not general science\u2014possible competitive gap\n- EU AI Act compliance + GDPR data governance may be table stakes for EU institutions, creating moat vs. US competitors\n\n**CONFIDENCE:** Low  \n**KILL CONDITION:** Competitive protocol reveals that Scite + Elicit combined already provide \u226580% of claimed functionality; or buyer interviews reveal buyers perceive them as substitutes\n\n---\n\n## JUDGMENT 2: Buyer Identity and Procurement Authority Are Contradictory; Sales Model Cannot Proceed Until Resolved\n\n**CLAIM:**  \nThe \"primary buyer\" is claimed to be research deans / doctoral directors / research support offices at Spanish business schools. However:\n- No interviews conducted to confirm these roles make purchasing decisions\n- No evidence that these roles control budgets or have procurement authority\n- No evidence that the decision is *individual* (dean at one sch",
+        "judgments_extracted": 4,
+        "judgments_covered": 4,
+        "judgments_missing": 0,
+        "challenge": "# STRUCTURED PROBLEMS IN LAUNCH PLAN\n\nPROBLEM 1:\nTYPE: logical_gap\nLOCATION: Milestone \"Buyer Validation: 10 Interviews\" \u2013 kill gate threshold\nWHAT'S WRONG: Kill gate states \"if <3 interviews confirm authority + WTP, restart buyer mapping.\" This is mathematically incoherent. If you need 3/10 confirmations to proceed, that's a 30% validation rate for a \u20ac8k ACV product. No investor accepts a sales model where 70% of target buyers explicitly reject procurement authority or pricing. The threshold should be \u22657/10 (70%) or the target should shift from \"10 Spanish AACSB deans\" to a smaller, pre-qualified segment.\nFIX NEEDED: Redefine kill gate to either (a) require \u22657/10 confirmations on both authority AND WTP, or (b) pivot buyer segment if <5/10 confirm. Current 3/10 is a disguised restart, not a gate.\n\n---\n\nPROBLEM 2:\nTYPE: unsupported_claim\nLOCATION: Milestone \"Product Artifact & Reliability Framework\" \u2013 Cohen's \u03ba \u22650.65 threshold\nWHAT'S WRONG: The inter-rater reliability target (\u03ba \u22650.65) is set against \"2 senior reviewers on 20 real manuscripts.\" This is:\n  - Only 20 samples for a \u03ba calculation (severely underpowered; 95% CI will be \u00b10.2+)\n  - No specification of what \"claim-support classification\" means operationally (how many claims per manuscript? binary or ordinal?)\n  - \u03ba \u22650.65 is \"substantial\" agreement (Landis-Koch), but no evidence this threshold ensures customer acceptance. Is 65% agreement on claim categorization actually sufficient for a research dean to trust the tool? Unstated.\n  - Kill gate is \u03ba <0.55; this creates a 10-point dead zone (0.55\u20130.65) with no decision rule.\nFIX NEEDED: (a) Increase sample to \u2265100 manuscripts; (b) define claim-support taxonomy in advance; (c) add customer validation: \"Does \u226570% of pilot users accept \u03ba \u22650.65 accuracy?\" or raise \u03ba threshold if pilots reject it.\n\n---\n\nPROBLEM 3:\nTYPE: confidence_inflation\nLOCATION: Milestone \"Pilot Deployment: 1\u20132 Schools\" \u2013 conversion math\nWHAT'S WRONG: Year 1 revenue target states \"10 warm leads ",
+        "challenges_found": 8,
+        "challenges_resolved": 7,
+        "challenges_unresolved": 1,
+        "revision_count": 1,
+        "revisions_applied": true,
+        "reasoning_budget": 3,
+        "generic_phrase_count": 0
+      },
+      "ceo_data_injected_chars": 2307,
+      "ceo_data_keys": [
+        "financials",
+        "constraints"
+      ]
+    },
+    "executive_summary": {
+      "section_number": "executive_summary",
+      "agent_name": "Executive Summary",
+      "model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+      "latency_seconds": 114.37,
+      "input_tokens": 14651,
+      "output_tokens": 10200,
+      "parsed_successfully": true,
+      "output": {
+        "section_number": "EXECUTIVE_SUMMARY",
+        "executive_summary": "EpistemicOS targets Spanish research-intensive business schools with claim-level epistemic validation (unsupported causal claims, method-conclusion mismatch). Year 1 financials: \u20ac10k\u2013\u20ac30k revenue (1\u20133 contracts \u00d7 \u20ac10k ACV) vs. \u20ac310k costs; break-even requires 31+ contracts post-PMF. PRIMARY RISK: buyer authority, WTP, and competitive differentiation all unvalidated\u2014decision-maker identity unknown. RECOMMENDATION: Halt hiring/development. Complete (1) 40hr competitive protocol (Scite/Elicit gap validation); (2) 10 buyer interviews (60 days, \u226530% WTP @ \u20ac8k+); (3) procurement workflow mapping. Proceed Year 2 only if \u226560% pilot retention + 3+ schools + buyer authority confirmed. Current runway: 10\u201331 months (no external funding).",
+        "headline_metrics": {
+          "year1_revenue_range": "\u20ac10,000\u2013\u20ac30,000 (1\u20133 contracts \u00d7 \u20ac10k ACV)",
+          "break_even_month": "Month 31\u201393 (31\u201393 contracts; current conversion: 10 leads \u00d7 10% = 1 contract by month 12)",
+          "primary_risk": "Buyer authority unconfirmed (dean/journal/publisher?). WTP unvalidated. Competitive differentiation unsupported.",
+          "team_size_year1": "3 FTE (CEO + Tech Lead + PM); Year 2 expansion gated on PMF validation"
+        },
+        "key_assumptions_flagged": [
+          {
+            "assumption": "Decision-maker is research dean/doctoral program director; institutional SaaS model (\u20ac8k\u2013\u20ac15k ACV) is optimal",
+            "basis": "CEO assumption only; zero buyer interviews, no WTP study, no alternative models tested",
+            "kill_condition": "Procurement workflow excludes software OR <30% WTP @ \u20ac8k+ OR decision-maker outside identified personas"
+          },
+          {
+            "assumption": "EpistemicOS addresses gap Scite/Elicit/Turnitin miss: claim-level causal inference validation vs. text integrity only",
+            "basis": "Positioning plausible but unvalidated; competitors' capabilities not tested",
+            "kill_condition": "40hr competitive protocol shows Scite/Elicit already evaluate causal claim support or inferential coherence"
+          },
+          {
+            "assumption": "Researchers perceive method-conclusion mismatch as material enough to justify adoption + institutional procurement",
+            "basis": "Problem internally coherent; zero buyer interviews or usage evidence",
+            "kill_condition": "<30% researcher WTP to integrate into workflow OR institutional buyers lack budget/authority"
+          },
+          {
+            "assumption": "\u20ac310k Year 1 budget (CEO + Compliance \u20ac80k + Tech Lead \u20ac100k + PM \u20ac60k + Legal \u20ac70k) covers validation, MVP, and 3-school pilot",
+            "basis": "Headcount plan; no external funding assumed",
+            "kill_condition": "Actual spend >\u20ac350k OR validation gates extend beyond month 12 OR external funding required"
+          },
+          {
+            "assumption": "SAM \u20ac45k (20 Spanish business schools \u00d7 \u20ac10k ACV \u00d7 50% capture) achievable with 3 FTE and 3\u20136 month sales cycle",
+            "basis": "Bottom-up TAM; no competitive displacement or market saturation analysis",
+            "kill_condition": "Year 1 ARR <\u20ac10k OR <60% pilot retention OR runway depleted before PMF confirmation"
+          }
+        ],
+        "sections_included": [
+          "1_opportunity",
+          "3_confidence",
+          "4_team_plan",
+          "5_strategic_implications",
+          "8_revenue"
+        ],
+        "sections_skipped": [
+          "2_competitive_landscape (gated: 40hr protocol required)",
+          "6_go_to_market (depends on buyer validation)",
+          "7_product_roadmap (MVP scope TBD post-validation)",
+          "9_funding_requirements (\u20ac310k Year 1 cost; external funding likely unavoidable)",
+          "10_key_metrics (post-pilot KPIs)",
+          "11_financials (DATA GAP: no revenue projections, CAC, LTV, or COGS detail provided)",
+          "12_appendix (validation protocols deferred)"
+        ],
+        "coherence_issues_resolved": [
+          "STAGE RECLASSIFICATION: CEO claimed 'MVP-stage' but acknowledged zero working product, pilot data, or usage evidence. Reclassified as 'Early concept (pre-MVP).' MVP gatekeeping applies Year 2 only post-buyer+competitive validation.",
+          "BREAK-EVEN MATH CLARIFIED: 31\u201393 contracts required for break-even (\u20ac310k \u00f7 \u20ac10k ACV = 31 minimum). Current funnel yields ~1 contract by month 12 (10 leads \u00d7 10%). Year 1 is pre-revenue validation; break-even achievable only post-PMF in Year 2+.",
+          "SAM CALCULATION CONTEXTUALIZED: \u20ac45k SAM (20 schools \u00d7 \u20ac10k \u00d7 50% capture) is validation target, not guarantee. No competitive displacement or market saturation analysis performed. Assumes zero competitor adoption in 20-school segment."
+        ],
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "confidence_score": "low",
+        "_unresolved_challenges": [
+          "## PROBLEM 2\n**TYPE:** unsupported_claim  \n**LOCATION:** \"Differentiation is plausible: existing tools check text integrity/plagiarism/bibliography formatting, NOT inferential coherence at claim-level"
+        ]
+      },
+      "reasoning_trace": {
+        "decomposition": "# STRUCTURED JUDGMENTS: EpistemicOS\n---\n\n## JUDGMENT 1: Product-Market Fit Exists (Strong Claim)\n\n**SPECIFIC CLAIM:**  \nEpistemicOS solves a genuine, differentiated problem for research-active business schools that existing tools (Scite.ai, Elicit, Turnitin) do not adequately address.\n\n**EVIDENCE FOR:**\n- Problem definition is internally coherent: researchers submit manuscripts with unsupported causal claims, method-conclusion mismatches, and citation gaps (CONFIRMED across product definition)\n- Differentiation is plausible: existing tools check text integrity/plagiarism/bibliography formatting, NOT inferential coherence at claim-level (Section 1 positioning)\n- Regulatory tailwind: EU AI Act and AACSB accreditation pressure on research rigor creates institutional urgency (Section 1: \"ranking, accreditation, and EU AI Act governance pressure\")\n\n**EVIDENCE AGAINST:**\n- **Zero buyer interviews conducted** (CEO assumptions flagged as ASSUMPTION status)\n- No evidence that schools perceive the problem as *material enough to pay for*\n- No competitive protocol completed to confirm Scite.ai/Elicit gap (Section 5 explicitly gates this: \"40hr competitive protocol to confirm Scite.ai/Elicit do not already solve the problem\")\n- Researchers may self-select for manual peer review or editorial feedback instead of tool-based validation\n- Beachhead TAM math yields only \u20ac90,000 Year 1 potential (Section 1) against \u20ac310,000 Year 1 costs \u2014 implies problem is either not urgent enough OR pricing assumption is wrong\n\n**CONFIDENCE:** Low\n\n**KILL CONDITION:**  \nIf 10 buyer interviews with research deans/doctoral program directors show:\n- <20% awareness of the problem as stated, OR\n- <30% willingness to pay \u2265\u20ac8,000 annually, OR\n- Purchasing authority is NOT with the buyer personas identified (e.g., decision made by journal editors or publishers, not schools)\n\n---\n\n## JUDGMENT 2: Institutional Procurement Model is Viable\n\n**SPECIFIC CLAIM:**  \nAnnual institutional SaaS subscriptions (\u20ac8,000\u2013\u20ac1",
+        "judgments_extracted": 4,
+        "judgments_covered": 3,
+        "judgments_missing": 1,
+        "challenge": "# RUTHLESS DUE DILIGENCE: EpistemicOS BUSINESS PLAN\n\n---\n\n## PROBLEM 1\n**TYPE:** math_error  \n**LOCATION:** \"break_even_month\": \"Month 31\u201393 (31\u201393 contracts required; current funnel: 10 leads \u00d7 10% = 1 contract)\"  \n**WHAT'S WRONG:** The math is internally inconsistent. If Year 1 revenue target is \u20ac10k\u2013\u20ac30k (1\u20133 contracts) and break-even requires 31\u201393 contracts, then break-even occurs in Year 2\u20133 at earliest, NOT \"Month 31\u201393.\" Month 31 = 2.6 years. At 1\u20133 contracts/year, reaching 31 contracts takes 10\u201331 years, not months. The statement conflates two separate timelines without clarity.  \n**FIX NEEDED:** Clarify: \"Break-even timeline: 31\u201393 cumulative contracts required at \u20ac10k ACV = \u20ac310k\u2013\u20ac930k revenue. At current pipeline velocity (1\u20133 contracts Year 1), break-even occurs Year 10\u201331 without acceleration. Critical dependency: pipeline velocity must reach 6\u201310 contracts/year by Year 2 to break-even by Month 36.\"\n\n---\n\n## PROBLEM 2\n**TYPE:** unsupported_claim  \n**LOCATION:** \"Differentiation is plausible: existing tools check text integrity/plagiarism/bibliography formatting, NOT inferential coherence at claim-level\"  \n**WHAT'S WRONG:** This is positioned as fact in the reasoning but flagged as \"explicitly gated\" on a \"40hr competitive protocol\" that hasn't been completed. The plan simultaneously claims differentiation is \"plausible\" (suggesting it's validated) while admitting validation is deferred. This is confidence inflation. Scite.ai, in particular, claims to surface \"methodologically sound claims\" and \"citation patterns\"\u2014this may already include inferential validation. The plan provides zero evidence it doesn't.  \n**FIX NEEDED:** Reframe as: \"Differentiation HYPOTHESIS: claim-level inference validation. VALIDATION STATUS: unconfirmed. Competitive protocol (40hr) MUST show: (a) Scite/Elicit do NOT flag unsupported causal claims, AND (b) mock manuscript with 5\u201310 intentional method-conclusion mismatches is caught by EpistemicOS but NOT by competitors. If competi",
+        "challenges_found": 5,
+        "challenges_resolved": 4,
+        "challenges_unresolved": 1,
+        "revision_count": 1,
+        "revisions_applied": true,
+        "reasoning_budget": 3,
+        "generic_phrase_count": 0
+      },
+      "ceo_data_injected_chars": 2865,
+      "ceo_data_keys": [
+        "financials",
+        "deck",
+        "product_definition"
+      ]
+    }
+  },
+  "total_input_tokens": 118540,
+  "total_output_tokens": 115821,
+  "total_latency_seconds": 1865.742470741272,
+  "errors": [],
+  "completed_at": "2026-06-03T07:17:55.911635+00:00",
+  "scores": {
+    "overall_score": 9.9,
+    "schema_compliance": 100.0,
+    "avg_confidence": "low",
+    "confidence_distribution": {
+      "high": 1,
+      "medium": 0,
+      "low": 8
+    },
+    "section_scores": {
+      "1": {
+        "schema_compliance": 10.0,
+        "specificity": 10.0,
+        "completeness": 10.0,
+        "total": 10.0,
+        "issues": []
+      },
+      "3": {
+        "schema_compliance": 10.0,
+        "specificity": 10.0,
+        "completeness": 10.0,
+        "total": 10.0,
+        "issues": []
+      },
+      "4": {
+        "schema_compliance": 10.0,
+        "specificity": 10.0,
+        "completeness": 10.0,
+        "total": 10.0,
+        "issues": []
+      },
+      "5": {
+        "schema_compliance": 10.0,
+        "specificity": 10.0,
+        "completeness": 10.0,
+        "total": 10.0,
+        "issues": []
+      },
+      "8": {
+        "schema_compliance": 10.0,
+        "specificity": 8.3,
+        "completeness": 10.0,
+        "total": 9.3,
+        "issues": [
+          "revenue_assumptions: only 1/4 fields with numeric content"
+        ]
+      },
+      "10": {
+        "schema_compliance": 10.0,
+        "specificity": 10.0,
+        "completeness": 10.0,
+        "total": 10.0,
+        "issues": []
+      },
+      "12": {
+        "schema_compliance": 10.0,
+        "specificity": 10.0,
+        "completeness": 10.0,
+        "total": 10.0,
+        "issues": []
+      },
+      "13": {
+        "schema_compliance": 10.0,
+        "specificity": 10.0,
+        "completeness": 10.0,
+        "total": 10.0,
+        "issues": []
+      },
+      "executive_summary": {
+        "schema_compliance": 10.0,
+        "specificity": 10.0,
+        "completeness": 10.0,
+        "total": 10.0,
+        "issues": []
+      }
+    },
+    "total_sections": 9,
+    "successful_parses": 9
+  }
+}

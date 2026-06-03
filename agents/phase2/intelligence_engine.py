@@ -641,7 +641,7 @@ Return ONLY valid JSON. Start with {{ end with }}.""",
             ctx["live_data"] = (
                 "\n\nLIVE MARKET DATA (retrieved from web, treat as current "
                 "external evidence — verify source before treating as fact):\n"
-                + str(live_data)[:2000]
+                + str(live_data)[:2900]
             )
 
         if learning_context:

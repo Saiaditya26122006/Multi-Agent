@@ -28,10 +28,34 @@ from agents.phase2.intelligence_engine import IntelligenceEngine
 from ceo_data.loader import get_relevant_ceo_data, load_all_ceo_data
 from evaluation.eval_runner import AGENT_CONFIGS
 from evaluation.scorer import score_pipeline_run
+from services.search_service import search_for_section
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
+
+SEARCH_QUERIES = {
+    "1": [
+        "academic manuscript validation software market size 2025",
+        "epistemic validation tools universities Europe market",
+        "pre-submission research diagnostics SaaS competitors",
+    ],
+    "3": [
+        "EU AI Act academic research software compliance 2025",
+        "GDPR SaaS academic procurement requirements Europe",
+        "European academic publishing market regulation 2025",
+    ],
+    "8": [
+        "institutional SaaS pricing universities Europe 2025",
+        "academic software procurement business schools budget",
+        "research quality management tools university pricing",
+    ],
+    "12": [
+        "B2B SaaS gross margin benchmarks institutional 2025",
+        "academic software CAC payback period benchmarks",
+        "university SaaS contract value annual recurring revenue",
+    ],
+}
 
 EPISTEMIC_OS_IDEA = {
     "id": "grounded_epistemic_os",
@@ -64,6 +88,29 @@ EPISTEMIC_OS_IDEA = {
     },
     "business_type": "b2b_saas",
 }
+
+
+def _fetch_live_market_data(section_num: str) -> str:
+    """Fetch live market data via search service for outward-facing sections."""
+    queries = SEARCH_QUERIES.get(section_num, [])
+    if not queries:
+        return ""
+
+    all_results = []
+    for query in queries:
+        results = search_for_section(section_num, query)
+        all_results.extend(results)
+
+    if not all_results:
+        return "No live market data retrieved."
+
+    lines = [f"Retrieved {datetime.utcnow().strftime('%Y-%m-%d')}:"]
+    for i, r in enumerate(all_results[:8], 1):
+        lines.append(
+            f"[{i}] {r['title']} — {r['snippet'][:200]} "
+            f"(Source: {r['url']}, Freshness: {r['freshness']})"
+        )
+    return "\n".join(lines)
 
 
 async def run_grounded_eval():
@@ -112,6 +159,14 @@ async def run_grounded_eval():
             "[Grounded] Section %s — injecting %d chars of CEO data, keys=%s",
             section_num, ceo_chars, list(ceo_section_data.keys()),
         )
+
+        if section_num in ["1", "3", "8", "12"]:
+            live_data = _fetch_live_market_data(section_num)
+            input_data["live_market_data"] = live_data
+            logger.info(
+                "[Search] Section %s: injected %d chars of live market data",
+                section_num, len(live_data),
+            )
 
         start_time = time.time()
         try:
