@@ -344,5 +344,27 @@ def _print_scorecard(run_result: dict):
     print(f"\n{'=' * 80}\n")
 
 
+async def run_grounded_eval_for_session(idea: dict) -> str:
+    """
+    Run grounded eval with a custom idea from a real session.
+
+    Args:
+        idea: Dict with keys: id, name, idea_summary, ceo_assumptions,
+              approved_decision, business_type
+
+    Returns:
+        Path to the saved results JSON file
+    """
+    global EPISTEMIC_OS_IDEA
+    original_idea = EPISTEMIC_OS_IDEA
+    EPISTEMIC_OS_IDEA = idea
+
+    try:
+        result_path = await run_grounded_eval()
+        return result_path
+    finally:
+        EPISTEMIC_OS_IDEA = original_idea
+
+
 if __name__ == "__main__":
     asyncio.run(run_grounded_eval())

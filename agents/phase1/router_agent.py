@@ -15,7 +15,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
-from google import genai
+from agents.phase1.llm_client import get_client
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -29,7 +29,7 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# LLM client now uses Claude via Bedrock
 
 # ============================================================================
 # FAST-PATH PATTERNS (no API call needed)
@@ -165,18 +165,13 @@ Respond with ONLY the category name. One word. Nothing else."""
     prompt = f'CEO says: "{message_text}"'
 
     @retry_with_fallback(max_retries=2, wait_seconds=3)
-    def call_gemini():
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-            config=genai.types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0,
-                max_output_tokens=5,
-            ),
+    def call_llm():
+        client = get_client()
+        response = client.generate_content(
+            prompt=prompt,
+            system_instruction=system_prompt
         )
-        raw = (response.text or "").strip().lower().replace('"', '').replace("'", "")
+        raw = (response or "").strip().lower().replace('"', '').replace("'", "")
         # Extract just the category word
         for cat in ["general", "business_idea", "query", "command"]:
             if cat in raw:
@@ -185,7 +180,7 @@ Respond with ONLY the category name. One word. Nothing else."""
 
     emit_trace(session_key, "Router", "llm_classification", "Classifying with LLM...")
     try:
-        category = call_gemini()
+        category = call_llm()
         valid = {"general", "business_idea", "query", "command"}
         if category not in valid:
             logger.warning(f"[ROUTER] LLM returned '{category}', defaulting to business_idea")
@@ -252,19 +247,14 @@ HOW TO RESPOND:
 
     @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
     def call_gemini():
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=full_prompt,
-            config=genai.types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.8,
-                max_output_tokens=100,
-            ),
+        client = get_client()
+        response = client.generate_content(
+            prompt=full_prompt,
+            system_instruction=system_prompt
         )
-        return response.text.strip()
+        return response.strip()
 
-    reply = call_gemini()
+    reply = call_llm()
 
     # Update conversation buffer (keep last 10 exchanges)
     new_entry = f"{ceo_name}: {message_text}\nYou: {reply}"
@@ -355,17 +345,12 @@ Current state:
 Answer:"""
 
     @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
-    def call_gemini():
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-            config=genai.types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.2,
-                max_output_tokens=200,
-            ),
+    def call_llm():
+        client = get_client()
+        response = client.generate_content(
+            prompt=prompt,
+            system_instruction=system_prompt
         )
-        return response.text.strip()
+        return response.strip()
 
-    return call_gemini()
+    return call_llm()

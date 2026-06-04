@@ -186,7 +186,35 @@ async def handle_telegram_message(message_data):
             return
 
     # ========================================================================
-    # STEP 1.6: Route clarification responses back to Mother Agent
+    # STEP 1.6: Handle PROCEED/SKIP response for demo pipeline
+    # ========================================================================
+    if text_lower in ["proceed", "skip"]:
+        print(f"\n[PROCEED] Processing demo pipeline response: {text}")
+        # Use the COMPLETED session (the one that triggered the pipeline)
+        # not the current session_id (which might be new)
+        completed_session = None
+        try:
+            result = get_active_session(chat_id)
+            if result and result.get("state") == "COMPLETED":
+                completed_session = result.get("id")
+        except:
+            pass
+
+        target_session = completed_session or session_id
+        redis_client.set(
+            f"proceed_response:{target_session}",
+            text_lower,
+            ex=7200,
+        )
+        await send_reply(
+            chat_id,
+            f"✓ Got it. {'Starting' if text_lower == 'proceed' else 'Running with available data'}..."
+        )
+        print(f"[PROCEED] ✓ Response stored for session {target_session}")
+        return
+
+    # ========================================================================
+    # STEP 1.7: Route clarification responses back to Mother Agent
     # ========================================================================
     # TASK 6: Check if we're awaiting a clarification response from CEO
     clarification_key = f"awaiting_clarification:{chat_id}"
@@ -697,8 +725,20 @@ def main():
     web_thread = threading.Thread(target=start_web_server, daemon=True)
     web_thread.start()
 
+    # Start demo pipeline poller in background thread
+    def start_demo_poller_thread():
+        """Run demo poller in its own event loop."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        from evaluation.demo_pipeline import start_demo_poller
+        loop.run_until_complete(start_demo_poller())
+
+    poller_thread = threading.Thread(target=start_demo_poller_thread, daemon=True)
+    poller_thread.start()
+
     web_port = int(os.getenv("WEB_PORT", "8000"))
     print(f"[SYSTEM] Web chat running at http://localhost:{web_port}")
+    print("[SYSTEM] Demo pipeline poller started")
     print("[SYSTEM] Starting Telegram polling...")
     print("[SYSTEM] Waiting for messages...\n")
     print("=" * 60)

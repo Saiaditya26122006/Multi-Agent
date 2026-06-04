@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
 from dotenv import load_dotenv
-from google import genai
+from agents.phase1.llm_client import get_client
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -41,10 +41,7 @@ from tools.trace_emitter import emit_trace
 env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(env_path)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in .env file")
+# LLM client now uses Claude via Bedrock
 
 
 def generate_feedback(
@@ -196,19 +193,19 @@ OUTPUT:"""
     _llm_start = _time.time()
 
     @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
-    def call_gemini_with_retry():
-        client = genai.Client(api_key=GEMINI_API_KEY)
+    def call_llm_with_retry():
+        client = get_client()
         try:
-            response = client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt
+            response = client.generate_content(
+                prompt=prompt,
+                system_instruction=None
             )
-            return response.text.strip()
+            return response.strip()
         except Exception as e:
-            print(f"[L3] ✗ Gemini API call failed: {str(e)}")
+            print(f"[L3] ✗ Claude API call failed: {str(e)}")
             raise
 
-    summary = call_gemini_with_retry()
+    summary = call_llm_with_retry()
     _llm_duration = round(_time.time() - _llm_start, 2)
     emit_trace(session_key, "L3", "llm_complete", "Summary generated", {"duration_s": _llm_duration, "chars": len(summary)})
 

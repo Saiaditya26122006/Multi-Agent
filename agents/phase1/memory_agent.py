@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from google import genai
+from agents.phase1.llm_client import get_client
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -38,10 +38,7 @@ from tools.trace_emitter import emit_trace
 env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(env_path)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in .env file")
+# LLM client now uses Claude via Bedrock
 
 
 def consolidate_session_memory(session_id: str, ceo_id: str) -> List[Dict[str, Any]]:
@@ -144,20 +141,20 @@ JSON ARRAY:"""
     emit_trace(session_key, "Memory", "calling_llm", "Extracting memories with LLM")
 
     @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
-    def call_gemini_with_retry():
-        client = genai.Client(api_key=GEMINI_API_KEY)
+    def call_llm_with_retry():
+        client = get_client()
         try:
-            response = client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt
+            response = client.generate_content(
+                prompt=prompt,
+                system_instruction=None
             )
-            return response.text.strip()
+            return response.strip()
         except Exception as e:
-            print(f"[MEMORY] ✗ Gemini API call failed: {str(e)}")
+            print(f"[MEMORY] ✗ Claude API call failed: {str(e)}")
             raise
 
     try:
-        raw_response = call_gemini_with_retry()
+        raw_response = call_llm_with_retry()
         print(f"[MEMORY] Raw response: {raw_response[:200]}...")
 
         # Parse JSON response
@@ -325,20 +322,20 @@ WELCOME MESSAGE:"""
 
     # Step 6: Call Gemini to generate message
     @retry_with_fallback(max_retries=MAX_RETRIES, wait_seconds=RETRY_WAIT_SECONDS)
-    def call_gemini_with_retry():
-        client = genai.Client(api_key=GEMINI_API_KEY)
+    def call_llm_with_retry():
+        client = get_client()
         try:
-            response = client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt
+            response = client.generate_content(
+                prompt=prompt,
+                system_instruction=None
             )
-            return response.text.strip()
+            return response.strip()
         except Exception as e:
-            print(f"[MEMORY] ✗ Gemini API call failed: {str(e)}")
+            print(f"[MEMORY] ✗ Claude API call failed: {str(e)}")
             raise
 
     try:
-        welcome_message = call_gemini_with_retry()
+        welcome_message = call_llm_with_retry()
         print(f"[MEMORY] ✅ Generated welcome message: {welcome_message[:80]}...")
         return welcome_message
 
