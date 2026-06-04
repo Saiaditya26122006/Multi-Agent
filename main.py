@@ -190,19 +190,22 @@ async def handle_telegram_message(message_data):
     # ========================================================================
     if text_lower in ["proceed", "skip"]:
         print(f"\n[PROCEED] Processing demo pipeline response: {text}")
-        # Use the COMPLETED session (the one that triggered the pipeline)
-        # not the current session_id (which might be new)
-        completed_session = None
-        try:
-            result = get_active_session(chat_id)
-            if result and result.get("state") == "COMPLETED":
-                completed_session = result.get("id")
-        except:
-            pass
-
-        target_session = completed_session or session_id
+        # Find the most recent completed session
+        completed = supabase.table("sessions") \
+            .select("id") \
+            .eq("telegram_chat_id", chat_id) \
+            .eq("state", "COMPLETED") \
+            .order("started_at", desc=True) \
+            .limit(1) \
+            .execute()
+        
+        if completed.data:
+            proceed_session_id = completed.data[0]["id"]
+        else:
+            proceed_session_id = session_id  # fallback
+        
         redis_client.set(
-            f"proceed_response:{target_session}",
+            f"proceed_response:{proceed_session_id}",
             text_lower,
             ex=7200,
         )
@@ -210,7 +213,7 @@ async def handle_telegram_message(message_data):
             chat_id,
             f"✓ Got it. {'Starting' if text_lower == 'proceed' else 'Running with available data'}..."
         )
-        print(f"[PROCEED] ✓ Response stored for session {target_session}")
+        print(f"[PROCEED] ✓ Response stored for session {proceed_session_id}")
         return
 
     # ========================================================================

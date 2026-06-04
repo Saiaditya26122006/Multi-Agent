@@ -128,43 +128,40 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         is_new_session = True
         print(f"[L0] ✓ Created new session: {session_id}")
 
-    # Step 5: Log the raw message
+    # Step 5: Log the raw message (non-blocking)
     emit_trace(session_key, "L0", "logging_message", "Logging raw message to DB")
-    message_log = log_message(
-        telegram_message_id=message_id,
-        content=text,
-        session_id=session_id,
-        channel=channel
-    )
+    try:
+        message_log = log_message(
+            telegram_message_id=message_id,
+            content=text,
+            session_id=session_id,
+            channel=channel
+        )
+        if message_log:
+            print(f"[L0] ✓ Message logged: {message_id}")
+        else:
+            print(f"[L0] ⚠ Message logging returned None (non-blocking): {message_id}")
+    except Exception as e:
+        # DB logging failure should not block the pipeline
+        print(f"[L0] ⚠ Failed to log message (continuing anyway): {e}")
 
-    if not message_log:
-        print(f"[L0] ✗ Failed to log message {message_id}")
-        return {
-            "valid": False,
-            "session_id": session_id,
-            "ceo_id": ceo_id,
-            "is_new_session": is_new_session,
-            "reason": "Failed to log message in database"
-        }
-
-    print(f"[L0] ✓ Message logged: {message_id}")
-
-    # Step 6: Log the event
-    event_log = log_event(
-        agent_id="L0_INPUT_GUARD",
-        action=f"VALIDATED_MESSAGE: {text[:50]}..." if len(text) > 50 else f"VALIDATED_MESSAGE: {text}",
-        session_id=session_id,
-        state_before=None if is_new_session else session.get("state"),
-        state_after=session.get("state"),
-        input_ref=f"message_id:{message_id}",
-        output_ref=f"session_id:{session_id}"
-    )
-
-    if not event_log:
-        print(f"[L0] ⚠ Warning: Failed to log event for message {message_id}")
-        # Continue anyway - event logging failure shouldn't block processing
-
-    print(f"[L0] ✓ Event logged for session {session_id}")
+    # Step 6: Log the event (non-blocking)
+    try:
+        event_log = log_event(
+            agent_id="L0_INPUT_GUARD",
+            action=f"VALIDATED_MESSAGE: {text[:50]}..." if len(text) > 50 else f"VALIDATED_MESSAGE: {text}",
+            session_id=session_id,
+            state_before=None if is_new_session else session.get("state"),
+            state_after=session.get("state"),
+            input_ref=f"message_id:{message_id}",
+            output_ref=f"session_id:{session_id}"
+        )
+        if event_log:
+            print(f"[L0] ✓ Event logged for session {session_id}")
+        else:
+            print(f"[L0] ⚠ Event logging returned None (non-blocking): {message_id}")
+    except Exception as e:
+        print(f"[L0] ⚠ Failed to log event (continuing anyway): {e}")
 
     # Success!
     emit_trace(session_key, "L0", "complete", "Message validated and routed", {"session_id": session_id})
