@@ -17,6 +17,17 @@ class Assumption(BaseModel):
     source_detail: Optional[str] = None
 
 
+class UnitEconomics(BaseModel):
+    """Unit economics with LTV, CAC, and key ratios"""
+    cac: dict = Field(..., description="total_cac, breakdown, validation_source, confidence")
+    ltv: dict = Field(..., description="calculation_method, avg_revenue_annual, churn_rate, lifetime_years, gross_margin, ltv_gross, ltv_net")
+    ltv_cac_ratio: float = Field(..., ge=0)
+    payback_period_months: float = Field(..., ge=0)
+    health_assessment: str = Field(..., min_length=20)
+    key_assumptions: List[str] = Field(default=[])
+    uncertainties: List[str] = Field(default=[])
+
+
 class MarketingStrategyOutput(BaseModel):
     task_id: str
     section_number: str = Field(default="8")
@@ -27,6 +38,7 @@ class MarketingStrategyOutput(BaseModel):
     customer_relations: dict = Field(..., description="communication, loyalty_strategy")
     revenue_assumptions: dict = Field(..., description="price_per_unit, volume_year1, volume_year2, volume_year3, sales_cycle_months")
     cac_assumptions: dict = Field(..., description="cac_estimate, cac_source, confidence")
+    unit_economics: UnitEconomics = Field(..., description="LTV, CAC, LTV:CAC ratio, payback period")
     market_entry_strategy: str = Field(..., min_length=50)
     assumptions_used: List[Assumption]
     uncertainties: List[str] = Field(default=[])

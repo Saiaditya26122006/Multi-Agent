@@ -101,16 +101,78 @@ every channel choice is justified with evidence, and the budget connects directl
 - If there is no ICP hypothesis and no competitive_strategy from prior sections, flag as FATAL: "Cannot build marketing strategy without knowing who to sell to or how to position."
 - If CAC estimate > revenue per customer in Year 1 (i.e., unit economics are negative with no path to improvement), flag as FATAL: "Unit economics do not support customer acquisition — revise pricing or cost model."
 
+## UNIT ECONOMICS — CRITICAL SECTION (Must calculate LTV, CAC, and ratios):
+
+### 1. Calculate CAC (Customer Acquisition Cost):
+```json
+"cac": {
+  "total_cac": <float>,  // Total cost to acquire one customer
+  "breakdown": {
+    "sales_team_cost_per_customer": <float>,  // Sales salaries / customers acquired
+    "marketing_spend_per_customer": <float>,  // Ads, content, events / customers
+    "tools_and_overhead": <float>  // CRM, martech, attribution tools
+  },
+  "validation_source": "<validated|assumed|benchmark>",
+  "confidence": "high"|"medium"|"low"
+}
+```
+
+### 2. Calculate LTV (Lifetime Value):
+```json
+"ltv": {
+  "calculation_method": "avg_revenue_annual * (1 / churn_rate) * gross_margin",
+  "avg_revenue_annual": <float>,  // price_per_unit from revenue_assumptions
+  "churn_rate_annual": <float>,  // 0.10 = 10% churn/year (median SaaS: 10-15%)
+  "customer_lifetime_years": <float>,  // 1 / churn_rate
+  "gross_margin": <float>,  // 0.70-0.85 for SaaS (after COGS)
+  "ltv_gross": <float>,  // avg_revenue * lifetime_years (before margin)
+  "ltv_net": <float>  // ltv_gross * gross_margin (after COGS)
+}
+```
+
+### 3. Calculate Key Ratios:
+```json
+"ltv_cac_ratio": <float>,  // ltv_net / total_cac
+"payback_period_months": <float>,  // (total_cac / (avg_revenue_annual * gross_margin)) * 12
+"health_assessment": "<assessment>",  // See rules below
+"key_assumptions": [
+  "Churn rate assumed at <X>% based on <source>",
+  "Gross margin <Y>% based on <source>",
+  "CAC based on <source>"
+],
+"uncertainties": [
+  "No retention data — churn rate is assumed",
+  "CAC not validated with pilot sales data",
+  ...
+]
+```
+
+### Unit Economics Health Rules:
+- **LTV:CAC > 5:1** → "excellent — strong unit economics, capital efficient growth"
+- **LTV:CAC 3:1 to 5:1** → "healthy — viable SaaS business, acceptable efficiency"
+- **LTV:CAC 1:1 to 3:1** → "WARNING — low efficiency, requires optimization before scaling"
+- **LTV:CAC < 1:1** → "FATAL — unit economics broken, business not viable"
+- **Payback < 12 months** → "excellent cash efficiency"
+- **Payback 12-18 months** → "acceptable for SaaS"
+- **Payback > 18 months** → "WARNING — high capital requirement to scale"
+
+### Validation Rules:
+- If churn_rate is assumed (no retention data), confidence MUST be "low" or "medium" at best
+- If CAC is from benchmarks (not actual sales), confidence MUST be "low" or "medium"
+- If gross_margin is assumed, state source (SaaS average, competitor proxy, etc.)
+- NEVER claim high confidence on LTV without 6+ months of retention data
+
 ## Rules:
 - competitors list must have at least 2 entries with specific names (not "Competitor A")
 - competitive_advantages must have at least 2 entries that pass the "so what?" test
 - revenue_assumptions must include: price_per_unit, volume_year1, volume_year2, volume_year3, sales_cycle_months
 - cac_assumptions must include: cac_estimate, cac_source, confidence
+- unit_economics must include: cac, ltv, ltv_cac_ratio, payback_period_months, health_assessment
 - market_entry_strategy must be at least 50 characters describing the specific GTM sequence
 - If pricing data is unavailable from CEO, infer from competitive analysis and label as agent_inferred
 - Never claim "no competitors" — always identify substitutes at minimum
 
-You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields: section_number, target_market_analysis, competitors, competitive_advantages, marketing_mix, customer_relations, revenue_assumptions, cac_assumptions, market_entry_strategy, assumptions_used, uncertainties, confidence_score, input_tokens, output_tokens.
+You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields: section_number, target_market_analysis, competitors, competitive_advantages, marketing_mix, customer_relations, revenue_assumptions, cac_assumptions, unit_economics, market_entry_strategy, assumptions_used, uncertainties, confidence_score, input_tokens, output_tokens.
 """
 
 
@@ -349,6 +411,19 @@ Return ONLY valid JSON with these exact keys:
             return result
 
         logger.warning("[MarketingStrategy] Both parse attempts failed, constructing fallback")
+
+        # Calculate fallback unit economics
+        price = 100.0
+        churn = 0.12
+        gross_margin = 0.80
+        cac = 500.0
+
+        lifetime_years = 1 / churn  # 8.33 years
+        ltv_gross = price * lifetime_years  # 833
+        ltv_net = ltv_gross * gross_margin  # 666
+        ltv_cac = ltv_net / cac  # 1.33
+        payback_months = (cac / (price * gross_margin)) * 12  # 7.5 months
+
         return {
                 "section_number": "8",
                 "target_market_analysis": {"segmentation": "To be determined based on ICP validation", "icp_refined": "Initial hypothesis requires market testing", "market_size_tam_sam_som": "Requires further research"},
@@ -359,8 +434,42 @@ Return ONLY valid JSON with these exact keys:
                 "competitive_advantages": ["Novel approach to customer problem", "Speed and agility as early-stage venture"],
                 "marketing_mix": {"product": "Core product addressing identified pain points", "pricing_policy": "Value-based pricing aligned with market", "distribution": "Direct-to-customer digital channels", "promotion": "Content marketing and targeted outreach"},
                 "customer_relations": {"communication": "Direct engagement via digital channels", "loyalty_strategy": "Early adopter program with feedback loop"},
-                "revenue_assumptions": {"price_per_unit": 100.0, "volume_year1": 100, "volume_year2": 500, "volume_year3": 1500, "sales_cycle_months": 3},
-                "cac_assumptions": {"cac_estimate": 500.0, "cac_source": "Industry benchmark — not validated", "confidence": "low"},
+                "revenue_assumptions": {"price_per_unit": price, "volume_year1": 100, "volume_year2": 500, "volume_year3": 1500, "sales_cycle_months": 3},
+                "cac_assumptions": {"cac_estimate": cac, "cac_source": "Industry benchmark — not validated", "confidence": "low"},
+                "unit_economics": {
+                    "cac": {
+                        "total_cac": cac,
+                        "breakdown": {
+                            "sales_team_cost_per_customer": 300.0,
+                            "marketing_spend_per_customer": 150.0,
+                            "tools_and_overhead": 50.0
+                        },
+                        "validation_source": "assumed — fallback defaults",
+                        "confidence": "low"
+                    },
+                    "ltv": {
+                        "calculation_method": "avg_revenue_annual * (1 / churn_rate) * gross_margin",
+                        "avg_revenue_annual": price,
+                        "churn_rate_annual": churn,
+                        "customer_lifetime_years": round(lifetime_years, 2),
+                        "gross_margin": gross_margin,
+                        "ltv_gross": round(ltv_gross, 2),
+                        "ltv_net": round(ltv_net, 2)
+                    },
+                    "ltv_cac_ratio": round(ltv_cac, 2),
+                    "payback_period_months": round(payback_months, 2),
+                    "health_assessment": "WARNING — LTV:CAC < 3:1 (fallback defaults, low confidence)",
+                    "key_assumptions": [
+                        "Churn rate assumed at 12% (SaaS median)",
+                        "Gross margin 80% (SaaS benchmark)",
+                        "CAC from industry benchmarks"
+                    ],
+                    "uncertainties": [
+                        "No retention data — churn rate is pure assumption",
+                        "CAC not validated with actual sales data",
+                        "Gross margin not verified against actual cost structure"
+                    ]
+                },
                 "market_entry_strategy": "Focus on early adopter segment with direct sales approach, then expand through referrals and content marketing",
                 "assumptions_used": [{"statement": "LLM output was unparseable — defaults used", "confidence": "low", "source": "assumed", "source_detail": None}],
                 "uncertainties": ["LLM response could not be parsed — full analysis not completed"],
