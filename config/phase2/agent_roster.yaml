@@ -15,11 +15,22 @@ agents:
     password_env: "OPPORTUNITY_ANALYST_PASSWORD"
     model: "claude-sonnet"
     model_env: "CLAUDE_SONNET_MODEL"
-    sections_owned: ["1", "2"]
+    sections_owned: ["1"]
     role: "child_agent"
     retry_limit: 3
     timeout_seconds: 90
     description: "Analyses business opportunity, competitive strategy, objectives, ICP"
+
+  entrepreneur_team:
+    jid_env: "ENTREPRENEUR_TEAM_JID"
+    password_env: "ENTREPRENEUR_TEAM_PASSWORD"
+    model: "claude-haiku"
+    model_env: "CLAUDE_HAIKU_MODEL"
+    sections_owned: ["2"]
+    role: "child_agent"
+    retry_limit: 3
+    timeout_seconds: 90
+    description: "Assesses founding team credibility, identifies strengths and gaps"
 
   environment_research:
     jid_env: "ENVIRONMENT_RESEARCH_JID"
@@ -37,11 +48,22 @@ agents:
     password_env: "ORGANISATION_DESIGNER_PASSWORD"
     model: "claude-haiku"
     model_env: "CLAUDE_HAIKU_MODEL"
-    sections_owned: ["4", "11"]
+    sections_owned: ["4"]
     role: "child_agent"
     retry_limit: 3
     timeout_seconds: 90
-    description: "Company structure, org chart, HR plan, capability gaps, headcount"
+    description: "Company structure, org chart, capability gaps, production flow"
+
+  hr_plan:
+    jid_env: "HR_PLAN_JID"
+    password_env: "HR_PLAN_PASSWORD"
+    model: "claude-haiku"
+    model_env: "CLAUDE_HAIKU_MODEL"
+    sections_owned: ["11"]
+    role: "child_agent"
+    retry_limit: 3
+    timeout_seconds: 90
+    description: "Hiring timeline, roles, compensation strategy, headcount plan, knowledge gaps"
 
   swot_synthesizer:
     jid_env: "SWOT_SYNTHESIZER_JID"
@@ -54,27 +76,60 @@ agents:
     timeout_seconds: 90
     description: "SWOT matrix synthesis — runs only after sections 3 and 4 are both complete"
 
+  alliances:
+    jid_env: "ALLIANCES_JID"
+    password_env: "ALLIANCES_PASSWORD"
+    model: "claude-haiku"
+    model_env: "CLAUDE_HAIKU_MODEL"
+    sections_owned: ["7"]
+    role: "child_agent"
+    retry_limit: 3
+    timeout_seconds: 90
+    description: "Partnership strategy, make-vs-buy decisions — partnership-heavy models only"
+
   marketing_strategy:
     jid_env: "MARKETING_STRATEGY_JID"
     password_env: "MARKETING_STRATEGY_PASSWORD"
     model: "claude-sonnet"
     model_env: "CLAUDE_SONNET_MODEL"
-    sections_owned: ["7", "8", "9"]
+    sections_owned: ["8"]
     role: "child_agent"
     retry_limit: 3
     timeout_seconds: 120
-    description: "Full marketing plan — largest section. Also handles alliances and quality management."
+    description: "Full marketing plan — target market, pricing, channels, revenue, CAC, unit economics"
+
+  quality_management:
+    jid_env: "QUALITY_MANAGEMENT_JID"
+    password_env: "QUALITY_MANAGEMENT_PASSWORD"
+    model: "claude-haiku"
+    model_env: "CLAUDE_HAIKU_MODEL"
+    sections_owned: ["9"]
+    role: "child_agent"
+    retry_limit: 3
+    timeout_seconds: 90
+    description: "Quality assurance approach, procedures, metrics — service businesses only"
+
+  rd_technology:
+    jid_env: "RD_TECHNOLOGY_JID"
+    password_env: "RD_TECHNOLOGY_PASSWORD"
+    model: "claude-haiku"
+    model_env: "CLAUDE_HAIKU_MODEL"
+    sections_owned: ["6"]
+    role: "child_agent"
+    retry_limit: 3
+    timeout_seconds: 90
+    description: "R&D plan, IP analysis, technology risk, development milestones — tech/IP businesses only"
 
   operations:
     jid_env: "OPERATIONS_JID"
     password_env: "OPERATIONS_PASSWORD"
     model: "claude-haiku"
     model_env: "CLAUDE_HAIKU_MODEL"
-    sections_owned: ["6", "10"]
+    sections_owned: ["10"]
     role: "child_agent"
     retry_limit: 3
     timeout_seconds: 90
-    description: "Production plan, R&D, operations — conditional sections"
+    description: "Production plan, operations, cost structure — conditional"
 
   financial_modelling:
     jid_env: "FINANCIAL_MODELLING_JID"
@@ -97,11 +152,22 @@ agents:
     password_env: "LAUNCH_CONTINGENCY_PASSWORD"
     model: "claude-haiku"
     model_env: "CLAUDE_HAIKU_MODEL"
-    sections_owned: ["13", "14"]
+    sections_owned: ["13"]
     role: "child_agent"
     retry_limit: 3
     timeout_seconds: 90
-    description: "Start-up programme and contingency plan"
+    description: "Start-up programme — launch timeline, prerequisites, capital plan"
+
+  exit_strategy:
+    jid_env: "EXIT_STRATEGY_JID"
+    password_env: "EXIT_STRATEGY_PASSWORD"
+    model: "claude-sonnet"
+    model_env: "CLAUDE_SONNET_MODEL"
+    sections_owned: ["14"]
+    role: "child_agent"
+    retry_limit: 3
+    timeout_seconds: 120
+    description: "Exit strategy, cap table, investor returns, contingency triggers"
 
   summary_agent:
     jid_env: "SUMMARY_JID"
@@ -130,29 +196,29 @@ agents:
 execution_groups:
   1:
     name: "Foundation"
-    agents: ["opportunity_analyst", "organisation_designer"]
+    agents: ["opportunity_analyst", "entrepreneur_team", "organisation_designer"]
     parallel: true
     description: "Idea, opportunity, team, capabilities — low dependency, high context value"
 
   2:
     name: "Evidence building"
-    agents: ["environment_research", "marketing_strategy"]
+    agents: ["environment_research", "rd_technology", "marketing_strategy"]
     parallel: true
     depends_on_groups: [1]
-    description: "Market, competition, external environment — needs Group 1 outputs"
+    description: "Market, competition, external environment, technology assessment — needs Group 1 outputs"
 
   3:
     name: "Strategy synthesis"
-    agents: ["swot_synthesizer", "marketing_strategy", "operations"]
+    agents: ["swot_synthesizer", "alliances", "marketing_strategy", "quality_management", "operations", "hr_plan"]
     parallel: false
     depends_on_groups: [1, 2]
-    description: "SWOT, GTM strategy, operating model — high dependency, high uncertainty"
-    notes: "swot_synthesizer runs first, then marketing_strategy synthesis phase, then operations"
+    description: "SWOT, alliances, GTM strategy, quality, operations, HR plan — high dependency"
+    notes: "swot_synthesizer first, then alliances, then marketing_strategy, then quality_management, then operations, then hr_plan last"
 
   4:
     name: "Financial and close"
-    agents: ["financial_modelling", "launch_contingency", "summary_agent"]
+    agents: ["financial_modelling", "launch_contingency", "exit_strategy", "summary_agent"]
     parallel: false
     depends_on_groups: [1, 2, 3]
-    description: "Financials, launch programme, executive summary — highest dependency"
-    notes: "financial_modelling runs first, then launch_contingency, then summary_agent last"
+    description: "Financials, launch programme, exit strategy, executive summary — highest dependency"
+    notes: "financial_modelling runs first, then launch_contingency, then exit_strategy, then summary_agent last"
