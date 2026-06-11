@@ -52,6 +52,38 @@ async def send_message(chat_id: int, text: str, reply_markup=None) -> bool:
         return False
 
 
+async def send_document(chat_id: int, file_path: str, caption: str = None) -> bool:
+    """
+    Send a document file to a Telegram chat.
+
+    Args:
+        chat_id: The Telegram chat ID
+        file_path: Path to the document file
+        caption: Optional caption text
+
+    Returns:
+        bool: True if document sent successfully, False otherwise
+    """
+    try:
+        application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+        await application.initialize()
+
+        with open(file_path, 'rb') as doc:
+            await application.bot.send_document(
+                chat_id=chat_id,
+                document=doc,
+                caption=caption or "📄 Business plan document ready",
+                filename=Path(file_path).name
+            )
+
+        await application.shutdown()
+        logger.info(f"Document sent to chat_id {chat_id}: {file_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send document to chat_id {chat_id}: {e}")
+        return False
+
+
 def create_decision_keyboard() -> InlineKeyboardMarkup:
     """
     Create an inline keyboard with Yes/Adjust/Kill buttons for decisions.
