@@ -3,15 +3,20 @@ Lightweight BDI (Belief-Desire-Intention) layer for Phase 2 child agents.
 
 Gives agents persistent beliefs that survive across tasks within a session,
 can be challenged by other agents, and inject into LLM prompts for continuity.
+
+P1-1: Vector-based contradiction detection using semantic similarity.
 """
 
 import json
 import logging
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+
+# P1-1: Lazy-load embedding model (only when first needed)
+_embedding_model: Optional[Any] = None
 
 # Source authority hierarchy — higher index = higher authority
 SOURCE_AUTHORITY: dict[str, int] = {
@@ -20,6 +25,59 @@ SOURCE_AUTHORITY: dict[str, int] = {
     "market_data": 2,
     "ceo_input": 3,
 }
+
+
+def _get_embedding_model() -> Any:
+    """P1-1: Lazy-load sentence transformer model for semantic embeddings."""
+    global _embedding_model
+    if _embedding_model is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            # Use lightweight all-MiniLM-L6-v2 model (23MB, fast inference)
+            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+            logger.info("[Beliefs] Loaded embedding model: all-MiniLM-L6-v2")
+        except ImportError:
+            logger.warning(
+                "[Beliefs] sentence-transformers not installed — "
+                "falling back to keyword-based contradiction detection"
+            )
+            _embedding_model = None
+    return _embedding_model
+
+
+def _compute_semantic_similarity(text1: str, text2: str) -> float:
+    """P1-1: Compute cosine similarity between two texts using embeddings.
+
+    Returns:
+        float between 0.0 and 1.0, where:
+        - 1.0 = identical meaning
+        - 0.8-1.0 = very similar (likely agreement)
+        - 0.3-0.7 = somewhat related
+        - 0.0-0.3 = unrelated or contradictory
+
+    Returns -1.0 if embedding model unavailable (triggers fallback).
+    """
+    model = _get_embedding_model()
+    if model is None:
+        return -1.0  # Signal to use fallback
+
+    try:
+        from sklearn.metrics.pairwise import cosine_similarity
+        import numpy as np
+
+        # Generate embeddings
+        embeddings = model.encode([text1, text2])
+
+        # Compute cosine similarity
+        similarity = cosine_similarity(
+            embeddings[0].reshape(1, -1),
+            embeddings[1].reshape(1, -1)
+        )[0][0]
+
+        return float(similarity)
+    except Exception as e:
+        logger.error("[Beliefs] Failed to compute semantic similarity: %s", e)
+        return -1.0
 
 
 @dataclass
@@ -185,9 +243,11 @@ class AgentBeliefStore:
         """
         Detect conflicts between current beliefs and incoming data.
 
-        Performs keyword overlap heuristic: if a belief key matches a key in
-        incoming_data and the values appear contradictory (different string
-        content or numeric divergence >30%), flag it as a conflict.
+        P1-1: Uses vector-based semantic similarity for text fields.
+        Falls back to keyword matching if embeddings unavailable.
+
+        For numeric fields: >30% divergence = conflict (unchanged).
+        For text fields: semantic similarity <0.5 = likely contradiction.
         """
         conflicts: list[dict[str, Any]] = []
 
@@ -203,6 +263,61 @@ class AgentBeliefStore:
         if conflicts:
             logger.info(
                 "[%s] Detected %d conflicts with incoming data",
+                self._agent_name,
+                len(conflicts),
+            )
+
+        return conflicts
+
+    def get_semantic_conflicts(self) -> list[dict[str, Any]]:
+        """P1-1: Detect contradictions BETWEEN beliefs using semantic similarity.
+
+        This is NEW — detects when agent holds contradictory beliefs internally,
+        not just conflicts with incoming data.
+
+        Returns:
+            List of conflict dicts with:
+            - belief_a: (key, claim)
+            - belief_b: (key, claim)
+            - similarity: float (0-1)
+            - conflict_type: "semantic_contradiction"
+        """
+        conflicts: list[dict[str, Any]] = []
+        belief_items = list(self._beliefs.items())
+
+        # Compare each pair of beliefs
+        for i, (key_a, belief_a) in enumerate(belief_items):
+            for key_b, belief_b in belief_items[i + 1:]:
+                # Skip if beliefs are about unrelated topics (different keys)
+                if not self._are_related_topics(key_a, key_b):
+                    continue
+
+                # Compute semantic similarity
+                similarity = _compute_semantic_similarity(
+                    belief_a.claim,
+                    belief_b.claim
+                )
+
+                # Fallback if embeddings unavailable
+                if similarity < 0:
+                    continue
+
+                # Threshold: similarity <0.5 suggests contradiction
+                # (not similar enough to agree, but related enough to compare)
+                if similarity < 0.5:
+                    conflicts.append({
+                        "belief_a": {"key": key_a, "claim": belief_a.claim},
+                        "belief_b": {"key": key_b, "claim": belief_b.claim},
+                        "similarity": round(similarity, 3),
+                        "conflict_type": "semantic_contradiction",
+                        "severity": self._assess_conflict_severity(
+                            belief_a, belief_b, similarity
+                        ),
+                    })
+
+        if conflicts:
+            logger.warning(
+                "[%s] Detected %d semantic contradictions between beliefs",
                 self._agent_name,
                 len(conflicts),
             )
@@ -320,10 +435,13 @@ class AgentBeliefStore:
         belief: Belief,
         incoming_value: Any,
     ) -> dict[str, Any] | None:
-        """Check if a single incoming value conflicts with an existing belief."""
+        """Check if a single incoming value conflicts with an existing belief.
+
+        P1-1: Uses semantic similarity for text comparisons.
+        """
         claim = belief.claim
 
-        # Numeric comparison: >30% divergence = conflict
+        # Numeric comparison: >30% divergence = conflict (unchanged)
         if isinstance(incoming_value, (int, float)):
             try:
                 # Extract numeric from claim if possible
@@ -343,15 +461,31 @@ class AgentBeliefStore:
                 pass
             return None
 
-        # String comparison: different non-trivial content = conflict
+        # P1-1: String comparison using semantic similarity
         if isinstance(incoming_value, str) and len(incoming_value) >= 10:
-            if incoming_value.lower().strip() != claim.lower().strip():
+            similarity = _compute_semantic_similarity(claim, incoming_value)
+
+            # Fallback to exact match if embeddings unavailable
+            if similarity < 0:
+                if incoming_value.lower().strip() != claim.lower().strip():
+                    return {
+                        "key": key,
+                        "existing_belief": claim,
+                        "existing_confidence": belief.confidence,
+                        "incoming_value": incoming_value,
+                        "conflict_type": "content_mismatch",
+                    }
+                return None
+
+            # Semantic contradiction: similarity <0.5 = likely conflict
+            if similarity < 0.5:
                 return {
                     "key": key,
                     "existing_belief": claim,
                     "existing_confidence": belief.confidence,
                     "incoming_value": incoming_value,
-                    "conflict_type": "content_mismatch",
+                    "similarity": round(similarity, 3),
+                    "conflict_type": "semantic_contradiction",
                 }
 
         return None
@@ -394,3 +528,63 @@ class AgentBeliefStore:
         if isinstance(value, (int, float)):
             return f"{key} = {value}"
         return str(value)
+
+    @staticmethod
+    def _are_related_topics(key_a: str, key_b: str) -> bool:
+        """P1-1: Heuristic to determine if two belief keys are related topics.
+
+        Related topics are worth comparing for contradictions.
+        Unrelated topics should not be compared (waste of compute).
+        """
+        # Normalize keys
+        a_lower = key_a.lower().replace("_", " ")
+        b_lower = key_b.lower().replace("_", " ")
+
+        # Exact match
+        if a_lower == b_lower:
+            return True
+
+        # Share any significant words (>3 chars)
+        words_a = {w for w in a_lower.split() if len(w) > 3}
+        words_b = {w for w in b_lower.split() if len(w) > 3}
+
+        shared = words_a & words_b
+        if shared:
+            return True
+
+        # Common business plan topics that are related
+        related_clusters = [
+            {"market", "tam", "sam", "som", "size", "segment"},
+            {"revenue", "pricing", "ltv", "cac", "arpu", "mrr"},
+            {"customer", "icp", "persona", "target", "segment"},
+            {"competition", "competitor", "moat", "differentiation"},
+            {"cost", "opex", "capex", "burn", "runway", "margin"},
+            {"team", "headcount", "hiring", "roles", "personnel"},
+        ]
+
+        for cluster in related_clusters:
+            if any(w in cluster for w in words_a) and any(w in cluster for w in words_b):
+                return True
+
+        return False
+
+    @staticmethod
+    def _assess_conflict_severity(
+        belief_a: Belief,
+        belief_b: Belief,
+        similarity: float
+    ) -> str:
+        """P1-1: Assess severity of semantic contradiction.
+
+        Returns: "critical" | "major" | "minor"
+        """
+        # Both beliefs have high confidence + very low similarity = critical
+        if belief_a.confidence >= 0.8 and belief_b.confidence >= 0.8 and similarity < 0.3:
+            return "critical"
+
+        # One high-confidence belief contradicts medium-confidence = major
+        if (belief_a.confidence >= 0.7 or belief_b.confidence >= 0.7) and similarity < 0.4:
+            return "major"
+
+        # Everything else = minor
+        return "minor"

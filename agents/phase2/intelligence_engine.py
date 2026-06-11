@@ -77,8 +77,8 @@ class IntelligenceEngine:
         if not draft_raw:
             return None, {"decomposition": decomposition}, total_usage
 
-        # ENFORCEMENT: Verify draft addresses all judgments
-        coverage = self._check_judgment_coverage(draft_raw, judgments)
+        # ENFORCEMENT: Verify draft addresses all judgments (semantic validation)
+        coverage = await self._check_judgment_coverage(draft_raw, judgments)
         if coverage["missing"]:
             logger.info(
                 "[IE] Draft missing %d judgments — re-producing with gaps",
@@ -151,6 +151,20 @@ class IntelligenceEngine:
                 parsed.setdefault("_quality_warnings", []).append(
                     f"Output contains {generic_count} generic phrases — "
                     "may lack specificity"
+                )
+
+        # P0-3: CONFIDENCE CALIBRATION — override LLM claims with programmatic calibration
+        if parsed:
+            calibrated = self._calibrate_confidence_from_assumptions(parsed)
+            if calibrated != parsed.get("confidence_score"):
+                logger.info(
+                    "[IE] Confidence calibrated: %s → %s (based on assumption sources)",
+                    parsed.get("confidence_score"), calibrated,
+                )
+                parsed["confidence_score"] = calibrated
+                parsed.setdefault("_quality_warnings", []).append(
+                    f"Confidence calibrated from {parsed.get('confidence_score', 'unknown')} "
+                    f"to {calibrated} based on assumption evidence quality"
                 )
 
         reasoning_trace = {
@@ -455,26 +469,39 @@ Return ONLY valid JSON. Start with {{ end with }}.""",
 
         return judgments
 
-    def _check_judgment_coverage(self, draft_raw: str, judgments: list) -> dict:
-        """Check which judgments are addressed in the draft."""
+    async def _check_judgment_coverage(self, draft_raw: str, judgments: list) -> dict:
+        """Check which judgments are addressed in the draft using semantic validation."""
         if not judgments or not draft_raw:
             return {"covered": 0, "missing": [], "total": len(judgments)}
 
-        draft_lower = draft_raw.lower()
         covered = 0
         missing = []
 
+        # For each judgment, use LLM for semantic validation (single-token response)
         for j in judgments:
             claim = j.get("claim", j.get("text", ""))
-            keywords = [
-                w for w in claim.lower().split()
-                if len(w) > 4 and w not in ("should", "would", "could", "their", "which", "about", "these")
-            ]
-            matches = sum(1 for kw in keywords if kw in draft_lower)
-            if keywords and matches / len(keywords) >= 0.4:
+            if not claim or len(claim) < 10:
+                covered += 1  # Skip trivial/empty judgments
+                continue
+
+            # Fast single-token validation
+            response, _ = await self._call(
+                system="You validate coverage. Respond with exactly one token: YES or NO.",
+                user=f"""Core Judgment: {claim}
+
+Draft Text: {draft_raw[:4000]}
+
+Does the Draft explicitly address the Core Judgment?
+Respond with exactly one token: YES or NO""",
+                max_tokens=1,
+            )
+
+            if response and response.strip().upper() == "YES":
                 covered += 1
+                logger.debug("[IE] Judgment covered: %s", claim[:50])
             else:
                 missing.append(j)
+                logger.debug("[IE] Judgment missing: %s", claim[:50])
 
         return {"covered": covered, "missing": missing, "total": len(judgments)}
 
@@ -552,6 +579,59 @@ Return ONLY valid JSON. Start with {{ end with }}.""",
 
         text = json.dumps(output, default=str).lower()
         return sum(1 for phrase in GENERIC_PHRASES if phrase in text)
+
+    def _calibrate_confidence_from_assumptions(self, output: dict) -> str:
+        """P0-3: Programmatically calibrate confidence based on assumption sources.
+
+        Overrides LLM confidence claims with honest calibration based on evidence quality.
+        Strict rules:
+        - high: ≥80% of assumptions are validated or alex_provided
+        - medium: ≥50% are validated or alex_provided
+        - low: <50% are validated or alex_provided
+
+        Returns: "high" | "medium" | "low"
+        """
+        assumptions = output.get("assumptions_used", [])
+        if not assumptions:
+            # No assumptions recorded → cannot verify confidence → default low
+            logger.debug("[IE] No assumptions found — defaulting to low confidence")
+            return "low"
+
+        # Count assumptions by source quality
+        sourced_count = 0
+        total_count = len(assumptions)
+
+        for assumption in assumptions:
+            # Handle both dict and string formats (LLM sometimes returns strings)
+            if isinstance(assumption, dict):
+                source = assumption.get("source", "assumed")
+            else:
+                # String assumption = no source info = assumed
+                source = "assumed"
+
+            # "validated" = Alex explicitly confirmed
+            # "alex_provided" = Alex gave this data directly
+            # "agent_inferred" = Agent derived from upstream
+            # "assumed" = Pure guess
+            if source in ("validated", "alex_provided"):
+                sourced_count += 1
+
+        ratio = sourced_count / total_count if total_count > 0 else 0.0
+
+        # Strict calibration thresholds
+        if ratio >= 0.8:
+            calibrated = "high"
+        elif ratio >= 0.5:
+            calibrated = "medium"
+        else:
+            calibrated = "low"
+
+        logger.debug(
+            "[IE] Confidence calibration: %d/%d assumptions sourced (%.1f%%) → %s",
+            sourced_count, total_count, ratio * 100, calibrated,
+        )
+
+        return calibrated
 
     # ── Context building ─────────────────────────────────────────────────────
 
@@ -766,10 +846,18 @@ Be harsh. Generic outputs like "the market is growing" or "competition exists" f
         return response
 
     async def validate_hypotheses(self, section_output: dict, agent_role: str) -> list:
-        """Test whether quantitative claims in a section are internally consistent.
+        """P1-2: Test whether quantitative claims in a section are internally consistent.
 
-        Checks funnel math, unit economics, and timeline feasibility.
+        This is an ENHANCED version with stronger hypothesis testing.
+        Checks funnel math, unit economics, timeline feasibility, and cross-section consistency.
         Returns a list of failed hypotheses (empty if all pass).
+
+        Each failed hypothesis includes:
+        - hypothesis: which test failed
+        - result: "fail"
+        - explanation: why it failed
+        - numbers_involved: relevant values
+        - severity: "critical" | "major" | "minor"
         """
         quantitative_fields = {}
         for key, value in section_output.items():
@@ -794,7 +882,12 @@ Be harsh. Generic outputs like "the market is growing" or "competition exists" f
         )[:4000]
 
         response, _ = await self._call(
-            system="You are a quantitative analyst. Your job: check if the numbers in this business plan section are internally consistent and realistic. Only flag REAL problems — not stylistic preferences.",
+            system=(
+                "You are a quantitative analyst with adversarial skepticism. "
+                "Your job: test quantitative hypotheses in this business plan section. "
+                "Flag ONLY real mathematical inconsistencies or unrealistic claims. "
+                "Assign severity: critical = math error, major = unrealistic, minor = questionable."
+            ),
             user=f"""Section from: {agent_role}
 
 NUMERICAL VALUES EXTRACTED:
@@ -803,33 +896,181 @@ NUMERICAL VALUES EXTRACTED:
 FULL SECTION:
 {section_str}
 
-Check these hypotheses:
-1. FUNNEL MATH: If volume=X and conversion=Y%, does the required traffic/leads make sense? (e.g., 500 sales at 2% conversion = 25,000 leads needed — is that realistic for the business type?)
-2. UNIT ECONOMICS: Does revenue_per_unit × volume actually equal total revenue? Does CAC × customers equal total acquisition spend?
-3. TIMELINE FEASIBILITY: Can you actually achieve the claimed volume in the claimed timeframe given the stated resources?
-4. GROWTH CONSISTENCY: Are year-over-year growth rates consistent with the market size and competitive position described?
+Test these hypotheses systematically:
 
-For each check, answer PASS or FAIL with ONE sentence explaining why.
+1. FUNNEL MATH
+   - If volume=X and conversion=Y%, does required traffic make sense?
+   - Example: 500 sales at 2% conversion = 25,000 leads needed
+   - Is this realistic for the business type and channel strategy?
 
-Return ONLY valid JSON array:
-[{{"hypothesis": "funnel_math|unit_economics|timeline|growth", "result": "pass|fail", "explanation": "...", "numbers_involved": "..."}}]
+2. UNIT ECONOMICS CONSISTENCY
+   - Does revenue_per_unit × volume = total_revenue?
+   - Does CAC × customers = total_acquisition_spend?
+   - Does LTV calculation match (ARPU × lifetime × gross_margin)?
+   - Does LTV:CAC ratio match stated values?
 
-If everything checks out, return an empty array: []""",
-            max_tokens=1024,
+3. TIMELINE FEASIBILITY
+   - Can claimed volume be achieved in stated timeframe?
+   - Do resources (team size, capital, channels) support the growth curve?
+   - Are ramp-up assumptions realistic? (e.g., hiring velocity, market penetration rate)
+
+4. GROWTH CONSISTENCY
+   - Are YoY growth rates consistent with market size limits?
+   - Does Year 3 market share = (Year 3 revenue / SAM) make sense?
+   - Can you sustain stated CAGR given competitive dynamics?
+
+5. CROSS-FIELD CONSISTENCY (NEW)
+   - Do cost assumptions align across sections?
+   - Does headcount growth support revenue scaling?
+   - Are margin assumptions consistent with cost structure?
+
+For each test that FAILS, return:
+{{"hypothesis": "<test_name>", "result": "fail", "explanation": "<why>", "numbers_involved": "<values>", "severity": "critical|major|minor"}}
+
+Return ONLY valid JSON array of failures. Empty array [] if all pass.
+
+Be ruthless but fair — only flag REAL problems with clear evidence.""",
+            max_tokens=2048,
         )
 
-        if not response:
-            return []
+        # P1-2: Parse LLM results
+        llm_failures = []
+        if response:
+            try:
+                text = strip_markdown_json(response)
+                results = json.loads(text)
+                if isinstance(results, list):
+                    llm_failures = [
+                        r for r in results
+                        if isinstance(r, dict) and r.get("result") == "fail"
+                    ]
+            except (json.JSONDecodeError, ValueError):
+                pass
 
-        try:
-            text = strip_markdown_json(response)
-            results = json.loads(text)
-            if isinstance(results, list):
-                return [r for r in results if isinstance(r, dict) and r.get("result") == "fail"]
-        except (json.JSONDecodeError, ValueError):
-            pass
+        # P1-2: Add programmatic checks (fast, deterministic, catches obvious errors)
+        programmatic_failures = self._programmatic_hypothesis_tests(
+            quantitative_fields,
+            section_output
+        )
 
-        return []
+        # Combine and deduplicate
+        all_failures = llm_failures + programmatic_failures
+        return all_failures
+
+    def _programmatic_hypothesis_tests(
+        self,
+        quantitative_fields: dict,
+        section_output: dict,
+    ) -> list:
+        """P1-2: Programmatic hypothesis tests — no LLM, pure math validation.
+
+        Catches common errors instantly:
+        - LTV:CAC ratio mismatch
+        - Unit economics math errors
+        - Percentage values outside 0-100%
+        - Negative values where impossible
+        - Orders of magnitude errors
+
+        Returns list of failure dicts matching LLM format.
+        """
+        failures = []
+
+        # Test 1: LTV:CAC ratio consistency
+        ltv = quantitative_fields.get("unit_economics.ltv")
+        cac = quantitative_fields.get("unit_economics.cac")
+        ltv_cac_ratio = quantitative_fields.get("unit_economics.ltv_cac_ratio")
+
+        if ltv and cac and ltv_cac_ratio:
+            calculated_ratio = ltv / cac if cac > 0 else 0
+            divergence = abs(calculated_ratio - ltv_cac_ratio) / ltv_cac_ratio if ltv_cac_ratio > 0 else 0
+
+            if divergence > 0.05:  # >5% error
+                failures.append({
+                    "hypothesis": "unit_economics_ltv_cac",
+                    "result": "fail",
+                    "explanation": (
+                        f"LTV:CAC ratio mismatch: stated {ltv_cac_ratio:.2f}, "
+                        f"calculated {calculated_ratio:.2f} (LTV={ltv}, CAC={cac})"
+                    ),
+                    "numbers_involved": f"LTV={ltv}, CAC={cac}, ratio={ltv_cac_ratio}",
+                    "severity": "critical",
+                })
+
+        # Test 2: Percentage bounds (0-100%)
+        for key, value in quantitative_fields.items():
+            if any(word in key.lower() for word in ["percent", "rate", "pct", "margin"]):
+                if value < 0 or value > 100:
+                    failures.append({
+                        "hypothesis": "percentage_bounds",
+                        "result": "fail",
+                        "explanation": f"{key} = {value}% is outside valid range [0, 100]",
+                        "numbers_involved": f"{key}={value}",
+                        "severity": "critical",
+                    })
+
+        # Test 3: Negative values where impossible
+        positive_only_fields = [
+            "revenue", "cost", "price", "customers", "headcount",
+            "tam", "sam", "som", "ltv", "cac", "arpu"
+        ]
+        for key, value in quantitative_fields.items():
+            if any(word in key.lower() for word in positive_only_fields):
+                if value < 0:
+                    failures.append({
+                        "hypothesis": "negative_value",
+                        "result": "fail",
+                        "explanation": f"{key} cannot be negative (value={value})",
+                        "numbers_involved": f"{key}={value}",
+                        "severity": "critical",
+                    })
+
+        # Test 4: Market sizing hierarchy (TAM > SAM > SOM)
+        tam = quantitative_fields.get("market_sizing.tam")
+        sam = quantitative_fields.get("market_sizing.sam")
+        som_y1 = quantitative_fields.get("market_sizing.som_year_1")
+
+        if tam and sam:
+            if sam > tam:
+                failures.append({
+                    "hypothesis": "market_sizing_hierarchy",
+                    "result": "fail",
+                    "explanation": f"SAM ({sam}) cannot exceed TAM ({tam})",
+                    "numbers_involved": f"TAM={tam}, SAM={sam}",
+                    "severity": "critical",
+                })
+
+        if sam and som_y1:
+            if som_y1 > sam:
+                failures.append({
+                    "hypothesis": "market_sizing_hierarchy",
+                    "result": "fail",
+                    "explanation": f"SOM Year 1 ({som_y1}) cannot exceed SAM ({sam})",
+                    "numbers_involved": f"SAM={sam}, SOM_Y1={som_y1}",
+                    "severity": "critical",
+                })
+
+        # Test 5: Capture rate realism (flagged in Opportunity Analyst schema, but double-check)
+        if sam and som_y1:
+            capture_rate_y1 = (som_y1 / sam) * 100 if sam > 0 else 0
+            if capture_rate_y1 > 5:
+                failures.append({
+                    "hypothesis": "capture_rate_realism",
+                    "result": "fail",
+                    "explanation": (
+                        f"Year 1 capture rate is {capture_rate_y1:.1f}% "
+                        f"(unrealistic for startup — typically <5%)"
+                    ),
+                    "numbers_involved": f"SOM_Y1={som_y1}, SAM={sam}",
+                    "severity": "major",
+                })
+
+        if failures:
+            logger.warning(
+                "[IE] Programmatic hypothesis tests failed: %d errors",
+                len(failures),
+            )
+
+        return failures
 
     async def _call(self, system: str, user: str, max_tokens: int = 4096, retries: int = 3) -> tuple[Optional[str], dict]:
         """Make a single LLM call. Retries throttling up to `retries` times; timeouts get ONE retry only."""

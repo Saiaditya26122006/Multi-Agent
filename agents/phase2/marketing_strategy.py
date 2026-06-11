@@ -147,10 +147,52 @@ every channel choice is justified with evidence, and the budget connects directl
 ]
 ```
 
+### 🚨 MAGIC RATIO GUARDRAIL — ENFORCED (LTV:CAC >= 3.0)
+
+**CRITICAL RULE**: If `ltv_cac_ratio < 3.0`, you **CANNOT PROCEED** to quality review.
+
+You have 3 options:
+1. **Increase pricing** → raises LTV
+2. **Reduce CAC** → pick cheaper channels, improve conversion
+3. **Increase retention** (lower churn) → extends customer lifetime, raises LTV
+4. **Justify exception** → some business models accept < 3:1
+
+**Acceptable exceptions** (must provide written justification):
+- **Marketplace/Platform**: Network effects improve unit economics over time (Uber, Airbnb started <3:1)
+- **Land-and-expand**: Enterprise SaaS where initial deal is small but expansion revenue is high
+- **VC-funded land grab**: Intentional negative unit economics to capture market share (must cite funding round)
+- **E-commerce with repeat purchases**: Initial purchase <3:1 but repeat rate >50% brings blended LTV:CAC above 3:1 by Year 2
+
+**Unacceptable justifications**:
+- "We'll figure it out later"
+- "We'll optimize once we scale"
+- "Competitors also have low ratios" (cite proof)
+- "Our product is better so customers will stay longer" (cite retention data)
+
+**How to set magic_ratio_pass**:
+```json
+"unit_economics": {
+  "ltv_cac_ratio": 2.5,
+  "magic_ratio_pass": false,
+  "magic_ratio_justification": "Land-and-expand model: initial deal averages $5K/year (LTV $15K), but 70% of customers expand to $20K/year by Year 2 (validated by competitor Gong's S-1). Blended LTV:CAC by Year 2 = 4.2:1.",
+  ...
+}
+```
+
+If `ltv_cac_ratio >= 3.0`:
+```json
+"magic_ratio_pass": true,
+"magic_ratio_justification": null
+```
+
+If `ltv_cac_ratio < 3.0` AND you have NO valid justification:
+- You MUST escalate immediately — do NOT fill the rest of the template
+- The agent will automatically escalate to CEO for decision
+
 ### Unit Economics Health Rules:
-- **LTV:CAC > 5:1** → "excellent — strong unit economics, capital efficient growth"
+- **LTV:CAC >= 5:1** → "excellent — strong unit economics, capital efficient growth"
 - **LTV:CAC 3:1 to 5:1** → "healthy — viable SaaS business, acceptable efficiency"
-- **LTV:CAC 1:1 to 3:1** → "WARNING — low efficiency, requires optimization before scaling"
+- **LTV:CAC 1:1 to 3:1** → "WARNING — low efficiency, requires justification or optimization"
 - **LTV:CAC < 1:1** → "FATAL — unit economics broken, business not viable"
 - **Payback < 12 months** → "excellent cash efficiency"
 - **Payback 12-18 months** → "acceptable for SaaS"
@@ -296,6 +338,35 @@ class MarketingStrategyAgent(Agent):
             logger.error("[MarketingStrategy] Output validation failed: %s", e)
             await self._escalate(task_id, session_id, pipeline_run_id, "output_conflict", str(e))
             return
+
+        # 🚨 MAGIC RATIO GUARDRAIL — Enforce LTV:CAC >= 3.0
+        unit_economics = validated_output.unit_economics
+        ltv_cac_ratio = unit_economics.ltv_cac_ratio
+        magic_ratio_pass = unit_economics.magic_ratio_pass
+        justification = unit_economics.magic_ratio_justification
+
+        if ltv_cac_ratio < 3.0 and not magic_ratio_pass:
+            # HARD STOP — escalate to CEO
+            logger.error(
+                "[MarketingStrategy] MAGIC RATIO FAILURE — LTV:CAC %.2f < 3.0, no valid justification",
+                ltv_cac_ratio
+            )
+            await self._escalate(
+                task_id, session_id, pipeline_run_id,
+                trigger="unit_economics_failure",
+                notes=f"LTV:CAC ratio is {ltv_cac_ratio:.2f} (below 3:1 threshold). "
+                      f"Options: (1) Increase pricing → raises LTV, (2) Reduce CAC via cheaper channels, "
+                      f"(3) Increase retention (lower churn) → extends customer lifetime, "
+                      f"(4) Provide valid justification (marketplace network effects, land-and-expand, VC-funded land grab)."
+            )
+            return
+
+        if ltv_cac_ratio < 3.0 and magic_ratio_pass:
+            # Exception granted — log justification
+            logger.warning(
+                "[MarketingStrategy] Magic ratio exception granted — LTV:CAC %.2f < 3.0 with justification: %s",
+                ltv_cac_ratio, justification[:100]
+            )
 
         result = validated_output.model_dump()
         result["reasoning_trace"] = reasoning_trace

@@ -32,6 +32,7 @@ from config.phase2.council_config import (
     COUNCIL_PERSONAS,
     MAX_COUNCIL_REVISIONS,
     SYNTHESIZER_PROMPT,
+    ENABLE_ADVERSARIAL_PERSONA,
 )
 from schemas.outputs.council_agent import PersonaCritique, CouncilReport, CouncilVerdict
 
@@ -122,13 +123,22 @@ class CouncilAgent(Agent):
 
         output_json = json.dumps(output, indent=2, default=str)[:6000]
 
-        reviews = await asyncio.gather(
+        # P3-1: Run 5 base personas + optional 6th adversarial persona
+        base_personas = [
             self._run_persona("skeptic", section_number, section_name, agent_name, output_json, cross_context_str),
             self._run_persona("architect", section_number, section_name, agent_name, output_json, cross_context_str),
             self._run_persona("visionary", section_number, section_name, agent_name, output_json, cross_context_str),
             self._run_persona("stranger", section_number, section_name, agent_name, output_json, cross_context_str),
             self._run_persona("operator", section_number, section_name, agent_name, output_json, cross_context_str),
-        )
+        ]
+
+        if ENABLE_ADVERSARIAL_PERSONA:
+            logger.info("[CouncilAgent] P3-1: Running adversarial persona (Saboteur)")
+            base_personas.append(
+                self._run_persona("saboteur", section_number, section_name, agent_name, output_json, cross_context_str)
+            )
+
+        reviews = await asyncio.gather(*base_personas)
 
         verdict = await self._synthesize(reviews)
 
@@ -157,20 +167,30 @@ class CouncilAgent(Agent):
             logger.info("[CouncilAgent] Section %s needs REVISION (attempt %d)", section_number, attempt)
             self.redis.client.set(attempt_key, str(attempt + 1), ex=3600)
             self._notify_alex_revise(session_id, section_name, verdict)
+            await self._notify_mother_revision(task_id, session_id, pipeline_run_id, section_number, attempt)
             await self._send_back_to_child(
                 task_id, session_id, pipeline_run_id, sender, output, verdict, reviews
             )
 
         else:
-            if attempt >= MAX_COUNCIL_REVISIONS:
-                logger.warning(
-                    "[CouncilAgent] Section %s hit max revisions — passing with warnings",
-                    section_number,
+            # Max revisions hit OR decision was "pass"
+            if attempt >= MAX_COUNCIL_REVISIONS and verdict.decision == "revise":
+                # CRITICAL: Section failed quality gate after max attempts
+                logger.error(
+                    "[CouncilAgent] Section %s hit max revisions (%d) — ESCALATING TO CEO",
+                    section_number, MAX_COUNCIL_REVISIONS,
                 )
-                self._notify_alex_escalate(session_id, section_name, verdict)
-            await self._forward_to_mother(
-                task_id, session_id, pipeline_run_id, section_number, output, verdict
-            )
+
+                # Escalate to Mother for pipeline pause (not pass through)
+                await self._escalate_max_revisions(
+                    task_id, session_id, pipeline_run_id, section_number,
+                    verdict, reviews, output
+                )
+            else:
+                # Section passed OR decision was not "revise"
+                await self._forward_to_mother(
+                    task_id, session_id, pipeline_run_id, section_number, output, verdict
+                )
 
     async def _run_persona(
         self,
@@ -385,12 +405,66 @@ class CouncilAgent(Agent):
             f"Issues: {verdict.feedback[:200]}",
         )
 
-    def _notify_alex_escalate(self, session_id: str, section_name: str, verdict: CouncilVerdict):
-        """Notify Alex that max revisions were hit."""
+    async def _escalate_max_revisions(
+        self,
+        task_id: str,
+        session_id: str,
+        pipeline_run_id: str,
+        section_number: str,
+        verdict: CouncilVerdict,
+        reviews: list,
+        output: dict,
+    ):
+        """Escalate to Mother when section hits max revisions — DO NOT pass through."""
+        section_name = self._get_section_name(section_number)
+
+        # Build critique summary
+        critique_lines = []
+        for review in reviews:
+            if review.get("severity") in ("critical", "minor"):
+                critique_lines.append(
+                    f"• [{review['persona'].title()}] {review['top_finding'][:100]}"
+                )
+        critique_summary = "\n".join(critique_lines[:5])
+
+        # Notify CEO with urgency
         self._send_telegram(
             session_id,
-            f"⚠️ Council: {section_name} hit max revisions — passing with warnings\n"
-            f"Score: {verdict.score:.1f}/10\nRemaining issues: {verdict.feedback[:200]}",
+            f"🚨 CRITICAL: {section_name} failed Council review {MAX_COUNCIL_REVISIONS} times\n\n"
+            f"Score: {verdict.score:.1f}/10\n"
+            f"Unresolved Issues:\n{critique_summary}\n\n"
+            f"Pipeline PAUSED. Reply:\n"
+            f"• 'accept' to pass with warnings\n"
+            f"• 'reject' to abort this section\n"
+            f"• 'revise' to send back for one more attempt"
+        )
+
+        # Escalate to Mother with quality_gate_failure trigger
+        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
+        msg = Message(to=mother_jid)
+        msg.set_metadata("performative", "escalate")
+        msg.set_metadata("task_id", task_id)
+        msg.set_metadata("session_id", session_id)
+        msg.set_metadata("pipeline_run_id", pipeline_run_id)
+        msg.body = json.dumps({
+            "trigger": "quality_gate_failure",
+            "agent": "council_agent",
+            "section_number": section_number,
+            "attempts": MAX_COUNCIL_REVISIONS,
+            "score": verdict.score,
+            "feedback": verdict.feedback,
+            "critiques": [
+                {"persona": r["persona"], "finding": r["top_finding"], "severity": r["severity"]}
+                for r in reviews
+            ],
+            "output": output,
+            "notes": f"Section {section_number} failed Council review {MAX_COUNCIL_REVISIONS} times (score {verdict.score:.1f}/10)",
+        })
+        await self._send_msg(msg)
+
+        logger.error(
+            "[CouncilAgent] ESCALATED to Mother — Section %s hit max revisions",
+            section_number
         )
 
     def _send_telegram(self, session_id: str, message: str):
@@ -406,6 +480,33 @@ class CouncilAgent(Agent):
                     asyncio.create_task(send_message(chat_id, message))
         except Exception as e:
             logger.warning("[CouncilAgent] Telegram send failed: %s", e)
+
+    async def _notify_mother_revision(
+        self,
+        task_id: str,
+        session_id: str,
+        pipeline_run_id: str,
+        section_number: str,
+        attempt: int,
+    ):
+        """Tell Mother that Council is revising — reset TTL and update task status."""
+        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
+        msg = Message(to=mother_jid)
+        msg.set_metadata("performative", "status_update")
+        msg.set_metadata("task_id", task_id)
+        msg.set_metadata("session_id", session_id)
+        msg.set_metadata("pipeline_run_id", pipeline_run_id)
+        msg.body = json.dumps({
+            "status": "council_revising",
+            "section": section_number,
+            "revision_attempt": attempt,
+            "message": f"Council sent Section {section_number} back for revision (attempt {attempt})",
+        })
+        await self._send_msg(msg)
+        logger.info(
+            "[CouncilAgent] Notified Mother — Section %s in revision loop (attempt %d)",
+            section_number, attempt
+        )
 
     def _get_section_name(self, section_number: str) -> str:
         """Map section number to human name."""

@@ -45,6 +45,11 @@ SEARCH_QUERIES = {
         "GDPR SaaS academic procurement requirements Europe",
         "European academic publishing market regulation 2025",
     ],
+    "6.5": [
+        "AWS Bedrock Claude pricing Europe 2025",
+        "SaaS infrastructure costs B2B academic software",
+        "GDPR compliant cloud providers EU region comparison",
+    ],
     "8": [
         "institutional SaaS pricing universities Europe 2025",
         "academic software procurement business schools budget",
@@ -54,6 +59,11 @@ SEARCH_QUERIES = {
         "B2B SaaS gross margin benchmarks institutional 2025",
         "academic software CAC payback period benchmarks",
         "university SaaS contract value annual recurring revenue",
+    ],
+    "14": [
+        "academic software M&A exit valuations 2025",
+        "B2B SaaS acquisition multiples Europe",
+        "education technology strategic acquirers 2025",
     ],
 }
 
@@ -126,7 +136,7 @@ async def run_grounded_eval():
     all_ceo_data = load_all_ceo_data()
     logger.info("CEO data loaded: %d topics", len(all_ceo_data))
 
-    section_order = ["1", "3", "4", "5", "8", "10", "12", "13", "executive_summary"]
+    section_order = ["1", "3", "4", "5", "6.5", "8", "10", "12", "13", "14", "executive_summary"]
     prior_outputs = {}
 
     run_result = {

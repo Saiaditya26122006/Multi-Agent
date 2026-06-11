@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional, Literal, Dict, Any
 
 
 class Assumption(BaseModel):
@@ -25,6 +25,13 @@ class HiringMilestone(BaseModel):
     prerequisite: Optional[str] = None
 
 
+class MonthlyHeadcount(BaseModel):
+    """Single month's headcount entry"""
+    headcount: int = Field(..., ge=0, description="Total headcount at end of month")
+    total_cost_monthly: float = Field(..., ge=0, description="Total monthly salary + benefits cost")
+    roles: List[str] = Field(..., description="List of role titles active this month")
+
+
 class HRPlanOutput(BaseModel):
     """Output schema for Human Resources Plan Agent (Section 11)"""
     task_id: str
@@ -42,10 +49,23 @@ class HRPlanOutput(BaseModel):
         description="When to hire each role, in sequence"
     )
 
-    headcount_plan: dict = Field(
+    headcount_plan: Dict[str, MonthlyHeadcount] = Field(
         ...,
-        description="Monthly headcount and cost: {month_0: {headcount: N, total_cost: $X}, ...}"
+        description="Monthly headcount: {'month_0': MonthlyHeadcount(...), 'month_6': ..., 'month_12': ...}"
     )
+
+    @field_validator('headcount_plan')
+    @classmethod
+    def validate_headcount_structure(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure headcount_plan has required months and structure"""
+        required_months = ["month_0", "month_6", "month_12"]
+        for month in required_months:
+            if month not in v:
+                raise ValueError(
+                    f"headcount_plan missing required key '{month}'. "
+                    f"Financial model requires month_0, month_6, month_12 at minimum."
+                )
+        return v
 
     personnel_policy: str = Field(
         ...,

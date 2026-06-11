@@ -67,6 +67,17 @@ AGENT_CONFIGS = {
             "priority_issues (list), assumptions_used, uncertainties, confidence_score, input_tokens (0), output_tokens (0)"
         ),
     },
+    "6.5": {
+        "name": "Tech Stack & Data Privacy",
+        "role": "Tech Stack & Data Privacy — design technical architecture, estimate infrastructure costs, ensure GDPR/CCPA/DPDP compliance",
+        "model_env": "CLAUDE_HAIKU_MODEL",
+        "schema_prompt": (
+            "Return ONLY valid JSON with these keys: section_number, infrastructure, "
+            "ai_ml_stack, database, third_party_apis, authentication, data_privacy_compliance, "
+            "total_tech_cost_monthly, total_tech_cost_annual, tech_risk_assessment, "
+            "assumptions_used, uncertainties, confidence_score, input_tokens (0), output_tokens (0)"
+        ),
+    },
     "8": {
         "name": "Marketing Strategy",
         "role": "Marketing Strategy — build full marketing plan including target market, positioning, marketing mix, revenue and CAC assumptions",
@@ -107,6 +118,16 @@ AGENT_CONFIGS = {
             "exit_conditions (2-3 sentences with quantitative triggers), "
             "assumptions_used (MAX 5), uncertainties (MAX 4), confidence_score, input_tokens (0), output_tokens (0). "
             "Keep all string values under 200 characters. Be concise — brevity over exhaustiveness."
+        ),
+    },
+    "14": {
+        "name": "Exit Strategy & Contingency Plan",
+        "role": "Exit Strategy & Contingency Plan — design exit path, model cap table, calculate investor returns, define contingency triggers",
+        "model_env": "CLAUDE_SONNET_MODEL",
+        "schema_prompt": (
+            "Return ONLY valid JSON with these keys: section_number, exit_strategy, cap_table, "
+            "funding_strategy, investor_returns, dilution_analysis, exit_risks, "
+            "assumptions_used, uncertainties, confidence_score, input_tokens (0), output_tokens (0)"
         ),
     },
     "4": {

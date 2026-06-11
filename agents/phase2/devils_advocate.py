@@ -101,20 +101,24 @@ class DevilsAdvocateAgent(Agent):
             )
         except Exception as e:
             logger.error("[DevilsAdvocate] Input validation failed: %s", e)
-            await self._send_inform(task_id, session_id, pipeline_run_id, self._fallback_pass(task_id))
+            escalation = self._fallback_escalate(task_id, input_package.get("section_number", "unknown"), f"Input validation failed: {str(e)}")
+            await self._escalate_to_mother(task_id, session_id, pipeline_run_id, escalation)
             return
 
         user_message = self._build_prompt(validated_input)
         llm_response, token_usage = await self._call_llm(user_message)
 
         if not llm_response:
-            logger.warning("[DevilsAdvocate] LLM failed — passing section through")
-            await self._send_inform(task_id, session_id, pipeline_run_id, self._fallback_pass(task_id))
+            logger.warning("[DevilsAdvocate] LLM failed — escalating")
+            escalation = self._fallback_escalate(task_id, validated_input.section_number, "LLM call failed")
+            await self._escalate_to_mother(task_id, session_id, pipeline_run_id, escalation)
             return
 
         parsed = self._parse_response(llm_response)
         if not parsed:
-            await self._send_inform(task_id, session_id, pipeline_run_id, self._fallback_pass(task_id))
+            logger.warning("[DevilsAdvocate] Parse failed — escalating")
+            escalation = self._fallback_escalate(task_id, validated_input.section_number, "LLM response could not be parsed")
+            await self._escalate_to_mother(task_id, session_id, pipeline_run_id, escalation)
             return
 
         try:
@@ -126,7 +130,8 @@ class DevilsAdvocateAgent(Agent):
             validated_output = DevilsAdvocateOutput(**parsed)
         except Exception as e:
             logger.error("[DevilsAdvocate] Output validation failed: %s", e)
-            await self._send_inform(task_id, session_id, pipeline_run_id, self._fallback_pass(task_id))
+            escalation = self._fallback_escalate(task_id, validated_input.section_number, f"Output validation failed: {str(e)}")
+            await self._escalate_to_mother(task_id, session_id, pipeline_run_id, escalation)
             return
 
         result = validated_output.model_dump()
@@ -199,17 +204,25 @@ Return ONLY valid JSON with these exact keys:
             logger.warning("[DevilsAdvocate] Failed to parse response")
             return None
 
-    def _fallback_pass(self, task_id: str) -> dict:
+    def _fallback_escalate(self, task_id: str, section_number: str, reason: str) -> dict:
+        """If Devil's Advocate fails, escalate to Mother — do NOT pass through."""
         return {
             "task_id": task_id,
-            "section_number": "unknown",
-            "verdict": "pass",
-            "challenges": [],
-            "confidence_assessment": "honest",
-            "recommended_confidence": "medium",
-            "assumptions_grade": "mixed",
-            "overall_reasoning_quality": "adequate",
-            "summary": "Devil's Advocate review could not be completed — section passed through without challenge. Manual review recommended.",
+            "section_number": section_number,
+            "verdict": "escalate",
+            "challenges": [{
+                "claim": "Devil's Advocate quality gate failed",
+                "challenge_type": "system_failure",
+                "severity": "high",
+                "explanation": f"Quality review could not be completed: {reason}. Manual review required before proceeding.",
+                "suggested_fix": "Manual review required — quality gate failure indicates system issue",
+                "section_reference": None,
+            }],
+            "confidence_assessment": "unknown",
+            "recommended_confidence": "low",
+            "assumptions_grade": "unknown",
+            "overall_reasoning_quality": "unknown",
+            "summary": f"ESCALATION REQUIRED: Devil's Advocate failed ({reason}). Section must be manually reviewed before downstream agents can proceed.",
             "model_used": self.model_id,
             "input_tokens": 0,
             "output_tokens": 0,
@@ -239,6 +252,27 @@ Return ONLY valid JSON with these exact keys:
         msg.set_metadata("pipeline_run_id", pipeline_run_id)
         msg.body = json.dumps({"output": output, "agent": "devils_advocate"})
         await self._send_msg(msg)
+
+    async def _escalate_to_mother(self, task_id, session_id, pipeline_run_id, output):
+        """Send escalation to Mother, who pauses pipeline and notifies CEO."""
+        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
+        msg = Message(to=mother_jid)
+        msg.set_metadata("performative", "escalate")
+        msg.set_metadata("task_id", task_id)
+        msg.set_metadata("session_id", session_id)
+        msg.set_metadata("pipeline_run_id", pipeline_run_id)
+        msg.body = json.dumps({
+            "trigger": "quality_gate_failure",
+            "agent": "devils_advocate",
+            "section_number": output.get("section_number", "unknown"),
+            "output": output,
+            "notes": output.get("summary", "Quality gate failure — manual review required"),
+        })
+        await self._send_msg(msg)
+        logger.error(
+            "[DevilsAdvocate] ESCALATED to Mother — Section %s quality gate failed",
+            output.get("section_number", "unknown"),
+        )
 
 
 async def main():

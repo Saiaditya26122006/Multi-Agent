@@ -18,12 +18,20 @@ class Assumption(BaseModel):
 
 
 class UnitEconomics(BaseModel):
-    """Unit economics with LTV, CAC, and key ratios"""
+    """Unit economics with LTV, CAC, and key ratios — MAGIC RATIO ENFORCED"""
     cac: dict = Field(..., description="total_cac, breakdown, validation_source, confidence")
     ltv: dict = Field(..., description="calculation_method, avg_revenue_annual, churn_rate, lifetime_years, gross_margin, ltv_gross, ltv_net")
     ltv_cac_ratio: float = Field(..., ge=0)
     payback_period_months: float = Field(..., ge=0)
     health_assessment: str = Field(..., min_length=20)
+    magic_ratio_pass: bool = Field(
+        ...,
+        description="True if LTV:CAC >= 3.0 (or justified exception), False triggers escalation"
+    )
+    magic_ratio_justification: Optional[str] = Field(
+        default=None,
+        description="Required if LTV:CAC < 3.0 — explain why this ratio is acceptable for this business model"
+    )
     key_assumptions: List[str] = Field(default=[])
     uncertainties: List[str] = Field(default=[])
 

@@ -137,6 +137,10 @@ class ListenBehaviour(CyclicBehaviour):
             await self.agent.handle_escalate(
                 task_id, session_id, pipeline_run_id, from_agent, content
             )
+        elif performative == "status_update":
+            await self.agent.handle_status_update(
+                task_id, session_id, pipeline_run_id, from_agent, content
+            )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -861,6 +865,35 @@ class MotherAgent(Agent):
                 pipeline_run_id=run_id,
             )
 
+    async def handle_status_update(self, task_id, session_id, run_id, from_agent, content):
+        """Handle status update from child/quality agents (e.g., Council revision loop)."""
+        status = content.get("status", "")
+        section = content.get("section", "")
+        message = content.get("message", "")
+
+        logger.info(
+            "[MotherAgent] Status update from %s — task %s: %s",
+            from_agent, task_id, status
+        )
+
+        # Reset task TTL if still active (prevents orphaned tasks during revision loops)
+        if status == "council_revising":
+            attempt = content.get("revision_attempt", 0)
+            # Extend task readiness TTL by 1 hour per revision attempt
+            try:
+                self.db.client.table("task_readiness") \
+                    .update({
+                        "status": "council_revising",
+                        "updated_at": datetime.utcnow().isoformat(),
+                    }) \
+                    .eq("id", task_id).execute()
+                logger.info(
+                    "[MotherAgent] Extended task %s TTL — Council revision attempt %d",
+                    task_id, attempt
+                )
+            except Exception as e:
+                logger.warning("[MotherAgent] Failed to update task status: %s", e)
+
     async def handle_refuse(self, task_id, session_id, run_id, from_agent, content):
         """Agent refused a proposal — escalate to Alex if needed."""
         print(f"[MotherAgent] refuse from {from_agent}")
@@ -876,11 +909,66 @@ class MotherAgent(Agent):
         """Child agent hit one of the 3 escalation triggers."""
         trigger = content.get("trigger")
         notes = content.get("notes", "")
-        section = content.get("section", "")
+        section = content.get("section", "") or content.get("section_number", "")
         trace_key = self._get_trace_key(session_id)
 
         print(f"[MotherAgent] escalate from {from_agent} — trigger: {trigger}")
         emit_trace(trace_key, "Mother", "escalation", f"Section {section} escalated: {trigger}", {"from": from_agent, "trigger": trigger})
+
+        # SPECIAL HANDLING: Quality gate failure (Devil's Advocate or Council Agent)
+        if trigger == "quality_gate_failure":
+            logger.error(
+                "[MotherAgent] QUALITY GATE FAILURE — Section %s from %s",
+                section, from_agent
+            )
+            # Pause pipeline immediately
+            self.redis.client.set(
+                f"pipeline:{run_id}:status",
+                "paused_quality_gate",
+                ex=86400
+            )
+            # Notify CEO with urgency
+            self._send_telegram(
+                session_id,
+                f"🚨 CRITICAL: Quality gate failed for Section {section}\n\n"
+                f"Reason: {notes}\n\n"
+                f"Pipeline PAUSED. Manual review required before continuing.\n\n"
+                f"Reply 'continue' to override and proceed, or 'abort' to stop pipeline."
+            )
+            # Store escalation in DB
+            self.db.client.table("task_readiness") \
+                .update({
+                    "status": "paused_quality_gate",
+                    "escalation_trigger": trigger,
+                    "escalation_notes": notes,
+                }) \
+                .eq("id", task_id).execute()
+
+            # Wait for CEO decision
+            override_decision = await self._wait_for_ceo_override(session_id, run_id, timeout=86400)
+            if override_decision == "continue":
+                logger.warning("[MotherAgent] CEO override — continuing despite quality gate failure")
+                self._send_telegram(session_id, "⚠️ Continuing with CEO override. Quality issues noted.")
+                # Store original output from quality gate and proceed
+                output = content.get("output", {})
+                if output:
+                    self._write_section_content(session_id, run_id, section, output, from_agent)
+                    self.redis.client.set(
+                        f"task_output:{task_id}",
+                        json.dumps(output),
+                        ex=3600
+                    )
+                return
+            elif override_decision == "abort":
+                logger.error("[MotherAgent] CEO aborted pipeline due to quality gate failure")
+                self._send_telegram(session_id, "🛑 Pipeline aborted by CEO.")
+                self.redis.client.set(f"pipeline:{run_id}:status", "aborted", ex=86400)
+                return
+            else:
+                # Timeout — default to paused
+                logger.warning("[MotherAgent] CEO did not respond to quality gate failure — pipeline remains paused")
+                self._send_telegram(session_id, "⏸️ No response received. Pipeline remains paused.")
+                return
 
         # Update task status
         self.db.client.table("task_readiness") \
@@ -1902,6 +1990,27 @@ Only include sections where the condition clearly applies based on the business 
             await asyncio.sleep(10)
             elapsed += 10
         print(f"[MotherAgent] Clarification for task {task_id} timed out after {timeout}s")
+        return None
+
+    async def _wait_for_ceo_override(self, session_id: str, run_id: str, timeout: int = 86400) -> Optional[str]:
+        """Poll Redis for CEO's decision on quality gate failure: 'continue' or 'abort'."""
+        key = f"quality_gate_override:{session_id}:{run_id}"
+        elapsed = 0
+        while elapsed < timeout:
+            result = self.redis.client.get(key)
+            if result:
+                self.redis.client.delete(key)
+                if isinstance(result, bytes):
+                    result = result.decode("utf-8")
+                decision = result.strip().lower()
+                if decision in ("continue", "abort"):
+                    return decision
+            await asyncio.sleep(10)
+            elapsed += 10
+        logger.warning(
+            "[MotherAgent] CEO override for quality gate timed out after %ds — defaulting to paused",
+            timeout
+        )
         return None
 
     async def _wait_for_checkpoint_response(
