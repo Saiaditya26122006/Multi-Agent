@@ -69,8 +69,15 @@ def verify_system():
     required_vars = [
         "SUPABASE_URL",
         "SUPABASE_ANON_KEY",
+        "UPSTASH_REDIS_REST_URL",
+        "UPSTASH_REDIS_REST_TOKEN",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_BEDROCK_REGION",
+        "CLAUDE_HAIKU_MODEL",
+        "CLAUDE_SONNET_MODEL",
+        "TAVILY_API_KEY",
         "TELEGRAM_BOT_TOKEN",
-        "GEMINI_API_KEY"
     ]
 
     missing = []
