@@ -710,7 +710,7 @@ def start_web_server():
 
     set_pipeline_handler(handle_telegram_message)
 
-    web_port = int(os.getenv("WEB_PORT", "8000"))
+    web_port = int(os.getenv("PORT", os.getenv("WEB_PORT", "8000")))
     logger.info(f"[WEB] Starting web server on port {web_port}")
     uvicorn.run(app, host="0.0.0.0", port=web_port, log_level="info")
 
@@ -739,7 +739,7 @@ def main():
     poller_thread = threading.Thread(target=start_demo_poller_thread, daemon=True)
     poller_thread.start()
 
-    web_port = int(os.getenv("WEB_PORT", "8000"))
+    web_port = int(os.getenv("PORT", os.getenv("WEB_PORT", "8000")))
     print(f"[SYSTEM] Web chat running at http://localhost:{web_port}")
     print("[SYSTEM] Demo pipeline poller started")
     print("[SYSTEM] Starting Telegram polling...")
