@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent AI Business Planning System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --primary-light: #3b82f6;
+            --secondary: #7c3aed;
+            --success: #16a34a;
+            --warning: #f59e0b;
+            --bg: #0f172a;
+            --bg-light: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .nav-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--text);
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 160px 0 120px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 1200px;
+            height: 800px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.15), transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: rgba(37, 99, 235, 0.1);
+            border: 1px solid rgba(37, 99, 235, 0.3);
+            border-radius: 24px;
+            color: var(--primary-light);
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .hero-title {
+            font-size: 64px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 20px;
+            color: var(--text-muted);
+            max-width: 720px;
+            margin: 0 auto 40px;
+            line-height: 1.6;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hero-visual {
+            margin-top: 80px;
+            position: relative;
+        }
+
+        .pipeline-preview {
+            background: var(--bg-light);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 1000px;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pipeline-preview::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        }
+
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .agent-card {
+            background: rgba(37, 99, 235, 0.05);
+            border: 1px solid rgba(37, 99, 235, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .agent-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.2);
+        }
+
+        .agent-icon {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .agent-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 120px 0;
+            background: linear-gradient(180deg, var(--bg), var(--bg-light));
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .section-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(124, 58, 237, 0.1);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: 24px;
+            color: var(--secondary);
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .section-subtitle {
+            font-size: 18px;
+            color: var(--text-muted);
+            max-width: 640px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+        }
+
+        .feature-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+
+        .feature-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .feature-desc {
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* Tech Stack */
+        .tech-stack {
+            padding: 80px 0;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 24px;
+            margin-top: 48px;
+        }
+
+        .tech-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .tech-item:hover {
+            border-color: var(--primary);
+        }
+
+        .tech-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+
+        .tech-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 120px 0;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(124, 58, 237, 0.1));
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .cta-title {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        .cta-subtitle {
+            font-size: 18px;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+        }
+
+        /* Footer */
+        footer {
+            padding: 60px 0 32px;
+            border-top: 1px solid var(--border);
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+            margin-bottom: 48px;
+        }
+
+        .footer-brand {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .footer-desc {
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .footer-section h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .footer-links {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .footer-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .footer-link:hover {
+            color: var(--primary);
+        }
+
+        .footer-bottom {
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            margin: 64px 0;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 32px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+
+        .stat-value {
+            font-size: 48px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 40px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <div class="logo-icon">🤖</div>
+                <span>MultiAgent AI</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#tech" class="nav-link">Technology</a>
+                <a href="#docs" class="nav-link">Docs</a>
+                <a href="/index.html" class="btn btn-secondary">Dashboard</a>
+                <a href="/index.html" class="btn btn-primary">Get Started</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-badge">
+                ⚡ Phase 2 — 13 Specialized AI Agents
+            </div>
+            <h1 class="hero-title">
+                AI-Powered Business<br>Planning Automation
+            </h1>
+            <p class="hero-subtitle">
+                Transform your business ideas into complete strategic plans using our multi-agent AI system.
+                From opportunity analysis to financial modeling — fully automated.
+            </p>
+            <div class="hero-buttons">
+                <a href="/index.html" class="btn btn-primary">Launch Dashboard</a>
+                <a href="#features" class="btn btn-secondary">Explore Features</a>
+            </div>
+
+            <div class="hero-visual">
+                <div class="pipeline-preview">
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <h3 style="font-size: 18px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
+                            👑 MOTHER AGENT → 11 SPECIALISTS + ⚖️ COUNCIL
+                        </h3>
+                    </div>
+                    <div class="agent-grid">
+                        <div class="agent-card">
+                            <div class="agent-icon">💡</div>
+                            <div class="agent-name">Opportunity (S1)</div>
+                        </div>
+                        <div class="agent-card">
+                            <div class="agent-icon">🌍</div>
+                            <div class="agent-name">Environment (S3)</div>
+                        </div>
+                        <div class="agent-card">
+                            <div class="agent-icon">🏢</div>
+                            <div class="agent-name">Organisation (S4)</div>
+                        </div>
+                        <div class="agent-card">
+                            <div class="agent-icon">📊</div>
+                            <div class="agent-name">SWOT (S5)</div>
+                        </div>
+                        <div class="agent-card" style="border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.08);">
+                            <div class="agent-icon">💻</div>
+                            <div class="agent-name">Tech Stack (S6.5)</div>
+                        </div>
+                        <div class="agent-card">
+                            <div class="agent-icon">📣</div>
+                            <div class="agent-name">Marketing (S8)</div>
+                        </div>
+                        <div class="agent-card">
+                            <div class="agent-icon">⚙️</div>
+                            <div class="agent-name">Operations (S10)</div>
+                        </div>
+                        <div class="agent-card">
+                            <div class="agent-icon">💰</div>
+                            <div class="agent-name">Financial (S12)</div>
+                        </div>
+                        <div class="agent-card">
+                            <div class="agent-icon">🚀</div>
+                            <div class="agent-name">Launch (S13)</div>
+                        </div>
+                        <div class="agent-card" style="border-color: rgba(252,211,77,0.4); background: rgba(252,211,77,0.08);">
+                            <div class="agent-icon">📈</div>
+                            <div class="agent-name">Exit Strategy (S14)</div>
+                        </div>
+                        <div class="agent-card">
+                            <div class="agent-icon">📝</div>
+                            <div class="agent-name">Exec Summary</div>
+                        </div>
+                        <div class="agent-card" style="border-color: rgba(232,121,249,0.4); background: rgba(232,121,249,0.08);">
+                            <div class="agent-icon">⚖️</div>
+                            <div class="agent-name">Council</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">13</div>
+                    <div class="stat-label">Specialized AI Agents</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">11</div>
+                    <div class="stat-label">Business Plan Sections</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">&lt;10min</div>
+                    <div class="stat-label">Average Generation Time</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge">✨ Core Features</div>
+                <h2 class="section-title">Everything you need to validate ideas</h2>
+                <p class="section-subtitle">
+                    A comprehensive multi-agent system that handles every aspect of business planning
+                </p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3 class="feature-title">Mother Agent Orchestration</h3>
+                    <p class="feature-desc">
+                        Intelligent task distribution across 11 specialized child agents using SPADE messaging and XMPP protocol for real-time coordination.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3 class="feature-title">Telegram Integration</h3>
+                    <p class="feature-desc">
+                        Direct communication channel for CEOs. Ask questions, receive updates, and approve decisions directly from Telegram.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3 class="feature-title">Knowledge Base Tracking</h3>
+                    <p class="feature-desc">
+                        Persistent memory system with epistemic status tags (confirmed, assumed, inferred, contradiction) stored in Supabase.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">Pipeline Visualization</h3>
+                    <p class="feature-desc">
+                        Real-time trace view showing agent execution, dependencies, and progress across all pipeline stages.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚖️</div>
+                    <h3 class="feature-title">Council Quality Gate</h3>
+                    <p class="feature-desc">
+                        5-persona deliberation council reviews critical outputs (SWOT, Financial, Marketing, Summary) before final approval.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎲</div>
+                    <h3 class="feature-title">Monte Carlo Simulation</h3>
+                    <p class="feature-desc">
+                        SimPy-powered financial modeling with probabilistic scenarios, risk analysis, and sensitivity testing across 1000 runs.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tech-stack" id="tech">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-badge">⚙️ Technology</div>
+                <h2 class="section-title">Built with cutting-edge tools</h2>
+                <p class="section-subtitle">
+                    Enterprise-grade stack powering reliable multi-agent orchestration
+                </p>
+            </div>
+
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <div class="tech-icon">🐍</div>
+                    <div class="tech-name">Python 3.11</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🤖</div>
+                    <div class="tech-name">SPADE</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🧠</div>
+                    <div class="tech-name">Claude (AWS Bedrock)</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🗄️</div>
+                    <div class="tech-name">Supabase</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">⚡</div>
+                    <div class="tech-name">Redis (Upstash)</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">📊</div>
+                    <div class="tech-name">SimPy</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🔍</div>
+                    <div class="tech-name">Tavily Search</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">💬</div>
+                    <div class="tech-name">Telegram</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🌐</div>
+                    <div class="tech-name">WebSocket</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta">
+        <div class="container">
+            <h2 class="cta-title">Ready to automate your strategy?</h2>
+            <p class="cta-subtitle">
+                Start generating comprehensive business plans in minutes, not weeks.
+            </p>
+            <div class="hero-buttons">
+                <a href="/index.html" class="btn btn-primary">Launch Dashboard</a>
+                <a href="#docs" class="btn btn-secondary">Read Documentation</a>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="/" class="logo">
+                        <div class="logo-icon">🤖</div>
+                        <span>MultiAgent AI</span>
+                    </a>
+                    <p class="footer-desc">
+                        Multi-agent AI system for automated business planning and strategic decision support.
+                        Built for CEOs and founders who move fast.
+                    </p>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Product</h4>
+                    <div class="footer-links">
+                        <a href="#features" class="footer-link">Features</a>
+                        <a href="#tech" class="footer-link">Technology</a>
+                        <a href="/index.html" class="footer-link">Dashboard</a>
+                        <a href="#docs" class="footer-link">Documentation</a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <div class="footer-links">
+                        <a href="https://github.com" class="footer-link">GitHub</a>
+                        <a href="#" class="footer-link">API Reference</a>
+                        <a href="#" class="footer-link">Agent Guide</a>
+                        <a href="#" class="footer-link">Support</a>
+                    </div>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Company</h4>
+                    <div class="footer-links">
+                        <a href="#" class="footer-link">About</a>
+                        <a href="#" class="footer-link">Blog</a>
+                        <a href="#" class="footer-link">Careers</a>
+                        <a href="#" class="footer-link">Contact</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <div>&copy; 2026 MultiAgent AI. Phase 2 active since May 19, 2026.</div>
+                <div>
+                    <a href="#" class="footer-link">Privacy</a> ·
+                    <a href="#" class="footer-link">Terms</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
