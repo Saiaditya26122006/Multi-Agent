@@ -34,39 +34,47 @@ CONFIDENCE_COLORS = {
 }
 
 
-def _extract_readable_text(item: Any) -> str:
+def _extract_readable_text(item: Any, _depth: int = 0, _max_depth: int = 4) -> str:
     """
-    Extract readable text from a dict, list, or string.
+    Recursively extract readable text from nested structures.
 
-    For dicts: tries common field names in order of preference.
-    For lists: joins items.
-    For strings: returns as-is.
+    Handles dicts, lists, and scalars at arbitrary nesting depth
+    (capped at _max_depth to prevent runaway output).
     """
+    if _depth >= _max_depth:
+        return _strip_markdown(str(item))
+
     if isinstance(item, dict):
-        # Try common field names for readable content
         for field in ["statement", "uncertainty", "item", "description", "text", "content"]:
             if field in item and item[field]:
-                return str(item[field])
+                return _strip_markdown(str(item[field]))
 
-        # If no common field found, format as key-value pairs
-        # but skip internal/technical fields
         skip_keys = {"id", "because", "evidence_quality", "section_number", "confidence"}
         readable_parts = []
         for k, v in item.items():
-            if k not in skip_keys and v:
-                readable_parts.append(f"{k.replace('_', ' ')}: {v}")
+            if k in skip_keys or not v:
+                continue
+            label = k.replace("_", " ")
+            if isinstance(v, dict):
+                nested = _extract_readable_text(v, _depth + 1, _max_depth)
+                readable_parts.append(f"{label}: {nested}")
+            elif isinstance(v, list):
+                nested = _extract_readable_text(v, _depth + 1, _max_depth)
+                readable_parts.append(f"{label}: {nested}")
+            else:
+                readable_parts.append(f"{label}: {_strip_markdown(str(v))}")
 
         if readable_parts:
             return "; ".join(readable_parts)
 
-        # Last resort: convert whole dict
-        return str(item)
+        return _strip_markdown(str(item))
 
     elif isinstance(item, list):
-        return ", ".join([_extract_readable_text(i) for i in item])
+        parts = [_extract_readable_text(i, _depth + 1, _max_depth) for i in item]
+        return ", ".join(parts)
 
     else:
-        return str(item)
+        return _strip_markdown(str(item))
 
 
 def _strip_markdown(text: str) -> str:
@@ -482,7 +490,7 @@ def _add_section_content(doc: Document, output: Dict[str, Any], section_num: str
                 skip_keys = {"id", "because", "evidence_quality"}
                 if k not in skip_keys:
                     table.rows[row_idx].cells[0].text = k.replace('_', ' ').title()
-                    table.rows[row_idx].cells[1].text = _strip_markdown(str(v))
+                    table.rows[row_idx].cells[1].text = _extract_readable_text(v)
                     table.rows[row_idx].cells[0].paragraphs[0].runs[0].bold = True
                     table.rows[row_idx].cells[0].paragraphs[0].runs[0].font.size = Pt(9)
                     table.rows[row_idx].cells[1].paragraphs[0].runs[0].font.size = Pt(9)
