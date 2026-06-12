@@ -74,10 +74,12 @@ SECTION_NAMES = {
     "3": "Environment Research",
     "4": "Organisation Design",
     "5": "SWOT Synthesis",
+    "6.5": "Tech Stack & Data Privacy",
     "8": "Marketing Strategy",
     "10": "Operations",
     "12": "Financial Modelling",
     "13": "Launch & Contingency",
+    "14": "Exit Strategy & Cap Table",
     "executive_summary": "Executive Summary",
 }
 
@@ -306,7 +308,7 @@ def _add_executive_summary(doc: Document, data: Dict[str, Any]):
 def _add_agent_sections(doc: Document, data: Dict[str, Any]):
     """Add all agent output sections with professional styling."""
     sections = data.get("sections", {})
-    section_order = ["1", "3", "4", "5", "8", "10", "12", "13"]
+    section_order = ["1", "3", "4", "5", "6.5", "8", "10", "12", "13", "14"]
 
     # Section icons mapping
     section_icons = {
@@ -314,10 +316,12 @@ def _add_agent_sections(doc: Document, data: Dict[str, Any]):
         "3": "🌍",
         "4": "🏢",
         "5": "⚖️",
+        "6.5": "💻",
         "8": "📢",
         "10": "⚙️",
         "12": "💰",
         "13": "🚀",
+        "14": "🚪",
     }
 
     for section_num in section_order:
