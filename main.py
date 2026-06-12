@@ -32,13 +32,14 @@ from agents.phase1.memory_agent import (
 
 # Import memory functions
 from memory.supabase_client import (
+    supabase,
     get_ceo_context,
     get_active_session,
     update_session_state,
     get_decisions_for_session,
     update_decision_status,
     update_business_plan_section_status,
-    create_session
+    create_session,
 )
 from memory.redis_client import redis_client
 
