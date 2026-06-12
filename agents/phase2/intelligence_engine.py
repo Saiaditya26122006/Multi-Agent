@@ -140,7 +140,20 @@ class IntelligenceEngine:
         if parsed and unresolved:
             parsed["confidence_score"] = "low"
             parsed["_unresolved_challenges"] = [
-                c.get("problem", str(c)) for c in unresolved[:3]
+                {
+                    "type": c.get("type", "unknown"),
+                    "location": c.get("location", ""),
+                    "problem": c.get("problem", str(c)),
+                    "fix": c.get("fix", ""),
+                }
+                if isinstance(c, dict)
+                else {
+                    "type": "unknown",
+                    "location": "",
+                    "problem": str(c),
+                    "fix": "",
+                }
+                for c in unresolved
             ]
 
         # ENFORCEMENT: Detect generic filler in output

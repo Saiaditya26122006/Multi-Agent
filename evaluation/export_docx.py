@@ -4,6 +4,7 @@ Export evaluation results to Word document business plan with professional styli
 
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List
@@ -66,6 +67,17 @@ def _extract_readable_text(item: Any) -> str:
 
     else:
         return str(item)
+
+
+def _strip_markdown(text: str) -> str:
+    """Remove markdown formatting from LLM output for clean docx rendering."""
+    text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    text = re.sub(r"\*([^*]+)\*", r"\1", text)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    text = re.sub(r"```[^\n]*\n?", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 # Section metadata mapping
@@ -258,7 +270,7 @@ def _add_executive_summary(doc: Document, data: Dict[str, Any]):
     # Main content in highlighted box
     summary_text = output.get("executive_summary", "")
     if summary_text:
-        summary_para = doc.add_paragraph(summary_text)
+        summary_para = doc.add_paragraph(_strip_markdown(summary_text))
         summary_para.runs[0].font.size = Pt(11)
         _add_shading(summary_para, RGBColor(249, 250, 251))  # Very light gray
     else:
@@ -276,7 +288,7 @@ def _add_executive_summary(doc: Document, data: Dict[str, Any]):
 
         for idx, metric in enumerate(key_metrics):
             cell = table.rows[idx].cells[0]
-            cell.text = f"✓ {_extract_readable_text(metric)}"
+            cell.text = f"✓ {_strip_markdown(_extract_readable_text(metric))}"
             cell.paragraphs[0].runs[0].font.size = Pt(10)
 
         doc.add_paragraph()  # spacing
@@ -287,14 +299,13 @@ def _add_executive_summary(doc: Document, data: Dict[str, Any]):
         doc.add_heading("⚠️  Key Uncertainties", level=2)
 
         for unc in uncertainties:
-            # Extract main text from dict or use as-is if string
             if isinstance(unc, dict):
-                text = _extract_readable_text(unc)
+                text = _strip_markdown(_extract_readable_text(unc))
                 severity = unc.get("severity", "")
                 if severity:
                     text = f"{text} [{severity.upper()}]"
             else:
-                text = str(unc)
+                text = _strip_markdown(str(unc))
 
             p = doc.add_paragraph(f"• {text}")
             p.runs[0].font.italic = True
@@ -395,14 +406,13 @@ def _add_agent_sections(doc: Document, data: Dict[str, Any]):
             doc.add_heading("⚠️  Uncertainties", level=2)
 
             for unc in uncertainties:
-                # Extract main text from dict or use as-is if string
                 if isinstance(unc, dict):
-                    text = _extract_readable_text(unc)
+                    text = _strip_markdown(_extract_readable_text(unc))
                     severity = unc.get("severity", "")
                     if severity:
                         text = f"{text} [Severity: {severity.upper()}]"
                 else:
-                    text = str(unc)
+                    text = _strip_markdown(str(unc))
 
                 p = doc.add_paragraph(f"• {text}")
                 p.runs[0].font.italic = True
@@ -418,12 +428,7 @@ def _add_agent_sections(doc: Document, data: Dict[str, Any]):
             doc.add_heading("🚨 Unresolved Challenges", level=2)
 
             for challenge in challenges:
-                text = _extract_readable_text(challenge)
-                p = doc.add_paragraph(f"✗ {text}")
-                p.runs[0].font.color.rgb = ERROR_COLOR
-                p.runs[0].font.size = Pt(10)
-                p.runs[0].bold = True
-                _add_shading(p, RGBColor(254, 242, 242))  # Light red
+                _render_challenge(doc, challenge)
 
         doc.add_page_break()
 
@@ -455,8 +460,7 @@ def _add_section_content(doc: Document, output: Dict[str, Any], section_num: str
         if isinstance(value, list):
             for item in value:
                 if isinstance(item, dict):
-                    # Extract readable text from dict
-                    text = _extract_readable_text(item)
+                    text = _strip_markdown(_extract_readable_text(item))
                     p = doc.add_paragraph()
                     bullet_run = p.add_run("• ")
                     bullet_run.font.color.rgb = PRIMARY_COLOR
@@ -466,7 +470,7 @@ def _add_section_content(doc: Document, output: Dict[str, Any], section_num: str
                     p = doc.add_paragraph()
                     bullet_run = p.add_run("• ")
                     bullet_run.font.color.rgb = PRIMARY_COLOR
-                    text_run = p.add_run(str(item))
+                    text_run = p.add_run(_strip_markdown(str(item)))
                     text_run.font.size = Pt(10)
         elif isinstance(value, dict):
             # For dict values, show as key: value pairs in a table
@@ -478,15 +482,14 @@ def _add_section_content(doc: Document, output: Dict[str, Any], section_num: str
                 skip_keys = {"id", "because", "evidence_quality"}
                 if k not in skip_keys:
                     table.rows[row_idx].cells[0].text = k.replace('_', ' ').title()
-                    table.rows[row_idx].cells[1].text = str(v)
-                    # Style cells
+                    table.rows[row_idx].cells[1].text = _strip_markdown(str(v))
                     table.rows[row_idx].cells[0].paragraphs[0].runs[0].bold = True
                     table.rows[row_idx].cells[0].paragraphs[0].runs[0].font.size = Pt(9)
                     table.rows[row_idx].cells[1].paragraphs[0].runs[0].font.size = Pt(9)
                     row_idx += 1
         else:
             # Plain text in styled paragraph
-            p = doc.add_paragraph(str(value))
+            p = doc.add_paragraph(_strip_markdown(str(value)))
             p.runs[0].font.size = Pt(10)
             _add_shading(p, RGBColor(249, 250, 251))  # Light gray background
 
@@ -503,6 +506,49 @@ def _add_shading(paragraph, color: RGBColor):
         paragraph._element.get_or_add_pPr().append(shading_elm)
     except Exception as e:
         logger.warning(f"Failed to add shading: {e}")
+
+
+def _render_challenge(doc: Document, challenge, section_badge: str = ""):
+    """Render a single unresolved challenge with structured formatting."""
+    if isinstance(challenge, dict):
+        c_type = challenge.get("type", "unknown")
+        location = challenge.get("location", "")
+        problem = _strip_markdown(challenge.get("problem", str(challenge)))
+        fix = _strip_markdown(challenge.get("fix", ""))
+    else:
+        c_type = "unknown"
+        location = ""
+        problem = _strip_markdown(str(challenge))
+        fix = ""
+
+    p = doc.add_paragraph()
+
+    if section_badge:
+        badge_run = p.add_run(f"[{section_badge}] ")
+        badge_run.bold = True
+        badge_run.font.color.rgb = PRIMARY_COLOR
+        badge_run.font.size = Pt(9)
+
+    type_label = c_type.upper().replace("_", " ")
+    problem_run = p.add_run(f"[{type_label}] {problem}")
+    problem_run.font.color.rgb = ERROR_COLOR
+    problem_run.font.size = Pt(10)
+    problem_run.bold = True
+
+    _add_shading(p, RGBColor(254, 242, 242))
+
+    if location:
+        loc_p = doc.add_paragraph()
+        loc_run = loc_p.add_run(f"    Location: {_strip_markdown(location)}")
+        loc_run.font.size = Pt(9)
+        loc_run.font.italic = True
+        loc_run.font.color.rgb = MUTED_COLOR
+
+    if fix:
+        fix_p = doc.add_paragraph()
+        fix_run = fix_p.add_run(f"    Suggested fix: {fix}")
+        fix_run.font.size = Pt(9)
+        fix_run.font.color.rgb = MUTED_COLOR
 
 
 def _add_confidence_badge(doc: Document, confidence: str):
@@ -644,14 +690,13 @@ def _add_gaps_page(doc: Document, data: Dict[str, Any]):
             badge_run.font.color.rgb = PRIMARY_COLOR
             badge_run.font.size = Pt(9)
 
-            # Extract readable text from dict or use as-is
             if isinstance(unc, dict):
-                text = _extract_readable_text(unc)
+                text = _strip_markdown(_extract_readable_text(unc))
                 severity = unc.get("severity", "")
                 if severity:
                     text = f"{text} [Severity: {severity.upper()}]"
             else:
-                text = str(unc)
+                text = _strip_markdown(str(unc))
 
             text_run = p.add_run(text)
             text_run.font.size = Pt(10)
@@ -666,21 +711,7 @@ def _add_gaps_page(doc: Document, data: Dict[str, Any]):
         doc.add_heading("🚨 Critical Unresolved Challenges", level=2)
 
         for section_name, challenge in all_challenges:
-            p = doc.add_paragraph()
-
-            # Section badge
-            badge_run = p.add_run(f"[{section_name}] ")
-            badge_run.bold = True
-            badge_run.font.color.rgb = PRIMARY_COLOR
-            badge_run.font.size = Pt(9)
-
-            text = _extract_readable_text(challenge)
-            text_run = p.add_run(text)
-            text_run.font.color.rgb = ERROR_COLOR
-            text_run.font.size = Pt(10)
-            text_run.bold = True
-
-            _add_shading(p, RGBColor(254, 242, 242))  # Light red
+            _render_challenge(doc, challenge, section_badge=section_name)
 
         doc.add_paragraph()  # spacing
 
