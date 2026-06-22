@@ -189,6 +189,7 @@ def generate_preview_tasks(session_id: str) -> list:
                     "data_source": data_source,
                     "depends_on": depends_on,
                     "dependency_reasoning": section_config.get("dependency_reasoning"),
+                    "human_brief": section_config.get("human_brief"),
                     "required_inputs": required_inputs,
                 })
 
@@ -225,6 +226,10 @@ def format_task_preview(tasks: list) -> str:
             source_label = data_source if data_source else "prior sections / Phase 1 memory"
             lines.append(f"  Data needed: {', '.join(data_fields)}")
             lines.append(f"  Best source: {source_label}")
+
+        human_brief = task.get("human_brief")
+        if exec_type == "human_interview" and human_brief:
+            lines.append(f"  How to collect: {human_brief}")
 
         if depends_on:
             dep_labels = [f"§{d}" for d in depends_on]

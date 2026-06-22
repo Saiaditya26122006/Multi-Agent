@@ -1954,6 +1954,11 @@ Only include sections where the condition clearly applies based on the business 
                 )
                 lines.append(f"  Best source: {source_label}")
 
+            # How to collect (human_interview tasks only)
+            human_brief = task.get("human_brief")
+            if exec_type == "human_interview" and human_brief:
+                lines.append(f"  How to collect: {human_brief}")
+
             # Dependencies with reasoning
             if depends_on:
                 dep_labels = [f"§{d}" for d in depends_on]
@@ -2320,7 +2325,7 @@ Only include sections where the condition clearly applies based on the business 
                     "confidence_score": "medium",
                     "timeout_seconds": agent_config.get("timeout_seconds", 90),
                     "execution_type": execution_type,
-                    "human_brief": None,
+                    "human_brief": section_config.get("human_brief"),
                     "data_source": data_source,
                     "depends_on": depends_on,
                     "dependency_reasoning": dependency_reasoning,

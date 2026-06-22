@@ -33,6 +33,7 @@ sections:
     condition: "Include when team is not yet established or investor audience requires profiles"
     depends_on: ["1"]
     dependency_reasoning: "Team assessment requires the opportunity scope (§1) to judge whether current capabilities match the challenge."
+    human_brief: "Provide founder backgrounds and current team makeup — who's on the team, their relevant experience, and any key skill gaps. A short written summary or a quick call with the founder covers this."
     required_inputs:
       - field: "founder_profile"
         source: "ceo_answer"
@@ -78,6 +79,7 @@ sections:
     condition: "Include when legal structure or governance is material"
     depends_on: ["1"]
     dependency_reasoning: "Org design depends on the business model and opportunity scope from §1 to determine what structure is needed."
+    human_brief: "Confirm the legal entity type, ownership split, and intended org structure. If not yet decided, note that — this can be a founder decision rather than research."
     required_inputs:
       - field: "legal_structure"
         source: "ceo_answer"
@@ -123,6 +125,7 @@ sections:
     condition: "Include only when business is built on technology innovation or patent"
     depends_on: ["1"]
     dependency_reasoning: "R&D assessment needs the opportunity scope from §1 to contextualize what technology advantage means for this specific market."
+    human_brief: "Describe the core technology or innovation, its development stage, and any IP protection (patents filed, trade secrets, licences). If IP status is uncertain, state current best understanding."
     required_inputs:
       - field: "technology_description"
         source: "ceo_answer"
@@ -142,6 +145,7 @@ sections:
     condition: "Include when partnerships or outsourcing are core to the business model"
     depends_on: ["1", "5"]
     dependency_reasoning: "Alliance strategy requires both the business model (§1) and strategic positioning (§5/SWOT) to identify where partnerships create leverage vs where they create risk."
+    human_brief: "List intended partnerships, outsourcing targets, or alliance candidates. For each, note what they provide and whether any conversations have started."
     required_inputs:
       - field: "partnership_targets"
         source: "ceo_answer"
