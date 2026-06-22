@@ -136,19 +136,17 @@ def generate_clarifying_question(
     context_parts.append(f"Known Constraints: {ceo_context.get('known_constraints')}")
     context_parts.append("")
 
-    # Long-term Memory
+    # Long-term Memory (preferences only — strip project-specific content)
     if memory_profile:
-        context_parts.append("=== LONG-TERM MEMORY (from past sessions) ===")
-        context_parts.append(
-            "IMPORTANT: The long-term memory below is background context only. "
-            "Do NOT reference past ideas or companies from memory when asking "
-            "clarifying questions about the current idea. Ask questions about "
-            "the CURRENT idea only, as if you are hearing about it for the "
-            "first time."
-        )
+        context_parts.append("=== CEO PREFERENCES (from past sessions) ===")
         for memory in memory_profile[:10]:
             mem_type = memory.get("memory_type", "").replace("_", " ").title()
-            content = memory.get("content")
+            content = memory.get("content", "")
+            # Strip memories that name specific past projects
+            if any(kw in content.lower() for kw in [
+                "epistemicos", "epistemic os", "papertrail", "paper trail",
+            ]):
+                continue
             context_parts.append(f"[{mem_type}] {content}")
         context_parts.append("")
 
@@ -176,9 +174,19 @@ def generate_clarifying_question(
 
     context = "\n".join(context_parts)
 
-    # Step 5: Create prompt for Gemini
+    # Step 5: Create prompt
     current_question_number = question_count + 1
-    prompt = f"""You are a clarity agent helping a CEO build their business plan. This is question {current_question_number} of {MAX_QUESTIONS} maximum questions.
+
+    system_prompt = (
+        "You are a clarity agent. Your ONLY job is to ask clarifying questions "
+        "about the CURRENT idea described below. You must NEVER mention, reference, "
+        "or compare the current idea to any other company, product, or idea — "
+        "including anything from the CEO's past sessions or memory. Treat the "
+        "current idea as if it is the only idea that has ever existed. "
+        "If memory mentions other projects, IGNORE them completely."
+    )
+
+    prompt = f"""This is question {current_question_number} of {MAX_QUESTIONS} maximum questions.
 
 {context}
 
@@ -188,12 +196,13 @@ RULES:
 1. This is question {current_question_number}/{MAX_QUESTIONS} - make it count
 2. Ask ONE specific, focused question to clarify the CEO's intent
 3. DO NOT ask about information already in the CEO context card
-4. DO NOT ask about information already in LONG-TERM MEMORY
+4. DO NOT ask about information already in CEO PREFERENCES
 5. DO NOT repeat any question from "QUESTIONS ALREADY ASKED THIS SESSION"
 6. DO NOT ask about things the CEO already answered in the conversation above
 7. Focus on understanding what the CEO wants to accomplish
 8. Keep the question short and direct (1 sentence)
 9. Since you only have {MAX_QUESTIONS - question_count} questions left, prioritize the most critical missing info
+10. NEVER reference any other company or idea the CEO has worked on before
 
 OUTPUT FORMAT:
 Return ONLY the question text, nothing else. No preamble, no explanation.
@@ -214,7 +223,7 @@ QUESTION:"""
         try:
             response = client.generate_content(
                 prompt=prompt,
-                system_instruction=None
+                system_instruction=system_prompt
             )
             return response.strip()
         except Exception as e:
