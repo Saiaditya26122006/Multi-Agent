@@ -23,7 +23,6 @@ from memory.supabase_client import (
     update_session_state,
     log_event,
     get_assumptions_for_session,
-    get_memory_profile,
     get_messages_for_session,
 )
 from config import (
@@ -98,10 +97,10 @@ def generate_clarifying_question(
 
     print(f"[L1] ✓ Loaded CEO context: {ceo_context.get('name')}")
 
-    # Step 2: Load memory profile
-    memory_profile = get_memory_profile(ceo_id)
-    emit_trace(session_key, "L1", "loading_memory", f"Loading memory profile ({len(memory_profile)} memories)", {"count": len(memory_profile)})
-    print(f"[L1] ✓ Loaded {len(memory_profile)} memory entries")
+    # Memory profile intentionally excluded from L1 question generation —
+    # it causes cross-contamination from past projects (EPI-35 fix).
+    emit_trace(session_key, "L1", "skip_memory", "Memory profile excluded from question generation")
+    print("[L1] ✓ Memory profile excluded (prevents cross-contamination)")
 
     # Step 3: Load active project state (scoped to this session)
     open_sections = get_open_business_plan_sections(session_id=session_id)
@@ -136,18 +135,10 @@ def generate_clarifying_question(
     context_parts.append(f"Known Constraints: {ceo_context.get('known_constraints')}")
     context_parts.append("")
 
-    # Long-term Memory (preferences only — strip project-specific content)
-    if memory_profile:
-        context_parts.append("=== CEO PREFERENCES (from past sessions) ===")
-        for memory in memory_profile[:10]:
-            mem_type = memory.get("memory_type", "").replace("_", " ").title()
-            content = memory.get("content", "")
-            # Strip memories that name specific past projects
-            if any(kw in content.lower() for kw in [
-                "epistemicos", "epistemic os", "papertrail", "paper trail",
-            ]):
-                continue
-            context_parts.append(f"[{mem_type}] {content}")
+    # CEO communication preferences from context card (no memory profile)
+    output_style = ceo_context.get("output_style")
+    if output_style:
+        context_parts.append(f"CEO Communication Style: {output_style}")
         context_parts.append("")
 
     # Conversation history (what was asked and answered so far)
@@ -196,7 +187,7 @@ RULES:
 1. This is question {current_question_number}/{MAX_QUESTIONS} - make it count
 2. Ask ONE specific, focused question to clarify the CEO's intent
 3. DO NOT ask about information already in the CEO context card
-4. DO NOT ask about information already in CEO PREFERENCES
+4. DO NOT ask about information already provided in the context above
 5. DO NOT repeat any question from "QUESTIONS ALREADY ASKED THIS SESSION"
 6. DO NOT ask about things the CEO already answered in the conversation above
 7. Focus on understanding what the CEO wants to accomplish
