@@ -53,7 +53,14 @@ from tools.reply_handler import send_reply
 from agents.phase1.router_agent import classify_message, handle_general_chat, handle_query
 
 # Phase 2 task preview (for EPI-35 transparency at approval time)
-from agents.phase2.mother_agent import DEPENDENCY_MAP, AGENT_ROSTER
+import yaml
+
+DEPENDENCY_MAP = yaml.safe_load(
+    open(Path(__file__).parent / "config/phase2/dependency_map.yaml")
+)
+AGENT_ROSTER = yaml.safe_load(
+    open(Path(__file__).parent / "config/phase2/agent_roster.yaml")
+)
 
 
 # ==========================================================================

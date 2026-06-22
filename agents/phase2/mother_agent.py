@@ -15,10 +15,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-import spade
-from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour, OneShotBehaviour, PeriodicBehaviour
-from spade.message import Message
+try:
+    import spade
+    from spade.agent import Agent
+    from spade.behaviour import CyclicBehaviour, OneShotBehaviour, PeriodicBehaviour
+    from spade.message import Message
+except ImportError:
+    spade = None
+    Agent = object
+    CyclicBehaviour = object
+    OneShotBehaviour = object
+    PeriodicBehaviour = object
+    Message = None
 
 import boto3
 
