@@ -139,6 +139,13 @@ def generate_clarifying_question(
     # Long-term Memory
     if memory_profile:
         context_parts.append("=== LONG-TERM MEMORY (from past sessions) ===")
+        context_parts.append(
+            "IMPORTANT: The long-term memory below is background context only. "
+            "Do NOT reference past ideas or companies from memory when asking "
+            "clarifying questions about the current idea. Ask questions about "
+            "the CURRENT idea only, as if you are hearing about it for the "
+            "first time."
+        )
         for memory in memory_profile[:10]:
             mem_type = memory.get("memory_type", "").replace("_", " ").title()
             content = memory.get("content")

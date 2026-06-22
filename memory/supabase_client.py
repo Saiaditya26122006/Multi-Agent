@@ -159,6 +159,8 @@ def get_active_session(
             if is_topic_switch:
                 session_id = session.get("id")
                 old_idea_text = session.get("idea_text", "unnamed idea")
+                if old_idea_text.startswith("Previous idea ("):
+                    old_idea_text = "unnamed idea"
                 logger.info(
                     "[L0] Topic change detected — closing session %s, "
                     "starting fresh",
@@ -233,8 +235,8 @@ def create_session(
             "state": "NEEDS_CLARIFICATION",
             "awaiting_research": False,
         }
-        if idea_text:
-            row["idea_text"] = idea_text
+        if idea_text and not idea_text.startswith("Previous idea ("):
+            row["idea_text"] = idea_text[:200]
 
         response = (
             supabase.table("sessions")
