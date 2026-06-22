@@ -52,6 +52,9 @@ from tools.reply_handler import send_reply
 # Import router agent
 from agents.phase1.router_agent import classify_message, handle_general_chat, handle_query
 
+# Phase 2 task preview (for EPI-35 transparency at approval time)
+from agents.phase2.mother_agent import DEPENDENCY_MAP, AGENT_ROSTER
+
 
 # ==========================================================================
 # REDIS RESILIENCE HELPERS
@@ -87,6 +90,148 @@ def safe_redis_delete(key: str) -> bool:
     except Exception as e:
         logger.warning(f"[REDIS] Unavailable on DELETE '{key}', skipping: {e}")
         return False
+
+
+def generate_preview_tasks(session_id: str) -> list:
+    """
+    Generate a preview of Group 1 tasks for Alex to see at approval time.
+    Uses the same logic as MotherAgent._generate_group_tasks() but runs
+    synchronously in the main handler before the async pipeline starts.
+    """
+    try:
+        # Read phase1 data the same way MotherAgent does
+        session_resp = supabase.table("sessions").select("*").eq("id", session_id).execute()
+        if not session_resp.data:
+            return []
+
+        messages_resp = supabase.table("messages").select("content").eq(
+            "session_id", session_id
+        ).order("received_at", desc=False).execute()
+
+        assumptions_resp = supabase.table("assumptions").select("*").eq(
+            "session_id", session_id
+        ).execute()
+
+        # Build minimal phase1_data for task generation
+        idea_summary = ""
+        if messages_resp.data:
+            for msg in messages_resp.data:
+                content = msg.get("content", "").strip()
+                if content.lower() not in {"agree", "kill", "edit", "add"} and len(content) > 10:
+                    idea_summary = content
+                    break
+
+        ceo_assumptions = []
+        for a in (assumptions_resp.data or []):
+            if a.get("ceo_answer"):
+                ceo_assumptions.append({
+                    "question": a.get("question_asked", ""),
+                    "answer": a.get("ceo_answer", ""),
+                })
+
+        phase1_data = {
+            "idea_summary": idea_summary,
+            "ceo_assumptions": ceo_assumptions,
+            "business_type": session_resp.data[0].get("business_type", "saas"),
+            "market_scope": idea_summary,
+        }
+
+        # Generate Group 1 tasks using dependency map + roster
+        group_config = AGENT_ROSTER.get("execution_groups", {}).get(1, {})
+        group_agents = group_config.get("agents", [])
+        # For preview, include all sections owned by Group 1 agents
+        group1_owned_sections = set()
+        for ag in group_agents:
+            ac = AGENT_ROSTER.get("agents", {}).get(ag, {})
+            for s in ac.get("sections_owned", []):
+                group1_owned_sections.add(str(s))
+        applicable_sections = list(group1_owned_sections)
+
+        tasks = []
+        for agent_name in group_agents:
+            agent_config = AGENT_ROSTER.get("agents", {}).get(agent_name, {})
+            for section_num in agent_config.get("sections_owned", []):
+                if str(section_num) not in applicable_sections:
+                    continue
+                section_config = DEPENDENCY_MAP.get("sections", {}).get(str(section_num), {})
+                required_inputs = section_config.get("required_inputs", [])
+
+                # Classify execution type
+                sources = {inp.get("source", "") for inp in required_inputs}
+                if "ceo_answer" in sources:
+                    exec_type = "human_interview"
+                elif "external_data" in sources or "web_search" in sources:
+                    exec_type = "data_retrieval"
+                else:
+                    exec_type = "agent_executable"
+
+                # Extract data source
+                data_source = None
+                for inp in required_inputs:
+                    if inp.get("database"):
+                        data_source = inp["database"]
+                        break
+
+                depends_on = section_config.get("depends_on", [])
+
+                tasks.append({
+                    "task_id": f"S{section_num}-G1",
+                    "task_name": f"Build section {section_num}: {section_config.get('name', '')}",
+                    "bp_section": str(section_num),
+                    "execution_type": exec_type,
+                    "data_source": data_source,
+                    "depends_on": depends_on,
+                    "dependency_reasoning": section_config.get("dependency_reasoning"),
+                    "required_inputs": required_inputs,
+                })
+
+        return tasks
+    except Exception as e:
+        logger.error("[PREVIEW] Failed to generate task preview: %s", e)
+        return []
+
+
+def format_task_preview(tasks: list) -> str:
+    """Format preview tasks into a readable Telegram message."""
+    if not tasks:
+        return ""
+
+    lines = [
+        "━━━ GROUP 1: Foundation ━━━",
+        "",
+    ]
+    for task in tasks:
+        task_id = task.get("task_id", "?")
+        bp_section = task.get("bp_section", "?")
+        exec_type = task.get("execution_type", "agent_executable")
+        data_source = task.get("data_source")
+        depends_on = task.get("depends_on", [])
+        dep_reasoning = task.get("dependency_reasoning")
+        req_inputs = task.get("required_inputs", [])
+
+        lines.append(f"[{task_id}] {task['task_name']}")
+        lines.append(f"  BP Section: §{bp_section}")
+        lines.append(f"  Type: {exec_type}")
+
+        if req_inputs:
+            data_fields = [inp.get("field", "") for inp in req_inputs[:3]]
+            source_label = data_source if data_source else "prior sections / Phase 1 memory"
+            lines.append(f"  Data needed: {', '.join(data_fields)}")
+            lines.append(f"  Best source: {source_label}")
+
+        if depends_on:
+            dep_labels = [f"§{d}" for d in depends_on]
+            lines.append(f"  Blocked by: {', '.join(dep_labels)}")
+            if dep_reasoning:
+                lines.append(f"  Why: {dep_reasoning}")
+        else:
+            lines.append("  Blocked by: nothing (root task)")
+
+        lines.append("")
+
+    lines.append("Per task: approve / adjust [what] / kill / challenge [why]")
+    lines.append("Or for whole group: agree / kill")
+    return "\n".join(lines)
 
 
 def print_banner():
@@ -482,6 +627,12 @@ async def handle_telegram_message(message_data):
             memories = consolidate_session_memory(session_id, ceo_id)
             print(f"[DECISION] ✓ Created {len(memories)} memories")
 
+            # Generate Group 1 task preview BEFORE sending confirmation
+            print("[PHASE2] Generating task preview for Group 1...")
+            preview_tasks = generate_preview_tasks(session_id)
+            task_preview_msg = format_task_preview(preview_tasks)
+            print(f"[PHASE2] ✓ Generated preview with {len(preview_tasks)} tasks")
+
             # Trigger Phase 2 pipeline via Redis
             print("[PHASE2] Triggering Phase 2 pipeline...")
             safe_redis_set(
@@ -491,12 +642,17 @@ async def handle_telegram_message(message_data):
             )
             print(f"[PHASE2] ✓ Pipeline trigger set for session {session_id}")
 
-            await send_reply(
-                chat_id,
-                "✅ Decision approved! Moving forward with the plan.\n\n"
-                "Phase 2 pipeline starting — I'll build the full business plan now.\n"
-                "You'll receive Group 1 tasks for review shortly."
-            )
+            # Send confirmation with task preview
+            confirmation = "✅ Decision approved! Building the full business plan.\n\n"
+            if task_preview_msg:
+                confirmation += task_preview_msg
+            else:
+                confirmation += (
+                    "Phase 2 pipeline starting — "
+                    "you'll receive Group 1 tasks for review shortly."
+                )
+
+            await send_reply(chat_id, confirmation)
             print("[DECISION] ✓ Approved and Phase 2 triggered")
 
         elif text_lower == "adjust":

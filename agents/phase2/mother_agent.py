@@ -1915,21 +1915,66 @@ Only include sections where the condition clearly applies based on the business 
         }
 
     def _request_gate2_approval(self, session_id, run_id, group_id, gate2_package):
-        summary_lines = [f"Group {gate2_package['group_number']} — {gate2_package['group_name']}"]
-        summary_lines.append("")
-        for task in gate2_package["tasks"]:
-            summary_lines.append(f"• {task['task_name']}")
-            summary_lines.append(f"  Owner: {task.get('owner', 'TBD')}")
-            summary_lines.append(f"  Output: {task.get('output_required', '')}")
-            summary_lines.append("")
+        lines = [
+            f"{'━' * 36}",
+            f"GROUP {gate2_package['group_number']} — {gate2_package['group_name']}",
+            f"{'━' * 36}",
+            "",
+        ]
 
+        for i, task in enumerate(gate2_package["tasks"], 1):
+            task_id = task.get("task_id", f"T{i}")
+            bp_section = task.get("bp_section", "?")
+            exec_type = task.get("execution_type", "agent_executable")
+            data_source = task.get("data_source")
+            depends_on = task.get("depends_on", [])
+            dep_reasoning = task.get("dependency_reasoning")
+            ceiling = task.get("confidence_ceiling", {})
+
+            # Task header
+            lines.append(f"[{task_id}] {task['task_name']}")
+            lines.append(f"  BP Section: §{bp_section}")
+            lines.append(f"  Type: {exec_type}")
+
+            # Data needed + source
+            req_inputs = task.get("required_inputs", [])
+            if req_inputs:
+                data_fields = [inp.get("field", "") for inp in req_inputs[:3]]
+                source_label = data_source if data_source else "prior sections"
+                lines.append(
+                    f"  Data needed: {', '.join(data_fields)}"
+                )
+                lines.append(f"  Best source: {source_label}")
+
+            # Dependencies with reasoning
+            if depends_on:
+                dep_labels = [f"§{d}" for d in depends_on]
+                lines.append(f"  Blocked by: {', '.join(dep_labels)}")
+                if dep_reasoning:
+                    lines.append(f"  Why: {dep_reasoning}")
+            else:
+                lines.append("  Blocked by: nothing (root task)")
+
+            # Confidence ceiling
+            if ceiling.get("capped"):
+                lines.append(
+                    f"  ⚠ Confidence capped at {ceiling['ceiling']}: "
+                    f"{ceiling['reason']}"
+                )
+
+            lines.append("")
+
+        # Pre-simulation check
         if gate2_package["simulation_result"]["valid"]:
-            summary_lines.append("Pre-run check: No dependency conflicts detected")
+            lines.append("Pre-run check: No dependency conflicts detected")
         else:
-            summary_lines.append(f"Pre-run issues: {gate2_package['simulation_result']['issues']}")
+            lines.append(
+                f"Pre-run issues: {gate2_package['simulation_result']['issues']}"
+            )
 
-        summary_lines.append("")
-        summary_lines.append("Reply: agree / edit [what] / add [task] / kill")
+        lines.append("")
+        lines.append("Per task: approve / adjust [what] / kill / challenge [why]")
+        lines.append("Or for whole group: agree / kill")
 
         self.redis.client.set(f"gate2_pending:{group_id}", "1", ex=14400)
 
@@ -1947,7 +1992,7 @@ Only include sections where the condition clearly applies based on the business 
         except Exception as e:
             print(f"[MotherAgent] Failed to set gate2_active_group: {e}")
 
-        self._send_telegram(session_id, "\n".join(summary_lines))
+        self._send_telegram(session_id, "\n".join(lines))
 
     async def _wait_for_gate2_response(self, session_id: str, group_id: str) -> dict:
         """Poll Redis for Gate 2 response — set by Telegram callback handler."""
@@ -2235,11 +2280,28 @@ Only include sections where the condition clearly applies based on the business 
                     section_config, prior_outputs, phase1_data
                 )
 
+                # Derive execution_type from required_input sources
+                required_inputs = section_config.get("required_inputs", [])
+                execution_type = self._classify_execution_type(required_inputs)
+
+                # Derive data_source from required_inputs with database annotation
+                data_source = self._extract_data_source(required_inputs)
+
+                # Derive dependency info for transparency
+                depends_on = section_config.get("depends_on", [])
+                dependency_reasoning = section_config.get("dependency_reasoning")
+
+                # Confidence ceiling: capped if upstream deps are incomplete
+                confidence_ceiling = self._compute_task_confidence_ceiling(
+                    depends_on, prior_outputs
+                )
+
                 tasks.append({
                     "task_name": f"Build section {section_num}: {section_config.get('name', '')}",
+                    "task_id": f"S{section_num}-G{group_number}",
                     "bp_section": str(section_num),
                     "purpose": f"Produce {section_config.get('name', '')} for the business plan",
-                    "required_inputs": section_config.get("required_inputs", []),
+                    "required_inputs": required_inputs,
                     "input_source": "prior_task",
                     "input_package": input_package,
                     "output_required": str(section_config.get("outputs", [])),
@@ -2249,9 +2311,58 @@ Only include sections where the condition clearly applies based on the business 
                     "uncertainty_level": "medium",
                     "confidence_score": "medium",
                     "timeout_seconds": agent_config.get("timeout_seconds", 90),
+                    "execution_type": execution_type,
+                    "human_brief": None,
+                    "data_source": data_source,
+                    "depends_on": depends_on,
+                    "dependency_reasoning": dependency_reasoning,
+                    "confidence_ceiling": confidence_ceiling,
                 })
 
         return tasks
+
+    def _classify_execution_type(self, required_inputs: list) -> str:
+        """Derive execution type from required_input source annotations."""
+        sources = {inp.get("source", "") for inp in required_inputs}
+        if "ceo_answer" in sources:
+            return "human_interview"
+        if "external_data" in sources or "web_search" in sources:
+            return "data_retrieval"
+        return "agent_executable"
+
+    def _extract_data_source(self, required_inputs: list) -> str:
+        """Extract the primary data source/database from required_inputs annotations."""
+        for inp in required_inputs:
+            db = inp.get("database")
+            if db:
+                return db
+        for inp in required_inputs:
+            src = inp.get("source", "")
+            if src in ("external_data", "web_search"):
+                return src
+        return None
+
+    def _compute_task_confidence_ceiling(
+        self, depends_on: list, prior_outputs: dict
+    ) -> dict:
+        """Determine if confidence is capped by missing/low-quality upstream outputs."""
+        if not depends_on:
+            return {"capped": False, "ceiling": "high", "reason": None}
+
+        missing_deps = [
+            dep for dep in depends_on if dep not in prior_outputs
+        ]
+        if missing_deps:
+            dep_names = [
+                self.dependency_map["sections"].get(d, {}).get("name", f"§{d}")
+                for d in missing_deps
+            ]
+            return {
+                "capped": True,
+                "ceiling": "medium",
+                "reason": f"Blocked by incomplete upstream: {', '.join(dep_names)}",
+            }
+        return {"capped": False, "ceiling": "high", "reason": None}
 
     def _assemble_input_package(self, section_config: dict, prior_outputs: dict, phase1_data: dict) -> dict:
         package = {}

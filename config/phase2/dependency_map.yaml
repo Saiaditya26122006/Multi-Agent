@@ -13,6 +13,10 @@ sections:
       - field: "approved_decision"
         source: "phase1_memory"
         description: "Approved decision record from Gate 1"
+      - field: "market_data"
+        source: "external_data"
+        database: "tavily_search"
+        description: "Competitor landscape and market sizing from web research"
     outputs:
       - field: "opportunity_description"
         description: "Structured description of the business opportunity"
@@ -28,6 +32,7 @@ sections:
     always_required: false
     condition: "Include when team is not yet established or investor audience requires profiles"
     depends_on: ["1"]
+    dependency_reasoning: "Team assessment requires the opportunity scope (§1) to judge whether current capabilities match the challenge."
     required_inputs:
       - field: "founder_profile"
         source: "ceo_answer"
@@ -45,6 +50,7 @@ sections:
     name: "Study of the business environment"
     always_required: true
     depends_on: ["1"]
+    dependency_reasoning: "Environment research needs the geographic and segment scope defined in §1 to know what market to investigate."
     required_inputs:
       - field: "market_scope"
         source: "prior_task"
@@ -52,6 +58,10 @@ sections:
       - field: "business_type"
         source: "phase1_memory"
         description: "Type of business being analysed"
+      - field: "competitor_landscape"
+        source: "external_data"
+        database: "tavily_search"
+        description: "Live competitor and regulatory data from web research"
     outputs:
       - field: "pest_analysis"
         description: "Political, economic, social, technological factors"
@@ -67,6 +77,7 @@ sections:
     always_required: false
     condition: "Include when legal structure or governance is material"
     depends_on: ["1"]
+    dependency_reasoning: "Org design depends on the business model and opportunity scope from §1 to determine what structure is needed."
     required_inputs:
       - field: "legal_structure"
         source: "ceo_answer"
@@ -86,6 +97,7 @@ sections:
     name: "SWOT matrix"
     always_required: true
     depends_on: ["3", "4"]
+    dependency_reasoning: "SWOT cannot be synthesized until the external environment (§3) and internal capabilities (§4) are both known — otherwise S/W/O/T entries are assumptions, not evidence."
     required_inputs:
       - field: "pest_analysis"
         source: "prior_task"
@@ -110,6 +122,7 @@ sections:
     always_required: false
     condition: "Include only when business is built on technology innovation or patent"
     depends_on: ["1"]
+    dependency_reasoning: "R&D assessment needs the opportunity scope from §1 to contextualize what technology advantage means for this specific market."
     required_inputs:
       - field: "technology_description"
         source: "ceo_answer"
@@ -128,6 +141,7 @@ sections:
     always_required: false
     condition: "Include when partnerships or outsourcing are core to the business model"
     depends_on: ["1", "5"]
+    dependency_reasoning: "Alliance strategy requires both the business model (§1) and strategic positioning (§5/SWOT) to identify where partnerships create leverage vs where they create risk."
     required_inputs:
       - field: "partnership_targets"
         source: "ceo_answer"
@@ -145,6 +159,7 @@ sections:
     name: "Marketing plan"
     always_required: true
     depends_on: ["5"]
+    dependency_reasoning: "Marketing strategy must be informed by the SWOT (§5) so that positioning exploits strengths/opportunities and defends against threats — pricing without this context is guesswork."
     required_inputs:
       - field: "swot_matrix"
         source: "prior_task"
@@ -158,6 +173,10 @@ sections:
       - field: "market_context"
         source: "prior_task"
         description: "From Section 3"
+      - field: "pricing_benchmarks"
+        source: "external_data"
+        database: "tavily_search"
+        description: "Competitor pricing and market rate data from web research"
     outputs:
       - field: "target_market_analysis"
         description: "Segmentation, ICP, competitors, market size"
@@ -175,6 +194,7 @@ sections:
     always_required: false
     condition: "Include for service businesses where delivery consistency is a key differentiator"
     depends_on: ["1", "8"]
+    dependency_reasoning: "Quality standards depend on the service definition (§1) and customer expectations set by the marketing positioning (§8)."
     required_inputs:
       - field: "service_description"
         source: "prior_task"
@@ -190,6 +210,7 @@ sections:
     always_required: false
     condition: "Include for businesses with physical production or complex service delivery"
     depends_on: ["1", "8"]
+    dependency_reasoning: "Production planning needs the product spec (§1) and demand forecasts from marketing (§8) to size capacity correctly."
     required_inputs:
       - field: "product_description"
         source: "prior_task"
@@ -211,6 +232,7 @@ sections:
     name: "Human resources plan"
     always_required: true
     depends_on: ["1", "5"]
+    dependency_reasoning: "HR planning needs the business model (§1) to define roles and SWOT (§5) to prioritize which capability gaps are strategically urgent."
     required_inputs:
       - field: "capability_gaps"
         source: "prior_task"
@@ -235,6 +257,7 @@ sections:
     name: "Financial plan"
     always_required: true
     depends_on: ["8", "10", "11"]
+    dependency_reasoning: "The financial model is a downstream consumer of revenue assumptions (§8), cost structure (§10), and headcount costs (§11) — running it before those exist means garbage-in numbers."
     required_inputs:
       - field: "revenue_assumptions"
         source: "prior_task"
@@ -254,6 +277,10 @@ sections:
       - field: "business_model"
         source: "prior_task"
         description: "From Section 1 — for financial model framing"
+      - field: "financial_benchmarks"
+        source: "external_data"
+        database: "tavily_search"
+        description: "Industry margins, burn rates, and comparable startup financials"
     outputs:
       - field: "three_statement_model"
         description: "P&L, balance sheet, cash flow — monthly Year 1, annual Years 2-3"
@@ -272,6 +299,7 @@ sections:
     name: "Start-up programme"
     always_required: true
     depends_on: ["8", "11", "12"]
+    dependency_reasoning: "Launch sequencing requires marketing milestones (§8), hiring timeline (§11), and funding needs (§12) to build a realistic programme — without these it's just a wishlist."
     required_inputs:
       - field: "revenue_assumptions"
         source: "prior_task"
@@ -295,6 +323,7 @@ sections:
     always_required: false
     condition: "Include when risk profile is high or explicitly requested by Alex"
     depends_on: ["12", "13"]
+    dependency_reasoning: "Contingency planning reacts to the specific risk factors and failure scenarios identified by the financial simulation (§12) and launch plan (§13)."
     required_inputs:
       - field: "risk_factors"
         source: "prior_task"
@@ -312,6 +341,7 @@ sections:
     name: "Executive summary"
     always_required: true
     depends_on: ["1", "3", "5", "8", "11", "12", "13"]
+    dependency_reasoning: "The executive summary synthesizes all completed sections — it must run last because it references final outputs from every major section."
     required_inputs:
       - field: "all_section_outputs"
         source: "prior_task"
