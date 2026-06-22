@@ -105,7 +105,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
 
     # Step 4: Get or create active session
     emit_trace(session_key, "L0", "get_session", "Loading or creating session")
-    session = get_active_session(chat_id)
+    session = get_active_session(chat_id, message_text=text)
     is_new_session = False
 
     if session:
@@ -113,7 +113,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         print(f"[L0] ✓ Using existing session: {session_id}")
     else:
         # Create new session
-        session = create_session(ceo_id, chat_id)
+        session = create_session(ceo_id, chat_id, idea_text=text)
         if not session:
             print("[L0] ✗ Failed to create new session")
             return {

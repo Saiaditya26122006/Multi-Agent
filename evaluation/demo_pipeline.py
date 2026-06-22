@@ -8,8 +8,11 @@ waits for PROCEED/SKIP, runs eval, delivers summary.
 import asyncio
 import json
 import logging
+import logging.handlers
+from json import JSONDecodeError
 import os
 import boto3
+import botocore.exceptions
 from datetime import datetime
 from pathlib import Path
 
@@ -22,6 +25,24 @@ from evaluation.export_docx import export_to_docx
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+_log_dir = Path(__file__).parent.parent / "logs"
+_log_dir.mkdir(exist_ok=True)
+_file_handler = logging.handlers.RotatingFileHandler(
+    _log_dir / "demo_pipeline.log", maxBytes=5_000_000, backupCount=3
+)
+_file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+logger.addHandler(_file_handler)
+
+
+def _strip_code_fences(text: str) -> str:
+    """Extract content from markdown code fences if present."""
+    if "```json" in text:
+        return text.split("```json")[1].split("```")[0].strip()
+    elif "```" in text:
+        return text.split("```")[1].split("```")[0].strip()
+    return text.strip()
+
 
 POLL_INTERVAL = 5  # seconds
 
@@ -245,42 +266,31 @@ async def _build_data_declaration(idea: dict) -> str:
     Build data requirements declaration using LLM.
 
     Generates specific data requests based on the actual idea.
-    Falls back to generic template on error.
+    Falls back to idea-aware template on error.
     """
 
-    # Generic fallback template
+    idea_summary = idea.get("idea_summary", "")
+    idea_name = idea.get("name", "") or idea_summary[:60]
+
     fallback_message = (
         "📋 *BEFORE I START — DATA REQUIREMENTS*\n\n"
-        "Here's what I need for the business plan:\n\n"
+        f"Here's what I need for *{idea_name}*'s business plan:\n\n"
         "*FETCHING AUTOMATICALLY (web search):*\n"
-        "• Market research and competitive analysis\n"
-        "• Regulatory compliance requirements\n"
-        "• Industry trends and benchmarks\n"
-        "• Pricing and business model data\n"
-        "• Financial benchmarks and metrics\n\n"
-        "*REQUESTING FROM YOU (improves quality):*\n"
-        "• Market size and growth data\n"
-        "  → best source: *Passport or GlobalData*\n"
-        "• Competitor analysis and positioning\n"
-        "  → best source: *CB Insights or FACTIVA*\n"
-        "• Customer segment spending patterns\n"
-        "  → best source: *Statista or WARC*\n"
-        "• Funding and valuation comparables\n"
-        "  → best source: *CB Insights or Mergermarket*\n\n"
-        "Add anything you find to the *Knowledge Base tab* "
-        "in the web interface before replying.\n\n"
-        "Reply *PROCEED* to start, or *SKIP* to run with "
-        "current data (gaps will be flagged)."
+        f"• Market research and competitive analysis for {idea_name}\n"
+        "• Regulatory compliance requirements in this sector\n"
+        "• Industry trends and growth benchmarks\n"
+        "• Pricing models and unit economics data\n"
+        "• Financial benchmarks for comparable startups\n\n"
+        "I'll flag specific data gaps as I work through this — "
+        "reply *PROCEED* to start, or *SKIP* to run with current data."
     )
 
     try:
-        # Build context from idea
-        idea_summary = idea.get("idea_summary", "")
         ceo_assumptions = idea.get("ceo_assumptions", [])
 
         assumptions_text = "\n".join([
             f"Q: {a.get('question', '')}\nA: {a.get('answer', '')}"
-            for a in ceo_assumptions[:5]  # limit to 5
+            for a in ceo_assumptions[:5]
         ])
 
         logger.info(f"[DemoPipeline] Building data declaration for idea: {idea_summary[:100]}")
@@ -307,7 +317,6 @@ Be specific — name exact data points, markets, regulations, and competitors re
 
         system_prompt = """You are a business research analyst. Given a business idea, identify the specific data needed to build a credible business plan. Be specific — name exact data points, not generic categories. Return only valid JSON."""
 
-        # Call Bedrock
         bedrock = boto3.client(
             "bedrock-runtime",
             region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1")
@@ -333,33 +342,69 @@ Be specific — name exact data points, markets, regulations, and competitors re
         logger.info(f"[DemoPipeline] LLM response length: {len(content_text)} chars")
         logger.debug(f"[DemoPipeline] LLM raw response: {content_text[:500]}")
 
-        # Strip markdown code blocks if present
-        if "```json" in content_text:
-            content_text = content_text.split("```json")[1].split("```")[0].strip()
-        elif "```" in content_text:
-            content_text = content_text.split("```")[1].split("```")[0].strip()
+        content_text = _strip_code_fences(content_text)
 
-        # Parse JSON from response
         data_req = json.loads(content_text)
 
         logger.info(f"[DemoPipeline] Parsed JSON keys: {list(data_req.keys())}")
 
-        # Extract data
         auto_searches = data_req.get("auto_searches", [])
         manual_requests = data_req.get("manual_requests", [])
 
         logger.info(f"[DemoPipeline] Auto searches: {len(auto_searches)}, Manual requests: {len(manual_requests)}")
 
-        # Check if LLM returned empty data
         if not auto_searches and not manual_requests:
             logger.warning("[DemoPipeline] LLM returned empty data, using fallback")
             return fallback_message
 
-        # Format the message
+        # ── Validation: lightweight relevance check ──────────────────────────
+        items_summary = ", ".join(
+            [f"auto: {s}" for s in auto_searches[:5]]
+            + [f"manual: {m.get('data_point', '')} ({m.get('database', '')})" for m in manual_requests[:5]]
+        )
+
+        validation_prompt = (
+            f"Business idea: {idea_summary[:500]}\n\n"
+            f"Proposed data categories: {items_summary}\n\n"
+            "Are ALL of these data categories actually relevant to THIS specific business? "
+            "Reply with a JSON object: "
+            '{"relevant": true} or {"relevant": false, "mismatched": ["item1", "item2"]}'
+        )
+
+        try:
+            val_response = bedrock.invoke_model(
+                modelId=haiku_model,
+                body=json.dumps({
+                    "anthropic_version": "bedrock-2023-05-31",
+                    "max_tokens": 300,
+                    "messages": [{"role": "user", "content": validation_prompt}]
+                })
+            )
+            val_result = json.loads(val_response["body"].read())
+            val_text = _strip_code_fences(val_result["content"][0]["text"])
+            val_data = json.loads(val_text)
+
+            if not val_data.get("relevant", True):
+                mismatched = val_data.get("mismatched", [])
+                logger.warning(
+                    "[DemoPipeline] Validation FAILED — mismatched items: %s",
+                    mismatched,
+                )
+                return fallback_message
+
+            logger.info("[DemoPipeline] Validation passed — data categories relevant")
+
+        except Exception as val_err:
+            logger.warning(
+                "[DemoPipeline] Validation call failed (%s: %s), proceeding with unvalidated output",
+                type(val_err).__name__, val_err,
+            )
+
+        # ── Format the message ───────────────────────────────────────────────
         if auto_searches:
             auto_section = "\n".join([f"• {s}" for s in auto_searches])
         else:
-            auto_section = "• Market research and competitive analysis\n• Industry trends and benchmarks"
+            auto_section = f"• Market research and competitive analysis for {idea_name}\n• Industry trends and benchmarks"
 
         if manual_requests:
             manual_section = "\n".join([
@@ -367,16 +412,11 @@ Be specific — name exact data points, markets, regulations, and competitors re
                 for item in manual_requests
             ])
         else:
-            manual_section = (
-                "• Market size and growth data\n"
-                "  → best source: *Passport or GlobalData*\n"
-                "• Competitor analysis\n"
-                "  → best source: *CB Insights or FACTIVA*"
-            )
+            manual_section = "• No additional manual data requests — proceeding with web search results."
 
         message = (
             "📋 *BEFORE I START — DATA REQUIREMENTS*\n\n"
-            f"Here's what I need for the business plan:\n\n"
+            f"Here's what I need for *{idea_name}*'s business plan:\n\n"
             f"*FETCHING AUTOMATICALLY (web search):*\n"
             f"{auto_section}\n\n"
             f"*REQUESTING FROM YOU (improves quality):*\n"
@@ -390,9 +430,26 @@ Be specific — name exact data points, markets, regulations, and competitors re
         logger.info("[DemoPipeline] Data declaration built successfully from LLM")
         return message
 
+    except JSONDecodeError as e:
+        logger.error(
+            "[DemoPipeline] LLM data declaration failed — JSON parse error (%s): %s",
+            type(e).__name__, e,
+            exc_info=True,
+        )
+        return fallback_message
+    except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as e:
+        logger.error(
+            "[DemoPipeline] LLM data declaration failed — AWS/Bedrock error (%s): %s",
+            type(e).__name__, e,
+            exc_info=True,
+        )
+        return fallback_message
     except Exception as e:
-        logger.error(f"[DemoPipeline] LLM data declaration failed: {e}", exc_info=True)
-        logger.info("[DemoPipeline] Using fallback template")
+        logger.error(
+            "[DemoPipeline] LLM data declaration failed — unexpected (%s): %s",
+            type(e).__name__, e,
+            exc_info=True,
+        )
         return fallback_message
 
 

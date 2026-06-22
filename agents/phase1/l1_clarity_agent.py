@@ -104,9 +104,9 @@ def generate_clarifying_question(
     print(f"[L1] ✓ Loaded {len(memory_profile)} memory entries")
 
     # Step 3: Load active project state (scoped to this session)
-    open_sections = get_open_business_plan_sections()
+    open_sections = get_open_business_plan_sections(session_id=session_id)
     unresolved_assumptions = get_unresolved_assumptions(session_id=session_id)
-    pending_decisions = get_pending_decisions()
+    pending_decisions = get_pending_decisions(session_id=session_id)
 
     # Step 3b: Load conversation history for this session
     session_messages = get_messages_for_session(session_id)

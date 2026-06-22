@@ -4,10 +4,14 @@ Provides database operations for CEO context, sessions, messages, and event logg
 """
 
 import os
+import json
+import logging
 from typing import Optional, Dict, Any
 from pathlib import Path
 from dotenv import load_dotenv
 from supabase import create_client, Client
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
@@ -41,12 +45,58 @@ def get_ceo_context() -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_active_session(telegram_chat_id: int) -> Optional[Dict[str, Any]]:
+TOPIC_CHANGE_TRIGGERS = [
+    "new idea:",
+    "new idea",
+    "switching topics",
+    "start fresh",
+    "something new",
+]
+
+
+def _has_explicit_topic_change_trigger(message_text: str) -> bool:
+    """Returns True if message contains an explicit topic-switch phrase."""
+    text_lower = message_text.lower().strip()
+    return any(trigger in text_lower for trigger in TOPIC_CHANGE_TRIGGERS)
+
+
+def _is_topic_change(new_message: str, idea_text: str) -> bool:
+    """
+    Fast heuristic: returns True if new_message is semantically different
+    from the session's original idea_text.
+
+    Rule: fewer than 2 significant words (>4 chars) overlap → new topic.
+    """
+    if not idea_text:
+        return False
+
+    def significant_words(text: str) -> set:
+        return {w.lower() for w in text.split() if len(w) > 4}
+
+    new_words = significant_words(new_message)
+    idea_words = significant_words(idea_text)
+
+    if not new_words or not idea_words:
+        return False
+
+    overlap = new_words & idea_words
+    return len(overlap) < 2
+
+
+def get_active_session(
+    telegram_chat_id: int,
+    message_text: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Finds the most recent session where state is NOT 'COMPLETED'.
 
+    If message_text is provided and the session has an idea_text, performs a
+    topic-change check. On topic change, closes the old session and returns None
+    so a new session gets created.
+
     Args:
         telegram_chat_id: Telegram chat ID to filter by
+        message_text: Incoming message text for topic-change detection (optional)
 
     Returns:
         Dict containing session data or None if no active session found
@@ -62,35 +112,115 @@ def get_active_session(telegram_chat_id: int) -> Optional[Dict[str, Any]]:
             .execute()
         )
 
-        if response.data and len(response.data) > 0:
-            return response.data[0]
-        return None
+        if not response.data or len(response.data) == 0:
+            return None
+
+        session = response.data[0]
+
+        if message_text:
+            is_topic_switch = _has_explicit_topic_change_trigger(message_text)
+
+            if not is_topic_switch and session.get("idea_text"):
+                # Guard: skip word-overlap heuristic on short follow-up replies
+                # mid-conversation. Only run it on messages that look like a new
+                # business idea (20+ words). Explicit triggers above still fire.
+                word_count = len(message_text.split())
+                session_state = session.get("state", "")
+                is_mid_conversation = session_state in (
+                    "NEEDS_CLARIFICATION",
+                    "AWAITING_RESEARCH",
+                    "RESEARCH_RUNNING",
+                    "AWAITING_FEEDBACK",
+                    "AWAITING_APPROVAL",
+                )
+                if not (is_mid_conversation and word_count < 20):
+                    is_topic_switch = _is_topic_change(
+                        message_text, session["idea_text"]
+                    )
+
+            if is_topic_switch:
+                session_id = session.get("id")
+                old_idea_text = session.get("idea_text", "unnamed idea")
+                logger.info(
+                    "[L0] Topic change detected — closing session %s, "
+                    "starting fresh",
+                    session_id,
+                )
+
+                update_payload = {"state": "COMPLETED"}
+
+                try:
+                    from memory.redis_client import get_session_state, redis_client
+
+                    redis_state = get_session_state(session_id)
+                    if redis_state:
+                        update_payload["archived_state"] = json.dumps(
+                            redis_state
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "[L0] Redis unavailable, skipping archived_state "
+                        "write: %s",
+                        e,
+                    )
+
+                supabase.table("sessions").update(update_payload).eq(
+                    "id", session_id
+                ).execute()
+
+                try:
+                    from memory.redis_client import redis_client
+
+                    redis_client.set(
+                        f"topic_change_notify:{telegram_chat_id}",
+                        old_idea_text,
+                        ex=300,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "[L0] Redis unavailable, skipping topic change "
+                        "notification stash: %s",
+                        e,
+                    )
+
+                return None
+
+        return session
 
     except Exception as e:
         print(f"Error fetching active session for chat {telegram_chat_id}: {e}")
         return None
 
 
-def create_session(ceo_id: str, telegram_chat_id: int) -> Optional[Dict[str, Any]]:
+def create_session(
+    ceo_id: str,
+    telegram_chat_id: int,
+    idea_text: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Inserts a new row into sessions table.
 
     Args:
         ceo_id: UUID of the CEO context
         telegram_chat_id: Telegram chat ID
+        idea_text: The CEO's first message text (for topic-change detection)
 
     Returns:
         Dict containing the created session row or None on failure
     """
     try:
+        row = {
+            "ceo_id": ceo_id,
+            "telegram_chat_id": telegram_chat_id,
+            "state": "NEEDS_CLARIFICATION",
+            "awaiting_research": False,
+        }
+        if idea_text:
+            row["idea_text"] = idea_text
+
         response = (
             supabase.table("sessions")
-            .insert({
-                "ceo_id": ceo_id,
-                "telegram_chat_id": telegram_chat_id,
-                "state": "NEEDS_CLARIFICATION",
-                "awaiting_research": False
-            })
+            .insert(row)
             .execute()
         )
 
@@ -99,7 +229,35 @@ def create_session(ceo_id: str, telegram_chat_id: int) -> Optional[Dict[str, Any
         return None
 
     except Exception as e:
-        print(f"Error creating session for chat {telegram_chat_id}: {e}")
+        if "idea_text" in str(e) and idea_text:
+            logger.warning(
+                "[SESSION] idea_text column not available yet, "
+                "creating session without it"
+            )
+            row_without = {
+                "ceo_id": ceo_id,
+                "telegram_chat_id": telegram_chat_id,
+                "state": "NEEDS_CLARIFICATION",
+                "awaiting_research": False,
+            }
+            try:
+                response = (
+                    supabase.table("sessions")
+                    .insert(row_without)
+                    .execute()
+                )
+                if response.data and len(response.data) > 0:
+                    return response.data[0]
+            except Exception as inner_e:
+                logger.error(
+                    "Error creating session (retry): %s", inner_e
+                )
+            return None
+        logger.error(
+            "Error creating session for chat %s: %s",
+            telegram_chat_id,
+            e,
+        )
         return None
 
 
@@ -303,14 +461,48 @@ def get_messages_for_session(session_id: str) -> list:
         return []
 
 
-def get_open_business_plan_sections() -> list:
+def get_open_business_plan_sections(session_id: Optional[str] = None) -> list:
     """
-    Gets all business plan sections that are NOT approved.
+    Gets business plan sections that are NOT approved.
+
+    If session_id is provided, only returns sections referenced by decisions
+    in that session (plus any not_started sections for planning context).
+
+    Args:
+        session_id: If provided, scope to sections relevant to this session.
 
     Returns:
         List of business plan section dicts
     """
     try:
+        if session_id:
+            decisions_resp = (
+                supabase.table("decisions")
+                .select("sections_affected")
+                .eq("session_id", session_id)
+                .execute()
+            )
+            session_section_ids = set()
+            if decisions_resp.data:
+                for d in decisions_resp.data:
+                    for sid in (d.get("sections_affected") or []):
+                        session_section_ids.add(sid)
+
+            response = (
+                supabase.table("business_plan_sections")
+                .select("*")
+                .neq("status", "approved")
+                .execute()
+            )
+            if not response.data:
+                return []
+
+            return [
+                s for s in response.data
+                if s.get("section_id") in session_section_ids
+                or s.get("status") == "not_started"
+            ]
+
         response = (
             supabase.table("business_plan_sections")
             .select("*")
@@ -355,21 +547,27 @@ def get_unresolved_assumptions(session_id: Optional[str] = None) -> list:
         return []
 
 
-def get_pending_decisions() -> list:
+def get_pending_decisions(session_id: Optional[str] = None) -> list:
     """
-    Gets all decisions with status = 'pending_approval'.
+    Gets decisions with status = 'pending_approval'.
+
+    Args:
+        session_id: If provided, only return decisions for this session.
 
     Returns:
         List of decision dicts
     """
     try:
-        response = (
+        query = (
             supabase.table("decisions")
             .select("*")
             .eq("status", "pending_approval")
-            .execute()
         )
 
+        if session_id:
+            query = query.eq("session_id", session_id)
+
+        response = query.execute()
         return response.data if response.data else []
 
     except Exception as e:
@@ -680,25 +878,34 @@ def update_business_plan_section_status(section_id: str, new_status: str) -> Opt
 # MEMORY PROFILE FUNCTIONS
 # ============================================================================
 
-def get_memory_profile(ceo_id: str) -> list:
+def get_memory_profile(
+    ceo_id: str,
+    exclude_session_id: Optional[str] = None,
+) -> list:
     """
     Get all memory entries for a CEO, ordered by most recently referenced.
 
     Args:
         ceo_id: UUID of the CEO
+        exclude_session_id: If provided, exclude memories sourced from this
+                            session (used when a session was just closed due
+                            to topic change, to avoid loading stale context).
 
     Returns:
         List of memory entries (dicts)
     """
     try:
-        response = (
+        query = (
             supabase.table("memory_profile")
             .select("*")
             .eq("ceo_id", ceo_id)
             .order("last_referenced_at", desc=True)
-            .execute()
         )
 
+        if exclude_session_id:
+            query = query.neq("source_session_id", exclude_session_id)
+
+        response = query.execute()
         return response.data if response.data else []
 
     except Exception as e:

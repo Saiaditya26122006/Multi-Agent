@@ -29,6 +29,24 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
 
 logger = logging.getLogger(__name__)
 
+
+def _safe_redis_get(key: str):
+    try:
+        return redis_client.get(key)
+    except Exception as e:
+        logger.warning(f"[ROUTER] Redis unavailable on GET '{key}', falling back: {e}")
+        return None
+
+
+def _safe_redis_set(key: str, value, ex: int = None):
+    try:
+        if ex:
+            redis_client.set(key, value, ex=ex)
+        else:
+            redis_client.set(key, value)
+    except Exception as e:
+        logger.warning(f"[ROUTER] Redis unavailable on SET '{key}', skipping: {e}")
+
 # LLM client now uses Claude via Bedrock
 
 # ============================================================================
@@ -209,7 +227,7 @@ def handle_general_chat(
     Maintains a short conversation buffer in Redis so replies feel continuous.
     """
     history_key = f"chat_history:{chat_id}"
-    raw_history = redis_client.get(history_key)
+    raw_history = _safe_redis_get(history_key)
 
     conversation_history = ""
     if raw_history:
@@ -267,7 +285,7 @@ HOW TO RESPOND:
     if len(lines) > 20:
         lines = lines[-20:]
 
-    redis_client.set(history_key, "\n".join(lines), ex=7200)
+    _safe_redis_set(history_key, "\n".join(lines), ex=7200)
 
     return reply
 

@@ -53,6 +53,42 @@ from tools.reply_handler import send_reply
 from agents.phase1.router_agent import classify_message, handle_general_chat, handle_query
 
 
+# ==========================================================================
+# REDIS RESILIENCE HELPERS
+# ==========================================================================
+
+def safe_redis_get(key: str, fallback=None):
+    """Redis GET with graceful fallback on connection errors."""
+    try:
+        return redis_client.get(key)
+    except Exception as e:
+        logger.warning(f"[REDIS] Unavailable on GET '{key}', falling back to DB state: {e}")
+        return fallback
+
+
+def safe_redis_set(key: str, value, ex: int = None) -> bool:
+    """Redis SET with graceful fallback — returns False on failure."""
+    try:
+        if ex:
+            redis_client.set(key, value, ex=ex)
+        else:
+            redis_client.set(key, value)
+        return True
+    except Exception as e:
+        logger.warning(f"[REDIS] Unavailable on SET '{key}', skipping cache write: {e}")
+        return False
+
+
+def safe_redis_delete(key: str) -> bool:
+    """Redis DELETE with graceful fallback — returns False on failure."""
+    try:
+        redis_client.delete(key)
+        return True
+    except Exception as e:
+        logger.warning(f"[REDIS] Unavailable on DELETE '{key}', skipping: {e}")
+        return False
+
+
 def print_banner():
     """Print system startup banner"""
     print("\n" + "=" * 60)
@@ -166,6 +202,18 @@ async def handle_telegram_message(message_data):
     session_id = l0_result["session_id"]
     ceo_id = l0_result["ceo_id"]
 
+    # Check for topic-change notification (set by get_active_session)
+    topic_notify_key = f"topic_change_notify:{chat_id}"
+    old_idea = safe_redis_get(topic_notify_key)
+    if old_idea:
+        old_idea_str = old_idea.decode("utf-8") if isinstance(old_idea, bytes) else old_idea
+        await send_reply(
+            chat_id,
+            f"Previous idea ({old_idea_str}) saved and paused — starting fresh on this one.",
+        )
+        safe_redis_delete(topic_notify_key)
+        logger.info("[L0] Topic change notification sent for '%s'", old_idea_str)
+
     # Get current session state
     session = get_active_session(chat_id)
     current_state = session.get("state") if session else "UNKNOWN"
@@ -178,7 +226,7 @@ async def handle_telegram_message(message_data):
 
     # TASK 3: Check Redis for active Gate 2 listener before processing agree/kill
     if text_lower in ("agree", "kill"):
-        gate2_active = redis_client.get(f"gate2_active_group:{chat_id}")
+        gate2_active = safe_redis_get(f"gate2_active_group:{chat_id}")
         if gate2_active:
             # Gate 2 listener will handle this — drop silently
             print(f"[GUARD] ✓ Gate 2 command '{text_lower}' will be handled by listener — dropping from main pipeline")
@@ -212,7 +260,7 @@ async def handle_telegram_message(message_data):
         else:
             proceed_session_id = session_id  # fallback
         
-        redis_client.set(
+        safe_redis_set(
             f"proceed_response:{proceed_session_id}",
             text_lower,
             ex=7200,
@@ -229,7 +277,7 @@ async def handle_telegram_message(message_data):
     # ========================================================================
     # TASK 6: Check if we're awaiting a clarification response from CEO
     clarification_key = f"awaiting_clarification:{chat_id}"
-    clarification_data = redis_client.get(clarification_key)
+    clarification_data = safe_redis_get(clarification_key)
     if clarification_data:
         try:
             import json as _json
@@ -240,14 +288,14 @@ async def handle_telegram_message(message_data):
             print(f"[CLARIFICATION] Routing CEO response to Mother Agent for task {task_id}")
 
             # Store the clarification answer in Redis for Mother Agent to pick up
-            redis_client.set(
+            safe_redis_set(
                 f"clarification_response:{task_id}",
                 _json.dumps({"answer": text, "task_id": task_id, "run_id": run_id}),
-                ex=3600
+                ex=3600,
             )
 
             # Clear the awaiting key
-            redis_client.delete(clarification_key)
+            safe_redis_delete(clarification_key)
 
             await send_reply(
                 chat_id,
@@ -265,7 +313,7 @@ async def handle_telegram_message(message_data):
 
     # Get last question asked (for router context)
     last_q_key = f"last_question:{chat_id}"
-    last_question_raw = redis_client.get(last_q_key)
+    last_question_raw = safe_redis_get(last_q_key)
     last_question = None
     if last_question_raw:
         last_question = last_question_raw.decode("utf-8") if isinstance(last_question_raw, bytes) else last_question_raw
@@ -309,7 +357,7 @@ async def handle_telegram_message(message_data):
         is_mid_conversation = current_state in ["NEEDS_CLARIFICATION", "AWAITING_APPROVAL"]
 
         welcome_key = f"welcome_sent:{chat_id}"
-        welcome_already_sent = redis_client.get(welcome_key) is not None
+        welcome_already_sent = safe_redis_get(welcome_key) is not None
 
         if (
             not is_mid_conversation
@@ -322,7 +370,7 @@ async def handle_telegram_message(message_data):
 
             if welcome_msg:
                 await send_reply(chat_id, welcome_msg)
-                redis_client.set(welcome_key, "1", ex=7200)
+                safe_redis_set(welcome_key, "1", ex=7200)
                 print(f"[MEMORY] ✓ Sent welcome back message (locked for 2h)")
                 return
 
@@ -384,7 +432,7 @@ async def handle_telegram_message(message_data):
 
         # Clear last question cache
         last_q_key = f"last_question:{chat_id}"
-        redis_client.delete(last_q_key)
+        safe_redis_delete(last_q_key)
 
         await send_reply(
             chat_id,
@@ -436,7 +484,7 @@ async def handle_telegram_message(message_data):
 
             # Trigger Phase 2 pipeline via Redis
             print("[PHASE2] Triggering Phase 2 pipeline...")
-            redis_client.set(
+            safe_redis_set(
                 f"pipeline_trigger:{session_id}",
                 "full_pipeline",
                 ex=3600,
@@ -464,7 +512,7 @@ async def handle_telegram_message(message_data):
 
             # Clear the last question cache
             last_q_key = f"last_question:{chat_id}"
-            redis_client.delete(last_q_key)
+            safe_redis_delete(last_q_key)
 
             # Reset session to needs clarification
             update_session_state(session_id, "NEEDS_CLARIFICATION")
@@ -567,7 +615,7 @@ async def handle_telegram_message(message_data):
 
         # Store last question so router knows what to expect next
         last_q_key = f"last_question:{chat_id}"
-        redis_client.set(last_q_key, question, ex=86400)
+        safe_redis_set(last_q_key, question, ex=86400)
 
         # Send clarifying question to CEO
         await send_reply(chat_id, question)
@@ -655,7 +703,7 @@ async def handle_telegram_callback(callback_data):
 
         # Trigger Phase 2 pipeline via Redis
         print("[PHASE2] Triggering Phase 2 pipeline...")
-        redis_client.set(
+        safe_redis_set(
             f"pipeline_trigger:{session_id}",
             "full_pipeline",
             ex=3600,
@@ -682,7 +730,7 @@ async def handle_telegram_callback(callback_data):
 
         # Clear last question cache
         last_q_key = f"last_question:{chat_id}"
-        redis_client.delete(last_q_key)
+        safe_redis_delete(last_q_key)
 
         # Reset session
         update_session_state(session_id, "NEEDS_CLARIFICATION")
