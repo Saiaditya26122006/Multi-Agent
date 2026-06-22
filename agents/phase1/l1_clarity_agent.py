@@ -126,20 +126,29 @@ def generate_clarifying_question(
     # Step 4: Build context for the LLM
     context_parts = []
 
-    # CEO Context
-    context_parts.append("=== CEO CONTEXT ===")
+    # CEO Context — framed as background, not assumed subject
+    context_parts.append("=== CEO BACKGROUND ===")
     context_parts.append(f"Name: {ceo_context.get('name')}")
-    context_parts.append(f"Company: {ceo_context.get('company')}")
+    company = ceo_context.get("company", "")
+    context_parts.append(
+        f"Background — the CEO's primary company is {company}, but ideas "
+        "they send may be about that company OR about entirely separate "
+        "ventures. Do not assume a new idea relates to "
+        f"{company} unless the CEO explicitly says so."
+    )
     context_parts.append(f"Output Style: {ceo_context.get('output_style')}")
-    context_parts.append(f"Strategic Priorities: {ceo_context.get('strategic_priorities')}")
-    context_parts.append(f"Known Constraints: {ceo_context.get('known_constraints')}")
     context_parts.append("")
-
-    # CEO communication preferences from context card (no memory profile)
-    output_style = ceo_context.get("output_style")
-    if output_style:
-        context_parts.append(f"CEO Communication Style: {output_style}")
-        context_parts.append("")
+    context_parts.append(
+        "=== CEO's general operating constraints "
+        "(apply only if relevant to the current idea) ==="
+    )
+    context_parts.append(
+        f"Strategic Priorities: {ceo_context.get('strategic_priorities')}"
+    )
+    context_parts.append(
+        f"Known Constraints: {ceo_context.get('known_constraints')}"
+    )
+    context_parts.append("")
 
     # Conversation history (what was asked and answered so far)
     if session_messages:
@@ -170,11 +179,12 @@ def generate_clarifying_question(
 
     system_prompt = (
         "You are a clarity agent. Your ONLY job is to ask clarifying questions "
-        "about the CURRENT idea described below. You must NEVER mention, reference, "
-        "or compare the current idea to any other company, product, or idea — "
-        "including anything from the CEO's past sessions or memory. Treat the "
-        "current idea as if it is the only idea that has ever existed. "
-        "If memory mentions other projects, IGNORE them completely."
+        "about the CURRENT idea described below. When the CEO describes an idea, "
+        "take it at face value as its own standalone concept. Do not ask whether "
+        "it relates to, integrates with, or is an acquisition target for their "
+        "existing company unless they explicitly framed it that way. If they "
+        "describe a separate product, treat it as completely independent. "
+        "Never mention the CEO's other companies or projects in your questions."
     )
 
     prompt = f"""This is question {current_question_number} of {MAX_QUESTIONS} maximum questions.
