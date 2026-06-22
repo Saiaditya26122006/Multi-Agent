@@ -121,37 +121,18 @@ def get_active_session(
             is_topic_switch = _has_explicit_topic_change_trigger(message_text)
 
             if not is_topic_switch and session.get("idea_text"):
-                word_count = len(message_text.split())
-                session_state = session.get("state", "")
-                is_mid_conversation = session_state in (
+                ACTIVE_CONVERSATION_STATES = [
                     "NEEDS_CLARIFICATION",
                     "AWAITING_RESEARCH",
                     "RESEARCH_RUNNING",
                     "AWAITING_FEEDBACK",
                     "AWAITING_APPROVAL",
-                )
+                ]
+                session_state = session.get("state", "")
 
-                # Check if L1 has already asked questions in this session
-                has_existing_questions = False
-                if is_mid_conversation:
-                    try:
-                        q_count = (
-                            supabase.table("assumptions")
-                            .select("id", count="exact")
-                            .eq("session_id", session.get("id"))
-                            .neq("question_asked", None)
-                            .execute()
-                        )
-                        has_existing_questions = (q_count.count or 0) > 0
-                    except Exception:
-                        pass
-
-                # Heuristic only runs if NOT mid-conversation with short
-                # reply or existing questions (i.e. answering L1)
-                skip_heuristic = is_mid_conversation and (
-                    word_count < 20 or has_existing_questions
-                )
-                if not skip_heuristic:
+                # Word-overlap heuristic only runs outside active conversation.
+                # During active states, the message is an answer — not a new idea.
+                if session_state not in ACTIVE_CONVERSATION_STATES:
                     is_topic_switch = _is_topic_change(
                         message_text, session["idea_text"]
                     )
