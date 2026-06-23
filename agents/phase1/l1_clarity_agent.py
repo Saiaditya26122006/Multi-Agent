@@ -138,17 +138,6 @@ def generate_clarifying_question(
     )
     context_parts.append(f"Output Style: {ceo_context.get('output_style')}")
     context_parts.append("")
-    context_parts.append(
-        "=== CEO's general operating constraints "
-        "(apply only if relevant to the current idea) ==="
-    )
-    context_parts.append(
-        f"Strategic Priorities: {ceo_context.get('strategic_priorities')}"
-    )
-    context_parts.append(
-        f"Known Constraints: {ceo_context.get('known_constraints')}"
-    )
-    context_parts.append("")
 
     # Conversation history (what was asked and answered so far)
     if session_messages:
