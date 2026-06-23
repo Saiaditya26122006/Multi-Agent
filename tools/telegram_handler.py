@@ -101,6 +101,29 @@ def create_decision_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+def create_task_preview_keyboard(tasks: list) -> InlineKeyboardMarkup:
+    """
+    Create inline keyboard with per-task action buttons + group-level controls.
+
+    Each task gets a row: Approve / Adjust / Kill / Challenge.
+    Final row: group-level Approve All / Kill.
+    """
+    keyboard = []
+    for task in tasks:
+        task_id = task.get("task_id", "?")
+        keyboard.append([
+            InlineKeyboardButton("✅", callback_data=f"task_approve_{task_id}"),
+            InlineKeyboardButton("🔧", callback_data=f"task_adjust_{task_id}"),
+            InlineKeyboardButton("❌", callback_data=f"task_kill_{task_id}"),
+            InlineKeyboardButton(f"⚡ Challenge {task_id}", callback_data=f"task_challenge_{task_id}"),
+        ])
+    keyboard.append([
+        InlineKeyboardButton("✅ Approve all", callback_data="group_approve"),
+        InlineKeyboardButton("❌ Kill group", callback_data="group_kill"),
+    ])
+    return InlineKeyboardMarkup(keyboard)
+
+
 async def _handle_message_wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, handle_message_callback):
     """
     Internal wrapper to handle incoming Telegram messages.

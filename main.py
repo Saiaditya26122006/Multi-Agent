@@ -44,7 +44,11 @@ from memory.supabase_client import (
 from memory.redis_client import redis_client
 
 # Import Telegram handler
-from tools.telegram_handler import start_polling, create_decision_keyboard
+from tools.telegram_handler import (
+    start_polling,
+    create_decision_keyboard,
+    create_task_preview_keyboard,
+)
 
 # Import unified reply handler (replaces direct send_message calls)
 from tools.reply_handler import send_reply
@@ -241,8 +245,13 @@ def format_task_preview(tasks: list) -> str:
 
         lines.append("")
 
-    lines.append("Per task: approve / adjust [what] / kill / challenge [why]")
-    lines.append("Or for whole group: agree / kill")
+    # Plain-text fallback for web chat (no inline keyboard support)
+    lines.append(
+        "Actions (use buttons on Telegram, or reply with command):\n"
+        "  approve all / kill all\n"
+        "  approve [task_id] / adjust [task_id] / "
+        "kill [task_id] / challenge [task_id]"
+    )
     return "\n".join(lines)
 
 
@@ -370,6 +379,49 @@ async def handle_telegram_message(message_data):
         )
         safe_redis_delete(topic_notify_key)
         logger.info("[L0] Topic change notification sent for '%s'", old_idea_str)
+
+    # ========================================================================
+    # STEP 1.4: Handle pending task challenge/adjust responses
+    # ========================================================================
+    challenge_key = f"challenge_pending:{chat_id}"
+    challenge_task_id = safe_redis_get(challenge_key)
+    if challenge_task_id:
+        task_id_str = (
+            challenge_task_id.decode("utf-8")
+            if isinstance(challenge_task_id, bytes)
+            else challenge_task_id
+        )
+        safe_redis_delete(challenge_key)
+        logger.info(
+            "[TASK] Challenge received for %s: %s", task_id_str, text
+        )
+        await send_reply(
+            chat_id,
+            f"⚡ Challenge noted for task {task_id_str}.\n\n"
+            f"Your reasoning: \"{text}\"\n\n"
+            "I'll flag this dependency for review before execution."
+        )
+        return
+
+    adjust_key = f"adjust_pending:{chat_id}"
+    adjust_task_id = safe_redis_get(adjust_key)
+    if adjust_task_id:
+        task_id_str = (
+            adjust_task_id.decode("utf-8")
+            if isinstance(adjust_task_id, bytes)
+            else adjust_task_id
+        )
+        safe_redis_delete(adjust_key)
+        logger.info(
+            "[TASK] Adjustment received for %s: %s", task_id_str, text
+        )
+        await send_reply(
+            chat_id,
+            f"🔧 Adjustment noted for task {task_id_str}.\n\n"
+            f"Your change: \"{text}\"\n\n"
+            "I'll apply this before executing the task."
+        )
+        return
 
     # Get current session state
     session = get_active_session(chat_id)
@@ -654,17 +706,18 @@ async def handle_telegram_message(message_data):
             )
             print(f"[PHASE2] ✓ Pipeline trigger set for session {session_id}")
 
-            # Send confirmation with task preview
+            # Send confirmation with task preview + inline keyboard
             confirmation = "✅ Decision approved! Building the full business plan.\n\n"
             if task_preview_msg:
                 confirmation += task_preview_msg
+                keyboard = create_task_preview_keyboard(preview_tasks)
+                await send_reply(chat_id, confirmation, reply_markup=keyboard)
             else:
                 confirmation += (
                     "Phase 2 pipeline starting — "
                     "you'll receive Group 1 tasks for review shortly."
                 )
-
-            await send_reply(chat_id, confirmation)
+                await send_reply(chat_id, confirmation)
             print("[DECISION] ✓ Approved and Phase 2 triggered")
 
         elif text_lower == "adjust":
@@ -810,7 +863,12 @@ async def handle_telegram_message(message_data):
 
 async def handle_telegram_callback(callback_data):
     """
-    Handle inline keyboard button callbacks (Yes/Adjust/Kill buttons).
+    Handle inline keyboard button callbacks.
+
+    Handles:
+      - decision_yes / decision_adjust / decision_kill (L3 approval)
+      - task_approve_{id} / task_adjust_{id} / task_kill_{id} / task_challenge_{id}
+      - group_approve / group_kill
 
     Args:
         callback_data: Dict with callback_id, chat_id, message_id, data, from_user
@@ -821,6 +879,62 @@ async def handle_telegram_callback(callback_data):
     print("\n" + "=" * 60)
     print(f"[CALLBACK] Received: {data} from chat {chat_id}")
     print("=" * 60)
+
+    # Handle task-level and group-level callbacks (post-approval, no state gate).
+    # NOTE: These are intent-logging only — they acknowledge the CEO's choice but
+    # do not modify pipeline state. Wire to Mother Agent execution control when
+    # Mother Agent runs end-to-end.
+    if data.startswith("task_") or data.startswith("group_"):
+        if data.startswith("task_challenge_"):
+            task_id = data.replace("task_challenge_", "")
+            safe_redis_set(f"challenge_pending:{chat_id}", task_id, ex=300)
+            await send_reply(
+                chat_id,
+                f"⚡ Challenging task {task_id}.\n\n"
+                "Which dependency are you challenging? "
+                "Reply with your reasoning."
+            )
+            logger.info("[TASK] Challenge pending for %s from chat %s", task_id, chat_id)
+
+        elif data.startswith("task_approve_"):
+            # Intent-logging only — no execution control yet
+            task_id = data.replace("task_approve_", "")
+            logger.info("[TASK] Task %s approved by CEO", task_id)
+            await send_reply(chat_id, f"✅ Task {task_id} approved.")
+
+        elif data.startswith("task_adjust_"):
+            task_id = data.replace("task_adjust_", "")
+            safe_redis_set(f"adjust_pending:{chat_id}", task_id, ex=300)
+            await send_reply(
+                chat_id,
+                f"🔧 Adjusting task {task_id}.\n\n"
+                "What would you like to adjust on this task?"
+            )
+            logger.info("[TASK] Adjust pending for %s from chat %s", task_id, chat_id)
+
+        elif data.startswith("task_kill_"):
+            # Intent-logging only — no execution control yet
+            task_id = data.replace("task_kill_", "")
+            logger.info("[TASK] Task %s killed by CEO", task_id)
+            await send_reply(chat_id, f"❌ Task {task_id} removed from this group.")
+
+        elif data == "group_approve":
+            # Intent-logging only — no execution control yet
+            logger.info("[TASK] Group approved by CEO from chat %s", chat_id)
+            await send_reply(chat_id, "✅ All tasks approved. Pipeline proceeding.")
+
+        elif data == "group_kill":
+            # Intent-logging only — no execution control yet
+            logger.info("[TASK] Group killed by CEO from chat %s", chat_id)
+            await send_reply(
+                chat_id,
+                "🛑 Group killed. Pipeline paused.\n\n"
+                "Send a new message when you're ready."
+            )
+
+        print("[CALLBACK] ✓ Task callback processed")
+        print("=" * 60 + "\n")
+        return
 
     # Get current session
     session = get_active_session(chat_id)
@@ -869,6 +983,10 @@ async def handle_telegram_callback(callback_data):
         # Complete the session
         update_session_state(session_id, "COMPLETED")
 
+        # Generate Group 1 task preview
+        preview_tasks = generate_preview_tasks(session_id)
+        task_preview_msg = format_task_preview(preview_tasks)
+
         # Trigger Phase 2 pipeline via Redis
         print("[PHASE2] Triggering Phase 2 pipeline...")
         safe_redis_set(
@@ -878,12 +996,17 @@ async def handle_telegram_callback(callback_data):
         )
         print(f"[PHASE2] ✓ Pipeline trigger set for session {session_id}")
 
-        await send_reply(
-            chat_id,
-            "✅ Decision approved! Moving forward with the plan.\n\n"
-            "Phase 2 pipeline starting — I'll build the full business plan now.\n"
-            "You'll receive Group 1 tasks for review shortly."
-        )
+        confirmation = "✅ Decision approved! Building the full business plan.\n\n"
+        if task_preview_msg:
+            confirmation += task_preview_msg
+            keyboard = create_task_preview_keyboard(preview_tasks)
+            await send_reply(chat_id, confirmation, reply_markup=keyboard)
+        else:
+            confirmation += (
+                "Phase 2 pipeline starting — "
+                "you'll receive Group 1 tasks for review shortly."
+            )
+            await send_reply(chat_id, confirmation)
         print("[DECISION] ✓ Approved and Phase 2 triggered")
 
     elif data == "decision_adjust":
