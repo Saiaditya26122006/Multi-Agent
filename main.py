@@ -196,6 +196,7 @@ def generate_preview_tasks(session_id: str) -> list:
                     "dependency_reasoning": section_config.get("dependency_reasoning"),
                     "human_brief": section_config.get("human_brief"),
                     "required_inputs": required_inputs,
+                    "idea_summary": phase1_data.get("idea_summary", ""),
                 })
 
         return tasks
@@ -209,10 +210,20 @@ def format_task_preview(tasks: list) -> str:
     if not tasks:
         return ""
 
-    lines = [
-        "━━━ GROUP 1: Foundation ━━━",
-        "",
-    ]
+    idea_summary = tasks[0].get("idea_summary", "") if tasks else ""
+    if idea_summary:
+        truncated = idea_summary[:120] + ("..." if len(idea_summary) > 120 else "")
+        lines = [
+            f"Building business plan for: {truncated}",
+            "",
+            "━━━ GROUP 1: Foundation ━━━",
+            "",
+        ]
+    else:
+        lines = [
+            "━━━ GROUP 1: Foundation ━━━",
+            "",
+        ]
     for task in tasks:
         task_id = task.get("task_id", "?")
         bp_section = task.get("bp_section", "?")
