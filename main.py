@@ -40,6 +40,7 @@ from memory.supabase_client import (
     update_decision_status,
     update_business_plan_section_status,
     create_session,
+    _has_explicit_topic_change_trigger,
 )
 from memory.redis_client import redis_client
 
@@ -520,16 +521,31 @@ async def handle_telegram_message(message_data):
     # STEP 2: ROUTER AGENT - Classify message intent
     # ========================================================================
 
-    # Get last question asked (for router context)
-    last_q_key = f"last_question:{chat_id}"
-    last_question_raw = safe_redis_get(last_q_key)
-    last_question = None
-    if last_question_raw:
-        last_question = last_question_raw.decode("utf-8") if isinstance(last_question_raw, bytes) else last_question_raw
+    # Session-state gate: during active L1 Q&A, skip the router entirely.
+    # All messages are answers to L1 UNLESS the CEO explicitly triggers a topic change.
+    skip_router = (
+        current_state == "NEEDS_CLARIFICATION"
+        and not _has_explicit_topic_change_trigger(text)
+    )
 
-    print("\n[ROUTER] Classifying message intent...")
-    intent = classify_message(text, session_state=current_state, last_question_asked=last_question)
-    print(f"[ROUTER] ✓ Intent: {intent}")
+    if skip_router:
+        logger.info("[ROUTER] NEEDS_CLARIFICATION — skipping router, routing directly to L1")
+        print(f"\n[ROUTER] ✓ Intent: clarification_response (session gate — skipped classification)")
+        intent = "business_idea"
+    else:
+        if current_state == "NEEDS_CLARIFICATION":
+            logger.info("[ROUTER] NEEDS_CLARIFICATION but explicit topic-change detected — routing normally")
+
+        # Get last question asked (for router context)
+        last_q_key = f"last_question:{chat_id}"
+        last_question_raw = safe_redis_get(last_q_key)
+        last_question = None
+        if last_question_raw:
+            last_question = last_question_raw.decode("utf-8") if isinstance(last_question_raw, bytes) else last_question_raw
+
+        print("\n[ROUTER] Classifying message intent...")
+        intent = classify_message(text, session_state=current_state, last_question_asked=last_question)
+        print(f"[ROUTER] ✓ Intent: {intent}")
 
     # --- Handle GENERAL chat (greetings, casual, off-topic) ---
     if intent == "general":
