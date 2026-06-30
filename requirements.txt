@@ -2,7 +2,6 @@
 # Updated: 2026-05-20
 
 # Core Telegram bot functionality
-python-telegram-bot==22.7
 
 # Environment variables management
 python-dotenv==1.2.2

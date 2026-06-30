@@ -18,7 +18,7 @@ from pathlib import Path
 
 from memory.redis_client import redis_client
 from memory.supabase_client import supabase
-from tools.telegram_handler import send_message, send_document
+from tools.reply_handler import send_reply
 from evaluation.run_grounded_eval import run_grounded_eval_for_session
 from evaluation.compile_output import compile_for_delivery
 from evaluation.export_docx import export_to_docx
@@ -92,7 +92,7 @@ async def run_demo_pipeline(session_id: str):
             return
 
         session_data = session.data[0]
-        chat_id = session_data.get("telegram_chat_id")
+        chat_id = session_data.get("chat_id") or session_data.get("telegram_chat_id")
 
         if not chat_id:
             logger.error("[DemoPipeline] No chat_id for session %s", session_id)

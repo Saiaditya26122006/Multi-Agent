@@ -1,0 +1,49 @@
+{
+  "_meta": {
+    "source": "Extracted from TEST_BP_architecture spreadsheet",
+    "purpose": "Node dependency map — which nodes must be satisfied before others can be accepted",
+    "last_updated": "2026-06-30"
+  },
+  "dependencies": {
+    "BP.1.1.1": ["BP.1"],
+    "BP.1.1.2": ["BP.1.1.1"],
+    "BP.1.1.3": ["BP.1.1.1", "BP.1.1.2"],
+    "BP.1.1.4": ["BP.1.1.2", "BP.1.1.3"],
+    "BP.1.1.5": ["BP.1.1.3", "BP.1.1.4"],
+    "BP.1.1.6": ["BP.1.1.3", "BP.1.1.5"],
+    "BP.1.1.7": ["BP.1.1.1"],
+    "BP.1.1.8": ["BP.1.1.1", "BP.1.1.2", "BP.1.1.3", "BP.1.1.4", "BP.1.1.5", "BP.1.1.6", "BP.1.1.7"],
+    "BP.1.2": ["BP.1.1"],
+    "BP.1.2.1": ["BP.1.1.1", "BP.1.1.3"],
+    "BP.1.2.2": ["BP.1.1.3", "BP.1.1.5"],
+    "BP.1.2.3": ["BP.1.1.1", "BP.1.1.4"],
+    "BP.1.2.4": ["BP.1.1.4", "BP.1.1.5"],
+    "BP.1.2.5": ["BP.1.1.5", "BP.1.1.6"],
+    "BP.1.2.6": ["BP.1.1.6"],
+    "BP.1.2.7": ["BP.1.1.6"],
+    "BP.1.2.8": ["BP.1.1.3", "BP.1.1.5"],
+    "BP.1.2.9": ["BP.1.2.1", "BP.1.2.2", "BP.1.2.3", "BP.1.2.4", "BP.1.2.5", "BP.1.2.6", "BP.1.2.7", "BP.1.2.8"]
+  },
+  "reopen_triggers": {
+    "BP.1": "Level 1 map changes or any BP.1 child conflicts with canonical product context",
+    "BP.1.1": "Product positioning, demo, workflow, or output object changes product identity",
+    "BP.1.1.1": "Product description changes in charter, pitch, UI, demo, or business-plan narrative",
+    "BP.1.1.2": "Primary analytic unit changes from claim-level logic",
+    "BP.1.1.3": "Features, outputs, or positioning imply non-diagnostic or autonomous decision function",
+    "BP.1.1.4": "Input material, object taxonomy, or processing scope changes",
+    "BP.1.1.5": "Output taxonomy, UI, scoring, or report language implies decision authority or outcome prediction",
+    "BP.1.1.6": "Output taxonomy, UI, scoring, or report language implies decision authority or outcome prediction",
+    "BP.1.1.7": "Product maturity changes or state evidence is contradicted",
+    "BP.1.1.8": "Any BP.1.1 child changes or downstream node contradicts product definition",
+    "BP.1.2": "Product copy, UI, demo, GTM, or investor narrative implies excluded function",
+    "BP.1.2.1": "Product is framed as writing assistant",
+    "BP.1.2.2": "Product generates manuscript prose, citations, claims, findings, or submission-ready language",
+    "BP.1.2.3": "Product broadens into open-ended research Q&A",
+    "BP.1.2.4": "Product broadens into integrity detection",
+    "BP.1.2.5": "Language implies publication-outcome prediction or acceptance-rate improvement",
+    "BP.1.2.6": "Output is treated as substitute for expert review",
+    "BP.1.2.7": "Functionality, permissions, integrations, or deployment gives autonomous decision authority",
+    "BP.1.2.8": "Outputs, scoring, UI, sales language, or validation language implies truth determination",
+    "BP.1.2.9": "BP.1, BP.6, BP.7, BP.8, BP.9, BP.10, or BP.11 contradicts non-scope boundary"
+  }
+}

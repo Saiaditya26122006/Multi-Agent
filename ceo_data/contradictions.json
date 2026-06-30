@@ -1,0 +1,72 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "18. Contradictions and Ambiguities",
+    "last_updated": "2026-06-30"
+  },
+  "contradictions": [
+    {
+      "contradiction": "B2B vs B2C",
+      "evidence_on_each_side": "Institutional subscription repeatedly proposed; individual researcher subscription also considered",
+      "why_it_matters": "Pricing, CAC, support, procurement differ",
+      "required_resolution": "Choose primary monetization path; test secondary",
+      "status": "CONTRADICTION"
+    },
+    {
+      "contradiction": "Researcher user vs institutional buyer",
+      "evidence_on_each_side": "Researchers feel pain; institutions likely pay",
+      "why_it_matters": "Adoption does not equal procurement",
+      "required_resolution": "Map buying committee and budget",
+      "status": "CONTRADICTION"
+    },
+    {
+      "contradiction": "Pre-submission vs editorial workflow",
+      "evidence_on_each_side": "Product framed pre-submission; journals/reviewers included",
+      "why_it_matters": "Different buyer, workflow, liability",
+      "required_resolution": "Sequence business-school wedge vs journal pathway",
+      "status": "CONTRADICTION"
+    },
+    {
+      "contradiction": "Diagnostic tool vs epistemic authority",
+      "evidence_on_each_side": "Product must assess claims; institutions may perceive it as evaluating research quality",
+      "why_it_matters": "Legitimacy risk",
+      "required_resolution": "Position as assistance/checking first",
+      "status": "CONTRADICTION"
+    },
+    {
+      "contradiction": "Productivity tool vs epistemic infrastructure",
+      "evidence_on_each_side": "Some workflow value is time-saving; strategic value is trust/auditability",
+      "why_it_matters": "Determines pricing and buyer",
+      "required_resolution": "Clarify primary value proposition per segment",
+      "status": "CONTRADICTION"
+    },
+    {
+      "contradiction": "Claim-level unit vs institutional subscription",
+      "evidence_on_each_side": "Unit of validation is claim; purchase unit may be institution or manuscript",
+      "why_it_matters": "Unit economics and pricing coherence",
+      "required_resolution": "Define unit of value, validation, transaction",
+      "status": "CONTRADICTION"
+    },
+    {
+      "contradiction": "Early MVP/prototype vs no evidence",
+      "evidence_on_each_side": "Prior context says early MVP/prototype; no product proof available",
+      "why_it_matters": "Investor narrative cannot claim traction without evidence",
+      "required_resolution": "Provide product-state evidence",
+      "status": "CONTRADICTION"
+    },
+    {
+      "contradiction": "AI automation vs verified epistemic reliability",
+      "evidence_on_each_side": "Agents can produce structured outputs; epistemic truth requires human/expert validation",
+      "why_it_matters": "Prevents overclaiming",
+      "required_resolution": "Maintain human approval gates",
+      "status": "CONFIRMED"
+    },
+    {
+      "contradiction": "Turnitin analogy vs epistemic validity complexity",
+      "evidence_on_each_side": "Turnitin similarity is observable; epistemic validity is judgement-heavy",
+      "why_it_matters": "Analogy may mislead investors",
+      "required_resolution": "Use analogy cautiously and validate category",
+      "status": "CONTRADICTION"
+    }
+  ]
+}

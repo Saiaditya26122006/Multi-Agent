@@ -13,6 +13,8 @@ from typing import Optional
 import boto3
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
+
+from agents.phase2.rag_mixin import rag_enrich, rag_check_killed
 from spade.message import Message
 
 from memory.redis_client import RedisClient
@@ -285,6 +287,13 @@ class MarketingStrategyAgent(Agent):
             logger.error("[MarketingStrategy] Input validation failed: %s", e)
             await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
             return
+
+        rag_context = rag_enrich(
+            "GTM sales motion ICP buyers marketing positioning geography",
+            section="8",
+        )
+        if rag_context:
+            input_package["rag_marketing_context"] = rag_context
 
         cross_context = input_package.get("cross_section_context", {})
         learning_context = input_package.get("learning_context", "")

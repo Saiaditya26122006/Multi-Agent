@@ -43,6 +43,7 @@ from agents.phase2.coherence_auditor import CoherenceAuditor
 from agents.phase2.conflict_resolver import ConflictResolver
 from config.phase2.council_config import COUNCIL_GATED_SECTIONS
 from ceo_data.loader import load_all_ceo_data, get_relevant_ceo_data
+from services.rag_hooks import check_negative_knowledge, store_agent_insight, store_run_metadata
 
 
 def load_yaml(path: str) -> dict:
@@ -2386,10 +2387,29 @@ Only include sections where the condition clearly applies based on the business 
         if learning_ctx:
             package["learning_context"] = learning_ctx
 
-        # Inject CEO-provided data relevant to this section
+        # Inject CEO-provided data via RAG semantic retrieval
         ceo_data = get_relevant_ceo_data(str(section_num))
         if ceo_data:
             package["ceo_provided_data"] = ceo_data
+
+        # Inject prohibited claims for this section's agent
+        try:
+            agent_name = section_config.get("agent", "")
+            prohibited = self._get_prohibited_claims(agent_name)
+            if prohibited:
+                package["prohibited_claims"] = prohibited
+        except Exception:
+            pass
+
+        # Check negative knowledge — warn agent about killed ideas
+        try:
+            idea_summary = phase1_data.get("idea_summary", "")
+            if idea_summary:
+                neg = check_negative_knowledge(f"section {section_num} {idea_summary}")
+                if neg:
+                    package["negative_knowledge_warning"] = neg
+        except Exception:
+            pass
 
         # Inject cross-section context from completed sections
         if prior_outputs:
@@ -2456,6 +2476,23 @@ Only include sections where the condition clearly applies based on the business 
             package["upstream_uncertainties"] = propagated_uncertainties
 
         return package
+
+    def _get_prohibited_claims(self, agent_name: str) -> list[str]:
+        """Load prohibited claims for a specific agent from the BP architecture."""
+        try:
+            import json
+            claims_path = Path(__file__).parent.parent.parent / "ceo_data" / "prohibited_claims.json"
+            if not claims_path.exists():
+                return []
+            data = json.loads(claims_path.read_text())
+            agent_sections = data.get("agent_mapping", {}).get(agent_name, [])
+            per_section = data.get("per_section_prohibitions", {})
+            result = list(data.get("global_prohibitions", []))
+            for section_key in agent_sections:
+                result.extend(per_section.get(section_key, []))
+            return result[:10]
+        except Exception:
+            return []
 
     def _find_field_in_prior_outputs(self, field: str, prior_outputs: dict):
         for section_output in prior_outputs.values():

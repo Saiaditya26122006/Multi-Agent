@@ -1,0 +1,119 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "7. EpistemicOS Knowledge Architecture",
+    "last_updated": "2026-06-30"
+  },
+  "layers": [
+    {
+      "layer": "Source-of-truth repository",
+      "purpose": "Canonical project knowledge",
+      "data_contained": "Product definition, ICP, market evidence, decisions, assumptions",
+      "owner": "Human-led, agent-supported",
+      "update_rules": "Update only with traceable source or founder decision",
+      "verification_rules": "Source classification and human approval",
+      "risk_if_poorly_maintained": "Conflicting agents create inconsistent strategy",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Atomic claims database",
+      "purpose": "Break project claims into auditable units",
+      "data_contained": "Business, product, market, compliance, technical claims",
+      "owner": "Hybrid",
+      "update_rules": "Each claim versioned",
+      "verification_rules": "Claim must link to source/evidence/assumption",
+      "risk_if_poorly_maintained": "Investor materials include unsupported claims",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Evidence registry",
+      "purpose": "Store evidence for each claim",
+      "data_contained": "Sources, excerpts, reliability class, date, contradiction flags",
+      "owner": "Human-supervised",
+      "update_rules": "Add evidence after source audit",
+      "verification_rules": "Primary/secondary distinction required",
+      "risk_if_poorly_maintained": "Fabricated or weak evidence enters model",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Assumption register",
+      "purpose": "Track unvalidated working beliefs",
+      "data_contained": "Buyer, pricing, TAM, WTP, technical, legal assumptions",
+      "owner": "Founder/lead analyst",
+      "update_rules": "Update after interviews/advisors/pilots",
+      "verification_rules": "Must include falsification condition",
+      "risk_if_poorly_maintained": "Assumptions become treated as facts",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Uncertainty register",
+      "purpose": "Track unresolved questions",
+      "data_contained": "Unknowns, priority, owner, validation method",
+      "owner": "Founder/lead analyst",
+      "update_rules": "Updated after every phase",
+      "verification_rules": "Must separate unknown from contradiction",
+      "risk_if_poorly_maintained": "Critical risks hidden from planning",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Decision log",
+      "purpose": "Preserve strategic decisions and rationale",
+      "data_contained": "Product category, ICP, geography, pricing model, GTM sequence",
+      "owner": "Founder",
+      "update_rules": "Every decision tagged as tentative/locked/reversible",
+      "verification_rules": "Rationale and dependencies recorded",
+      "risk_if_poorly_maintained": "Strategy shifts without trace",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Compliance repository",
+      "purpose": "Govern regulatory and policy requirements",
+      "data_contained": "GDPR, EU AI Act, DPA, DPIA, AI policies, security checklist",
+      "owner": "Legal specialist + founder",
+      "update_rules": "Update when product architecture or law changes",
+      "verification_rules": "Legal review required",
+      "risk_if_poorly_maintained": "Procurement blocked or legal claims overstated",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Market source repository",
+      "purpose": "Human-governed market intelligence",
+      "data_contained": "Reports, datasets, interviews, competitor analysis, procurement evidence",
+      "owner": "Human-led",
+      "update_rules": "Agents retrieve scoped subsets only",
+      "verification_rules": "Triangulation required",
+      "risk_if_poorly_maintained": "TAM inflation and category confusion",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Interview insight database",
+      "purpose": "Convert interviews into evidence",
+      "data_contained": "Quotes, episodes, pain points, WTP, objections, tasks, uncertainties",
+      "owner": "Human-coded with agent support",
+      "update_rules": "Update after each interview",
+      "verification_rules": "Preserve native language; no imposed categories",
+      "risk_if_poorly_maintained": "False positives in customer discovery",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Task/dependency system",
+      "purpose": "Sequence business-plan and validation work",
+      "data_contained": "Tasks, dependencies, blockers, gates",
+      "owner": "Dependency agent + founder",
+      "update_rules": "Update at each phase gate",
+      "verification_rules": "Blocked tasks cannot proceed",
+      "risk_if_poorly_maintained": "Premature financial/GTM claims",
+      "status": "CONFIRMED"
+    },
+    {
+      "layer": "Mother agent / child agents",
+      "purpose": "Coordinate outputs while preserving canonical state",
+      "data_contained": "Scoped agent outputs, drafts, logs",
+      "owner": "Mother agent maintains state; humans approve",
+      "update_rules": "Child agents cannot overwrite canonical truth",
+      "verification_rules": "Human approval for strategic claims",
+      "risk_if_poorly_maintained": "Multi-agent drift and hallucination",
+      "status": "CONFIRMED"
+    }
+  ]
+}

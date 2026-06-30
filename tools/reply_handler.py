@@ -1,13 +1,11 @@
 """
-Unified reply handler — sends agent responses to both Telegram and Web.
-All agent code should call send_reply() instead of send_message() directly.
+Reply handler — sends agent responses to the web interface.
+All agent code should call send_reply() instead of sending directly.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
-
-from tools.telegram_handler import send_message as telegram_send_message
 
 logger = logging.getLogger(__name__)
 
@@ -18,47 +16,51 @@ async def send_reply(
     reply_markup=None,
     channel: Optional[str] = None,
 ) -> bool:
-    """
-    Send a reply to the CEO on all active channels.
+    """Send a reply to the CEO via the web interface.
 
     Args:
-        chat_id: The Telegram chat ID (also used as web session_key)
-        text: The message text to send
-        reply_markup: Optional Telegram inline keyboard markup
-        channel: If set, only send on this channel ('telegram' or 'web')
+        chat_id: Session key identifier.
+        text: The message text to send.
+        reply_markup: Optional keyboard/button data (rendered by web UI).
+        channel: Ignored (web-only now).
 
     Returns:
-        True if at least one channel succeeded
+        True if send succeeded.
     """
-    success = False
     session_key = str(chat_id)
 
-    if channel != "web":
-        try:
-            result = await telegram_send_message(chat_id, text, reply_markup=reply_markup)
-            if result:
-                success = True
-        except Exception as e:
-            logger.error(f"Telegram send failed: {e}")
+    try:
+        from web.server import manager
 
-    if channel != "telegram":
-        try:
-            from web.server import manager
+        payload = {
+            "role": "assistant",
+            "text": text,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "channel": "system",
+        }
+        if reply_markup:
+            payload["buttons"] = reply_markup
 
-            await manager.broadcast(
-                session_key,
-                {
-                    "role": "assistant",
-                    "text": text,
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "channel": "system",
-                },
-            )
-            success = True
-        except Exception as e:
-            logger.error(f"WebSocket broadcast failed: {e}")
+        await manager.broadcast(session_key, payload)
+        return True
+    except Exception as e:
+        logger.error("[Reply] WebSocket broadcast failed: %s", e)
+        return False
 
-    if not success:
-        logger.error(f"Failed to send reply to chat_id={chat_id} on any channel")
 
-    return success
+def create_decision_keyboard():
+    """Create Yes/Adjust/Kill decision buttons for the web UI."""
+    return [
+        {"text": "Yes", "callback_data": "decision_yes"},
+        {"text": "Adjust", "callback_data": "decision_adjust"},
+        {"text": "Kill", "callback_data": "decision_kill"},
+    ]
+
+
+def create_task_preview_keyboard(tasks: list) -> list:
+    """Create task preview buttons for the web UI."""
+    buttons = []
+    for task in tasks[:5]:
+        label = task.get("title", task.get("name", "Task"))[:30]
+        buttons.append({"text": label, "callback_data": f"task_{task.get('id', '')}"})
+    return buttons

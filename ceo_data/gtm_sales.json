@@ -1,0 +1,97 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "9. GTM and Sales Motion",
+    "last_updated": "2026-06-30"
+  },
+  "hypotheses": [
+    {
+      "gtm_hypothesis": "Business-school pilot",
+      "target_segment": "Research-intensive business schools / DBA / PhD programmes",
+      "buyer": "Research Director, Doctoral Program Director, Associate Dean Research",
+      "entry_point": "One cohort, research center, or faculty manuscript pipeline",
+      "sales_motion": "Founder-led consultative pilot",
+      "adoption_risk": "Faculty may see tool as evaluative threat",
+      "procurement_risk": "GDPR/DPA/security review",
+      "validation_needed": "20-50 manuscript pilot with expert validation",
+      "status": "ASSUMPTION"
+    },
+    {
+      "gtm_hypothesis": "Researcher-led adoption",
+      "target_segment": "Faculty and doctoral students",
+      "buyer": "Individual or department",
+      "entry_point": "Pre-submission diagnostic",
+      "sales_motion": "Bottom-up/freemium/premium",
+      "adoption_risk": "Low WTP; individual budgets limited",
+      "procurement_risk": "Institution may block manuscript upload",
+      "validation_needed": "Landing page + paid pilot + usage retention",
+      "status": "ASSUMPTION"
+    },
+    {
+      "gtm_hypothesis": "Journal pilot",
+      "target_segment": "Q1/Q2 or recognized management/SCM journals",
+      "buyer": "Editor-in-Chief / Managing Editor",
+      "entry_point": "Editorial triage or special issue",
+      "sales_motion": "Relationship-led pilot",
+      "adoption_risk": "Reviewer/editor legitimacy concern",
+      "procurement_risk": "Publisher approval, integration, data policy",
+      "validation_needed": "Compare diagnostic flags with editor/reviewer judgement",
+      "status": "ASSUMPTION"
+    },
+    {
+      "gtm_hypothesis": "Publisher pathway",
+      "target_segment": "Publisher innovation/integrity teams",
+      "buyer": "Publisher leadership/integrity/tech",
+      "entry_point": "Portfolio screening or API",
+      "sales_motion": "Enterprise sales",
+      "adoption_risk": "High scrutiny",
+      "procurement_risk": "Security, legal, integration",
+      "validation_needed": "Paid enterprise discovery/pilot",
+      "status": "ASSUMPTION"
+    },
+    {
+      "gtm_hypothesis": "Spain/EU first",
+      "target_segment": "Spanish/EU business schools",
+      "buyer": "Research leadership/library",
+      "entry_point": "Local network and GDPR-first positioning",
+      "sales_motion": "Founder-led direct outreach",
+      "adoption_risk": "Market may be smaller",
+      "procurement_risk": "EU compliance burden",
+      "validation_needed": "8-12 interviews + 2 procurement interviews",
+      "status": "CONFIRMED"
+    },
+    {
+      "gtm_hypothesis": "Global expansion",
+      "target_segment": "Western Europe, UK, Nordics, North America, Singapore, Australia",
+      "buyer": "Research-intensive institutions and journals",
+      "entry_point": "After pilots and compliance proof",
+      "sales_motion": "Institutional/enterprise",
+      "adoption_risk": "Field and geography variation",
+      "procurement_risk": "Local procurement/legal differences",
+      "validation_needed": "Replication of signal across geographies",
+      "status": "ASSUMPTION"
+    },
+    {
+      "gtm_hypothesis": "Consultative sales",
+      "target_segment": "Business schools/journals",
+      "buyer": "Senior academic/administrative buyer",
+      "entry_point": "Problem diagnosis workshop",
+      "sales_motion": "Diagnostic-led sales",
+      "adoption_risk": "Long sales cycle",
+      "procurement_risk": "Budget ownership unclear",
+      "validation_needed": "Advisor review + discovery interviews",
+      "status": "ASSUMPTION"
+    },
+    {
+      "gtm_hypothesis": "B2C as traction channel",
+      "target_segment": "Researchers first, institution later",
+      "buyer": "Researcher user → institutional buyer",
+      "entry_point": "Claim audit",
+      "sales_motion": "Bottom-up advocacy",
+      "adoption_risk": "Usage may not convert to budget",
+      "procurement_risk": "Data policy may block",
+      "validation_needed": "Track conversion from users to institutional conversations",
+      "status": "ASSUMPTION"
+    }
+  ]
+}

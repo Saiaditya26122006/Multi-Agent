@@ -1,0 +1,135 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "17. Open Questions",
+    "last_updated": "2026-06-30"
+  },
+  "questions": [
+    {
+      "question": "What is the primary monetization unit: institution, seat, manuscript, claim, or hybrid?",
+      "why_it_matters": "Determines TAM, pricing, LTV/CAC",
+      "who_can_answer": "Founder + pricing advisor + buyers",
+      "evidence_needed": "WTP interviews and pilot usage",
+      "impact": "Critical",
+      "priority": "Critical",
+      "status": "MISSING"
+    },
+    {
+      "question": "Is the wedge business schools, researchers, journals, or reviewers?",
+      "why_it_matters": "Determines ICP and GTM",
+      "who_can_answer": "Founder + interviews",
+      "evidence_needed": "Segment scoring and access evidence",
+      "impact": "Critical",
+      "priority": "Critical",
+      "status": "MISSING"
+    },
+    {
+      "question": "Is the product concept, prototype, MVP, or live?",
+      "why_it_matters": "Determines investor narrative and validation path",
+      "who_can_answer": "Founder/CTO",
+      "evidence_needed": "Demo/product evidence",
+      "impact": "Critical",
+      "priority": "Critical",
+      "status": "MISSING"
+    },
+    {
+      "question": "Does processing use own infrastructure or third-party LLM API?",
+      "why_it_matters": "Determines GDPR and trust risk",
+      "who_can_answer": "CTO/legal",
+      "evidence_needed": "Architecture decision",
+      "impact": "Critical",
+      "priority": "Critical",
+      "status": "MISSING"
+    },
+    {
+      "question": "What manuscript data is stored, retained, or used for training?",
+      "why_it_matters": "Procurement/legal blocker",
+      "who_can_answer": "CTO/legal",
+      "evidence_needed": "Data policy",
+      "impact": "Critical",
+      "priority": "Critical",
+      "status": "MISSING"
+    },
+    {
+      "question": "What reliability evidence is sufficient for institutional trust?",
+      "why_it_matters": "Defines validation architecture",
+      "who_can_answer": "Senior reviewers, editors, research offices",
+      "evidence_needed": "Expert benchmark requirements",
+      "impact": "Critical",
+      "priority": "Critical",
+      "status": "MISSING"
+    },
+    {
+      "question": "Do researchers experience the problem at claim level?",
+      "why_it_matters": "Validates product unit",
+      "who_can_answer": "Researchers/reviewers",
+      "evidence_needed": "Episodic interviews",
+      "impact": "Critical",
+      "priority": "Critical",
+      "status": "MISSING"
+    },
+    {
+      "question": "Do institutions have budget for this category?",
+      "why_it_matters": "Determines buyer feasibility",
+      "who_can_answer": "Research directors/libraries/procurement",
+      "evidence_needed": "Budget interviews",
+      "impact": "Critical",
+      "priority": "Critical",
+      "status": "MISSING"
+    },
+    {
+      "question": "Are journals willing to use pre-review diagnostics?",
+      "why_it_matters": "Determines journal pathway",
+      "who_can_answer": "Editors/publishers",
+      "evidence_needed": "Editor interviews",
+      "impact": "High",
+      "priority": "High",
+      "status": "MISSING"
+    },
+    {
+      "question": "What is acceptable false-positive/false-negative rate?",
+      "why_it_matters": "Determines validation threshold",
+      "who_can_answer": "Reviewers/editors/institutions",
+      "evidence_needed": "Expert calibration",
+      "impact": "High",
+      "priority": "High",
+      "status": "MISSING"
+    },
+    {
+      "question": "What category should be used for TAM?",
+      "why_it_matters": "Prevents market-sizing incoherence",
+      "who_can_answer": "Founder + market advisor",
+      "evidence_needed": "Category hierarchy decision",
+      "impact": "Critical",
+      "priority": "Critical",
+      "status": "MISSING"
+    },
+    {
+      "question": "What proof is needed before paid pilots?",
+      "why_it_matters": "Determines execution sequence",
+      "who_can_answer": "Buyers/advisors",
+      "evidence_needed": "Pilot discovery",
+      "impact": "Critical",
+      "priority": "High",
+      "status": "MISSING"
+    },
+    {
+      "question": "Who sees diagnostic outputs inside institutions?",
+      "why_it_matters": "Avoids surveillance/faculty resistance",
+      "who_can_answer": "Buyers/faculty governance/legal",
+      "evidence_needed": "Policy interviews",
+      "impact": "High",
+      "priority": "High",
+      "status": "MISSING"
+    },
+    {
+      "question": "Can diagnostic reports be made field-sensitive?",
+      "why_it_matters": "Determines product scalability",
+      "who_can_answer": "Product/research experts",
+      "evidence_needed": "Domain benchmark",
+      "impact": "High",
+      "priority": "High",
+      "status": "MISSING"
+    }
+  ]
+}

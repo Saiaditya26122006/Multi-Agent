@@ -2,14 +2,38 @@
   "_meta": {
     "source": "EpistemicOS Source-of-Truth",
     "section": "8. Market and Competitive Context / 9. GTM and Sales Motion",
-    "last_updated": "2026-06-02"
+    "last_updated": "2026-06-30"
   },
-  "status": "no_data",
-  "gap": true,
-  "gap_reason": "Source document sections 8 (Market Context) and 9 (GTM/Sales) are empty headers — no TAM/SAM, market sizing, growth rates, or sales motion data was provided.",
+  "market_sizing": {
+    "status": "MISSING",
+    "gap_reason": "No verified TAM/SAM/SOM data provided. Bottom-up model needed based on business schools, journals, publications, submissions, researchers, budgets.",
+    "required_validation": "Database research and triangulation"
+  },
   "geographic_hypothesis": {
-    "fact": "Spain/EU first, then Western Europe, UK, North America, Asia-Pacific research universities.",
+    "fact": "Spain/EU first, then Western Europe, UK, North America, Asia-Pacific research universities",
     "status": "CONFIRMED",
-    "rationale": "Existing academic network access, proximity to pilots, GDPR-first positioning."
+    "rationale": "Existing academic network access, proximity to pilots, GDPR-first positioning"
+  },
+  "key_market_risks": [
+    {
+      "risk": "Adoption-to-procurement gap",
+      "description": "Researchers may use/like product but not control budget",
+      "status": "CONFIRMED"
+    },
+    {
+      "risk": "Category abstraction",
+      "description": "Too abstract as 'epistemic validation'; too narrow as 'manuscript readiness'",
+      "status": "CONFIRMED"
+    },
+    {
+      "risk": "Procurement blocking",
+      "description": "Institutional sales likely slow; DPA/security/validation needed before adoption",
+      "status": "ASSUMPTION"
+    }
+  ],
+  "turnitin_analogy": {
+    "fact": "Turnitin/iThenticate used as analogy for institutional risk infrastructure monetization",
+    "status": "UNVERIFIED_EXTERNAL_CLAIM",
+    "risk": "Turnitin similarity is observable; epistemic validity is judgement-heavy — analogy may mislead"
   }
 }

@@ -2,13 +2,88 @@
   "_meta": {
     "source": "EpistemicOS Source-of-Truth",
     "section": "8. Market and Competitive Context",
-    "last_updated": "2026-06-02"
+    "last_updated": "2026-06-30"
   },
-  "status": "no_data",
-  "gap": true,
-  "gap_reason": "Source document section 8 (Market and Competitive Context) is an empty header — no competitor names, positioning, pricing, or differentiation data was provided.",
-  "differentiation_claim": {
-    "fact": "EpistemicOS positions as claim-level epistemic validation, not text generation or generic AI — competitors focus on text integrity not claim validity.",
-    "status": "ASSUMPTION"
-  }
+  "items": [
+    {
+      "item": "Market category hypothesis",
+      "confirmed_data": "Manuscript diagnostics, research integrity infrastructure, reviewer-readiness, epistemic validation software",
+      "inference": "Wedge category likely 'pre-submission manuscript diagnostics'",
+      "missing_evidence": "Market category size and buyer vocabulary",
+      "required_validation": "Market interviews + competitor analysis",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "Comparable model",
+      "confirmed_data": "Turnitin/iThenticate used as analogy for institutional risk infrastructure",
+      "inference": "EpistemicOS could monetize epistemic integrity like Turnitin monetizes text integrity",
+      "missing_evidence": "Turnitin figures and comparability unverified",
+      "required_validation": "External verification and advisor review",
+      "status": "UNVERIFIED_EXTERNAL_CLAIM"
+    },
+    {
+      "item": "Direct competitors",
+      "confirmed_data": "Need to identify claim-level or manuscript-level validation tools",
+      "inference": "Direct competitors may be scarce",
+      "missing_evidence": "No verified competitor list",
+      "required_validation": "Competitive research",
+      "status": "MISSING"
+    },
+    {
+      "item": "Adjacent tools",
+      "confirmed_data": "AI writing tools, academic writing assistants, literature review tools, citation tools, peer-review support, research integrity tools, plagiarism/AI detection, general LLMs",
+      "inference": "Mostly indirect competitors/substitutes",
+      "missing_evidence": "Representative companies and feature comparison",
+      "required_validation": "Competitive matrix",
+      "status": "CONFIRMED"
+    },
+    {
+      "item": "Alternatives/workarounds",
+      "confirmed_data": "Manual checking, peer review, supervisor review, coauthor feedback, generic AI, literature tools, do nothing",
+      "inference": "Current workaround may be 'good enough' in some contexts",
+      "missing_evidence": "Cost of workarounds not measured",
+      "required_validation": "Interviews and time studies",
+      "status": "CONFIRMED"
+    },
+    {
+      "item": "Differentiation hypothesis",
+      "confirmed_data": "Claim-level diagnostics + source traceability + inference checking + falsifiability/revision directives",
+      "inference": "Stronger than writing assistant positioning",
+      "missing_evidence": "Evidence competitors do not offer this",
+      "required_validation": "Feature-level competitor audit",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "Category risk",
+      "confirmed_data": "Too abstract as 'epistemic validation'; too narrow as 'manuscript readiness'",
+      "inference": "Needs stable hierarchy before TAM",
+      "missing_evidence": "Buyer language evidence",
+      "required_validation": "Interviews and investor/advisor feedback",
+      "status": "CONFIRMED"
+    },
+    {
+      "item": "Market-size assumptions",
+      "confirmed_data": "Requires data on business schools, journals, publications, submissions, researchers, budgets",
+      "inference": "Bottom-up model needed",
+      "missing_evidence": "No verified TAM/SAM/SOM",
+      "required_validation": "Database research and triangulation",
+      "status": "MISSING"
+    },
+    {
+      "item": "Procurement assumptions",
+      "confirmed_data": "Institutional sales likely slow; DPA/security/validation needed",
+      "inference": "Procurement may block adoption before product value is tested",
+      "missing_evidence": "No procurement interviews",
+      "required_validation": "2+ procurement-side interviews minimum",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "Adoption-to-procurement gap",
+      "confirmed_data": "Researchers may use/like product but not control budget",
+      "inference": "Biggest strategic risk",
+      "missing_evidence": "No empirical conversion evidence",
+      "required_validation": "Customer discovery and pilot-to-contract funnel",
+      "status": "CONFIRMED"
+    }
+  ]
 }

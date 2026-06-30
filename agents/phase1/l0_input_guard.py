@@ -41,7 +41,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
     message_id = message_data.get("message_id")
     chat_id = message_data.get("chat_id")
     text = message_data.get("text")
-    channel = message_data.get("channel", "telegram")
+    channel = message_data.get("channel", "web")
     from_user = message_data.get("from_user", {})
 
     session_key = str(chat_id)
@@ -63,22 +63,22 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     ceo_id = ceo_context.get("id")
-    ceo_telegram_chat_id = ceo_context.get("telegram_chat_id")
+    ceo_chat_id = ceo_context.get("chat_id") or ceo_context.get("telegram_chat_id")
 
     # Step 2: Validate sender is the CEO
     emit_trace(session_key, "L0", "validating_sender", "Checking sender identity")
-    if ceo_telegram_chat_id is None:
-        print("[L0] ✗ CEO telegram_chat_id not configured in database")
+    if ceo_chat_id is None:
+        print("[L0] ✗ CEO chat_id not configured in database")
         return {
             "valid": False,
             "session_id": None,
             "ceo_id": ceo_id,
             "is_new_session": False,
-            "reason": "CEO telegram_chat_id not configured. Cannot validate sender."
+            "reason": "CEO chat_id not configured. Cannot validate sender."
         }
 
-    if ceo_telegram_chat_id != chat_id:
-        print(f"[L0] ✗ Unauthorized sender: {chat_id} (expected: {ceo_telegram_chat_id})")
+    if ceo_chat_id != chat_id:
+        print(f"[L0] ✗ Unauthorized sender: {chat_id} (expected: {ceo_chat_id})")
         return {
             "valid": False,
             "session_id": None,
@@ -89,9 +89,9 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
 
     print(f"[L0] ✓ Sender validated: CEO {ceo_context.get('name')}")
 
-    # Step 3: Check for duplicate message (only for Telegram — web messages are unique by UUID)
+    # Step 3: Check for duplicate message
     emit_trace(session_key, "L0", "duplicate_check", "Checking for duplicate message")
-    if channel == "telegram" and check_message_exists(message_id):
+    if check_message_exists(message_id):
         print(f"[L0] ✗ Duplicate message detected: {message_id}")
         return {
             "valid": False,
@@ -132,7 +132,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
     emit_trace(session_key, "L0", "logging_message", "Logging raw message to DB")
     try:
         message_log = log_message(
-            telegram_message_id=message_id,
+            message_id=message_id,
             content=text,
             session_id=session_id,
             channel=channel

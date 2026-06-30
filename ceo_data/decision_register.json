@@ -1,0 +1,90 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "16. Decision Register",
+    "last_updated": "2026-06-30"
+  },
+  "decisions": [
+    {
+      "decision": "Product is not a writing tool",
+      "date_context": "Current and prior positioning",
+      "rationale": "Avoid confusion with generic AI writing tools",
+      "decision_status": "Decided",
+      "dependency": "Positioning, compliance, sales",
+      "risk_if_wrong": "Wrong category and buyer expectations",
+      "epistemic_status": "CONFIRMED"
+    },
+    {
+      "decision": "Product works at claim level",
+      "date_context": "Repeated project anchor",
+      "rationale": "Errors occur at claim level; paper-level review is too coarse",
+      "decision_status": "Provisional decision",
+      "dependency": "Product architecture",
+      "risk_if_wrong": "Too granular for users or technically infeasible",
+      "epistemic_status": "CONFIRMED"
+    },
+    {
+      "decision": "Initial focus includes business/management research",
+      "date_context": "Repeated positioning",
+      "rationale": "Bounded domain and founder's business-school context",
+      "decision_status": "Tentative",
+      "dependency": "ICP, pilot sampling",
+      "risk_if_wrong": "Wrong beachhead",
+      "epistemic_status": "CONFIRMED"
+    },
+    {
+      "decision": "Business schools are a primary ICP",
+      "date_context": "Pasted ICP",
+      "rationale": "Research pressure and institutional buyer logic",
+      "decision_status": "Tentative",
+      "dependency": "GTM and pricing",
+      "risk_if_wrong": "Procurement harder than expected",
+      "epistemic_status": "CONFIRMED"
+    },
+    {
+      "decision": "Journals/reviewers are included",
+      "date_context": "Current LinkedIn description and pasted ICP",
+      "rationale": "Long-term legitimacy and workflow relevance",
+      "decision_status": "Tentative",
+      "dependency": "Product and GTM",
+      "risk_if_wrong": "Product scope becomes too broad",
+      "epistemic_status": "CONFIRMED"
+    },
+    {
+      "decision": "Spain/EU first",
+      "date_context": "Prior context",
+      "rationale": "Network access and GDPR-first positioning",
+      "decision_status": "Tentative",
+      "dependency": "Market sizing and sales",
+      "risk_if_wrong": "Market too small or slow",
+      "epistemic_status": "CONFIRMED"
+    },
+    {
+      "decision": "Institutional subscription likely",
+      "date_context": "Prior context and pricing analogy",
+      "rationale": "Aligns with infrastructure/risk product",
+      "decision_status": "Tentative",
+      "dependency": "Pricing/unit economics",
+      "risk_if_wrong": "Buyer/user split blocks adoption",
+      "epistemic_status": "ASSUMPTION"
+    },
+    {
+      "decision": "Compliance must be solved before institutional procurement",
+      "date_context": "Compliance notes",
+      "rationale": "GDPR/DPA/security are procurement blockers",
+      "decision_status": "Decided as requirement",
+      "dependency": "Product architecture",
+      "risk_if_wrong": "Sales blocked",
+      "epistemic_status": "CONFIRMED"
+    },
+    {
+      "decision": "Agent outputs require human approval",
+      "date_context": "Governance architecture",
+      "rationale": "Prevent hallucination and unsupported investor claims",
+      "decision_status": "Decided",
+      "dependency": "All agentic workflows",
+      "risk_if_wrong": "AI-generated strategy drift",
+      "epistemic_status": "CONFIRMED"
+    }
+  ]
+}

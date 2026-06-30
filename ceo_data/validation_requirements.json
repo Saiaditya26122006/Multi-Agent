@@ -1,0 +1,135 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "12. Validation and Evidence Requirements",
+    "last_updated": "2026-06-30"
+  },
+  "claims_to_validate": [
+    {
+      "claim": "EpistemicOS achieves senior-reviewer-level reliability",
+      "why_it_matters": "Core credibility claim",
+      "evidence_required": "Expert comparison, inter-rater agreement",
+      "possible_method": "Expert-labelled manuscript benchmark",
+      "current_evidence": "None",
+      "risk_if_unvalidated": "Product not trusted",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Claim extraction is accurate",
+      "why_it_matters": "Foundation of product",
+      "evidence_required": "Recall/precision vs expert labels",
+      "possible_method": "Annotated manuscript corpus",
+      "current_evidence": "Conceptual only",
+      "risk_if_unvalidated": "Diagnostics miss key claims",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Claim classification is reliable",
+      "why_it_matters": "Determines validation rules",
+      "evidence_required": "Inter-rater agreement",
+      "possible_method": "Multiple expert coders",
+      "current_evidence": "Conceptual only",
+      "risk_if_unvalidated": "Wrong diagnostic standard applied",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Evidence mapping is accurate",
+      "why_it_matters": "Core auditability",
+      "evidence_required": "Claim-evidence alignment accuracy",
+      "possible_method": "Manual audit",
+      "current_evidence": "Conceptual only",
+      "risk_if_unvalidated": "False support or false gaps",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Inference checking is valid",
+      "why_it_matters": "Differentiation and trust",
+      "evidence_required": "Expert agreement on inference risks",
+      "possible_method": "Blind expert review",
+      "current_evidence": "Conceptual only",
+      "risk_if_unvalidated": "Overclaiming system capability",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Reviewer-risk prediction works",
+      "why_it_matters": "Reviewer-readiness value",
+      "evidence_required": "Correlation with reviewer comments",
+      "possible_method": "Retrospective manuscripts + reviews",
+      "current_evidence": "None",
+      "risk_if_unvalidated": "Weak value proposition",
+      "status": "MISSING"
+    },
+    {
+      "claim": "False positive rate acceptable",
+      "why_it_matters": "Prevents reputational harm",
+      "evidence_required": "Error-rate benchmark",
+      "possible_method": "Expert validation study",
+      "current_evidence": "None",
+      "risk_if_unvalidated": "Trust collapse",
+      "status": "MISSING"
+    },
+    {
+      "claim": "False negative rate acceptable",
+      "why_it_matters": "Prevents hidden risk",
+      "evidence_required": "Error-rate benchmark",
+      "possible_method": "Expert validation study",
+      "current_evidence": "None",
+      "risk_if_unvalidated": "False confidence",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Outputs are reproducible",
+      "why_it_matters": "Required for auditability",
+      "evidence_required": "Same input produces stable output",
+      "possible_method": "Repeat-run testing",
+      "current_evidence": "Principle stated",
+      "risk_if_unvalidated": "Institutional distrust",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Reproducibility equals epistemic reliability",
+      "why_it_matters": "Prevents false confidence",
+      "evidence_required": "Demonstration that stable outputs are also correct",
+      "possible_method": "Expert benchmarking",
+      "current_evidence": "None",
+      "risk_if_unvalidated": "Stable but wrong diagnostics",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Audit trail satisfies institutions",
+      "why_it_matters": "Procurement and trust",
+      "evidence_required": "Procurement/security feedback",
+      "possible_method": "IT/legal review",
+      "current_evidence": "Internal requirement only",
+      "risk_if_unvalidated": "Procurement blocked",
+      "status": "ASSUMPTION"
+    },
+    {
+      "claim": "Researchers act on diagnostics",
+      "why_it_matters": "Product utility",
+      "evidence_required": "Usage and revision behavior",
+      "possible_method": "Pilot observation",
+      "current_evidence": "None",
+      "risk_if_unvalidated": "Tool used once then abandoned",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Institutions will pay",
+      "why_it_matters": "Business viability",
+      "evidence_required": "WTP and procurement evidence",
+      "possible_method": "Buyer interviews/pilot conversion",
+      "current_evidence": "None",
+      "risk_if_unvalidated": "Adoption-to-procurement failure",
+      "status": "MISSING"
+    },
+    {
+      "claim": "Journals accept diagnostic use",
+      "why_it_matters": "Journal pathway",
+      "evidence_required": "Editor/publisher policy acceptance",
+      "possible_method": "Editor interviews",
+      "current_evidence": "None",
+      "risk_if_unvalidated": "Journal GTM blocked",
+      "status": "MISSING"
+    }
+  ]
+}

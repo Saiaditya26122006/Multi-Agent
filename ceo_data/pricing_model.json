@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "10. Business Model and Pricing",
+    "last_updated": "2026-06-30"
+  },
+  "items": [
+    {
+      "item": "Primary monetization hypothesis",
+      "data": "Institutional SaaS subscription",
+      "evidence_issue": "Not validated by WTP",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "Unit of sale",
+      "data": "Institution, school, department, researcher seat, manuscript, claim, or journal workflow",
+      "evidence_issue": "Unit not decided; major business-model dependency",
+      "status": "MISSING"
+    },
+    {
+      "item": "Value unit",
+      "data": "Claim appears to be unit of validation; institution or manuscript may be unit of purchase",
+      "evidence_issue": "Potential misalignment",
+      "status": "CONTRADICTION"
+    },
+    {
+      "item": "Individual researcher pricing",
+      "data": "Possible premium researcher subscription",
+      "evidence_issue": "No WTP data",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "Doctoral student pricing",
+      "data": "Possible individual or programme-paid model",
+      "evidence_issue": "No WTP data",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "Institutional pricing",
+      "data": "Prior model suggests pilots and school licenses",
+      "evidence_issue": "Numbers are internal hypotheses, not verified",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "Journal pricing",
+      "data": "Prior model suggests journal pilots and editorial licenses",
+      "evidence_issue": "No journal WTP evidence",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "Publisher pricing",
+      "data": "Prior model suggests enterprise/API pricing",
+      "evidence_issue": "No publisher validation",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "Pilot pricing",
+      "data": "Suggested as annual pilot for limited manuscript volume",
+      "evidence_issue": "No buyer acceptance evidence",
+      "status": "ASSUMPTION"
+    },
+    {
+      "item": "WTP (Willingness to Pay)",
+      "data": "Explicitly unresolved; must be tested via interviews/pilots",
+      "evidence_issue": "Critical missing evidence",
+      "status": "MISSING"
+    },
+    {
+      "item": "Procurement constraints",
+      "data": "DPA, DPIA, security review, vendor checklist, peer-reviewed accuracy evidence",
+      "evidence_issue": "Internally identified; needs legal/procurement validation",
+      "status": "ASSUMPTION"
+    }
+  ]
+}

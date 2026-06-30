@@ -1,0 +1,185 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "19. Tasks",
+    "last_updated": "2026-06-30"
+  },
+  "tasks": [
+    {
+      "task": "Lock scope charter",
+      "purpose": "Prevent category and TAM drift",
+      "input_needed": "Product definition, buyer hypothesis, geography, evidence standards",
+      "output": "Signed scope charter",
+      "owner": "Founder",
+      "dependency": "None",
+      "priority": "Critical",
+      "done_criteria": "Product/category/buyer/geography explicitly locked or labelled tentative",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Define unit of value/validation/transaction",
+      "purpose": "Resolve pricing and product coherence",
+      "input_needed": "Founder decision + buyer interviews",
+      "output": "Unit architecture",
+      "owner": "Founder/Product/Finance",
+      "dependency": "Scope charter",
+      "priority": "Critical",
+      "done_criteria": "Claim/paper/institution/seat distinction documented",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Confirm product state",
+      "purpose": "Avoid false investor narrative",
+      "input_needed": "Demo, prototype, roadmap, technical note",
+      "output": "Product-state evidence note",
+      "owner": "Product/Founder",
+      "dependency": "None",
+      "priority": "Critical",
+      "done_criteria": "Stage labelled with evidence",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Decide processing architecture",
+      "purpose": "Resolve GDPR/procurement risk",
+      "input_needed": "CTO architecture options",
+      "output": "Data-processing architecture",
+      "owner": "CTO/Product",
+      "dependency": "Product state",
+      "priority": "Critical",
+      "done_criteria": "Own infra vs third-party API decided or risk-labelled",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Draft DPA and data policy",
+      "purpose": "Enable institutional conversations",
+      "input_needed": "Legal input + processing architecture",
+      "output": "DPA template, retention policy, no-training clause",
+      "owner": "Legal",
+      "dependency": "Processing architecture",
+      "priority": "Critical",
+      "done_criteria": "Legal-reviewed documents",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Build expert validation protocol",
+      "purpose": "Establish credibility path",
+      "input_needed": "Manuscripts, expert reviewers, rubric",
+      "output": "Validation study design",
+      "owner": "Research/Product",
+      "dependency": "Product capabilities",
+      "priority": "Critical",
+      "done_criteria": "Metrics and benchmark defined",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Conduct SCM Phase 1 interviews",
+      "purpose": "Test problem reality",
+      "input_needed": "3 reviewers, 3 authors",
+      "output": "Workflow maps, breakdowns, quotes",
+      "owner": "Founder/Research",
+      "dependency": "Interview protocol",
+      "priority": "Critical",
+      "done_criteria": "5-6 interviews completed and coded",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Interview procurement-side actors",
+      "purpose": "Test institutional buyer feasibility",
+      "input_needed": "Research office/library/procurement contacts",
+      "output": "Procurement map",
+      "owner": "GTM",
+      "dependency": "ICP shortlist",
+      "priority": "Critical",
+      "done_criteria": "At least 2 procurement interviews",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Build competitive matrix",
+      "purpose": "Test differentiation",
+      "input_needed": "Competitor/source research",
+      "output": "Direct/substitute/structural alternative matrix",
+      "owner": "Market analyst",
+      "dependency": "Scope lock",
+      "priority": "High",
+      "done_criteria": "All claims sourced or marked unknown",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Build compliance matrix",
+      "purpose": "Map legal blockers",
+      "input_needed": "Legal/policy sources",
+      "output": "GDPR/EU AI Act/security matrix",
+      "owner": "Legal",
+      "dependency": "Processing architecture",
+      "priority": "Critical",
+      "done_criteria": "Legal review completed",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Design pilot",
+      "purpose": "Validate usefulness and reliability",
+      "input_needed": "Product workflow, target segment, success criteria",
+      "output": "Pilot protocol",
+      "owner": "Product/GTM",
+      "dependency": "Interviews + validation protocol",
+      "priority": "Critical",
+      "done_criteria": "Success/failure thresholds set before pilot",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Define pricing hypotheses",
+      "purpose": "Prepare WTP testing",
+      "input_needed": "Segment data, buyer interviews, pricing advisor",
+      "output": "Pricing table with falsification criteria",
+      "owner": "Finance/GTM",
+      "dependency": "WTP evidence",
+      "priority": "High",
+      "done_criteria": "No price without evidence label",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Create source-of-truth database",
+      "purpose": "Prevent drift across agents",
+      "input_needed": "Current dataset",
+      "output": "Structured repository",
+      "owner": "Founder/Ops",
+      "dependency": "None",
+      "priority": "High",
+      "done_criteria": "Claims/evidence/assumptions/questions stored",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Create interview insight database",
+      "purpose": "Turn discovery into evidence",
+      "input_needed": "Transcripts",
+      "output": "Quotes, tasks, uncertainties, assumptions",
+      "owner": "Research/Ops",
+      "dependency": "Interviews",
+      "priority": "High",
+      "done_criteria": "Native-language quotes preserved",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Establish AI failure audit trail",
+      "purpose": "Prevent unsupported outputs",
+      "input_needed": "Agent workflow rules",
+      "output": "Escalation log",
+      "owner": "Ops",
+      "dependency": "Agent architecture",
+      "priority": "High",
+      "done_criteria": "Level 3-5 events logged",
+      "status": "REQUIRED"
+    },
+    {
+      "task": "Advisor validation sessions",
+      "purpose": "Challenge assumptions",
+      "input_needed": "Phase outputs and unknowns register",
+      "output": "Advisor challenge log",
+      "owner": "Founder",
+      "dependency": "Initial evidence outputs",
+      "priority": "High",
+      "done_criteria": "Minimum procurement, pricing, domain research advisor sessions",
+      "status": "REQUIRED"
+    }
+  ]
+}

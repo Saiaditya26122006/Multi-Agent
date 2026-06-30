@@ -14,6 +14,7 @@ from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
 
+from agents.phase2.rag_mixin import rag_enrich, rag_check_killed
 from memory.redis_client import RedisClient
 from agents.phase2.llm_utils import strip_markdown_json, signal_ready
 from schemas.inputs.devils_advocate import DevilsAdvocateInput
@@ -104,6 +105,15 @@ class DevilsAdvocateAgent(Agent):
             escalation = self._fallback_escalate(task_id, input_package.get("section_number", "unknown"), f"Input validation failed: {str(e)}")
             await self._escalate_to_mother(task_id, session_id, pipeline_run_id, escalation)
             return
+
+        # RAG: Get resolved contradictions so DA doesn't re-raise them
+        rag_context = rag_enrich(
+            "contradictions resolved decisions prohibited claims",
+            section=validated_input.section_number,
+            source_types=["contradiction_resolution", "decision", "negative_knowledge", "ceo_doc"],
+        )
+        if rag_context:
+            validated_input.cross_section_context["rag_resolved_contradictions"] = rag_context
 
         user_message = self._build_prompt(validated_input)
         llm_response, token_usage = await self._call_llm(user_message)

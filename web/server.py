@@ -107,7 +107,7 @@ async def health():
 
 @app.get("/api/session-key")
 async def get_session_key(token: str = ""):
-    """Return the CEO's session key (telegram_chat_id) for WebSocket connection."""
+    """Return the CEO's session key (chat_id) for WebSocket connection."""
     if token != WEB_AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid token")
 
@@ -117,12 +117,12 @@ async def get_session_key(token: str = ""):
     if not ceo_context:
         raise HTTPException(status_code=500, detail="No CEO context configured")
 
-    return {"session_key": str(ceo_context.get("telegram_chat_id"))}
+    return {"session_key": str(ceo_context.get("chat_id"))}
 
 
 @app.get("/api/messages/{session_key}")
 async def get_messages(session_key: str, token: str = ""):
-    """Fetch all messages for a given session_key (telegram_chat_id)."""
+    """Fetch all messages for a given session_key (chat_id)."""
     if token != WEB_AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid token")
 
@@ -132,7 +132,7 @@ async def get_messages(session_key: str, token: str = ""):
         sessions_resp = (
             supabase.table("sessions")
             .select("id")
-            .eq("telegram_chat_id", int(session_key))
+            .eq("chat_id", int(session_key))
             .execute()
         )
         if not sessions_resp.data:
@@ -171,7 +171,7 @@ async def post_message(req: SendMessageRequest):
     if not ceo_context:
         raise HTTPException(status_code=500, detail="No CEO context configured")
 
-    chat_id = ceo_context.get("telegram_chat_id")
+    chat_id = ceo_context.get("chat_id")
 
     message_data = {
         "message_id": f"web_{uuid.uuid4().hex[:12]}",

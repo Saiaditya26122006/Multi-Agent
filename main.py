@@ -44,15 +44,8 @@ from memory.supabase_client import (
 )
 from memory.redis_client import redis_client
 
-# Import Telegram handler
-from tools.telegram_handler import (
-    start_polling,
-    create_decision_keyboard,
-    create_task_preview_keyboard,
-)
-
-# Import unified reply handler (replaces direct send_message calls)
-from tools.reply_handler import send_reply
+# Import reply handler (web interface)
+from tools.reply_handler import send_reply, create_decision_keyboard, create_task_preview_keyboard
 
 # Import router agent
 from agents.phase1.router_agent import classify_message, handle_general_chat, handle_query
@@ -292,7 +285,6 @@ def verify_system():
         "CLAUDE_HAIKU_MODEL",
         "CLAUDE_SONNET_MODEL",
         "TAVILY_API_KEY",
-        "TELEGRAM_BOT_TOKEN",
     ]
 
     missing = []
@@ -316,14 +308,14 @@ def verify_system():
 
     print(f"  ✓ Connected to Supabase")
     print(f"  ✓ CEO: {ceo_context.get('name')} at {ceo_context.get('company')}")
-    print(f"  ✓ Chat ID: {ceo_context.get('telegram_chat_id')}")
+    print(f"  ✓ Chat ID: {ceo_context.get('chat_id')}")
 
     print("\n[STARTUP] System status: ✅ READY")
     print("=" * 60 + "\n")
     return True
 
 
-async def handle_telegram_message(message_data):
+async def handle_message(message_data):
     """
     Main message handler - processes every incoming Telegram message through the pipeline.
 
@@ -352,8 +344,8 @@ async def handle_telegram_message(message_data):
         print("[GUARD] ✗ No CEO context configured - dropping message")
         return
 
-    ceo_telegram_chat_id = ceo_context.get("telegram_chat_id")
-    if ceo_telegram_chat_id != chat_id:
+    ceo_chat_id = ceo_context.get("chat_id")
+    if ceo_chat_id != chat_id:
         print(f"[GUARD] ✗ Unknown sender {chat_id} - silently dropped")
         return
 
@@ -470,7 +462,7 @@ async def handle_telegram_message(message_data):
         # Find the most recent completed session
         completed = supabase.table("sessions") \
             .select("id") \
-            .eq("telegram_chat_id", chat_id) \
+            .eq("chat_id", chat_id) \
             .eq("state", "COMPLETED") \
             .order("started_at", desc=True) \
             .limit(1) \
@@ -835,12 +827,12 @@ async def handle_telegram_message(message_data):
                 research_brief=None  # No research brief yet, L3 will work with assumptions
             )
 
-            telegram_message = l3_result.get("telegram_message")
+            reply_message = l3_result.get("reply_message")
 
-            if telegram_message:
+            if reply_message:
                 # Send message with inline keyboard buttons
                 keyboard = create_decision_keyboard()
-                await send_reply(chat_id, telegram_message, reply_markup=keyboard)
+                await send_reply(chat_id, reply_message, reply_markup=keyboard)
                 print("[L3] ✓ Feedback sent to CEO with inline keyboard")
                 print(f"[L3] Decision ID: {l3_result.get('decision_id')}")
             else:
@@ -848,7 +840,7 @@ async def handle_telegram_message(message_data):
                     chat_id,
                     "⚠️ Error generating feedback. Please try again."
                 )
-                print("[L3] ✗ No telegram message generated")
+                print("[L3] ✗ No reply message generated")
 
             print("[PIPELINE] ✓ L1 → L3 transition complete")
             print("=" * 60 + "\n")
@@ -888,9 +880,8 @@ async def handle_telegram_message(message_data):
     print("=" * 60 + "\n")
 
 
-async def handle_telegram_callback(callback_data):
-    """
-    Handle inline keyboard button callbacks.
+async def handle_callback(callback_data):
+    """Handle button callbacks from the web interface.
 
     Handles:
       - decision_yes / decision_adjust / decision_kill (L3 approval)
@@ -898,7 +889,7 @@ async def handle_telegram_callback(callback_data):
       - group_approve / group_kill
 
     Args:
-        callback_data: Dict with callback_id, chat_id, message_id, data, from_user
+        callback_data: Dict with chat_id, data, from_user
     """
     chat_id = callback_data.get("chat_id")
     data = callback_data.get("data", "")
@@ -1078,53 +1069,33 @@ async def handle_telegram_callback(callback_data):
 
 
 def start_web_server():
-    """Start the FastAPI web server in a separate thread."""
+    """Start the FastAPI web server."""
     import uvicorn
     from web.server import app, set_pipeline_handler
 
-    set_pipeline_handler(handle_telegram_message)
+    set_pipeline_handler(handle_message)
 
     web_port = int(os.getenv("PORT", os.getenv("WEB_PORT", "8000")))
-    logger.info(f"[WEB] Starting web server on port {web_port}")
+    logger.info("[WEB] Starting web server on port %d", web_port)
     uvicorn.run(app, host="0.0.0.0", port=web_port, log_level="info")
 
 
 def main():
-    """Main entry point"""
+    """Main entry point — web interface only."""
     print_banner()
 
-    # Verify system on startup
     if not verify_system():
         print("✗ System verification failed. Exiting.")
         return
 
-    # Start web server in background thread
-    web_thread = threading.Thread(target=start_web_server, daemon=True)
-    web_thread.start()
-
-    # Start demo pipeline poller in background thread
-    def start_demo_poller_thread():
-        """Run demo poller in its own event loop."""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        from evaluation.demo_pipeline import start_demo_poller
-        loop.run_until_complete(start_demo_poller())
-
-    poller_thread = threading.Thread(target=start_demo_poller_thread, daemon=True)
-    poller_thread.start()
-
     web_port = int(os.getenv("PORT", os.getenv("WEB_PORT", "8000")))
-    print(f"[SYSTEM] Web chat running at http://localhost:{web_port}")
-    print("[SYSTEM] Demo pipeline poller started")
-    print("[SYSTEM] Starting Telegram polling...")
-    print("[SYSTEM] Waiting for messages...\n")
+    print(f"[SYSTEM] Web interface starting at http://localhost:{web_port}")
     print("=" * 60)
-    print("PIPELINE ACTIVE - Use Telegram or Web chat")
+    print("PIPELINE ACTIVE — Web interface only")
     print("=" * 60 + "\n")
 
     try:
-        # Start polling with our handlers (message + callback)
-        start_polling(handle_telegram_message, handle_callback=handle_telegram_callback)
+        start_web_server()
     except KeyboardInterrupt:
         print("\n\n[SYSTEM] Shutting down...")
         print("=" * 60)

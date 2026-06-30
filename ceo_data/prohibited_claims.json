@@ -1,0 +1,63 @@
+{
+  "_meta": {
+    "source": "Extracted from TEST_BP_architecture spreadsheet",
+    "purpose": "Agent constraint rules — these claims MUST NOT appear in agent outputs",
+    "last_updated": "2026-06-30"
+  },
+  "global_prohibitions": [
+    "Must not infer business validity from architecture coherence",
+    "Must not claim PMF, adoption, or commercial readiness without evidence",
+    "Must not claim truth determination or epistemic absolutism",
+    "Must not claim autonomous decision authority",
+    "Must not claim peer-review replacement or expert substitution"
+  ],
+  "per_section_prohibitions": {
+    "product_definition": [
+      "Must not claim demand, adoption, PMF, effectiveness, acceptance prediction, or reviewer replacement",
+      "Must not claim market demand, PMF, feasibility, diagnostic validity, or publication improvement",
+      "Must not infer pricing, validation unit, or workflow adoption from unit definition",
+      "Must not claim truth determination, reviewer replacement, acceptance prediction, or autonomous decision-making",
+      "Must not infer deployability, compliance, feasibility, performance, or adoption",
+      "Must not claim publication decision, acceptance prediction, reviewer score, truth proof, or autonomous revision authority",
+      "Must not claim autonomous approval, rejection, submission, escalation, editorial decision, or expert replacement",
+      "Must not infer readiness, feasibility, adoption, PMF, or investor readiness from state label",
+      "Must not treat architecture coherence as product validity, PMF, compliance, or investor readiness"
+    ],
+    "product_non_scope": [
+      "Must not claim prose improvement, editing, rewriting, or writing-assistant competition",
+      "Must not claim general research-assistant coverage",
+      "Must not claim plagiarism detection, AI detection, misconduct identification, or enforcement",
+      "Must not claim acceptance prediction, reviewer-score prediction, publication probability, or reduced rejection risk",
+      "Must not claim replacement of supervisors, reviewers, editors, examiners, or domain experts",
+      "Must not claim autonomous approval, rejection, escalation, submission, or editorial decision",
+      "Must not claim truth determination, proof of correctness, definitive validity, or publication enforcement",
+      "Must not treat coherent non-scope as product, market, compliance, PMF, or investor validation"
+    ],
+    "market_competitive": [
+      "Must not claim verified TAM/SAM/SOM without sourced data",
+      "Must not state Turnitin comparability as fact without external verification",
+      "Must not claim competitive advantage without feature-level competitor audit"
+    ],
+    "financial": [
+      "Must not claim revenue projections without WTP evidence",
+      "Must not present pricing as validated without buyer acceptance data",
+      "Must not claim unit economics without verified cost structure"
+    ],
+    "gtm_sales": [
+      "Must not claim sales readiness without pilot evidence",
+      "Must not claim institutional demand without procurement interviews",
+      "Must not claim geographic fit without local market validation"
+    ]
+  },
+  "agent_mapping": {
+    "opportunity_analyst": ["product_definition", "market_competitive"],
+    "environment_research": ["market_competitive"],
+    "organisation_designer": ["product_definition"],
+    "swot_synthesizer": ["product_definition", "market_competitive"],
+    "marketing_strategy": ["market_competitive", "gtm_sales", "product_non_scope"],
+    "operations": ["product_definition"],
+    "financial_modelling": ["financial"],
+    "launch_contingency": ["gtm_sales", "financial"],
+    "summary_agent": ["product_definition", "product_non_scope", "market_competitive", "financial", "gtm_sales"]
+  }
+}

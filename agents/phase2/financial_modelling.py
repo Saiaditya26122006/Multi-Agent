@@ -13,6 +13,8 @@ from typing import Optional
 import boto3
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
+
+from agents.phase2.rag_mixin import rag_enrich, rag_check_killed
 from spade.message import Message
 
 from memory.redis_client import RedisClient
@@ -219,6 +221,13 @@ class FinancialModellingAgent(Agent):
             logger.error("[FinancialModelling] Input validation failed: %s", e)
             await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
             return
+
+        rag_context = rag_enrich(
+            "pricing decisions revenue costs funding WTP financial projections",
+            section="12",
+        )
+        if rag_context:
+            input_package["rag_financial_context"] = rag_context
 
         sim_assumptions = self._build_sim_assumptions(validated_input)
         logger.info("[FinancialModelling] Running SimPy with %d runs", self.simpy_runs)

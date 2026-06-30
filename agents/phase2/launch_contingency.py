@@ -13,6 +13,7 @@ import boto3
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
+from agents.phase2.rag_mixin import rag_enrich, rag_check_killed
 
 from memory.redis_client import RedisClient
 from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
@@ -157,6 +158,13 @@ class LaunchContingencyAgent(Agent):
             logger.error("[LaunchContingency] Input validation failed: %s", e)
             await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
             return
+
+        rag_context = rag_enrich(
+            "launch plan contingency risks milestones compliance legal",
+            section="13",
+        )
+        if rag_context:
+            input_package["rag_launch_context"] = rag_context
 
         cross_context = input_package.get("cross_section_context", {})
         learning_context = input_package.get("learning_context", "")

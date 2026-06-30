@@ -1,0 +1,144 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "13. Compliance, Legal, and Risk",
+    "last_updated": "2026-06-30"
+  },
+  "risks": [
+    {
+      "risk": "GDPR manuscript data handling",
+      "product_area": "Manuscript upload/storage/processing",
+      "severity": "Critical",
+      "evidence_available": "Internal compliance notes",
+      "required_documentation": "DPA, lawful basis, retention policy, data subject rights",
+      "open_decision": "Processing architecture",
+      "status": "CONFIRMED"
+    },
+    {
+      "risk": "Third-party LLM API use",
+      "product_area": "Processing architecture",
+      "severity": "Critical",
+      "evidence_available": "Raised as key question",
+      "required_documentation": "Subprocessor terms, DPA, data-transfer analysis",
+      "open_decision": "Own infra vs third-party API",
+      "status": "MISSING"
+    },
+    {
+      "risk": "Data transfer",
+      "product_area": "Institutional procurement",
+      "severity": "High",
+      "evidence_available": "Internal notes",
+      "required_documentation": "Data residency, transfer mechanism",
+      "open_decision": "EU-only processing?",
+      "status": "ASSUMPTION"
+    },
+    {
+      "risk": "Manuscript confidentiality",
+      "product_area": "Product/legal trust",
+      "severity": "Critical",
+      "evidence_available": "Internal notes",
+      "required_documentation": "Terms, confidentiality policy, no-training commitment",
+      "open_decision": "Retention and training policy",
+      "status": "CONFIRMED"
+    },
+    {
+      "risk": "Copyright/IP ownership",
+      "product_area": "Terms of service",
+      "severity": "High",
+      "evidence_available": "Internal notes",
+      "required_documentation": "IP policy, no reproduction/training without consent",
+      "open_decision": "Rights model",
+      "status": "CONFIRMED"
+    },
+    {
+      "risk": "Institutional security review",
+      "product_area": "Procurement",
+      "severity": "Critical",
+      "evidence_available": "Internal notes",
+      "required_documentation": "Security checklist, encryption, access control, vendor risk pack",
+      "open_decision": "Security architecture",
+      "status": "ASSUMPTION"
+    },
+    {
+      "risk": "DPA requirements",
+      "product_area": "Institutional sales",
+      "severity": "Critical",
+      "evidence_available": "Internal notes",
+      "required_documentation": "DPA template",
+      "open_decision": "Client/subprocessor structure",
+      "status": "CONFIRMED"
+    },
+    {
+      "risk": "EU AI Act classification",
+      "product_area": "Product compliance",
+      "severity": "High/unknown",
+      "evidence_available": "Internal notes say legal review required",
+      "required_documentation": "Legal opinion",
+      "open_decision": "Classification",
+      "status": "UNVERIFIED_EXTERNAL_CLAIM"
+    },
+    {
+      "risk": "Academic integrity",
+      "product_area": "Positioning and adoption",
+      "severity": "High",
+      "evidence_available": "Internal notes",
+      "required_documentation": "Policy alignment, disclosure guidance",
+      "open_decision": "Use-case framing",
+      "status": "ASSUMPTION"
+    },
+    {
+      "risk": "Journal AI policies",
+      "product_area": "Author/editor adoption",
+      "severity": "High",
+      "evidence_available": "Internal notes mention major publishers",
+      "required_documentation": "Policy mapping and disclosure guidance",
+      "open_decision": "Whether use requires disclosure",
+      "status": "UNVERIFIED_EXTERNAL_CLAIM"
+    },
+    {
+      "risk": "Bias",
+      "product_area": "Diagnostic reliability",
+      "severity": "High",
+      "evidence_available": "Risk identified",
+      "required_documentation": "Bias testing and validation protocol",
+      "open_decision": "Evaluation design",
+      "status": "ASSUMPTION"
+    },
+    {
+      "risk": "Explainability",
+      "product_area": "All diagnostics",
+      "severity": "Critical",
+      "evidence_available": "Internal notes",
+      "required_documentation": "Explainability documentation and audit logs",
+      "open_decision": "Explanation standard per field",
+      "status": "CONFIRMED"
+    },
+    {
+      "risk": "Auditability",
+      "product_area": "Trust and procurement",
+      "severity": "Critical",
+      "evidence_available": "Core product principle",
+      "required_documentation": "Provenance logs, version control, human override",
+      "open_decision": "Audit architecture",
+      "status": "CONFIRMED"
+    },
+    {
+      "risk": "Who evaluates the evaluator?",
+      "product_area": "Governance legitimacy",
+      "severity": "High",
+      "evidence_available": "Internal notes",
+      "required_documentation": "External validation, expert audits, governance model",
+      "open_decision": "Independent audit pathway",
+      "status": "ASSUMPTION"
+    },
+    {
+      "risk": "Faculty surveillance concern",
+      "product_area": "Institutional adoption",
+      "severity": "High",
+      "evidence_available": "Internal notes",
+      "required_documentation": "Use-policy boundaries",
+      "open_decision": "Who sees outputs?",
+      "status": "ASSUMPTION"
+    }
+  ]
+}

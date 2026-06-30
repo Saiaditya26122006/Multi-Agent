@@ -13,6 +13,7 @@ import boto3
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
+from agents.phase2.rag_mixin import rag_enrich, rag_check_killed
 
 from memory.redis_client import RedisClient
 from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
@@ -158,6 +159,13 @@ class SummaryAgentAgent(Agent):
             logger.error("[SummaryAgent] Input validation failed: %s", e)
             await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
             return
+
+        rag_context = rag_enrich(
+            "executive summary product value proposition key decisions",
+            section="1",
+        )
+        if rag_context:
+            input_package["rag_summary_context"] = rag_context
 
         learning_context = input_package.get("learning_context", "")
 

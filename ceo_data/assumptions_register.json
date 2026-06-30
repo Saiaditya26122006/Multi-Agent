@@ -1,0 +1,153 @@
+{
+  "_meta": {
+    "source": "EpistemicOS Source-of-Truth",
+    "section": "15. Strategic Assumptions Register",
+    "last_updated": "2026-06-30"
+  },
+  "assumptions": [
+    {
+      "assumption": "Claim is the atomic unit of validation",
+      "type": "Product/epistemic",
+      "importance": "Critical",
+      "current_confidence": "Medium",
+      "evidence_available": "Strong conceptual logic",
+      "evidence_missing": "User language and technical tractability",
+      "validation_method": "Interviews + prototype tests",
+      "owner": "Founder/Product",
+      "priority": "Critical",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "Business schools are easiest first pilots",
+      "type": "Market/GTM",
+      "importance": "Critical",
+      "current_confidence": "Medium-low",
+      "evidence_available": "ICP logic",
+      "evidence_missing": "Access, WTP, procurement evidence",
+      "validation_method": "8-12 interviews + pilots",
+      "owner": "Founder/GTM",
+      "priority": "Critical",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "Journals are harder but more defensible long term",
+      "type": "Market/GTM",
+      "importance": "High",
+      "current_confidence": "Medium-low",
+      "evidence_available": "Workflow logic",
+      "evidence_missing": "Editor/publisher evidence",
+      "validation_method": "Editor interviews",
+      "owner": "Founder/GTM",
+      "priority": "High",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "Researchers feel AI-induced epistemic risk",
+      "type": "Problem",
+      "importance": "Critical",
+      "current_confidence": "Medium-low",
+      "evidence_available": "Pasted reasoning",
+      "evidence_missing": "Direct interviews",
+      "validation_method": "Episodic recall interviews",
+      "owner": "Research",
+      "priority": "Critical",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "Advanced researchers pay for risk containment, not efficiency",
+      "type": "Market",
+      "importance": "High",
+      "current_confidence": "Low",
+      "evidence_available": "Internal synthesis",
+      "evidence_missing": "WTP evidence",
+      "validation_method": "Paid pilot tests",
+      "owner": "GTM",
+      "priority": "High",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "Institutional buyers value auditability",
+      "type": "Buyer",
+      "importance": "Critical",
+      "current_confidence": "Medium-low",
+      "evidence_available": "Procurement-risk logic",
+      "evidence_missing": "Buyer proof",
+      "validation_method": "Research office interviews",
+      "owner": "GTM",
+      "priority": "Critical",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "GDPR can block procurement",
+      "type": "Legal",
+      "importance": "Critical",
+      "current_confidence": "Medium",
+      "evidence_available": "Compliance analysis",
+      "evidence_missing": "Legal opinion",
+      "validation_method": "Legal review",
+      "owner": "Legal",
+      "priority": "Critical",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "Third-party LLM processing is a critical trust issue",
+      "type": "Technical/legal",
+      "importance": "Critical",
+      "current_confidence": "High",
+      "evidence_available": "Explicitly raised",
+      "evidence_missing": "Architecture decision",
+      "validation_method": "CTO/legal review",
+      "owner": "Product/Legal",
+      "priority": "Critical",
+      "status": "CONFIRMED"
+    },
+    {
+      "assumption": "Pre-submission diagnostic is best wedge",
+      "type": "Product/GTM",
+      "importance": "Critical",
+      "current_confidence": "Medium",
+      "evidence_available": "Repeated positioning",
+      "evidence_missing": "Pilot evidence",
+      "validation_method": "Pilot with manuscripts",
+      "owner": "Founder",
+      "priority": "Critical",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "Institutional subscription is best monetization",
+      "type": "Financial",
+      "importance": "Critical",
+      "current_confidence": "Medium-low",
+      "evidence_available": "Turnitin analogy",
+      "evidence_missing": "WTP evidence",
+      "validation_method": "Pricing interviews/advisor",
+      "owner": "Finance/GTM",
+      "priority": "Critical",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "Reviewer-risk prediction can be validated",
+      "type": "Product",
+      "importance": "High",
+      "current_confidence": "Low",
+      "evidence_available": "Conceptual only",
+      "evidence_missing": "Retrospective review data",
+      "validation_method": "Expert benchmark",
+      "owner": "Product/Research",
+      "priority": "High",
+      "status": "ASSUMPTION"
+    },
+    {
+      "assumption": "Category must be stabilized before TAM",
+      "type": "Strategy",
+      "importance": "Critical",
+      "current_confidence": "High",
+      "evidence_available": "Phase architecture",
+      "evidence_missing": "Final category decision",
+      "validation_method": "Scope lock",
+      "owner": "Founder",
+      "priority": "Critical",
+      "status": "CONFIRMED"
+    }
+  ]
+}

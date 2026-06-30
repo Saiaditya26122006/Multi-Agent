@@ -289,6 +289,11 @@ class BaseChildAgent(Agent, ABC):
                     f"\n\nBELIEF CONFLICTS (resolve these in your output):\n{conflict_summary}"
                 )
 
+        # RAG: Enrich with relevant knowledge from the vector store
+        rag_context = self._rag_enrich()
+        if rag_context:
+            learning_context += f"\n\nCEO DATA & PRIOR KNOWLEDGE (from RAG):\n{rag_context}"
+
         input_data = self._build_ie_input_data(input_package)
 
         parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(
@@ -412,6 +417,17 @@ class BaseChildAgent(Agent, ABC):
             return list(schema_fields - present_fields)
         except Exception:
             return []
+
+    # ── RAG retrieval ─────────────────────────────────────────────────────────
+
+    def _rag_enrich(self) -> str:
+        """Retrieve relevant context from the RAG knowledge base for this agent."""
+        try:
+            from agents.phase2.rag_mixin import rag_enrich
+            query = f"{self.AGENT_ROLE} section {self.SECTION_NUMBER}"
+            return rag_enrich(query, section=self.SECTION_NUMBER, top_k=5, max_chars=1200)
+        except Exception:
+            return ""
 
     # ── Cross-section consistency ────────────────────────────────────────────
 
