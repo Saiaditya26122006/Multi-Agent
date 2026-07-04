@@ -178,13 +178,18 @@ def _dispatch_build(text_lower: str, text: str, session_id: str) -> str:
 
 
 def _dispatch_feed(text_lower: str, text: str, session_id: str) -> str:
+    import traceback
     from web.handlers.feed_handler import handle_feed_message
 
     if len(text.strip()) > 0:
         try:
-            return handle_feed_message(text, session_id)
+            response = handle_feed_message(text, session_id)
+            if not response:
+                logger.warning("[Feed] handle_feed_message returned empty for input: %s", text[:80])
+                return "Received your input but couldn't generate a response. Try again or type 'back' for the menu."
+            return response
         except Exception as e:
-            logger.error("[Feed] Error handling input: %s", e)
+            logger.error("[Feed] Error handling input: %s\n%s", e, traceback.format_exc())
             return f"Error processing input: {e}"
 
     return ""

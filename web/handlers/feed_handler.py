@@ -836,24 +836,28 @@ def handle_feed_message(text: str, session_id: str) -> str:
         session_id: Current session ID.
 
     Returns:
-        Response text for the chat.
+        Response text for the chat. Never returns empty string.
     """
-    state = get_feed_state(session_id)
+    try:
+        state = get_feed_state(session_id)
 
-    if state == "FEED_AWAITING_APPROVAL":
-        result = handle_approval_response(text, session_id)
-        return result.get("response_text", "")
+        if state == "FEED_AWAITING_APPROVAL":
+            result = handle_approval_response(text, session_id)
+            return result.get("response_text") or "Processing your response..."
 
-    if state == "FEED_AWAITING_NODE_SELECTION":
-        result = handle_node_selection(text, session_id)
-        return result.get("response_text", "")
+        if state == "FEED_AWAITING_NODE_SELECTION":
+            result = handle_node_selection(text, session_id)
+            return result.get("response_text") or "Processing node selection..."
 
-    if state == "FEED_AWAITING_NEW_NODE_NAME":
-        result = handle_new_node_name(text, session_id)
-        return result.get("response_text", "")
+        if state == "FEED_AWAITING_NEW_NODE_NAME":
+            result = handle_new_node_name(text, session_id)
+            return result.get("response_text") or "Processing new node..."
 
-    result = handle_raw_text(text, session_id=session_id)
-    return result.get("response_text", "")
+        result = handle_raw_text(text, session_id=session_id)
+        return result.get("response_text") or "Input received but no facts could be extracted. Try rephrasing."
+    except Exception as e:
+        logger.error("[FeedHandler] Unhandled error in handle_feed_message: %s", e, exc_info=True)
+        return f"Feed processing error: {e}. Please try again."
 
 
 # --- Format detection and splitting (unchanged from original) ---
