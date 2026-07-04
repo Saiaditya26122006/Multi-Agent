@@ -24,7 +24,7 @@ _supabase_client = None
 
 EMBEDDING_DIM = 384
 DEFAULT_TOP_K = 5
-DEFAULT_THRESHOLD = 0.4
+DEFAULT_THRESHOLD = 0.3
 TABLE_NAME = "knowledge_base"
 
 VALID_SOURCE_TYPES = {
@@ -42,6 +42,8 @@ VALID_SOURCE_TYPES = {
     "run_metadata",
     "ssot_node",
     "ssot_mapping",
+    "bp_architecture",
+    "ssot_alex",
 }
 
 VALID_EPISTEMIC_STATUSES = {
