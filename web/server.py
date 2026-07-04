@@ -491,9 +491,18 @@ async def post_message(req: SendMessageRequest):
             )
             return {"status": "workspace_handled", "session_key": session_key, "workspace": current_ws.value}
 
-    if _pipeline_handler is None:
-        from web.handlers.auto_handler import handle_auto_message, format_auto_response
+    from web.handlers.auto_handler import classify_intent, handle_auto_message, format_auto_response
 
+    classification = classify_intent(req.text.strip())
+    intent = classification["intent"]
+
+    pipeline_intents = {"decision", "new_data"}
+    use_pipeline = (
+        _pipeline_handler is not None
+        and intent in pipeline_intents
+    )
+
+    if not use_pipeline:
         result = handle_auto_message(req.text.strip(), session_id=session_key)
         response_text = format_auto_response(result)
 
@@ -520,13 +529,6 @@ async def post_message(req: SendMessageRequest):
             "first_name": ceo_context.get("name", "CEO"),
         },
     }
-
-    store_ceo_message(
-        message=req.text.strip(),
-        session_id=message_data["message_id"],
-        channel="web",
-        metadata={"chat_id": chat_id, "message_id": message_data["message_id"]},
-    )
 
     await manager.broadcast(
         session_key,
