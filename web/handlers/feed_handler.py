@@ -168,9 +168,10 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
 
         chunks = retrieve(
             query=text,
-            source_types=["ceo_doc"], section="bp_architecture",
+            source_types=["ceo_doc"],
             top_k=top_k,
             threshold=0.35,
+            metadata_filter={"layer": "bp_architecture"},
         )
 
         if chunks:
@@ -354,7 +355,55 @@ def clear_pending_fact(session_id: str) -> None:
         logger.error("[FeedHandler] Redis error clearing pending fact: %s", e)
 
 
-def handle_raw_text(text: str, session_id: Optional[str] = None) -> dict:
+def _duplicate_key(session_id: str) -> str:
+    """Redis key for pending duplicate confirmation."""
+    return f"feed_pending_duplicate:{session_id}"
+
+
+def _handle_duplicate_confirm(response_text: str, session_id: str) -> dict:
+    """Handle Alex's response to the duplicate detection prompt.
+
+    Args:
+        response_text: 'yes' to proceed with storage, 'skip' to discard.
+        session_id: Current session ID.
+
+    Returns:
+        Dict with action and response_text.
+    """
+    text_lower = response_text.strip().lower()
+    r = _get_redis()
+
+    raw = r.get(_duplicate_key(session_id))
+    if raw is None:
+        set_feed_state(session_id, None)
+        return {
+            "action": "expired",
+            "response_text": "Duplicate confirmation expired. Please re-submit.",
+        }
+
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8")
+    pending = json.loads(raw)
+    original_text = pending["original_text"]
+
+    if text_lower in ("yes", "y", "ok", "store", "1"):
+        r.delete(_duplicate_key(session_id))
+        set_feed_state(session_id, None)
+        return handle_raw_text(original_text, session_id=session_id, _skip_dupe_check=True)
+
+    r.delete(_duplicate_key(session_id))
+    set_feed_state(session_id, None)
+    return {
+        "action": "skipped",
+        "response_text": "Duplicate skipped. Nothing was stored.",
+    }
+
+
+def handle_raw_text(
+    text: str,
+    session_id: Optional[str] = None,
+    _skip_dupe_check: bool = False,
+) -> dict:
     """Process raw text: detect format, split, classify, match, present for approval.
 
     Processes ONE fact at a time. If multiple facts are extracted,
@@ -363,10 +412,35 @@ def handle_raw_text(text: str, session_id: Optional[str] = None) -> dict:
     Args:
         text: Raw text from Alex.
         session_id: Current session ID.
+        _skip_dupe_check: Internal flag to bypass duplicate detection on re-entry.
 
     Returns:
         Dict with: action, fact_data, review_text, remaining_count.
     """
+    if not _skip_dupe_check:
+        try:
+            from services.rag_service import retrieve as rag_retrieve
+
+            dupes = rag_retrieve(query=text, top_k=1, threshold=0.95)
+            if dupes and dupes[0].similarity > 0.95:
+                if session_id:
+                    r = _get_redis()
+                    r.set(
+                        _duplicate_key(session_id),
+                        json.dumps({"original_text": text}),
+                        ex=PENDING_FACT_TTL,
+                    )
+                    set_feed_state(session_id, "FEED_AWAITING_DUPLICATE_CONFIRM")
+                return {
+                    "action": "duplicate_detected",
+                    "response_text": (
+                        "This looks like something already in the knowledge base. "
+                        "Want to store it again anyway? [yes/skip]"
+                    ),
+                }
+        except Exception as e:
+            logger.debug("[FeedHandler] Duplicate check failed (non-fatal): %s", e)
+
     try:
         fmt = detect_format(text)
         facts = split_into_atomic_facts(text, fmt)
@@ -1101,6 +1175,10 @@ def handle_feed_message(text: str, session_id: str) -> str:
     """
     try:
         state = get_feed_state(session_id)
+
+        if state == "FEED_AWAITING_DUPLICATE_CONFIRM":
+            result = _handle_duplicate_confirm(text, session_id)
+            return result.get("response_text") or "Processing..."
 
         if state == "FEED_AWAITING_APPROVAL":
             result = handle_approval_response(text, session_id)

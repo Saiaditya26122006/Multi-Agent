@@ -298,6 +298,7 @@ def retrieve(
     top_k: int = DEFAULT_TOP_K,
     threshold: float = DEFAULT_THRESHOLD,
     recency_boost: bool = True,
+    metadata_filter: Optional[dict[str, str]] = None,
 ) -> list[Chunk]:
     """Retrieve relevant chunks via semantic similarity search.
 
@@ -310,6 +311,7 @@ def retrieve(
         top_k: Maximum number of results to return.
         threshold: Minimum similarity score (0.0-1.0).
         recency_boost: If True, boost recent results in final ranking.
+        metadata_filter: Filter on metadata JSONB keys (all must match).
 
     Returns:
         List of Chunk objects sorted by relevance.
@@ -343,6 +345,16 @@ def retrieve(
 
         if epistemic_status and row.get("epistemic_status") not in epistemic_status:
             continue
+
+        if metadata_filter:
+            row_meta = row.get("metadata") or {}
+            skip = False
+            for key, value in metadata_filter.items():
+                if row_meta.get(key) != value:
+                    skip = True
+                    break
+            if skip:
+                continue
 
         chunk = Chunk(
             id=row["id"],
