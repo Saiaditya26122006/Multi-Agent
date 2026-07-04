@@ -374,6 +374,32 @@ async def post_message(req: SendMessageRequest):
     chat_id = ceo_context.get("chat_id", 1)
     session_key = str(chat_id)
 
+    from web.handlers.feed_handler import get_feed_state
+    feed_state = get_feed_state(session_key)
+    if feed_state and feed_state.startswith("FEED_AWAITING"):
+        await manager.broadcast(
+            session_key,
+            {
+                "role": "user",
+                "text": req.text.strip(),
+                "timestamp": datetime.utcnow().isoformat(),
+                "channel": "web",
+            },
+        )
+        response_text = _dispatch_feed("", req.text.strip(), session_key)
+        if response_text:
+            await manager.broadcast(
+                session_key,
+                {
+                    "role": "assistant",
+                    "text": response_text,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "channel": "system",
+                    "workspace": "feed",
+                },
+            )
+        return {"status": "feed_approval", "session_key": session_key, "workspace": "feed"}
+
     routed = workspace_dispatch(session_key, req.text.strip())
 
     if routed["action"] == "show_menu":
@@ -439,24 +465,6 @@ async def post_message(req: SendMessageRequest):
     )
 
     current_ws = routed["workspace"]
-
-    if current_ws == Workspace.AUTO:
-        from web.handlers.feed_handler import get_feed_state
-        feed_state = get_feed_state(session_key)
-        if feed_state and feed_state.startswith("FEED_AWAITING"):
-            response_text = _dispatch_feed("", req.text.strip(), session_key)
-            if response_text:
-                await manager.broadcast(
-                    session_key,
-                    {
-                        "role": "assistant",
-                        "text": response_text,
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "channel": "system",
-                        "workspace": "feed",
-                    },
-                )
-                return {"status": "feed_approval", "session_key": session_key, "workspace": "feed"}
 
     if current_ws != Workspace.AUTO:
         response_text = _handle_workspace_message(current_ws, req.text.strip(), session_key)
