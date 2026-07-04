@@ -40,6 +40,8 @@ VALID_SOURCE_TYPES = {
     "assumption_lifecycle",
     "contradiction_resolution",
     "run_metadata",
+    "ssot_node",
+    "ssot_mapping",
 }
 
 VALID_EPISTEMIC_STATUSES = {

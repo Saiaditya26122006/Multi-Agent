@@ -128,24 +128,25 @@ def handle_auto_message(message: str, session_id: Optional[str] = None) -> dict:
 
 
 def _handle_question(message: str, classification: dict) -> dict:
-    """Handle a question directly using RAG."""
+    """Handle a question using RAG + LLM synthesis."""
     try:
         from services.rag_service import retrieve
+        from web.handlers.llm_helper import generate_answer
 
         chunks = retrieve(
             query=message,
-            top_k=5,
-            threshold=0.35,
+            top_k=10,
+            threshold=0.38,
         )
 
-        if chunks:
-            answer_parts = []
-            for chunk in chunks[:3]:
-                status_tag = f"[{chunk.epistemic_status}]" if chunk.epistemic_status else ""
-                answer_parts.append(f"  {status_tag} {chunk.content[:120]}")
+        filtered = [
+            c for c in chunks
+            if c.source_type not in ("conversation",)
+            and "unique_retrieval_test" not in (c.content or "")
+        ]
 
-            response = "Based on the knowledge base:\n\n" + "\n".join(answer_parts)
-            response += "\n\nFor deeper analysis, switch to INSPECT."
+        if filtered:
+            response = generate_answer(message, filtered[:5])
         else:
             response = "No relevant data found in the knowledge base for that question. Try rephrasing, or switch to INSPECT for deeper analysis."
 
