@@ -168,7 +168,7 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
 
         chunks = retrieve(
             query=text,
-            source_types=["ssot_node", "ssot_mapping"],
+            source_types=["ceo_doc"], section="bp_architecture",
             top_k=top_k,
             threshold=0.35,
         )
