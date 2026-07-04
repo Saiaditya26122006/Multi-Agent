@@ -374,6 +374,16 @@ async def post_message(req: SendMessageRequest):
     chat_id = ceo_context.get("chat_id", 1)
     session_key = str(chat_id)
 
+    try:
+        store_ceo_message(
+            message=req.text.strip(),
+            session_id=session_key,
+            channel="web",
+            metadata={"chat_id": chat_id},
+        )
+    except Exception as e:
+        logger.warning("[Server] store_ceo_message failed (non-blocking): %s", e)
+
     from web.handlers.feed_handler import get_feed_state
     feed_state = get_feed_state(session_key)
     if feed_state and feed_state.startswith("FEED_AWAITING"):

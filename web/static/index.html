@@ -1347,30 +1347,10 @@
             }
 
             function renderWorkspaceIntro(meta) {
-                if (!meta.title && !meta.options) {
-                    const wsName = meta.workspace || '';
-                    const text = meta._text || '';
-                    const header = wsName ? `<strong>Switched to ${escapeHtml(typeof wsName === 'string' ? wsName.charAt(0).toUpperCase() + wsName.slice(1) : wsName)}</strong>` : '';
-                    return `<div class="message-bubble">${header}${text ? '<br><br>' + formatMessageText(text) : ''}</div>`;
-                }
-
-                const color = meta.color || 'var(--accent)';
-                const options = (meta.options || []).map(o =>
-                    `<button class="pill-btn action-btn" data-action="${escapeHtml(o)}">${escapeHtml(o)}</button>`
-                ).join('');
-
-                return `
-                    <div class="rich-card">
-                        <div class="rich-card-header" style="background:${color}">
-                            <i data-lucide="${meta.icon || 'layout'}" style="width:16px;height:16px;"></i>
-                            ${escapeHtml(meta.title || '')}
-                        </div>
-                        <div class="rich-card-body">
-                            <p style="font-size:14px;color:var(--text-secondary);margin-bottom:8px;">${escapeHtml(meta.description || '')}</p>
-                        </div>
-                        <div class="rich-card-footer">${options}</div>
-                    </div>
-                `;
+                const wsName = meta.workspace || '';
+                const text = meta._text || '';
+                const header = wsName ? `<strong>${escapeHtml(wsName.charAt(0).toUpperCase() + wsName.slice(1))}</strong>` : '';
+                return `<div class="message-bubble">${header}${text ? '<br><br>' + formatMessageText(text) : ''}</div>`;
             }
 
             function renderHeatmap(meta) {
