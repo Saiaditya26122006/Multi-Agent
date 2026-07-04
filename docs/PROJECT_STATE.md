@@ -1,9 +1,9 @@
 # Multi-Agent AI System — Project State
 
-**Last updated:** 2026-06-23
+**Last updated:** 2026-07-04
 **Phase:** 2 (Active). Phase 1 complete and stable.
 **Deployment:** Railway — web-production-9928d.up.railway.app (auto-deploys from main)
-**Latest commit:** ca66a74
+**Interface:** Web-only (Telegram removed)
 
 ---
 
@@ -16,25 +16,82 @@
 | L3 Feedback Agent | Stable |
 | Session state machine (7 states) | Stable |
 | Web chat interface | Stable |
-| Telegram integration | Stable |
 
 **Key behaviors confirmed working:**
 
-- **Topic-change detection:** Word-overlap heuristic + explicit trigger phrases ("new idea:", "start fresh", etc.). Heuristic suppressed during active conversation states (NEEDS_CLARIFICATION, AWAITING_RESEARCH, etc.) — only explicit triggers work mid-conversation.
-- **idea_text column** added to sessions table (migration: `database/migrations/add_idea_text_to_sessions.sql`).
+- **EPI-34 — Session separation:** Topic-change detection via word-overlap heuristic + explicit trigger phrases. Heuristic suppressed during active conversation states. idea_text column in sessions table. Redis notification on new session.
 - **L1 context scoped to current session only** — `get_open_business_plan_sections()` and `get_pending_decisions()` filter by session_id.
 - **Memory profile removed** from L1 question-generation prompt entirely.
-- **EpistemicOS operating constraints** (strategic_priorities, known_constraints) removed from L1 prompt — L1 only sees name and output_style.
+- **EpistemicOS operating constraints** removed from L1 prompt — L1 only sees name and output_style.
 - **Redis resilience:** L1 has no Redis dependency in question path.
-- **Dual channel:** Web chat + Telegram both working, sharing Supabase session state.
 
 ---
 
-## 2. PHASE 2 — Built, Eval Runner Proven, Orchestration Not Yet End-to-End
+## 2. PHASE 2 — Pipeline Proven, Workspace System Live
 
 ### Pipeline Performance
 
 11-section pipeline proven: **9.5/10**, milestone tagged (`milestone-11-section-working`, commit `979f4fe`).
+
+### EPI-35 — Task Transparency at Approval Time
+
+Group 1 preview fires synchronously before confirmation. Shows:
+- task_id, section, execution_type, data_source
+- dependency_reasoning, human_brief ("how to collect" guidance)
+- confidence_ceiling
+- Challenge dependency button live on web
+
+### Workspace System (Live)
+
+7 workspaces: Feed, Build, Inspect, Challenge, Validate, Export, Auto.
+
+| File | Purpose |
+|------|---------|
+| `web/workspace_router.py` | Tracks active workspace per session in Redis, dispatches |
+| `web/menu_generator.py` | Dynamic menus with live stats (coverage, contradictions, stale) |
+| `web/handlers/auto_handler.py` | Intent classification + RAG question answering |
+| `web/handlers/feed_handler.py` | Raw-to-structured ingestion with approval flow |
+| `web/handlers/build_handler.py` | Business plan generation (full, section, incremental) |
+| `web/handlers/inspect_handler.py` | Coverage, confidence, contradictions, stale, dependencies |
+| `web/handlers/challenge_handler.py` | Devil's advocate / assumption stress-testing |
+| `web/handlers/validate_handler.py` | Assumption confirmation/killing queue |
+| `web/handlers/export_handler.py` | DOCX / investor / gap report exports |
+
+### Feed Handler (EPI-36 — Complete)
+
+Full raw-to-structured ingestion flow:
+1. **Content type classification** — 8 types: fact, assumption, decision, risk, task, metric, constraint, open_question
+2. **BP node matching** — Semantic similarity against architecture nodes (cached embeddings). Proposes at >0.6, flags as unmatched below.
+3. **Approval flow** — Verbatim ADD block shown to Alex. Options: Approve / Adjust / Create new node. Pending fact stored in Redis with 10-min TTL.
+4. **Write-back** — Stores verbatim text to knowledge_base via rag_service.store(). Post-store hooks: contradiction detection, negative knowledge, temporal decay.
+
+### AUTO Workspace (Working)
+
+- Questions classified via intent patterns, always route to auto_handler (never pipeline)
+- RAG retrieval (top-10, threshold 0.38) + Haiku LLM synthesis
+- Epistemic tags translated to natural language (no raw [ASSUMPTION] tags in output)
+- Markdown rendering via marked.js
+
+### RAG System (Live — 12-Layer Knowledge Base)
+
+226 chunks in Supabase pgvector (HNSW index). all-MiniLM-L6-v2 embeddings (384 dims).
+
+| Layer (source_type) | What It Stores |
+|---------------------|---------------|
+| ceo_doc | Alex's static data + feed handler approved facts |
+| conversation | CEO messages (auto-stored via store_ceo_message) |
+| decision | Yes/Adjust decisions + reasoning |
+| negative_knowledge | Killed ideas (never re-suggest) |
+| correction | CEO overrides (supersedes old facts) |
+| feedback | CEO feedback on outputs |
+| agent_insight | Key findings from pipeline runs |
+| preference_pattern | Derived CEO preferences |
+| external_research | Cached web search results |
+| assumption_lifecycle | Evidence events for/against assumptions |
+| contradiction_resolution | Resolved contradictions |
+| run_metadata | Pipeline run summaries |
+
+All 9 child agents wired via `rag_mixin.py`. RAG-first loader with JSON fallback. 71 tests passing.
 
 ### Agents (18 total)
 
@@ -47,7 +104,6 @@
 | Organisation Designer | §4 | human_interview |
 | SWOT Synthesizer | §5 | Synthesis (depends on §3, §4) |
 | R&D Technology | §6 | human_interview |
-| Tech Stack | §6.5 | agent_executable (code exists, not in roster) |
 | Alliances | §7 | human_interview |
 | Marketing Strategy | §8 | data_retrieval (Tavily search) |
 | Quality Management | §9 | agent_executable |
@@ -59,79 +115,55 @@
 | Summary Agent | exec summary | Runs last, reads all sections |
 | Council | — | Quality gate (5-persona deliberation) |
 
-**Execution groups** (from `config/phase2/agent_roster.yaml`):
-1. **Foundation:** opportunity_analyst, entrepreneur_team, organisation_designer (parallel)
-2. **Evidence building:** environment_research, rd_technology, marketing_strategy (parallel, depends on G1)
-3. **Strategy synthesis:** swot_synthesizer → alliances → marketing_strategy → quality_management → operations → hr_plan (sequential, depends on G1+G2)
-4. **Financial and close:** financial_modelling → launch_contingency → exit_strategy → summary_agent (sequential, depends on G1+G2+G3)
+---
 
-### Task Object
+## 3. UI
 
-Each task now carries:
-- `task_id`
-- `execution_type`: `agent_executable` | `data_retrieval` | `human_interview`
-- `human_brief` (how-to-collect guidance for human_interview tasks)
-- `data_source`
-- `depends_on`
-- `dependency_reasoning`
-- `confidence_ceiling`
-
-### Execution Type Tagging
-
-- **data_retrieval** (outward agents, Tavily search): Sections 1, 3, 8, 12
-- **human_interview** (with human_brief): Sections 2, 4, 6, 7
-
-`dependency_map.yaml` has `dependency_reasoning` authored for all 13 sections.
-
-### Demo Pipeline (Working End-to-End)
-
-Phase 1 approval → task preview → Redis trigger → eval runner → docx delivered.
-
-- `_request_gate2_approval()` rewritten to show full task transparency per task.
-- `generate_preview_tasks()` in `main.py` generates Group 1 task preview synchronously before approval confirmation fires.
+- 56px icon-only nav rail with 7 workspace icons
+- Geist font + JetBrains Mono for code
+- Zinc color system, dark cinema palette
+- Plus-button command tray with live badges per workspace
+- Marked.js markdown rendering for assistant messages
+- User messages plain text, assistant messages rendered markdown
+- Conversation store: every inbound message stored to RAG
 
 ---
 
-## 3. TECH STACK
+## 4. TECH STACK
 
 | Component | Technology |
 |-----------|-----------|
-| LLM | AWS Bedrock — Claude Sonnet 4 + Haiku 4.5 via inference profiles, `converse()` API |
+| LLM | AWS Bedrock — Claude Sonnet 4 + Haiku 4.5 via `converse()` API |
 | Sonnet model ID | `us.anthropic.claude-sonnet-4-6` |
 | Haiku model ID | `us.anthropic.claude-haiku-4-5-20251001-v1:0` |
 | Region | us-east-1 |
-| Database | Supabase/Postgres (11 tables) |
+| Database | Supabase/Postgres (11 tables + knowledge_base) |
+| Vector search | pgvector with HNSW index, match_knowledge_base RPC |
+| Embeddings | all-MiniLM-L6-v2 (384 dims, sentence-transformers) |
 | Session state | Redis (Upstash) |
 | Messaging (agents) | SPADE/XMPP (pending MessageBus swap) |
-| Messaging (CEO) | Telegram + Web chat |
+| Messaging (CEO) | Web chat (FastAPI + WebSocket) |
 | Financial sim | SimPy Monte Carlo |
 | Search | Tavily AI Search |
 | Deployment | Railway (auto-deploy from GitHub main) |
 
 ---
 
-## 4. KNOWN LATENT ISSUES (Not Blocking)
+## 5. KNOWN GAPS (Not Yet Built)
 
-1. **question_asked column always NULL** — `create_assumption()` never writes it. `main.py` reads it in `generate_preview_tasks()` and always gets None. The question text is buried in the `statement` field as a substring instead.
+1. **Memory index** — chunk_relationships table connecting facts automatically. Not started.
 
-2. **Dead code in `_run_pre_simulation()`** — Checks `task.get("dependencies", [])` but this field is never populated by `_generate_group_tasks()`. Loop always iterates zero times.
+2. **BP node matching coverage** — Feed handler works but only 20 architecture nodes exist (BP.1.*). Matching improves as Alex adds BP.2-BP.14 nodes.
 
-3. **"Challenge dependency" not tappable** — Option in task preview is text-based instruction, not an inline keyboard button.
+3. **Phase 5 workspace handlers** — Build, Challenge, Validate, Export have stubs but are not wired to real agents yet. They return mock/static data.
 
-4. **No staging environment** — Testing done against live production database.
+4. **Mother Agent end-to-end** — Eval runner still bypasses it. Not proven in production.
 
-5. **Tech Stack agent (§6.5) not in agent_roster.yaml** — Code exists at `agents/phase2/tech_stack_agent.py` but missing from roster and execution groups.
+5. **SPADE → MessageBus swap** — Still pending. Blocker before Mother Agent can orchestrate without XMPP.
 
----
+6. **Human gates 2 + 4** — Not started.
 
-## 5. WHAT'S NEXT
-
-| Item | Status |
-|------|--------|
-| EPI-36: RAG ingestion system | Waiting on Alex's business plan architecture table (expected June 22-23). L1-2 stable/frozen, L3+ growable. Two ingest modes: bulk + incremental add-node. |
-| SPADE → MessageBus swap | Pending. Blocker before Mother Agent can run end-to-end. |
-| Mother Agent end-to-end orchestration | Not yet proven — eval runner bypasses it. |
-| Human gates 2 + 4 | Not started. |
+7. **No staging environment** — Testing done against live production database.
 
 ---
 
@@ -139,16 +171,17 @@ Phase 1 approval → task preview → Redis trigger → eval runner → docx del
 
 ```bash
 pip install -r requirements.txt
-python main.py                    # Full Phase 2 pipeline
-pytest tests/                     # Tests
+python main.py                    # Full Phase 2 pipeline + web server
+pytest tests/                     # Tests (71 RAG + workspace + handler tests)
 streamlit run streamlit_app.py    # Internal monitoring
-python web/server.py              # FastAPI web app (port 8000)
-python telegram/webhook.py        # Telegram webhook listener
+python -m services.ingestion_pipeline  # Ingest CEO data into RAG
 ```
 
 ---
 
-**Status:** Current as of 2026-06-23
+**Status:** Current as of 2026-07-04
 **Deployment:** web-production-9928d.up.railway.app
-**Agent count:** 18 (Mother + 15 child in roster + Tech Stack + Council)
+**Agent count:** 18 (Mother + 15 child in roster + Council)
 **Pipeline score:** 9.5/10
+**RAG chunks:** 226
+**Workspaces:** 7 (all routing live)
