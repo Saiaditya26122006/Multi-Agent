@@ -120,6 +120,36 @@ def _load_bp_architecture() -> list[dict]:
     return data.get("nodes", [])
 
 
+def _get_node_details(node_id: str) -> Optional[dict]:
+    """Look up a node's full details from the architecture file."""
+    nodes = _load_bp_architecture()
+    for node in nodes:
+        if node.get("node_id") == node_id:
+            return node
+    return None
+
+
+def _get_suggested_parent(candidates: list[dict]) -> dict:
+    """Determine the best parent node for a potential new node."""
+    if candidates:
+        top = candidates[0]
+        node_details = _get_node_details(top["node_id"])
+        if node_details:
+            parent_id = node_details.get("parent_node") or top["node_id"]
+            parent_details = _get_node_details(parent_id)
+            if parent_details:
+                return {
+                    "node_id": parent_id,
+                    "node_title": parent_details.get("node_title", parent_id),
+                }
+            return {"node_id": parent_id, "node_title": parent_id}
+    nodes = _load_bp_architecture()
+    level_1 = [n for n in nodes if n.get("level") == 1]
+    if level_1:
+        return {"node_id": level_1[0]["node_id"], "node_title": level_1[0].get("node_title", "")}
+    return {"node_id": "BP.1", "node_title": "Product, Workflow, and Scope Definition"}
+
+
 def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
     """Find the best-matching BP architecture node(s) for a fact.
 
@@ -131,7 +161,7 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
         top_k: Number of candidates to return.
 
     Returns:
-        List of dicts with: node_id, node_title, similarity, level.
+        List of dicts with: node_id, node_title, similarity, level, purpose, parent_node.
     """
     try:
         from services.rag_service import retrieve
@@ -150,11 +180,14 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
                 node_title = chunk.metadata.get("node_title", "")
                 if not node_title and chunk.content:
                     node_title = chunk.content[:60]
+                node_details = _get_node_details(node_id)
                 results.append({
                     "node_id": node_id,
                     "node_title": node_title,
                     "similarity": round(chunk.similarity, 3),
                     "level": chunk.metadata.get("level", 0),
+                    "purpose": node_details.get("purpose", "") if node_details else "",
+                    "parent_node": node_details.get("parent_node", "") if node_details else "",
                 })
             return results
     except Exception as e:
@@ -188,6 +221,8 @@ def _get_node_embeddings() -> list[dict]:
             "node_id": node.get("node_id", "unknown"),
             "node_title": node.get("node_title", ""),
             "level": node.get("level", 0),
+            "purpose": node.get("purpose", ""),
+            "parent_node": node.get("parent_node", ""),
             "embedding": embedding,
         })
 
@@ -219,6 +254,8 @@ def _direct_node_match(text: str, top_k: int = 3) -> list[dict]:
             "node_title": node["node_title"],
             "similarity": round(similarity, 3),
             "level": node["level"],
+            "purpose": node.get("purpose", ""),
+            "parent_node": node.get("parent_node", ""),
         })
 
     scored.sort(key=lambda x: x["similarity"], reverse=True)
@@ -399,8 +436,13 @@ def handle_approval_response(
 ) -> dict:
     """Handle Alex's response to a pending fact review.
 
+    Routing depends on the node_confidence level:
+    - "matched": [1]=approve, [2]=adjust, [3]=create new
+    - "low_confidence": [1-3]=pick candidate, [4]=create under parent, [5]=pick parent
+    - "unmatched" (very low): [1]=create under parent, [2]=pick parent
+
     Args:
-        response_text: Alex's reply (approve/adjust/create new node).
+        response_text: Alex's reply.
         session_id: Current session ID.
 
     Returns:
@@ -415,35 +457,9 @@ def handle_approval_response(
         }
 
     text_lower = response_text.strip().lower()
-
-    if text_lower in ("approve", "yes", "y", "ok", "confirmed", "1"):
-        return _execute_approval(pending, session_id)
-
-    if text_lower in ("adjust", "change node", "different node", "2"):
-        set_feed_state(session_id, "FEED_AWAITING_NODE_SELECTION")
-        candidates = pending.get("all_node_candidates", [])
-        lines = ["Which node should this go to?\n"]
-        for i, candidate in enumerate(candidates, 1):
-            lines.append(
-                f"  [{i}] {candidate['node_id']} — {candidate['node_title']} "
-                f"(similarity: {candidate['similarity']:.2f})"
-            )
-        lines.append("\n  Or type a node ID directly (e.g. BP.1.1.3).")
-        return {
-            "action": "awaiting_node_selection",
-            "response_text": "\n".join(lines),
-        }
-
-    if text_lower in ("create", "new node", "create new node", "3"):
-        set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
-        return {
-            "action": "awaiting_new_node_name",
-            "response_text": (
-                "What should the new node be called?\n"
-                "Type a short title (e.g. 'Pricing Tiers' or 'Compliance Risk').\n"
-                "This will be flagged for architecture review — no permanent node is created yet."
-            ),
-        }
+    node_confidence = pending.get("node_confidence", "unmatched")
+    candidates = pending.get("all_node_candidates", [])
+    all_below_threshold = not candidates or candidates[0].get("similarity", 0) < 0.3
 
     if text_lower in ("skip", "no", "drop", "cancel"):
         clear_pending_fact(session_id)
@@ -457,6 +473,50 @@ def handle_approval_response(
             "response_text": "Fact skipped. Nothing was stored.",
         }
 
+    if node_confidence == "matched":
+        return _handle_matched_response(text_lower, pending, session_id)
+
+    if all_below_threshold:
+        return _handle_very_low_response(text_lower, pending, session_id)
+
+    return _handle_low_confidence_response(text_lower, pending, session_id)
+
+
+def _handle_matched_response(text_lower: str, pending: dict, session_id: str) -> dict:
+    """Handle response when node match is confident (>=0.6)."""
+    if text_lower in ("approve", "yes", "y", "ok", "confirmed", "1"):
+        return _execute_approval(pending, session_id)
+
+    if text_lower in ("adjust", "change node", "different node", "2"):
+        set_feed_state(session_id, "FEED_AWAITING_NODE_SELECTION")
+        candidates = pending.get("all_node_candidates", [])
+        lines = ["Which node should this go to?\n"]
+        for i, candidate in enumerate(candidates, 1):
+            lines.append(
+                f"  [{i}] {candidate['node_id']} — {candidate['node_title']} "
+                f"({int(candidate['similarity'] * 100)}% match)"
+            )
+        lines.append("\n  Or type a node ID directly (e.g. BP.1.1.3).")
+        return {
+            "action": "awaiting_node_selection",
+            "response_text": "\n".join(lines),
+        }
+
+    if text_lower in ("create", "new node", "create new node", "3"):
+        suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
+            pending.get("all_node_candidates", [])
+        )
+        set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
+        pending["suggested_parent"] = suggested_parent
+        store_pending_fact(session_id, pending)
+        return {
+            "action": "awaiting_new_node_name",
+            "response_text": (
+                f"Creating a new node under {suggested_parent['node_id']} — {suggested_parent['node_title']}.\n"
+                "What should it be called?"
+            ),
+        }
+
     return {
         "action": "unrecognized",
         "response_text": (
@@ -465,6 +525,103 @@ def handle_approval_response(
             "  [2] Adjust — pick a different node\n"
             "  [3] Create new node — flag for review\n"
             "  [skip] — discard this fact"
+        ),
+    }
+
+
+def _handle_low_confidence_response(text_lower: str, pending: dict, session_id: str) -> dict:
+    """Handle response when candidates exist but none above 0.6."""
+    candidates = pending.get("all_node_candidates", [])
+    suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(candidates)
+
+    if text_lower == "1" and len(candidates) >= 1:
+        pending["proposed_node"] = candidates[0]
+        pending["node_confidence"] = "manual_override"
+        store_pending_fact(session_id, pending)
+        return _execute_approval(pending, session_id)
+
+    if text_lower == "2" and len(candidates) >= 2:
+        pending["proposed_node"] = candidates[1]
+        pending["node_confidence"] = "manual_override"
+        store_pending_fact(session_id, pending)
+        return _execute_approval(pending, session_id)
+
+    if text_lower == "3" and len(candidates) >= 3:
+        pending["proposed_node"] = candidates[2]
+        pending["node_confidence"] = "manual_override"
+        store_pending_fact(session_id, pending)
+        return _execute_approval(pending, session_id)
+
+    if text_lower == "4":
+        set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
+        pending["suggested_parent"] = suggested_parent
+        store_pending_fact(session_id, pending)
+        return {
+            "action": "awaiting_new_node_name",
+            "response_text": (
+                f"Creating a new node under {suggested_parent['node_id']} — {suggested_parent['node_title']}.\n"
+                "What should it be called?"
+            ),
+        }
+
+    if text_lower == "5":
+        set_feed_state(session_id, "FEED_AWAITING_PARENT_SELECTION")
+        return {
+            "action": "awaiting_parent_selection",
+            "response_text": (
+                "Which node should be the parent?\n"
+                "Reply with a node ID (e.g. BP.2.1) or a title."
+            ),
+        }
+
+    return {
+        "action": "unrecognized",
+        "response_text": (
+            "Reply with a number:\n"
+            f"  [1] Use {candidates[0]['node_title'] if candidates else '?'}\n"
+            + (f"  [2] Use {candidates[1]['node_title']}\n" if len(candidates) > 1 else "")
+            + (f"  [3] Use {candidates[2]['node_title']}\n" if len(candidates) > 2 else "")
+            + f"  [4] Create new node under {suggested_parent['node_id']}\n"
+            "  [5] Pick a different parent\n"
+            "  [skip] — discard"
+        ),
+    }
+
+
+def _handle_very_low_response(text_lower: str, pending: dict, session_id: str) -> dict:
+    """Handle response when all candidates are below 0.3 (no useful matches)."""
+    candidates = pending.get("all_node_candidates", [])
+    suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(candidates)
+
+    if text_lower == "1":
+        set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
+        pending["suggested_parent"] = suggested_parent
+        store_pending_fact(session_id, pending)
+        return {
+            "action": "awaiting_new_node_name",
+            "response_text": (
+                f"Creating a new node under {suggested_parent['node_id']} — {suggested_parent['node_title']}.\n"
+                "What should it be called?"
+            ),
+        }
+
+    if text_lower == "2":
+        set_feed_state(session_id, "FEED_AWAITING_PARENT_SELECTION")
+        return {
+            "action": "awaiting_parent_selection",
+            "response_text": (
+                "Which node should be the parent?\n"
+                "Reply with a node ID (e.g. BP.2.1) or a title."
+            ),
+        }
+
+    return {
+        "action": "unrecognized",
+        "response_text": (
+            "Reply with:\n"
+            f"  [1] Create new node under {suggested_parent['node_id']}\n"
+            "  [2] Pick a different parent\n"
+            "  [skip] — discard"
         ),
     }
 
@@ -519,6 +676,61 @@ def handle_node_selection(response_text: str, session_id: str) -> dict:
     return _execute_approval(pending, session_id)
 
 
+def handle_parent_selection(response_text: str, session_id: str) -> dict:
+    """Handle Alex's parent node selection (option 5 in low-confidence flow).
+
+    Args:
+        response_text: Node ID or title from Alex.
+        session_id: Current session ID.
+
+    Returns:
+        Dict with action and response_text.
+    """
+    pending = get_pending_fact(session_id)
+    if not pending:
+        set_feed_state(session_id, None)
+        return {
+            "action": "no_pending",
+            "response_text": "No pending fact found. Please re-submit.",
+        }
+
+    text = response_text.strip()
+    nodes = _load_bp_architecture()
+    selected_parent = None
+
+    for node in nodes:
+        if node.get("node_id", "").upper() == text.upper():
+            selected_parent = {"node_id": node["node_id"], "node_title": node.get("node_title", "")}
+            break
+        if node.get("node_title", "").lower() == text.lower():
+            selected_parent = {"node_id": node["node_id"], "node_title": node["node_title"]}
+            break
+
+    if not selected_parent:
+        for node in nodes:
+            if text.lower() in node.get("node_title", "").lower():
+                selected_parent = {"node_id": node["node_id"], "node_title": node["node_title"]}
+                break
+
+    if not selected_parent:
+        return {
+            "action": "invalid_parent",
+            "response_text": f"Couldn't find node '{text}'. Try a node ID (e.g. BP.2.1) or an exact title.",
+        }
+
+    pending["suggested_parent"] = selected_parent
+    store_pending_fact(session_id, pending)
+    set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
+
+    return {
+        "action": "awaiting_new_node_name",
+        "response_text": (
+            f"Creating a new node under {selected_parent['node_id']} — {selected_parent['node_title']}.\n"
+            "What should it be called?"
+        ),
+    }
+
+
 def handle_new_node_name(response_text: str, session_id: str) -> dict:
     """Handle Alex's new node name after choosing 'create new node'.
 
@@ -544,6 +756,10 @@ def handle_new_node_name(response_text: str, session_id: str) -> dict:
             "response_text": "Node name too short. Please provide a descriptive title (3+ characters).",
         }
 
+    suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
+        pending.get("all_node_candidates", [])
+    )
+
     pending["proposed_node"] = {
         "node_id": "NEW_PENDING",
         "node_title": node_name,
@@ -552,6 +768,7 @@ def handle_new_node_name(response_text: str, session_id: str) -> dict:
     }
     pending["node_confidence"] = "new_node_requested"
     pending["new_node_flag"] = True
+    pending["proposed_parent"] = suggested_parent
     store_pending_fact(session_id, pending)
 
     return _execute_approval(pending, session_id)
@@ -594,6 +811,8 @@ def _execute_approval(fact_data: dict, session_id: str) -> dict:
                 "approved_at": datetime.now(timezone.utc).isoformat(),
                 "node_confidence": fact_data.get("node_confidence"),
                 "new_node_flag": fact_data.get("new_node_flag", False),
+                "proposed_parent": fact_data.get("proposed_parent"),
+                "status": "pending_architecture_review" if fact_data.get("new_node_flag") else None,
             },
         )
 
@@ -774,6 +993,11 @@ def _process_next_fact(remaining_facts: list[str], session_id: str) -> dict:
 def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
     """Format a pending fact as a review block for Alex.
 
+    Shows different options depending on match confidence:
+    - High confidence (>=0.6): simple approve/adjust/create
+    - Low confidence (<0.6, >=0.3): show top 3 candidates with reasoning
+    - Very low (<0.3): skip candidates, suggest parent for new node
+
     Args:
         fact_data: The full fact dict.
         remaining: Number of facts still queued.
@@ -787,6 +1011,7 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
     proposed_node = fact_data.get("proposed_node")
     node_confidence = fact_data.get("node_confidence", "unmatched")
     verbatim = fact_data["verbatim_text"]
+    candidates = fact_data.get("all_node_candidates", [])
 
     lines = []
     lines.append("ADD — Review before storing")
@@ -798,26 +1023,62 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
         " (low confidence)" if confidence < 0.7 else ""
     ))
     lines.append(f"  Status: [{epistemic_status}]")
+    lines.append("")
 
-    if proposed_node:
-        node_note = ""
-        if node_confidence == "low_confidence":
-            node_note = " [LOW MATCH — review carefully]"
-        elif node_confidence == "unmatched":
-            node_note = " [UNMATCHED]"
+    if node_confidence == "matched" and proposed_node:
         lines.append(
             f"  Node: {proposed_node['node_id']} — {proposed_node['node_title']}"
-            f" (sim: {proposed_node['similarity']:.2f}){node_note}"
+            f" ({int(proposed_node['similarity'] * 100)}% match)"
         )
-    else:
-        lines.append("  Node: UNMATCHED — no suitable node found above threshold")
+        lines.append("")
+        lines.append("-" * 40)
+        lines.append("  [1] Approve — store as shown")
+        lines.append("  [2] Adjust — pick a different node")
+        lines.append("  [3] Create new node — flag for architecture review")
+        lines.append("  [skip] — discard this fact")
 
-    lines.append("")
-    lines.append("-" * 40)
-    lines.append("  [1] Approve — store as shown")
-    lines.append("  [2] Adjust — pick a different node")
-    lines.append("  [3] Create new node — flag for architecture review")
-    lines.append("  [skip] — discard this fact")
+    elif candidates and candidates[0].get("similarity", 0) >= 0.3:
+        lines.append("  No strong match found. Closest candidates:")
+        lines.append("")
+        for i, c in enumerate(candidates[:3], 1):
+            pct = int(c["similarity"] * 100)
+            purpose = c.get("purpose", "")
+            lines.append(f"  [{i}] {c['node_id']} — {c['node_title']} ({pct}% match)")
+            if purpose:
+                lines.append(f"      Purpose: {purpose[:100]}")
+            lines.append("")
+
+        suggested_parent = fact_data.get("suggested_parent") or _get_suggested_parent(candidates)
+        fact_data["suggested_parent"] = suggested_parent
+        lines.append(
+            f"  If none fit, a new node could sit under: "
+            f"{suggested_parent['node_id']} — {suggested_parent['node_title']}"
+        )
+        lines.append("")
+        lines.append("-" * 40)
+        lines.append(f"  [1] Use {candidates[0]['node_title']}")
+        if len(candidates) > 1:
+            lines.append(f"  [2] Use {candidates[1]['node_title']}")
+        if len(candidates) > 2:
+            lines.append(f"  [3] Use {candidates[2]['node_title']}")
+        lines.append(f"  [4] Create new node under {suggested_parent['node_id']}")
+        lines.append("  [5] Pick a different parent — I'll tell you which")
+        lines.append("  [skip] — discard this fact")
+
+    else:
+        suggested_parent = fact_data.get("suggested_parent") or _get_suggested_parent(candidates)
+        fact_data["suggested_parent"] = suggested_parent
+        lines.append(
+            "  This doesn't match anything in the current architecture."
+        )
+        lines.append(
+            f"  Suggested parent: {suggested_parent['node_id']} — {suggested_parent['node_title']}"
+        )
+        lines.append("")
+        lines.append("-" * 40)
+        lines.append(f"  [1] Create new node under {suggested_parent['node_id']}")
+        lines.append("  [2] Pick a different parent — I'll tell you which")
+        lines.append("  [skip] — discard this fact")
 
     if remaining > 0:
         lines.append("")
@@ -852,6 +1113,10 @@ def handle_feed_message(text: str, session_id: str) -> str:
         if state == "FEED_AWAITING_NEW_NODE_NAME":
             result = handle_new_node_name(text, session_id)
             return result.get("response_text") or "Processing new node..."
+
+        if state == "FEED_AWAITING_PARENT_SELECTION":
+            result = handle_parent_selection(text, session_id)
+            return result.get("response_text") or "Processing parent selection..."
 
         result = handle_raw_text(text, session_id=session_id)
         return result.get("response_text") or "Input received but no facts could be extracted. Try rephrasing."
