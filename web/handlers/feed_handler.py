@@ -355,11 +355,6 @@ def clear_pending_fact(session_id: str) -> None:
         logger.error("[FeedHandler] Redis error clearing pending fact: %s", e)
 
 
-def _duplicate_key(session_id: str) -> str:
-    """Redis key for pending duplicate confirmation."""
-    return f"feed_pending_duplicate:{session_id}"
-
-
 def _handle_duplicate_confirm(response_text: str, session_id: str) -> dict:
     """Handle Alex's response to the duplicate detection prompt.
 
@@ -371,27 +366,30 @@ def _handle_duplicate_confirm(response_text: str, session_id: str) -> dict:
         Dict with action and response_text.
     """
     text_lower = response_text.strip().lower()
-    r = _get_redis()
 
-    raw = r.get(_duplicate_key(session_id))
-    if raw is None:
+    pending = get_pending_fact(session_id)
+    if not pending:
         set_feed_state(session_id, None)
         return {
             "action": "expired",
             "response_text": "Duplicate confirmation expired. Please re-submit.",
         }
 
-    if isinstance(raw, bytes):
-        raw = raw.decode("utf-8")
-    pending = json.loads(raw)
-    original_text = pending["original_text"]
+    original_text = pending.get("original_text", "")
+    if not original_text:
+        clear_pending_fact(session_id)
+        set_feed_state(session_id, None)
+        return {
+            "action": "expired",
+            "response_text": "Original text lost. Please re-submit.",
+        }
 
     if text_lower in ("yes", "y", "ok", "store", "1"):
-        r.delete(_duplicate_key(session_id))
+        clear_pending_fact(session_id)
         set_feed_state(session_id, None)
         return handle_raw_text(original_text, session_id=session_id, _skip_dupe_check=True)
 
-    r.delete(_duplicate_key(session_id))
+    clear_pending_fact(session_id)
     set_feed_state(session_id, None)
     return {
         "action": "skipped",
@@ -424,12 +422,7 @@ def handle_raw_text(
             dupes = rag_retrieve(query=text, top_k=1, threshold=0.95)
             if dupes and dupes[0].similarity > 0.95:
                 if session_id:
-                    r = _get_redis()
-                    r.set(
-                        _duplicate_key(session_id),
-                        json.dumps({"original_text": text}),
-                        ex=PENDING_FACT_TTL,
-                    )
+                    store_pending_fact(session_id, {"original_text": text})
                     set_feed_state(session_id, "FEED_AWAITING_DUPLICATE_CONFIRM")
                 return {
                     "action": "duplicate_detected",

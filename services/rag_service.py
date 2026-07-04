@@ -320,10 +320,11 @@ def retrieve(
 
     supabase = _get_supabase()
 
+    fetch_multiplier = 10 if metadata_filter else 3
     rpc_params = {
         "query_embedding": query_embedding,
         "match_threshold": threshold,
-        "match_count": top_k * 3,
+        "match_count": top_k * fetch_multiplier,
     }
 
     result = supabase.rpc("match_knowledge_base", rpc_params).execute()
