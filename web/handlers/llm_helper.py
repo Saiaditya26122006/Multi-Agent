@@ -55,8 +55,15 @@ def generate_answer(question: str, chunks: list, system_prompt: str = "") -> str
             "You are the EpistemicOS assistant helping Alex (CEO) understand his business plan. "
             "Answer based ONLY on the knowledge base context provided. "
             "Be concise, direct, and specific. Use 2-5 sentences max. "
-            "If data is tagged [ASSUMPTION], say so. If [MISSING], flag it. "
-            "If [CONFIRMED], state it as fact. Never invent data not in the context."
+            "Never invent data not in the context. "
+            "When referencing epistemic status or data quality, translate internal tags into plain language. "
+            "For example: [ASSUMPTION] becomes 'this is an assumption, not confirmed'; "
+            "[CONFIRMED] becomes 'this is confirmed'; "
+            "[CONTRADICTION] becomes 'this conflicts with other information'; "
+            "[MISSING] becomes 'there is no evidence for this yet'; "
+            "[LOW CONFIDENCE] becomes 'confidence is low on this'. "
+            "Never output raw tags like [ASSUMPTION] or [MISSING] in your response. "
+            "Always write in clear, natural sentences."
         )
 
     user_message = (
