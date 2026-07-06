@@ -582,27 +582,22 @@ async def post_message(req: SendMessageRequest):
     current_ws = routed["workspace"]
 
     if current_ws != Workspace.AUTO:
-        # Off the event loop: these handlers do real synchronous work (RAG
-        # retrieval, Supabase reads/writes, LLM calls) and emit trace events
-        # as they go. Running them inline would block the loop for the
-        # whole request, which delays/bursts every trace broadcast and can
-        # starve the WebSocket's ping/pong — the same bug that broke live
-        # narration in Feed's upload flow before asyncio.to_thread() fixed it.
         response_text = await asyncio.to_thread(
             _handle_workspace_message, current_ws, req.text.strip(), session_key
         )
-        if response_text:
-            await manager.broadcast(
-                session_key,
-                {
-                    "role": "assistant",
-                    "text": response_text,
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "channel": "system",
-                    "workspace": current_ws.value,
-                },
-            )
-            return {"status": "workspace_handled", "session_key": session_key, "workspace": current_ws.value}
+        if not response_text:
+            response_text = "Received — nothing to show for that input."
+        await manager.broadcast(
+            session_key,
+            {
+                "role": "assistant",
+                "text": response_text,
+                "timestamp": datetime.utcnow().isoformat(),
+                "channel": "system",
+                "workspace": current_ws.value,
+            },
+        )
+        return {"status": "workspace_handled", "session_key": session_key, "workspace": current_ws.value}
 
     from web.handlers.auto_handler import classify_intent, handle_auto_message, format_auto_response
 
