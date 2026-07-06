@@ -231,8 +231,43 @@ class FinancialModellingAgent(Agent):
 
         sim_assumptions = self._build_sim_assumptions(validated_input)
         logger.info("[FinancialModelling] Running SimPy with %d runs", self.simpy_runs)
-        sim_results = run_simulation(sim_assumptions, num_runs=self.simpy_runs)
-        logger.info("[FinancialModelling] SimPy complete — primary risk: %s", sim_results["primary_risk_factor"])
+        try:
+            sim_results = run_simulation(sim_assumptions, num_runs=self.simpy_runs)
+            logger.info(
+                "[FinancialModelling] SimPy complete — primary risk: %s",
+                sim_results["primary_risk_factor"],
+            )
+        except Exception as e:
+            logger.error("[FinancialModelling] Simulation failed: %s", e)
+            from memory.supabase_client import log_event
+            from tools.trace_emitter import emit_trace
+
+            log_event(
+                agent_id="financial_modelling",
+                action="simulation_error",
+                session_id=session_id,
+                state_before="running",
+                state_after="degraded",
+                input_ref=json.dumps(sim_assumptions, default=str)[:500],
+                output_ref=str(e)[:500],
+            )
+            trace_key = str(input_package.get("session_id", session_id))
+            emit_trace(
+                trace_key,
+                "FinancialModelling",
+                "simulation_error",
+                "Financial simulation failed — section 12 will need manual "
+                "review of numbers before delivery.",
+                {"error": str(e)[:200]},
+            )
+            sim_results = {
+                "probability_distribution": None,
+                "primary_risk_factor": None,
+                "runs_completed": None,
+                "cash_out_rate": None,
+                "median_break_even_month": None,
+                "simulation_failed": True,
+            }
 
         skills_loaded = []
         skills_content = ""
