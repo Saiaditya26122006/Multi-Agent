@@ -21,27 +21,53 @@ logger = logging.getLogger(__name__)
 
 CEO_DATA_DIR = Path(__file__).parent.parent / "ceo_data"
 
+# Section numbers here MUST correspond to actual BP.N top-level domains
+# defined in bp_architecture.json. There are only 11 real domains (verified
+# by grepping bp_architecture.json's top-level "node_id": "BP.N" entries):
+#
+#   BP.1  Product, Workflow, and Scope Definition
+#   BP.2  Core Problem, Urgency, and Governing Hypothesis
+#   BP.3  Evidence Base and Source Governance
+#   BP.4  Market Boundaries, Sizing, Segmentation, and ICP
+#   BP.5  Users, Buyers, Procurement, and Buying System
+#   BP.6  Customer Discovery, Adoption, and Institutional Legitimacy
+#   BP.7  Legal, Regulatory, Data, and Deployability Governance
+#   BP.8  Competitive Landscape, Positioning, and Differentiation
+#   BP.9  Business Model, Revenue, and GTM Logic
+#   BP.10 Validation, Behavioural Evidence, and PMF Decision Logic
+#   BP.11 Investor Narrative, Business Plan, and Data Room Readiness
+#
+# The previous version of this map invented its own numbering (going up to
+# "19") that had no relationship to this structure at all — e.g. customers.json
+# was tagged "3" (Evidence Base) when its content (problem/JTBD) actually
+# belongs in BP.2, and seven files were tagged sections 12-19 which don't
+# exist as domains, making that content permanently invisible to
+# coverage_calculator.py's per-section fill check regardless of threshold
+# or top_k tuning. This map now points every file at the domain its content
+# is actually about. Composite files (buyers_icp.json, customers.json,
+# constraints.json) override this default per-item in their chunker
+# functions below, since a single file's content spans more than one domain.
 SECTION_MAP = {
     "product_definition.json": {"section": "1", "topics": ["product", "definition", "identity"]},
-    "customers.json": {"section": "3", "topics": ["problem", "jtbd", "customers", "stakeholders"]},
+    "customers.json": {"section": "2", "topics": ["problem", "jtbd", "customers", "stakeholders"]},
     "buyers_icp.json": {"section": "4", "topics": ["buyers", "icp", "personas", "procurement"]},
-    "value_proposition.json": {"section": "5", "topics": ["value", "proposition", "differentiation"]},
-    "capabilities.json": {"section": "6", "topics": ["capabilities", "modules", "product"]},
-    "knowledge_architecture.json": {"section": "7", "topics": ["architecture", "governance", "knowledge"]},
+    "value_proposition.json": {"section": "8", "topics": ["value", "proposition", "differentiation"]},
+    "capabilities.json": {"section": "1", "topics": ["capabilities", "modules", "product"]},
+    "knowledge_architecture.json": {"section": "3", "topics": ["architecture", "governance", "knowledge"]},
     "competitors.json": {"section": "8", "topics": ["market", "competitive", "competitors"]},
-    "market_research.json": {"section": "8", "topics": ["market", "tam", "geography"]},
+    "market_research.json": {"section": "4", "topics": ["market", "tam", "geography"]},
     "gtm_sales.json": {"section": "9", "topics": ["gtm", "sales", "go-to-market"]},
-    "pricing_model.json": {"section": "10", "topics": ["pricing", "monetization", "business-model"]},
-    "financials.json": {"section": "11", "topics": ["financials", "revenue", "costs"]},
-    "validation_requirements.json": {"section": "12", "topics": ["validation", "evidence", "proof"]},
-    "compliance_risks.json": {"section": "13", "topics": ["compliance", "legal", "risk", "gdpr"]},
-    "assumptions_register.json": {"section": "15", "topics": ["assumptions", "hypotheses"]},
-    "decision_register.json": {"section": "16", "topics": ["decisions", "strategy"]},
-    "open_questions.json": {"section": "17", "topics": ["questions", "unknowns", "gaps"]},
-    "contradictions.json": {"section": "18", "topics": ["contradictions", "ambiguities"]},
-    "tasks_register.json": {"section": "19", "topics": ["tasks", "execution", "dependencies"]},
-    "constraints.json": {"section": "15", "topics": ["constraints", "compliance", "assumptions"]},
-    "team.json": {"section": "4", "topics": ["team", "organization"]},
+    "pricing_model.json": {"section": "9", "topics": ["pricing", "monetization", "business-model"]},
+    "financials.json": {"section": "9", "topics": ["financials", "revenue", "costs"]},
+    "validation_requirements.json": {"section": "10", "topics": ["validation", "evidence", "proof"]},
+    "compliance_risks.json": {"section": "7", "topics": ["compliance", "legal", "risk", "gdpr"]},
+    "assumptions_register.json": {"section": "10", "topics": ["assumptions", "hypotheses"]},
+    "decision_register.json": {"section": "11", "topics": ["decisions", "strategy"]},
+    "open_questions.json": {"section": "10", "topics": ["questions", "unknowns", "gaps"]},
+    "contradictions.json": {"section": "3", "topics": ["contradictions", "ambiguities"]},
+    "tasks_register.json": {"section": "11", "topics": ["tasks", "execution", "dependencies"]},
+    "constraints.json": {"section": "10", "topics": ["constraints", "compliance", "assumptions"]},
+    "team.json": {"section": "11", "topics": ["team", "organization"]},
     "bp_architecture.json": {"section": "governance", "topics": ["architecture", "governance", "bp-nodes"]},
     "prohibited_claims.json": {"section": "governance", "topics": ["constraints", "prohibited", "rules"]},
     "bp_dependencies.json": {"section": "governance", "topics": ["dependencies", "architecture"]},
@@ -113,7 +139,10 @@ def _chunk_product_definition(data: dict, section: str, topics: list[str]) -> li
 
 
 def _chunk_customers(data: dict, section: str, topics: list[str]) -> list[dict]:
-    """Chunk customers.json — facts list + interviews gap."""
+    """Chunk customers.json — facts list (BP.2, problem/JTBD) + interviews
+    gap (BP.6, Customer Discovery/Adoption — interview evidence is discovery
+    activity, not problem-definition content, and BP.6 otherwise has no
+    source file mapped to it at all)."""
     chunks = _chunk_facts(data, section, topics)
 
     interviews = data.get("interviews_conducted", {})
@@ -121,16 +150,19 @@ def _chunk_customers(data: dict, section: str, topics: list[str]) -> list[dict]:
         chunks.append({
             "content": f"EVIDENCE GAP: {interviews.get('gap_reason', 'No interview data')}",
             "source_type": "ceo_doc",
-            "section": section,
+            "section": "6",
             "epistemic_status": "MISSING",
-            "topic_tags": topics + ["evidence-gap"],
+            "topic_tags": topics + ["evidence-gap", "customer-discovery"],
         })
 
     return chunks
 
 
 def _chunk_buyers_icp(data: dict, section: str, topics: list[str]) -> list[dict]:
-    """Chunk buyers_icp.json — buyer personas + ICP + facts."""
+    """Chunk buyers_icp.json — buyer personas (BP.5, Users/Buyers/Procurement)
+    + ICP (BP.4, Market Boundaries/Segmentation/ICP) + facts (default to the
+    section passed in, BP.4). These two halves of the file belong to two
+    different real BP domains, so they can't share one section tag."""
     chunks = []
 
     for buyer in data.get("buyer_personas", []):
@@ -142,7 +174,7 @@ def _chunk_buyers_icp(data: dict, section: str, topics: list[str]) -> list[dict]
         chunks.append({
             "content": content,
             "source_type": "ceo_doc",
-            "section": section,
+            "section": "5",
             "epistemic_status": _normalize_status(buyer.get("status")),
             "topic_tags": topics + ["buyer-persona"],
         })
@@ -269,7 +301,10 @@ def _chunk_tasks_register(data: dict, section: str, topics: list[str]) -> list[d
 
 
 def _chunk_constraints(data: dict, section: str, topics: list[str]) -> list[dict]:
-    """Chunk constraints.json — strategic assumptions + compliance + uncertainty."""
+    """Chunk constraints.json — strategic assumptions + uncertainty (BP.10,
+    Validation/PMF Decision Logic — these are bets that need validating) +
+    compliance requirements (BP.7, Legal/Regulatory Governance — a distinct
+    real domain, not the same one as the rest of this file)."""
     chunks = []
 
     for item in data.get("strategic_assumptions", []):
@@ -287,7 +322,7 @@ def _chunk_constraints(data: dict, section: str, topics: list[str]) -> list[dict
         chunks.append({
             "content": content,
             "source_type": "ceo_doc",
-            "section": section,
+            "section": "7",
             "epistemic_status": _normalize_status(item.get("status")),
             "topic_tags": topics + ["compliance"],
         })

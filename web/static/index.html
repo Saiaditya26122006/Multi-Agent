@@ -26,6 +26,7 @@
             --border: #E2DDD6;
             --border-active: #1B4FD8;
             --accent: #1B4FD8;
+            --accent-rgb: 27, 79, 216;
             --accent-soft: rgba(27, 79, 216, 0.07);
             --accent-medium: rgba(27, 79, 216, 0.14);
             --text-primary: #1A1A1A;
@@ -57,6 +58,7 @@
             --border: #2C2F36;
             --border-active: #4E7BFF;
             --accent: #4E7BFF;
+            --accent-rgb: 78, 123, 255;
             --accent-soft: rgba(78, 123, 255, 0.12);
             --accent-medium: rgba(78, 123, 255, 0.24);
             --text-primary: #F0EFEA;
@@ -1451,8 +1453,12 @@
             line-height: 1.5;
         }
 
-        /* Live trace narration — newest step at the bottom, most recent
-           step highlighted like an active "thinking" cursor. */
+        /* Live trace narration — a connected timeline/pipeline rail running
+           down the left edge. Newest step at the bottom, pulsing and glowing
+           while it's the active one; once superseded it settles into a
+           solid, filled-in dot like a completed build step. New steps slide
+           and fade in as they arrive (see .process-step-new) instead of the
+           whole list flashing on every update. */
 
         .process-log {
             display: flex;
@@ -1460,29 +1466,79 @@
         }
 
         .process-step {
+            position: relative;
             display: flex;
             gap: 10px;
             padding: 9px 0;
             opacity: 0.55;
-            transition: opacity var(--transition-normal);
+            transition: opacity 0.4s ease;
         }
 
         .process-step-active {
             opacity: 1;
         }
 
+        .process-step-done {
+            opacity: 0.6;
+        }
+
+        @keyframes stepEnter {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .process-step-new {
+            animation: stepEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .process-step-rail {
+            position: relative;
+            width: 7px;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Connecting line down to the next step, so the log reads as one
+           continuous running pipeline rather than a loose bulleted list. */
+        .process-step-rail::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            bottom: -9px;
+            width: 1.5px;
+            background: var(--border);
+        }
+
+        .process-step:last-child .process-step-rail::before {
+            display: none;
+        }
+
         .process-step-dot {
+            position: relative;
+            z-index: 1;
             width: 7px;
             height: 7px;
             border-radius: 50%;
             background: var(--text-tertiary);
             margin-top: 6px;
             flex-shrink: 0;
+            transition: background 0.4s ease, box-shadow 0.4s ease, transform 0.3s ease;
+        }
+
+        .process-step-done .process-step-dot {
+            background: var(--accent);
+            box-shadow: none;
         }
 
         .process-step-active .process-step-dot {
             background: var(--accent);
-            animation: micPulse 1.2s infinite;
+            animation: dotGlow 1.6s ease-in-out infinite;
+        }
+
+        @keyframes dotGlow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.35); transform: scale(1); }
+            50% { box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.12); transform: scale(1.15); }
         }
 
         .process-step-body {
@@ -1503,6 +1559,18 @@
             color: var(--text-primary);
             line-height: 1.4;
             margin-top: 1px;
+        }
+
+        /* Subtle breathing effect on the detail text of whatever step is
+           actively running right now — reads as "still working on this",
+           distinct from the settled, fully-opaque text of finished steps. */
+        @keyframes textBreathe {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .process-step-active .process-step-detail {
+            animation: textBreathe 1.8s ease-in-out infinite;
         }
 
         /* Batch review — extracted facts from an uploaded document, checked
@@ -2494,29 +2562,81 @@
                 renderProcessLog();
             }
 
-            function renderProcessLog() {
-                if (!processLog.length) {
-                    processPanelBody.innerHTML = `<div class="process-empty">Nothing running right now. Trigger a pipeline run, or upload a file in Feed, to see it happen here, live.</div>`;
-                    return;
-                }
-                const html = processLog.map((entry, i) => {
-                    const isLatest = i === processLog.length - 1;
-                    return `
-                        <div class="process-step ${isLatest ? 'process-step-active' : 'process-step-done'}">
-                            <span class="process-step-dot"></span>
-                            <div class="process-step-body">
-                                <span class="process-step-agent mono">${escapeHtml(entry.agent || '?')}</span>
-                                <div class="process-step-detail">${escapeHtml(entry.detail || entry.step || '')}</div>
-                            </div>
+            // Renders processLog as a connected, animated timeline. Rebuilds
+            // the whole thing from scratch only when it has to (first paint,
+            // or returning from a different panel phase like batch review);
+            // otherwise it appends just the new steps and settles the
+            // previously-active dot into a "done" state, so existing rows
+            // don't re-flash their entrance animation on every trace event.
+            let processRenderedCount = 0;
+
+            function renderProcessStepHtml(entry, isActive, animateIn) {
+                const cls = isActive ? 'process-step-active' : 'process-step-done';
+                return `
+                    <div class="process-step ${cls}${animateIn ? ' process-step-new' : ''}">
+                        <div class="process-step-rail"><span class="process-step-dot"></span></div>
+                        <div class="process-step-body">
+                            <span class="process-step-agent mono">${escapeHtml(entry.agent || '?')}</span>
+                            <div class="process-step-detail">${escapeHtml(entry.detail || entry.step || '')}</div>
                         </div>
-                    `;
-                }).join('') + (pendingDownload ? `
-                    <a class="process-download-btn" href="/api/export/download/${encodeURIComponent(pendingDownload.filename)}?token=${token}" download>
+                    </div>
+                `;
+            }
+
+            function renderDownloadBtnHtml() {
+                if (!pendingDownload) return '';
+                return `
+                    <a class="process-download-btn process-step-new" href="/api/export/download/${encodeURIComponent(pendingDownload.filename)}?token=${token}" download>
                         <i data-lucide="download" style="width:14px;height:14px;"></i>
                         Download ${escapeHtml(pendingDownload.filename)}
                     </a>
-                ` : '');
-                processPanelBody.innerHTML = `<div class="process-log">${html}</div>`;
+                `;
+            }
+
+            function renderProcessLog() {
+                if (!processLog.length) {
+                    processPanelBody.innerHTML = `<div class="process-empty">Nothing running right now. Trigger a pipeline run, or upload a file in Feed, to see it happen here, live.</div>`;
+                    processRenderedCount = 0;
+                    return;
+                }
+
+                const existingLog = processPanelBody.querySelector('.process-log');
+                const canAppend = existingLog && processRenderedCount > 0 && processRenderedCount <= processLog.length;
+
+                if (!canAppend) {
+                    // Full rebuild — first render this session, or the panel
+                    // was showing something else (batch review / empty state)
+                    // last. No entrance animation here: these steps already
+                    // happened, we're just redisplaying the history.
+                    const html = processLog.map((entry, i) =>
+                        renderProcessStepHtml(entry, i === processLog.length - 1, false)
+                    ).join('');
+                    processPanelBody.innerHTML = `<div class="process-log">${html}</div>${renderDownloadBtnHtml()}`;
+                    processRenderedCount = processLog.length;
+                } else {
+                    // Incremental — settle the old active dot, slide the new
+                    // step(s) in underneath it.
+                    const prevActive = existingLog.querySelector('.process-step-active');
+                    if (prevActive) {
+                        prevActive.classList.remove('process-step-active');
+                        prevActive.classList.add('process-step-done');
+                    }
+
+                    const newEntries = processLog.slice(processRenderedCount);
+                    const newHtml = newEntries.map((entry, i) => {
+                        const isLast = (processRenderedCount + i) === processLog.length - 1;
+                        return renderProcessStepHtml(entry, isLast, true);
+                    }).join('');
+                    existingLog.insertAdjacentHTML('beforeend', newHtml);
+                    processRenderedCount = processLog.length;
+
+                    const oldBtn = processPanelBody.querySelector('.process-download-btn');
+                    if (oldBtn) oldBtn.remove();
+                    if (pendingDownload) {
+                        processPanelBody.insertAdjacentHTML('beforeend', renderDownloadBtnHtml());
+                    }
+                }
+
                 processPanelBody.scrollTop = processPanelBody.scrollHeight;
                 lucide.createIcons();
             }
