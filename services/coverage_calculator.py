@@ -119,8 +119,27 @@ def get_plan_coverage() -> dict:
                     query=node.get("node_title", node_id),
                     source_types=["ceo_doc", "conversation", "decision", "correction"],
                     section=section_id.replace("BP.", ""),
-                    top_k=1,
-                    threshold=0.5,
+                    # retrieve() fetches top_k * 3 raw candidates from the
+                    # vector search, THEN applies the section/source_type
+                    # filters in Python (rag_service.py's retrieve() —
+                    # section isn't pushed into the SQL RPC call). With
+                    # top_k=1 that's only 3 raw candidates per query, which
+                    # is nowhere near enough for a section-specific match to
+                    # survive the post-hoc filter out of ~1000 facts
+                    # spanning many sections — this alone was enough to
+                    # keep coverage at 0% regardless of the threshold value.
+                    # top_k=8 gives the section filter a real pool (24 raw
+                    # candidates) to search within; we still only care
+                    # whether ANY chunk survives (`if chunks:` below), not
+                    # how many.
+                    top_k=8,
+                    # 0.4 matches this project's documented embedding
+                    # calibration (see CLAUDE.md: all-MiniLM-L6-v2 gives
+                    # ~0.35-0.45 for related-but-differently-worded text).
+                    # This was 0.5 before, which is above that ceiling and
+                    # silently guaranteed near-zero matches regardless of
+                    # how much real data existed — coverage always read 0%.
+                    threshold=0.4,
                 )
                 if chunks:
                     filled_nodes.add(node_id)
@@ -202,21 +221,30 @@ def get_confidence_breakdown() -> dict:
 
 
 def get_contradiction_count() -> int:
-    """Return the number of unresolved contradictions."""
-    try:
-        from services.rag_service import retrieve
+    """Return the number of unresolved contradictions.
 
-        chunks = retrieve(
-            query="contradiction conflict inconsistency",
-            source_types=["contradiction_resolution"],
-            top_k=50,
-            threshold=0.3,
+    NOTE: this only counts rows explicitly tagged epistemic_status=
+    "CONTRADICTION" with no superseded_by set. It deliberately does NOT
+    look at "contradiction_resolution" chunks — those are written by
+    services.rag_hooks.store_contradiction_resolution() only AFTER a
+    contradiction has been resolved, so every such record already
+    represents a closed issue. There is no "resolved" metadata flag on
+    them (nothing ever sets one), so treating their absence-of-flag as
+    "still open" — which a previous version of this function did —
+    silently counted every past resolution as a brand-new open issue.
+    """
+    try:
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        supabase = _get_supabase()
+        result = (
+            supabase.table(TABLE_NAME)
+            .select("id")
+            .eq("epistemic_status", "CONTRADICTION")
+            .is_("superseded_by", "null")
+            .execute()
         )
-        unresolved = [
-            c for c in chunks
-            if c.metadata.get("resolved") is not True
-        ]
-        return len(unresolved)
+        return len(result.data) if result.data else 0
     except Exception as e:
         logger.error("[CoverageCalc] Error counting contradictions: %s", e)
         return 0
@@ -432,8 +460,14 @@ def get_section_detail(section_id: str) -> dict:
                     "ceo_doc", "conversation", "decision", "correction"
                 ],
                 section=section_id.replace("BP.", ""),
-                top_k=1,
-                threshold=0.5,
+                # See matching comment in get_plan_coverage() — top_k=1 only
+                # pulls 3 raw candidates before the section filter runs,
+                # which starved section-specific matches out of a ~1000-fact
+                # knowledge base. top_k=8 gives it a real pool to search.
+                top_k=8,
+                # 0.4 is this project's documented embedding calibration
+                # ceiling (see matching comment in get_plan_coverage()).
+                threshold=0.4,
             )
 
             has_data = bool(chunks)
@@ -523,9 +557,19 @@ def get_dashboard_stats() -> dict:
         arch = _load_bp_architecture()
         total_nodes = len(arch.get("nodes", []))
 
+        # get_plan_coverage() does one RAG retrieve per node (746 nodes
+        # today, ~15-20s cold). That cost is why this whole function is
+        # wrapped in a 60s cache below — real coverage is computed at most
+        # once a minute, not on every dashboard/badge fetch. Previously
+        # this was hardcoded to 0.0 ("expensive; use cached value") but no
+        # code path ever actually populated a real cached value, so every
+        # consumer of coverage_pct (menu badges, topbar, health ring) has
+        # been silently reading 0% regardless of real plan content.
+        plan_coverage = get_plan_coverage()
+
         result = {
             "total_nodes": total_nodes,
-            "coverage_pct": 0.0,  # Full coverage calc is expensive; use cached value
+            "coverage_pct": plan_coverage.get("coverage_pct", 0.0),
             "confidence_pct": confidence.get("confidence_pct", 0.0),
             "confirmed_count": confidence.get("confirmed_count", 0),
             "total_tagged": confidence.get("total_tagged", 0),

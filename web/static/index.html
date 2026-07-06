@@ -13,48 +13,80 @@
         /* ============================================================
            EpistemicOS — Premium Chat Interface
            Font: Inter (body) + JetBrains Mono (stats/IDs)
-           Palette: Paper-white + Sky Blue accent
-           Layout: 56px collapsed sidebar + conversational chat
+           Palette: Warm paper-white + deep blue accent
+           Layout: full-width conversational chat, no sidebar —
+           workspace switching lives in the topbar + command palette
            ============================================================ */
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg-main: #FAFBFD;
+            --bg-main: #F8F6F1;
             --bg-surface: #FFFFFF;
-            --bg-sidebar: #FFFFFF;
-            --border: #E8ECF0;
-            --border-active: #0EA5E9;
-            --accent: #0EA5E9;
-            --accent-soft: rgba(14, 165, 233, 0.08);
-            --accent-medium: rgba(14, 165, 233, 0.15);
-            --text-primary: #0F172A;
-            --text-secondary: #475569;
-            --text-tertiary: #94A3B8;
-            --success: #22C55E;
-            --warning: #F59E0B;
-            --danger: #EF4444;
-            --info: #0EA5E9;
-            --sidebar-width-collapsed: 56px;
-            --sidebar-width-expanded: 240px;
-            --topbar-height: 48px;
+            --border: #E2DDD6;
+            --border-active: #1B4FD8;
+            --accent: #1B4FD8;
+            --accent-soft: rgba(27, 79, 216, 0.07);
+            --accent-medium: rgba(27, 79, 216, 0.14);
+            --text-primary: #1A1A1A;
+            --text-secondary: #6B6B6B;
+            --text-tertiary: #9A9388;
+            --success: #1A7A4A;
+            --success-soft: rgba(26, 122, 74, 0.09);
+            --warning: #9A6B00;
+            --warning-soft: rgba(154, 107, 0, 0.09);
+            --danger: #C0392B;
+            --danger-soft: rgba(192, 57, 43, 0.09);
+            --info: #1B4FD8;
+            --topbar-height: 56px;
             --input-height: 64px;
             --chat-max-width: 720px;
             --radius-sm: 6px;
             --radius-md: 12px;
             --radius-lg: 16px;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
-            --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
+            --shadow-sm: 0 1px 2px rgba(26,26,26,0.05);
+            --shadow-md: 0 4px 16px rgba(26,26,26,0.07);
+            --shadow-lg: 0 12px 32px rgba(26,26,26,0.10);
             --transition-fast: 150ms ease;
             --transition-normal: 200ms ease;
+        }
+
+        [data-theme="dark"] {
+            --bg-main: #14161A;
+            --bg-surface: #1B1E23;
+            --border: #2C2F36;
+            --border-active: #4E7BFF;
+            --accent: #4E7BFF;
+            --accent-soft: rgba(78, 123, 255, 0.12);
+            --accent-medium: rgba(78, 123, 255, 0.24);
+            --text-primary: #F0EFEA;
+            --text-secondary: #A8ACB4;
+            --text-tertiary: #6E7280;
+            --success: #3FBE79;
+            --success-soft: rgba(63, 190, 121, 0.13);
+            --warning: #E0A93B;
+            --warning-soft: rgba(224, 169, 59, 0.13);
+            --danger: #E0605A;
+            --danger-soft: rgba(224, 96, 90, 0.13);
+            --info: #4E7BFF;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.24);
+            --shadow-md: 0 4px 16px rgba(0,0,0,0.32);
+            --shadow-lg: 0 12px 32px rgba(0,0,0,0.4);
+        }
+
+        html {
+            transition: background-color var(--transition-normal);
+        }
+
+        body, .topbar, .process-panel, .plus-tray, .activity-drawer, .epistemic-drawer {
+            transition: background-color var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
         }
 
         html, body {
             height: 100%;
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             font-size: 15px;
-            line-height: 1.6;
+            line-height: 1.65;
             color: var(--text-primary);
             background: var(--bg-main);
             -webkit-font-smoothing: antialiased;
@@ -71,140 +103,34 @@
 
         .app-layout {
             display: flex;
+            flex-direction: column;
             height: 100vh;
             overflow: hidden;
         }
 
         /* ============================================================
-           SIDEBAR
+           BRAND STRIP — thin signature accent line, replaces the sidebar
+           as the app's identity mark
            ============================================================ */
 
-        .sidebar {
-            width: var(--sidebar-width-collapsed);
-            min-width: var(--sidebar-width-collapsed);
-            height: 100vh;
-            background: var(--bg-sidebar);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 16px 0;
-            transition: width var(--transition-normal), min-width var(--transition-normal);
-            overflow: hidden;
-            position: relative;
-            z-index: 100;
-        }
-
-        .sidebar:hover {
-            width: var(--sidebar-width-expanded);
-            min-width: var(--sidebar-width-expanded);
-        }
-
-        .sidebar-logo {
-            width: 36px;
-            height: 36px;
-            background: var(--accent);
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 14px;
-            letter-spacing: -0.5px;
-            margin-bottom: 24px;
-            flex-shrink: 0;
-        }
-
-        .sidebar-nav {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+        .brand-strip {
+            height: 3px;
             width: 100%;
-            padding: 0 8px;
-        }
-
-        .sidebar-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 12px;
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            position: relative;
-            white-space: nowrap;
-            transition: background var(--transition-fast);
-            border-left: 3px solid transparent;
-            margin-left: -3px;
-        }
-
-        .sidebar-item:hover {
-            background: var(--accent-soft);
-        }
-
-        .sidebar-item.active {
-            border-left-color: var(--accent);
-            background: var(--accent-soft);
-        }
-
-        .sidebar-item.active .sidebar-icon {
-            color: var(--accent);
-        }
-
-        .sidebar-icon {
-            width: 20px;
-            height: 20px;
+            background: var(--accent);
             flex-shrink: 0;
-            color: var(--text-secondary);
         }
 
-        .sidebar-label {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-secondary);
-            opacity: 0;
-            transition: opacity var(--transition-normal);
-        }
-
-        .sidebar:hover .sidebar-label {
-            opacity: 1;
-        }
-
-        .sidebar-badge {
-            margin-left: auto;
-            background: var(--accent-medium);
-            color: var(--accent);
-            font-size: 11px;
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 10px;
-            opacity: 0;
-            transition: opacity var(--transition-normal);
-        }
-
-        .sidebar:hover .sidebar-badge {
-            opacity: 1;
-        }
-
-        .sidebar-health {
-            margin-top: auto;
-            padding-top: 16px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-        }
-
+        /* Mini coverage ring, now lives in the topbar instead of a sidebar */
         .health-ring {
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
             position: relative;
+            flex-shrink: 0;
         }
 
         .health-ring svg {
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
             transform: rotate(-90deg);
         }
 
@@ -222,19 +148,6 @@
             stroke-dasharray: 82;
             stroke-dashoffset: 43;
             transition: stroke-dashoffset 0.5s ease;
-        }
-
-        .health-label {
-            font-size: 10px;
-            font-weight: 600;
-            color: var(--text-tertiary);
-            opacity: 0;
-            transition: opacity var(--transition-normal);
-            white-space: nowrap;
-        }
-
-        .sidebar:hover .health-label {
-            opacity: 1;
         }
 
         /* ============================================================
@@ -256,28 +169,84 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 24px;
+            padding: 0 36px;
             border-bottom: 1px solid var(--border);
             background: var(--bg-surface);
             flex-shrink: 0;
+            gap: 16px;
         }
 
         .topbar-left {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .brand-mark {
+            width: 30px;
+            height: 30px;
+            border-radius: 9px;
+            background: var(--accent);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: -0.5px;
+            flex-shrink: 0;
+        }
+
+        .topbar-divider {
+            width: 1px;
+            height: 22px;
+            background: var(--border);
+            flex-shrink: 0;
+        }
+
+        .workspace-trigger {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            padding: 6px 10px 6px 8px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .workspace-trigger:hover {
+            background: var(--accent-soft);
+            border-color: var(--accent-medium);
         }
 
         .topbar-icon {
-            width: 18px;
-            height: 18px;
+            width: 17px;
+            height: 17px;
             color: var(--accent);
+            flex-shrink: 0;
         }
 
         .topbar-title {
             font-size: 14px;
             font-weight: 600;
             color: var(--text-primary);
+        }
+
+        .workspace-trigger-chevron {
+            width: 14px;
+            height: 14px;
+            color: var(--text-tertiary);
+            flex-shrink: 0;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
         }
 
         .topbar-pill {
@@ -297,13 +266,230 @@
             font-size: 11px;
         }
 
-        .hamburger-btn {
-            display: none;
-            background: none;
-            border: none;
-            cursor: pointer;
+        /* LIVE ACTIVITY — pipeline trace indicator + slide-over drawer */
+
+        .activity-trigger {
+            position: relative;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
             color: var(--text-secondary);
-            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            flex-shrink: 0;
+        }
+
+        .activity-trigger:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .activity-trigger-dot {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--success);
+            border: 2px solid var(--bg-surface);
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+        }
+
+        .activity-trigger.live .activity-trigger-dot {
+            opacity: 1;
+            animation: micPulse 1.2s infinite;
+        }
+
+        .activity-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.15);
+            z-index: 210;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition-normal);
+        }
+
+        .activity-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .activity-drawer {
+            position: fixed;
+            top: 3px;
+            right: 0;
+            bottom: 0;
+            width: min(380px, 88vw);
+            background: var(--bg-surface);
+            border-left: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            z-index: 211;
+            transform: translateX(100%);
+            transition: transform var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .activity-drawer.active {
+            transform: translateX(0);
+        }
+
+        .activity-drawer-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .activity-drawer-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .activity-drawer-sub {
+            font-size: 11.5px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+        }
+
+        .activity-drawer-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 16px 20px;
+        }
+
+        .activity-drawer-empty {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 13px;
+        }
+
+        .trace-entry {
+            display: flex;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .trace-entry:last-child {
+            border-bottom: none;
+        }
+
+        .trace-agent-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 600;
+            color: var(--accent);
+            background: var(--accent-soft);
+            border: 1px solid var(--accent-medium);
+            border-radius: 4px;
+            padding: 2px 6px;
+            height: fit-content;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .trace-entry-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .trace-entry-detail {
+            font-size: 13px;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        .trace-entry-time {
+            font-size: 10.5px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* EPISTEMIC LOG SECTIONS */
+
+        .epistemic-section {
+            margin-bottom: 22px;
+        }
+
+        .epistemic-section-title {
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-tertiary);
+            margin-bottom: 10px;
+        }
+
+        .epistemic-item {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .epistemic-item:last-child {
+            border-bottom: none;
+        }
+
+        .epistemic-item-text {
+            font-size: 13px;
+            color: var(--text-primary);
+            line-height: 1.45;
+        }
+
+        .epistemic-item-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+            font-size: 11px;
+            color: var(--text-tertiary);
+        }
+
+        .council-score {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+
+        .council-score.decision-pass { color: var(--success); background: var(--success-soft); }
+        .council-score.decision-revise { color: var(--warning); background: var(--warning-soft); }
+        .council-score.decision-escalate { color: var(--danger); background: var(--danger-soft); }
+
+        .confirm-chunk-btn {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            background: var(--accent-soft);
+            border: 1px solid var(--accent-medium);
+            border-radius: 12px;
+            padding: 3px 10px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .confirm-chunk-btn:hover {
+            background: var(--accent-medium);
+        }
+
+        .confirm-chunk-btn:disabled {
+            opacity: 0.5;
+            cursor: default;
         }
 
         /* MESSAGES AREA */
@@ -311,7 +497,7 @@
         .messages-area {
             flex: 1;
             overflow-y: auto;
-            padding: 24px;
+            padding: 36px;
             scroll-behavior: smooth;
         }
 
@@ -320,7 +506,7 @@
             margin: 0 auto;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 24px;
         }
 
         /* MESSAGE STYLES */
@@ -358,7 +544,7 @@
         }
 
         .message-user .message-avatar {
-            background: #E2E8F0;
+            background: #EDE7DC;
             color: var(--text-secondary);
         }
 
@@ -370,25 +556,34 @@
             text-align: right;
         }
 
+        .message-system .message-body {
+            width: 100%;
+        }
+
         .message-bubble {
             display: inline-block;
-            padding: 10px 16px;
+            padding: 12px 18px;
             border-radius: var(--radius-md);
             font-size: 15px;
-            line-height: 1.6;
+            line-height: 1.65;
             text-align: left;
         }
 
         .message-user .message-bubble {
-            background: #F1F5F9;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
             color: var(--text-primary);
             border-bottom-right-radius: 4px;
+            box-shadow: var(--shadow-sm);
         }
 
         .message-system .message-bubble {
-            background: transparent;
-            padding: 0;
+            background: var(--bg-surface);
+            border-left: 3px solid var(--accent);
+            padding: 14px 20px;
+            border-radius: 4px var(--radius-md) var(--radius-md) 4px;
             color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
         }
 
         .message-bubble p {
@@ -458,12 +653,14 @@
             background: var(--bg-surface);
             box-shadow: var(--shadow-sm);
             margin-top: 8px;
+            min-width: min(420px, 100%);
         }
 
         .rich-card-header {
-            padding: 14px 18px;
-            font-size: 14px;
+            padding: 16px 20px;
+            font-size: 13px;
             font-weight: 600;
+            letter-spacing: 0.2px;
             color: white;
             display: flex;
             align-items: center;
@@ -471,11 +668,11 @@
         }
 
         .rich-card-body {
-            padding: 16px 18px;
+            padding: 20px;
         }
 
         .rich-card-footer {
-            padding: 12px 18px;
+            padding: 14px 20px;
             border-top: 1px solid var(--border);
             display: flex;
             flex-wrap: wrap;
@@ -516,7 +713,7 @@
         }
 
         .pill-btn-primary:hover {
-            background: #0284C7;
+            background: #163DA6;
             color: white;
         }
 
@@ -529,11 +726,12 @@
         }
 
         .decision-btn {
-            padding: 8px 20px;
+            padding: 8px 22px;
             border-radius: var(--radius-sm);
             font-size: 13px;
             font-weight: 600;
-            border: none;
+            background: var(--bg-surface);
+            border: 1.5px solid var(--border);
             cursor: pointer;
             transition: all var(--transition-fast);
         }
@@ -543,45 +741,69 @@
         }
 
         .decision-btn-yes {
-            background: var(--success);
-            color: white;
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .decision-btn-yes:hover {
+            background: var(--success-soft);
         }
 
         .decision-btn-adjust {
-            background: var(--warning);
-            color: white;
+            border-color: var(--warning);
+            color: var(--warning);
+        }
+
+        .decision-btn-adjust:hover {
+            background: var(--warning-soft);
         }
 
         .decision-btn-kill {
-            background: var(--danger);
-            color: white;
+            border-color: var(--danger);
+            color: var(--danger);
         }
 
-        /* EPISTEMIC BADGES */
+        .decision-btn-kill:hover {
+            background: var(--danger-soft);
+        }
+
+        /* EPISTEMIC BADGES — small dot + label, not solid pills */
 
         .badge {
             display: inline-flex;
             align-items: center;
-            padding: 2px 8px;
+            gap: 6px;
+            padding: 2px 4px;
             border-radius: 4px;
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 600;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.4px;
+            background: transparent;
         }
 
-        .badge-confirmed { background: rgba(34,197,94,0.1); color: var(--success); }
-        .badge-assumption { background: rgba(245,158,11,0.1); color: var(--warning); }
-        .badge-contradiction { background: rgba(239,68,68,0.1); color: var(--danger); }
-        .badge-inferred { background: rgba(148,163,184,0.1); color: var(--text-tertiary); }
+        .badge::before {
+            content: '';
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            flex-shrink: 0;
+        }
+
+        .badge-confirmed { color: var(--success); }
+        .badge-assumption { color: var(--warning); }
+        .badge-contradiction { color: var(--danger); }
+        .badge-inferred { color: var(--text-tertiary); }
 
         /* HEATMAP */
 
         .heatmap-row {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 10px;
+            gap: 14px;
+            margin-bottom: 12px;
         }
 
         .heatmap-label {
@@ -596,8 +818,10 @@
 
         .heatmap-bar-container {
             flex: 1;
+            min-width: 0;
             height: 8px;
-            background: #F1F5F9;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
             border-radius: 4px;
             overflow: hidden;
         }
@@ -640,25 +864,30 @@
         /* TYPING INDICATOR */
 
         .typing-indicator {
-            display: flex;
-            gap: 4px;
+            display: inline-flex;
+            gap: 6px;
             align-items: center;
-            padding: 8px 0;
+            background: var(--bg-surface);
+            border-left: 3px solid var(--accent);
+            border-radius: 4px var(--radius-md) var(--radius-md) 4px;
+            box-shadow: var(--shadow-sm);
+            padding: 14px 20px;
         }
 
         .typing-dot {
-            width: 6px;
-            height: 6px;
-            background: var(--text-tertiary);
+            width: 7px;
+            height: 7px;
+            background: var(--accent);
             border-radius: 50%;
-            animation: typingBounce 1.4s infinite both;
+            opacity: 0.55;
+            animation: typingBounce 1.3s infinite both;
         }
 
-        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.3s; }
 
         @keyframes typingBounce {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
             30% { transform: translateY(-4px); opacity: 1; }
         }
 
@@ -669,7 +898,7 @@
         .input-area {
             border-top: 1px solid var(--border);
             background: var(--bg-surface);
-            padding: 12px 24px;
+            padding: 16px 36px;
             flex-shrink: 0;
         }
 
@@ -691,6 +920,85 @@
             background: var(--accent-soft);
             color: var(--accent);
             border: 1px solid var(--accent-medium);
+        }
+
+        /* QUICK-PROMPT SUGGESTION CHIPS */
+
+        .suggestion-chips {
+            max-width: var(--chat-max-width);
+            margin: 0 auto 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .suggestion-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 14px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all var(--transition-fast);
+        }
+
+        .suggestion-chip:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .suggestion-chip svg, .suggestion-chip i {
+            width: 13px;
+            height: 13px;
+            flex-shrink: 0;
+        }
+
+        /* ATTACHMENT PREVIEW */
+
+        .attachment-preview {
+            max-width: var(--chat-max-width);
+            margin: 0 auto 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .attachment-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px 5px 12px;
+            border-radius: 14px;
+            font-size: 12px;
+            font-weight: 500;
+            background: var(--accent-soft);
+            color: var(--accent);
+            border: 1px solid var(--accent-medium);
+        }
+
+        .attachment-chip-remove {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--accent);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .attachment-chip-remove:hover {
+            background: var(--accent-medium);
         }
 
         .input-bar {
@@ -736,6 +1044,43 @@
             transform: scale(0.97);
         }
 
+        .input-attach-btn, .input-mic-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            transition: all var(--transition-fast);
+            flex-shrink: 0;
+        }
+
+        .input-attach-btn:hover, .input-mic-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .input-attach-btn:active, .input-mic-btn:active {
+            transform: scale(0.97);
+        }
+
+        .input-mic-btn.listening {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: var(--danger-soft);
+            animation: micPulse 1.4s infinite;
+        }
+
+        @keyframes micPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(192,57,43,0.25); }
+            50% { box-shadow: 0 0 0 6px rgba(192,57,43,0.05); }
+        }
+
         .input-field {
             flex: 1;
             border: none;
@@ -770,7 +1115,7 @@
         }
 
         .input-send-btn:hover {
-            background: #0284C7;
+            background: #163DA6;
         }
 
         .input-send-btn:active {
@@ -803,31 +1148,72 @@
 
         .plus-tray {
             position: fixed;
-            bottom: 0;
-            left: var(--sidebar-width-collapsed);
-            right: 0;
+            top: 50%;
+            left: 50%;
+            width: min(560px, 92vw);
             background: var(--bg-surface);
-            border-top: 1px solid var(--border);
-            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            border: 1px solid var(--border);
+            border-radius: 20px;
             box-shadow: var(--shadow-lg);
             z-index: 201;
-            transform: translateY(100%);
-            transition: transform var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
-            padding: 24px;
-            max-height: 60vh;
+            transform: translate(-50%, -46%) scale(0.98);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1), opacity var(--transition-normal);
+            padding: 20px;
+            max-height: 72vh;
             overflow-y: auto;
         }
 
         .plus-tray.active {
-            transform: translateY(0);
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .tray-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 4px 16px;
+        }
+
+        .tray-header-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .tray-header-sub {
+            font-size: 12px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+        }
+
+        .tray-close-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .tray-close-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
         }
 
         .tray-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            max-width: 600px;
-            margin: 0 auto;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
         }
 
         .tray-tile {
@@ -850,6 +1236,10 @@
 
         .tray-tile:active {
             transform: scale(0.97);
+        }
+
+        .tray-tile[data-action] {
+            grid-column: 1 / -1;
         }
 
         .tray-tile-icon {
@@ -935,45 +1325,617 @@
         }
 
         /* ============================================================
-           RESPONSIVE
+           PROCESS PANEL — docked right-side panel (Claude-artifact-style)
+           showing whatever the backend is actually doing, live. Same panel
+           for every workspace: narrates trace events as they arrive, and
+           for Feed document uploads it flips into a batch review checklist
+           before anything is stored.
            ============================================================ */
 
-        @media (max-width: 1024px) {
-            .sidebar {
-                display: none;
-            }
-
-            .sidebar.mobile-open {
-                display: flex;
-                position: fixed;
-                z-index: 300;
-                width: var(--sidebar-width-expanded);
-                min-width: var(--sidebar-width-expanded);
-                box-shadow: var(--shadow-lg);
-            }
-
-            .sidebar.mobile-open .sidebar-label,
-            .sidebar.mobile-open .sidebar-badge,
-            .sidebar.mobile-open .health-label {
-                opacity: 1;
-            }
-
-            .hamburger-btn {
-                display: flex;
-            }
-
-            .plus-tray {
-                left: 0;
-            }
+        .content-row {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            min-height: 0;
         }
+
+        .process-trigger {
+            position: relative;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            flex-shrink: 0;
+        }
+
+        .process-trigger:hover,
+        .process-trigger.open {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .process-trigger-dot {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--accent);
+            border: 2px solid var(--bg-surface);
+            opacity: 0;
+            transition: opacity var(--transition-fast);
+        }
+
+        .process-trigger.live .process-trigger-dot {
+            opacity: 1;
+            animation: micPulse 1.2s infinite;
+        }
+
+        .process-panel {
+            width: 0;
+            flex-shrink: 0;
+            overflow: hidden;
+            border-left: 1px solid var(--border);
+            background: var(--bg-surface);
+            display: flex;
+            flex-direction: column;
+            transition: width var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .process-panel.open {
+            width: min(420px, 40vw);
+        }
+
+        .process-panel-header {
+            padding: 18px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            flex-shrink: 0;
+            gap: 10px;
+        }
+
+        .process-panel-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+        }
+
+        .process-panel-sub {
+            font-size: 11.5px;
+            color: var(--text-tertiary);
+            margin-top: 3px;
+            overflow-wrap: anywhere;
+        }
+
+        .process-panel-close {
+            background: transparent;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: var(--radius-sm);
+            flex-shrink: 0;
+        }
+
+        .process-panel-close:hover {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+        .process-panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 14px 18px 20px;
+        }
+
+        .process-empty {
+            padding: 40px 16px;
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* Live trace narration — newest step at the bottom, most recent
+           step highlighted like an active "thinking" cursor. */
+
+        .process-log {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .process-step {
+            display: flex;
+            gap: 10px;
+            padding: 9px 0;
+            opacity: 0.55;
+            transition: opacity var(--transition-normal);
+        }
+
+        .process-step-active {
+            opacity: 1;
+        }
+
+        .process-step-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-tertiary);
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+
+        .process-step-active .process-step-dot {
+            background: var(--accent);
+            animation: micPulse 1.2s infinite;
+        }
+
+        .process-step-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .process-step-agent {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .process-step-detail {
+            font-size: 13px;
+            color: var(--text-primary);
+            line-height: 1.4;
+            margin-top: 1px;
+        }
+
+        /* Batch review — extracted facts from an uploaded document, checked
+           off in bulk before anything is written to the knowledge base. */
+
+        .batch-truncated-note {
+            font-size: 11.5px;
+            color: var(--warning);
+            background: var(--warning-soft);
+            border: 1px solid var(--warning);
+            border-radius: var(--radius-sm);
+            padding: 8px 10px;
+            margin-bottom: 12px;
+        }
+
+        .batch-toolbar {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 10px;
+        }
+
+        .batch-toolbar-btn {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .batch-toolbar-btn:hover {
+            text-decoration: underline;
+        }
+
+        .batch-fact-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .batch-fact-row {
+            display: flex;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .batch-fact-row:last-child {
+            border-bottom: none;
+        }
+
+        .batch-fact-checkbox {
+            margin-top: 4px;
+            flex-shrink: 0;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .batch-fact-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .batch-fact-text {
+            font-size: 13px;
+            color: var(--text-primary);
+            line-height: 1.4;
+            outline: none;
+            border-radius: 4px;
+            padding: 2px 4px;
+            margin: -2px -4px;
+        }
+
+        .batch-fact-text:focus {
+            background: var(--accent-soft);
+        }
+
+        .batch-fact-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .batch-fact-tag {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: var(--border);
+            color: var(--text-secondary);
+        }
+
+        .batch-fact-tag-confirmed {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+
+        .batch-fact-tag-assumption {
+            background: var(--warning-soft);
+            color: var(--warning);
+        }
+
+        .batch-fact-tag-contradiction {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
+        .batch-fact-node {
+            font-size: 10.5px;
+            color: var(--text-tertiary);
+            padding: 2px 2px;
+        }
+
+        .batch-fact-node-matched {
+            color: var(--accent);
+        }
+
+        .batch-fact-node-unmatched {
+            color: var(--danger);
+        }
+
+        .batch-review-footer {
+            position: sticky;
+            bottom: 0;
+            background: var(--bg-surface);
+            padding-top: 14px;
+            margin-top: 4px;
+        }
+
+        .batch-approve-btn {
+            width: 100%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 11px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity var(--transition-fast);
+        }
+
+        .batch-approve-btn:hover {
+            opacity: 0.9;
+        }
+
+        .batch-approve-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .process-download-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            margin-top: 14px;
+            transition: opacity var(--transition-fast);
+        }
+
+        .process-download-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* ============================================================
+           THEME + COMMAND TRIGGERS
+           ============================================================ */
+
+        .command-trigger {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 10px 6px 12px;
+            color: var(--text-tertiary);
+            font-size: 12.5px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            margin-left: 6px;
+        }
+
+        .command-trigger:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .command-trigger-kbd {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            background: var(--border);
+            color: var(--text-secondary);
+            border-radius: 4px;
+            padding: 1px 5px;
+        }
+
+        .theme-trigger {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            flex-shrink: 0;
+        }
+
+        .theme-trigger:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        /* ============================================================
+           COMMAND PALETTE
+           ============================================================ */
+
+        .command-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.25);
+            z-index: 300;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition-normal);
+        }
+
+        .command-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .command-palette {
+            position: fixed;
+            top: 14vh;
+            left: 50%;
+            width: min(560px, 92vw);
+            max-height: 65vh;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            z-index: 301;
+            transform: translate(-50%, -8px) scale(0.98);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1), opacity var(--transition-normal);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .command-palette.active {
+            transform: translate(-50%, 0) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .command-input-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .command-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            color: var(--text-primary);
+        }
+
+        .command-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .command-esc-hint {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--text-tertiary);
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            flex-shrink: 0;
+        }
+
+        .command-results {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .command-section-label {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-tertiary);
+            padding: 10px 10px 6px;
+        }
+
+        .command-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+
+        .command-item:hover, .command-item.selected {
+            background: var(--accent-soft);
+        }
+
+        .command-item-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .command-item-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .command-item-title {
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .command-item-sub {
+            font-size: 11.5px;
+            color: var(--text-tertiary);
+            margin-top: 1px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .command-item-tag {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            flex-shrink: 0;
+        }
+
+        .command-empty {
+            padding: 30px 16px;
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: 13px;
+        }
+
+        /* ============================================================
+           RESPONSIVE
+           ============================================================ */
 
         @media (max-width: 768px) {
             .topbar-pill {
                 display: none;
             }
 
+            .command-trigger span:not(.command-trigger-kbd) {
+                display: none;
+            }
+
+            .command-trigger-kbd {
+                display: none;
+            }
+
+            /* Below this width, docking the process panel would crush the
+               chat to nothing — overlay it instead, same as the drawers. */
+            .process-panel {
+                position: fixed;
+                top: 3px;
+                right: 0;
+                bottom: 0;
+                width: min(340px, 88vw) !important;
+                transform: translateX(100%);
+                box-shadow: var(--shadow-lg);
+                z-index: 211;
+                transition: transform var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .process-panel.open {
+                transform: translateX(0);
+            }
+
+            .topbar {
+                padding: 0 16px;
+            }
+
             .tray-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: 1fr;
             }
 
             .messages-area {
@@ -987,77 +1949,60 @@
             .heatmap-label {
                 width: 100px;
             }
+
+            .suggestion-chips {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+            }
         }
     </style>
 </head>
 <body>
     <div class="app-layout">
-        <!-- SIDEBAR -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-logo">EO</div>
-            <nav class="sidebar-nav">
-                <div class="sidebar-item" data-workspace="0">
-                    <i data-lucide="zap" class="sidebar-icon"></i>
-                    <span class="sidebar-label">Auto</span>
-                    <span class="sidebar-badge">Live</span>
-                </div>
-                <div class="sidebar-item active" data-workspace="1">
-                    <i data-lucide="rss" class="sidebar-icon"></i>
-                    <span class="sidebar-label">Feed</span>
-                    <span class="sidebar-badge">3</span>
-                </div>
-                <div class="sidebar-item" data-workspace="2">
-                    <i data-lucide="hammer" class="sidebar-icon"></i>
-                    <span class="sidebar-label">Build</span>
-                    <span class="sidebar-badge">5</span>
-                </div>
-                <div class="sidebar-item" data-workspace="3">
-                    <i data-lucide="search" class="sidebar-icon"></i>
-                    <span class="sidebar-label">Inspect</span>
-                    <span class="sidebar-badge">9</span>
-                </div>
-                <div class="sidebar-item" data-workspace="4">
-                    <i data-lucide="shield" class="sidebar-icon"></i>
-                    <span class="sidebar-label">Challenge</span>
-                    <span class="sidebar-badge">2</span>
-                </div>
-                <div class="sidebar-item" data-workspace="5">
-                    <i data-lucide="check-circle" class="sidebar-icon"></i>
-                    <span class="sidebar-label">Validate</span>
-                    <span class="sidebar-badge">--</span>
-                </div>
-                <div class="sidebar-item" data-workspace="6">
-                    <i data-lucide="download" class="sidebar-icon"></i>
-                    <span class="sidebar-label">Export</span>
-                    <span class="sidebar-badge">--</span>
-                </div>
-            </nav>
-            <div class="sidebar-health">
-                <div class="health-ring">
-                    <svg viewBox="0 0 32 32">
-                        <circle class="health-ring-bg" cx="16" cy="16" r="13"></circle>
-                        <circle class="health-ring-fill" cx="16" cy="16" r="13"></circle>
-                    </svg>
-                </div>
-                <span class="health-label mono">47% coverage</span>
-            </div>
-        </aside>
+        <div class="brand-strip"></div>
 
-        <!-- MAIN CONTENT -->
+        <!-- MAIN CONTENT + PROCESS PANEL -->
+        <div class="content-row">
         <main class="main-content">
             <!-- TOP BAR -->
             <header class="topbar">
                 <div class="topbar-left">
-                    <button class="hamburger-btn" id="hamburgerBtn">
-                        <i data-lucide="menu" style="width:20px;height:20px;"></i>
+                    <div class="brand-mark">EO</div>
+                    <div class="topbar-divider"></div>
+                    <button class="workspace-trigger" id="workspaceTrigger" title="Switch workspace">
+                        <i data-lucide="rss" class="topbar-icon" id="topbarIcon"></i>
+                        <span class="topbar-title" id="topbarTitle">Feed</span>
+                        <i data-lucide="chevron-down" class="workspace-trigger-chevron"></i>
                     </button>
-                    <i data-lucide="rss" class="topbar-icon" id="topbarIcon"></i>
-                    <span class="topbar-title" id="topbarTitle">Feed</span>
+                    <button class="command-trigger" id="commandTrigger" title="Search &amp; commands">
+                        <i data-lucide="search" style="width:13px;height:13px;"></i>
+                        <span>Search</span>
+                        <span class="command-trigger-kbd">⌘K</span>
+                    </button>
                 </div>
-                <div class="topbar-pill">
-                    <span class="mono">47%</span>
-                    <span>|</span>
-                    <span>9 issues</span>
+                <div class="topbar-right">
+                    <button class="theme-trigger" id="themeTrigger" title="Toggle dark mode">
+                        <i data-lucide="moon" id="themeIcon" style="width:16px;height:16px;"></i>
+                    </button>
+                    <button class="process-trigger" id="processTrigger" title="Process — see what's happening right now">
+                        <i data-lucide="workflow" style="width:16px;height:16px;"></i>
+                        <span class="process-trigger-dot"></span>
+                    </button>
+                    <button class="activity-trigger" id="activityTrigger" title="Live pipeline activity">
+                        <i data-lucide="activity" style="width:16px;height:16px;"></i>
+                        <span class="activity-trigger-dot"></span>
+                    </button>
+                    <div class="health-ring" id="healthRing" title="Plan coverage">
+                        <svg viewBox="0 0 32 32">
+                            <circle class="health-ring-bg" cx="16" cy="16" r="13"></circle>
+                            <circle class="health-ring-fill" id="healthRingFill" cx="16" cy="16" r="13"></circle>
+                        </svg>
+                    </div>
+                    <div class="topbar-pill">
+                        <span class="mono" id="pillCoverage">--%</span>
+                        <span>|</span>
+                        <span id="pillIssues">-- issues</span>
+                    </div>
                 </div>
             </header>
 
@@ -1070,6 +2015,21 @@
 
             <!-- INPUT -->
             <div class="input-area">
+                <div class="suggestion-chips" id="suggestionChips">
+                    <button class="suggestion-chip" data-prompt="Show me what needs attention">
+                        <i data-lucide="alert-circle"></i> What needs attention?
+                    </button>
+                    <button class="suggestion-chip" data-prompt="Summarize the current plan">
+                        <i data-lucide="file-text"></i> Summarize plan
+                    </button>
+                    <button class="suggestion-chip" data-prompt="Show all open assumptions">
+                        <i data-lucide="help-circle"></i> Show assumptions
+                    </button>
+                    <button class="suggestion-chip" data-prompt="Find contradictions in the plan">
+                        <i data-lucide="git-compare"></i> Find contradictions
+                    </button>
+                </div>
+                <div class="attachment-preview" id="attachmentPreview"></div>
                 <div class="input-context" id="inputContext">
                     <span class="context-chip">
                         <i data-lucide="rss" style="width:12px;height:12px;"></i>
@@ -1077,27 +2037,63 @@
                     </span>
                 </div>
                 <div class="input-bar">
-                    <button class="input-plus-btn" id="plusBtn">
+                    <button class="input-attach-btn" id="attachBtn" title="Attach a file">
+                        <i data-lucide="paperclip" style="width:16px;height:16px;"></i>
+                    </button>
+                    <input type="file" id="attachFileInput" accept=".pdf,.docx,.xlsx,.xls,.txt,.csv" style="display:none;">
+                    <button class="input-plus-btn" id="plusBtn" title="Workspaces &amp; tools">
                         <i data-lucide="plus" style="width:16px;height:16px;"></i>
                     </button>
                     <textarea class="input-field" id="inputField" placeholder="Message EpistemicOS..." rows="1"></textarea>
+                    <button class="input-mic-btn" id="micBtn" title="Voice input">
+                        <i data-lucide="mic" style="width:16px;height:16px;"></i>
+                    </button>
                     <button class="input-send-btn" id="sendBtn">
                         <i data-lucide="arrow-up" style="width:16px;height:16px;"></i>
                     </button>
                 </div>
             </div>
         </main>
+
+        <!-- PROCESS PANEL — live execution narration + document review -->
+        <aside class="process-panel" id="processPanel">
+            <div class="process-panel-header">
+                <div>
+                    <div class="process-panel-title">
+                        <i data-lucide="workflow" style="width:15px;height:15px;color:var(--accent);"></i>
+                        Process
+                    </div>
+                    <div class="process-panel-sub" id="processPanelSub">Nothing running right now</div>
+                </div>
+                <button class="process-panel-close" id="processPanelCloseBtn" title="Close">
+                    <i data-lucide="x" style="width:14px;height:14px;"></i>
+                </button>
+            </div>
+            <div class="process-panel-body" id="processPanelBody">
+                <div class="process-empty">Nothing running right now. Trigger a pipeline run, or upload a file in Feed, to see it happen here, live.</div>
+            </div>
+        </aside>
+        </div>
     </div>
 
     <!-- PLUS TRAY -->
     <div class="tray-backdrop" id="trayBackdrop"></div>
     <div class="plus-tray" id="plusTray">
+        <div class="tray-header">
+            <div>
+                <div class="tray-header-title">Workspaces &amp; tools</div>
+                <div class="tray-header-sub">Switch focus or jump to a tool</div>
+            </div>
+            <button class="tray-close-btn" id="trayCloseBtn" title="Close">
+                <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </button>
+        </div>
         <div class="tray-grid" id="trayGrid">
             <div class="tray-tile" data-workspace="1">
                 <i data-lucide="rss" class="tray-tile-icon"></i>
                 <div class="tray-tile-info">
                     <div class="tray-tile-name">Feed</div>
-                    <div class="tray-tile-badge">3 updates</div>
+                    <div class="tray-tile-badge" id="badgeFeed">Add data</div>
                 </div>
                 <div class="tray-tile-status" style="background:var(--success)"></div>
             </div>
@@ -1105,7 +2101,7 @@
                 <i data-lucide="hammer" class="tray-tile-icon"></i>
                 <div class="tray-tile-info">
                     <div class="tray-tile-name">Build</div>
-                    <div class="tray-tile-badge">5 sections</div>
+                    <div class="tray-tile-badge" id="badgeBuild">Checking...</div>
                 </div>
                 <div class="tray-tile-status" style="background:var(--warning)"></div>
             </div>
@@ -1113,7 +2109,7 @@
                 <i data-lucide="search" class="tray-tile-icon"></i>
                 <div class="tray-tile-info">
                     <div class="tray-tile-name">Inspect</div>
-                    <div class="tray-tile-badge">9 issues</div>
+                    <div class="tray-tile-badge" id="badgeInspect">Checking...</div>
                 </div>
                 <div class="tray-tile-status" style="background:var(--danger)"></div>
             </div>
@@ -1121,7 +2117,7 @@
                 <i data-lucide="shield" class="tray-tile-icon"></i>
                 <div class="tray-tile-info">
                     <div class="tray-tile-name">Challenge</div>
-                    <div class="tray-tile-badge">2 active</div>
+                    <div class="tray-tile-badge" id="badgeChallenge">Checking...</div>
                 </div>
                 <div class="tray-tile-status" style="background:var(--warning)"></div>
             </div>
@@ -1129,7 +2125,7 @@
                 <i data-lucide="check-circle" class="tray-tile-icon"></i>
                 <div class="tray-tile-info">
                     <div class="tray-tile-name">Validate</div>
-                    <div class="tray-tile-badge">Ready</div>
+                    <div class="tray-tile-badge" id="badgeValidate">Checking...</div>
                 </div>
                 <div class="tray-tile-status" style="background:var(--text-tertiary)"></div>
             </div>
@@ -1137,15 +2133,72 @@
                 <i data-lucide="download" class="tray-tile-icon"></i>
                 <div class="tray-tile-info">
                     <div class="tray-tile-name">Export</div>
-                    <div class="tray-tile-badge">Ready</div>
+                    <div class="tray-tile-badge" id="badgeExport">Checking...</div>
                 </div>
                 <div class="tray-tile-status" style="background:var(--text-tertiary)"></div>
+            </div>
+            <div class="tray-tile" data-action="epistemic">
+                <i data-lucide="scale" class="tray-tile-icon"></i>
+                <div class="tray-tile-info">
+                    <div class="tray-tile-name">Epistemic Log</div>
+                    <div class="tray-tile-badge">Killed ideas, reviews, staleness</div>
+                </div>
+                <div class="tray-tile-status" style="background:var(--accent)"></div>
             </div>
         </div>
         <div class="tray-recommendation">
             <i data-lucide="sparkles" style="width:16px;height:16px;color:var(--accent);flex-shrink:0;"></i>
-            <span><strong>Recommended:</strong> Your Opportunity section needs 3 assumptions validated. Try <strong>Inspect</strong>.</span>
+            <span id="recommendationText"><strong>Recommended:</strong> Checking plan state...</span>
         </div>
+    </div>
+
+    <!-- LIVE ACTIVITY DRAWER -->
+    <div class="activity-backdrop" id="activityBackdrop"></div>
+    <div class="activity-drawer" id="activityDrawer">
+        <div class="activity-drawer-header">
+            <div>
+                <div class="activity-drawer-title">Live pipeline activity</div>
+                <div class="activity-drawer-sub">Real-time agent trace</div>
+            </div>
+            <button class="tray-close-btn" id="activityCloseBtn" title="Close">
+                <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </button>
+        </div>
+        <div class="activity-drawer-body" id="activityDrawerBody">
+            <div class="activity-drawer-empty" id="activityEmptyState">
+                Nothing running right now. Agent activity will appear here live as the pipeline works.
+            </div>
+        </div>
+    </div>
+
+    <!-- EPISTEMIC LOG DRAWER -->
+    <div class="activity-backdrop" id="epistemicBackdrop"></div>
+    <div class="activity-drawer" id="epistemicDrawer">
+        <div class="activity-drawer-header">
+            <div>
+                <div class="activity-drawer-title">Epistemic log</div>
+                <div class="activity-drawer-sub">Killed ideas, quality reviews, fact staleness</div>
+            </div>
+            <button class="tray-close-btn" id="epistemicCloseBtn" title="Close">
+                <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </button>
+        </div>
+        <div class="activity-drawer-body" id="epistemicDrawerBody">
+            <div class="activity-drawer-empty" id="epistemicLoadingState">
+                Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- COMMAND PALETTE -->
+    <div class="command-backdrop" id="commandBackdrop"></div>
+    <div class="command-palette" id="commandPalette">
+        <div class="command-input-row">
+            <i data-lucide="search" style="width:16px;height:16px;color:var(--text-tertiary);flex-shrink:0;"></i>
+            <input type="text" class="command-input" id="commandInput" placeholder="Switch workspace, run a command, or search your data..." autocomplete="off">
+            <span class="command-esc-hint">ESC</span>
+        </div>
+        <div class="command-results" id="commandResults"></div>
     </div>
 
     <!-- TOAST CONTAINER -->
@@ -1165,6 +2218,9 @@
             let token = null;
             let currentWorkspace = 'Feed';
             let currentWorkspaceNum = 1;
+            let pendingAttachment = null;
+            let recognition = null;
+            let isListening = false;
 
             // --- DOM Elements ---
             const messagesArea = document.getElementById('messagesArea');
@@ -1174,18 +2230,57 @@
             const plusBtn = document.getElementById('plusBtn');
             const plusTray = document.getElementById('plusTray');
             const trayBackdrop = document.getElementById('trayBackdrop');
+            const trayCloseBtn = document.getElementById('trayCloseBtn');
             const trayGrid = document.getElementById('trayGrid');
             const topbarTitle = document.getElementById('topbarTitle');
             const topbarIcon = document.getElementById('topbarIcon');
             const inputContext = document.getElementById('inputContext');
-            const sidebar = document.getElementById('sidebar');
-            const hamburgerBtn = document.getElementById('hamburgerBtn');
+            const workspaceTrigger = document.getElementById('workspaceTrigger');
+            const suggestionChips = document.getElementById('suggestionChips');
+            const attachBtn = document.getElementById('attachBtn');
+            const attachFileInput = document.getElementById('attachFileInput');
+            const attachmentPreview = document.getElementById('attachmentPreview');
+            const micBtn = document.getElementById('micBtn');
             const toastContainer = document.getElementById('toastContainer');
+            const activityTrigger = document.getElementById('activityTrigger');
+            const activityDrawer = document.getElementById('activityDrawer');
+            const activityBackdrop = document.getElementById('activityBackdrop');
+            const activityCloseBtn = document.getElementById('activityCloseBtn');
+            const activityDrawerBody = document.getElementById('activityDrawerBody');
+            const activityEmptyState = document.getElementById('activityEmptyState');
+            const epistemicBackdrop = document.getElementById('epistemicBackdrop');
+            const epistemicDrawer = document.getElementById('epistemicDrawer');
+            const epistemicCloseBtn = document.getElementById('epistemicCloseBtn');
+            const epistemicDrawerBody = document.getElementById('epistemicDrawerBody');
+            const processTrigger = document.getElementById('processTrigger');
+            const processPanel = document.getElementById('processPanel');
+            const processPanelCloseBtn = document.getElementById('processPanelCloseBtn');
+            const processPanelBody = document.getElementById('processPanelBody');
+            const processPanelSub = document.getElementById('processPanelSub');
+            const themeTrigger = document.getElementById('themeTrigger');
+            const themeIcon = document.getElementById('themeIcon');
+            const commandTrigger = document.getElementById('commandTrigger');
+            const commandBackdrop = document.getElementById('commandBackdrop');
+            const commandPalette = document.getElementById('commandPalette');
+            const commandInput = document.getElementById('commandInput');
+            const commandResults = document.getElementById('commandResults');
+            let traceLog = [];
+            let liveIndicatorTimeout = null;
+            let processLiveIndicatorTimeout = null;
+            let epistemicLoaded = false;
+            let processLog = [];
+            let processPhase = 'idle'; // 'idle' | 'processing' | 'review'
+            let currentBatch = null;
+            let pendingDownload = null;
+            let commandSearchDebounce = null;
+            let activeCommandList = [];
+            let commandSelectedIndex = 0;
 
             // --- Initialize Lucide Icons ---
             document.addEventListener('DOMContentLoaded', () => {
                 lucide.createIcons();
-                loadDemoContent();
+                initTheme();
+                loadWelcomeMessage();
                 initEventListeners();
                 initConnection();
             });
@@ -1207,41 +2302,847 @@
                     inputField.style.height = Math.min(inputField.scrollHeight, 120) + 'px';
                 });
 
-                // Plus tray
+                // Plus tray (workspaces & tools)
                 plusBtn.addEventListener('click', openTray);
+                workspaceTrigger.addEventListener('click', openTray);
                 trayBackdrop.addEventListener('click', closeTray);
+                trayCloseBtn.addEventListener('click', closeTray);
 
-                // Tray tiles
+                // Tray tiles — either a workspace switch or a tool action
                 trayGrid.addEventListener('click', (e) => {
                     const tile = e.target.closest('.tray-tile');
-                    if (tile) {
-                        const wsNum = tile.dataset.workspace;
-                        switchWorkspace(parseInt(wsNum));
+                    if (!tile) return;
+                    if (tile.dataset.action === 'epistemic') {
                         closeTray();
+                        openEpistemicDrawer();
+                        return;
+                    }
+                    const wsNum = tile.dataset.workspace;
+                    switchWorkspace(parseInt(wsNum));
+                    closeTray();
+                });
+
+                // Epistemic log drawer
+                epistemicBackdrop.addEventListener('click', closeEpistemicDrawer);
+                epistemicCloseBtn.addEventListener('click', closeEpistemicDrawer);
+
+                // Quick-prompt suggestion chips
+                suggestionChips.addEventListener('click', (e) => {
+                    const chip = e.target.closest('.suggestion-chip');
+                    if (chip) {
+                        inputField.value = chip.dataset.prompt;
+                        sendMessage();
                     }
                 });
 
-                // Sidebar items
-                document.querySelectorAll('.sidebar-item').forEach(item => {
-                    item.addEventListener('click', () => {
-                        const wsNum = parseInt(item.dataset.workspace);
-                        switchWorkspace(wsNum);
+                // Attach a file (client-side preview only — see note in sendMessage)
+                attachBtn.addEventListener('click', () => attachFileInput.click());
+                attachFileInput.addEventListener('change', () => {
+                    if (attachFileInput.files && attachFileInput.files[0]) {
+                        setAttachment(attachFileInput.files[0]);
+                    }
+                });
+
+                // Voice input
+                micBtn.addEventListener('click', toggleVoiceInput);
+
+                // Live activity drawer
+                activityTrigger.addEventListener('click', openActivityDrawer);
+                activityBackdrop.addEventListener('click', closeActivityDrawer);
+                activityCloseBtn.addEventListener('click', closeActivityDrawer);
+
+                // Process panel
+                processTrigger.addEventListener('click', toggleProcessPanel);
+                processPanelCloseBtn.addEventListener('click', closeProcessPanel);
+
+                // Theme toggle
+                themeTrigger.addEventListener('click', toggleTheme);
+
+                // Command palette
+                commandTrigger.addEventListener('click', toggleCommandPalette);
+                commandBackdrop.addEventListener('click', closeCommandPalette);
+                commandInput.addEventListener('input', () => {
+                    commandSelectedIndex = 0;
+                    renderCommandResults(commandInput.value);
+                });
+                commandInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        runSelectedCommand();
+                    } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        moveCommandSelection(1);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        moveCommandSelection(-1);
+                    }
+                });
+
+                // Global keyboard shortcuts: Cmd/Ctrl+K opens the command
+                // palette from anywhere; Esc closes whatever's open (most
+                // specific first) instead of doing nothing.
+                document.addEventListener('keydown', (e) => {
+                    const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
+                    if (isCmdK) {
+                        e.preventDefault();
+                        toggleCommandPalette();
+                        return;
+                    }
+                    if (e.key === 'Escape') {
+                        if (commandPalette.classList.contains('active')) { closeCommandPalette(); return; }
+                        if (plusTray.classList.contains('active')) { closeTray(); return; }
+                        if (activityDrawer.classList.contains('active')) { closeActivityDrawer(); return; }
+                        if (epistemicDrawer.classList.contains('active')) { closeEpistemicDrawer(); return; }
+                        if (processPanel.classList.contains('open')) { closeProcessPanel(); return; }
+                    }
+                });
+            }
+
+            // --- Live Activity (pipeline trace) ---
+            function openActivityDrawer() {
+                activityDrawer.classList.add('active');
+                activityBackdrop.classList.add('active');
+            }
+
+            function closeActivityDrawer() {
+                activityDrawer.classList.remove('active');
+                activityBackdrop.classList.remove('active');
+            }
+
+            function handleTraceEvent(data) {
+                traceLog.unshift(data);
+                if (traceLog.length > 200) traceLog.length = 200;
+
+                if (activityEmptyState) {
+                    activityEmptyState.remove();
+                }
+
+                const html = `
+                    <div class="trace-entry">
+                        <span class="trace-agent-tag mono">${escapeHtml(data.agent || '?')}</span>
+                        <div class="trace-entry-body">
+                            <div class="trace-entry-detail">${escapeHtml(data.detail || data.step || '')}</div>
+                            <div class="trace-entry-time">${formatTime(new Date(data.timestamp || Date.now()))}</div>
+                        </div>
+                    </div>
+                `;
+                activityDrawerBody.insertAdjacentHTML('afterbegin', html);
+
+                // Pulse the topbar indicator so activity is visible even with
+                // the drawer closed — this is the "something is happening"
+                // ambient cue.
+                activityTrigger.classList.add('live');
+                clearTimeout(liveIndicatorTimeout);
+                liveIndicatorTimeout = setTimeout(() => {
+                    activityTrigger.classList.remove('live');
+                }, 4000);
+            }
+
+            // --- Process panel (live execution narration + doc review) ---
+            //
+            // Same trace feed that powers the Activity drawer, but shown as
+            // a running "thinking" narration of whatever is currently
+            // executing — any workspace, any pipeline run. For Feed
+            // document uploads specifically, it flips into a batch review
+            // checklist once extraction finishes, then flips back once
+            // Alex approves what gets stored.
+
+            function toggleProcessPanel() {
+                if (processPanel.classList.contains('open')) {
+                    closeProcessPanel();
+                } else {
+                    openProcessPanel();
+                }
+            }
+
+            function openProcessPanel() {
+                processPanel.classList.add('open');
+                processTrigger.classList.add('open');
+            }
+
+            function closeProcessPanel() {
+                processPanel.classList.remove('open');
+                processTrigger.classList.remove('open');
+            }
+
+            function handleProcessTraceEvent(data) {
+                processLog.push(data);
+                if (processLog.length > 60) processLog.shift();
+
+                if (processPanelSub) {
+                    processPanelSub.textContent = data.detail || data.step || 'Working...';
+                }
+
+                processTrigger.classList.add('live');
+                clearTimeout(processLiveIndicatorTimeout);
+                processLiveIndicatorTimeout = setTimeout(() => {
+                    processTrigger.classList.remove('live');
+                }, 4000);
+
+                // Export finished and the file is sitting on disk, ready —
+                // surface a real download link instead of just narrating it.
+                if (data.data && data.data.downloadable && data.data.filename) {
+                    pendingDownload = { filename: data.data.filename };
+                }
+
+                // A batch review is already up — don't blow it away with
+                // trailing trace events (e.g. storage_complete arrives
+                // right after bulk-approve resolves).
+                if (processPhase === 'review') return;
+
+                processPhase = 'processing';
+                renderProcessLog();
+            }
+
+            function renderProcessLog() {
+                if (!processLog.length) {
+                    processPanelBody.innerHTML = `<div class="process-empty">Nothing running right now. Trigger a pipeline run, or upload a file in Feed, to see it happen here, live.</div>`;
+                    return;
+                }
+                const html = processLog.map((entry, i) => {
+                    const isLatest = i === processLog.length - 1;
+                    return `
+                        <div class="process-step ${isLatest ? 'process-step-active' : 'process-step-done'}">
+                            <span class="process-step-dot"></span>
+                            <div class="process-step-body">
+                                <span class="process-step-agent mono">${escapeHtml(entry.agent || '?')}</span>
+                                <div class="process-step-detail">${escapeHtml(entry.detail || entry.step || '')}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('') + (pendingDownload ? `
+                    <a class="process-download-btn" href="/api/export/download/${encodeURIComponent(pendingDownload.filename)}?token=${token}" download>
+                        <i data-lucide="download" style="width:14px;height:14px;"></i>
+                        Download ${escapeHtml(pendingDownload.filename)}
+                    </a>
+                ` : '');
+                processPanelBody.innerHTML = `<div class="process-log">${html}</div>`;
+                processPanelBody.scrollTop = processPanelBody.scrollHeight;
+                lucide.createIcons();
+            }
+
+            function renderBatchReview(batch) {
+                processPhase = 'review';
+                currentBatch = batch;
+                processPanelSub.textContent = `${batch.filename} — ${batch.total_facts} fact(s) extracted, review before storing`;
+
+                if (!batch.facts.length) {
+                    processPanelBody.innerHTML = `<div class="process-empty">No extractable facts found in ${escapeHtml(batch.filename)}.</div>`;
+                    return;
+                }
+
+                const rows = batch.facts.map(renderBatchFactRow).join('');
+                processPanelBody.innerHTML = `
+                    <div class="batch-review">
+                        ${batch.truncated ? `<div class="batch-truncated-note">Showing the first ${batch.facts.length} facts — the document had more. Split it up and re-upload the rest if you need it all.</div>` : ''}
+                        <div class="batch-toolbar">
+                            <button type="button" class="batch-toolbar-btn" id="batchSelectAll">Select all</button>
+                            <button type="button" class="batch-toolbar-btn" id="batchDeselectAll">Deselect all</button>
+                        </div>
+                        <div class="batch-fact-list" id="batchFactList">${rows}</div>
+                        <div class="batch-review-footer">
+                            <button type="button" class="batch-approve-btn" id="batchApproveBtn" disabled>
+                                Store <span id="batchSelectedCount">0</span> selected
+                            </button>
+                        </div>
+                    </div>
+                `;
+                lucide.createIcons();
+                bindBatchReviewEvents(batch);
+            }
+
+            function renderBatchFactRow(fact) {
+                const node = fact.proposed_node;
+                const nodeLabel = node ? `${node.node_id} — ${node.node_title}` : 'No node match';
+                const nodeClass = fact.node_confidence === 'matched' ? 'batch-fact-node-matched'
+                    : fact.node_confidence === 'unmatched' ? 'batch-fact-node-unmatched' : '';
+                const statusClass = `batch-fact-tag-${(fact.epistemic_status || '').toLowerCase()}`;
+
+                return `
+                    <div class="batch-fact-row" data-fact-id="${escapeHtml(fact.id)}">
+                        <input type="checkbox" class="batch-fact-checkbox" ${fact.selected ? 'checked' : ''}>
+                        <div class="batch-fact-content">
+                            <div class="batch-fact-text" contenteditable="true" spellcheck="false">${escapeHtml(fact.verbatim_text)}</div>
+                            <div class="batch-fact-meta">
+                                <span class="batch-fact-tag">${escapeHtml(fact.content_type || '')}</span>
+                                <span class="batch-fact-tag ${statusClass}">${escapeHtml(fact.epistemic_status || '')}</span>
+                                <span class="batch-fact-node ${nodeClass}">${escapeHtml(nodeLabel)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function bindBatchReviewEvents(batch) {
+                const list = document.getElementById('batchFactList');
+                const countEl = document.getElementById('batchSelectedCount');
+                const approveBtn = document.getElementById('batchApproveBtn');
+                const selectAllBtn = document.getElementById('batchSelectAll');
+                const deselectAllBtn = document.getElementById('batchDeselectAll');
+
+                function updateCount() {
+                    const checked = list.querySelectorAll('.batch-fact-checkbox:checked').length;
+                    countEl.textContent = checked;
+                    approveBtn.disabled = checked === 0;
+                }
+
+                list.addEventListener('change', (e) => {
+                    if (e.target.classList.contains('batch-fact-checkbox')) updateCount();
+                });
+
+                selectAllBtn.addEventListener('click', () => {
+                    list.querySelectorAll('.batch-fact-checkbox').forEach(cb => { cb.checked = true; });
+                    updateCount();
+                });
+
+                deselectAllBtn.addEventListener('click', () => {
+                    list.querySelectorAll('.batch-fact-checkbox').forEach(cb => { cb.checked = false; });
+                    updateCount();
+                });
+
+                approveBtn.addEventListener('click', () => submitBatchApproval(batch));
+
+                updateCount();
+            }
+
+            async function submitBatchApproval(batch) {
+                const list = document.getElementById('batchFactList');
+                const rows = list.querySelectorAll('.batch-fact-row');
+                const acceptedIds = [];
+                const editedTexts = {};
+
+                rows.forEach(row => {
+                    const checkbox = row.querySelector('.batch-fact-checkbox');
+                    if (!checkbox.checked) return;
+                    const factId = row.dataset.factId;
+                    acceptedIds.push(factId);
+                    const textEl = row.querySelector('.batch-fact-text');
+                    const original = (batch.facts.find(f => f.id === factId) || {}).verbatim_text || '';
+                    const current = textEl.textContent.trim();
+                    if (current && current !== original) {
+                        editedTexts[factId] = current;
+                    }
+                });
+
+                if (!acceptedIds.length || !token) return;
+
+                const approveBtn = document.getElementById('batchApproveBtn');
+                approveBtn.disabled = true;
+                approveBtn.textContent = 'Storing...';
+
+                try {
+                    const res = await fetch('/api/feed/bulk-approve', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token, accepted_fact_ids: acceptedIds, edited_texts: editedTexts }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok) {
+                        showToast(`Stored ${data.stored_count || 0} fact(s) from ${batch.filename}`, 'success');
+                        currentBatch = null;
+                        processPhase = 'processing';
+                        renderProcessLog();
+                    } else {
+                        showToast(data.error || data.detail || 'Failed to store facts', 'error');
+                        approveBtn.disabled = false;
+                        approveBtn.textContent = 'Store selected';
+                    }
+                } catch (err) {
+                    console.error('Bulk approve error:', err);
+                    showToast('Failed to store facts', 'error');
+                    approveBtn.disabled = false;
+                    approveBtn.textContent = 'Store selected';
+                }
+            }
+
+            async function uploadAttachment(file) {
+                if (!token) return;
+                openProcessPanel();
+                processPhase = 'processing';
+                pendingDownload = null;
+                processPanelSub.textContent = `Uploading ${file.name}...`;
+                processPanelBody.innerHTML = `<div class="process-empty">Uploading ${escapeHtml(file.name)}...</div>`;
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('token', token);
+
+                try {
+                    const res = await fetch('/api/feed/upload', { method: 'POST', body: formData });
+                    const data = await res.json().catch(() => ({}));
+
+                    if (!res.ok) {
+                        showToast(data.detail || `Couldn't process ${file.name}`, 'error');
+                        processPhase = 'idle';
+                        renderProcessLog();
+                        return;
+                    }
+
+                    if (data.status === 'awaiting_review' && data.batch) {
+                        renderBatchReview(data.batch);
+                    } else if (data.status === 'no_facts') {
+                        showToast(`No extractable facts found in ${file.name}`, 'warning');
+                        processPhase = 'idle';
+                        renderProcessLog();
+                    }
+                } catch (err) {
+                    console.error('Upload error:', err);
+                    showToast(`Failed to upload ${file.name}`, 'error');
+                    processPhase = 'idle';
+                    renderProcessLog();
+                }
+            }
+
+            // --- Theme (dark mode) ---
+
+            function initTheme() {
+                const saved = localStorage.getItem('eos-theme');
+                applyTheme(saved === 'dark' ? 'dark' : 'light');
+            }
+
+            function applyTheme(theme) {
+                if (theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    themeIcon.setAttribute('data-lucide', 'sun');
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                    themeIcon.setAttribute('data-lucide', 'moon');
+                }
+                lucide.createIcons();
+                localStorage.setItem('eos-theme', theme);
+            }
+
+            function toggleTheme() {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                applyTheme(isDark ? 'light' : 'dark');
+            }
+
+            // --- Command palette (Cmd/Ctrl+K) ---
+
+            function getStaticCommands() {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                return [
+                    { icon: 'rss', title: 'Switch to Feed', sub: 'Give me new information', action: () => switchWorkspace(1) },
+                    { icon: 'hammer', title: 'Switch to Build', sub: 'Generate business plan sections', action: () => switchWorkspace(2) },
+                    { icon: 'search', title: 'Switch to Inspect', sub: "See what's strong, weak, missing", action: () => switchWorkspace(3) },
+                    { icon: 'shield', title: 'Switch to Challenge', sub: 'Stress test my assumptions', action: () => switchWorkspace(4) },
+                    { icon: 'check-circle', title: 'Switch to Validate', sub: 'Confirm or kill assumptions', action: () => switchWorkspace(5) },
+                    { icon: 'download', title: 'Switch to Export', sub: 'Get DOCX / investor / pitch deck', action: () => switchWorkspace(6) },
+                    { icon: 'message-circle', title: 'Switch to Auto', sub: 'Ask anything, no workspace', action: () => switchWorkspace(7) },
+                    { icon: 'workflow', title: 'Open Process panel', sub: "See what's happening right now, live", action: () => openProcessPanel() },
+                    { icon: 'activity', title: 'Open Live Activity', sub: 'Full pipeline trace history', action: () => openActivityDrawer() },
+                    { icon: 'scale', title: 'Open Epistemic Log', sub: 'Killed ideas, reviews, staleness', action: () => openEpistemicDrawer() },
+                    { icon: isDark ? 'sun' : 'moon', title: isDark ? 'Switch to light mode' : 'Switch to dark mode', sub: 'Toggle color theme', action: () => toggleTheme() },
+                ];
+            }
+
+            function openCommandPalette() {
+                commandBackdrop.classList.add('active');
+                commandPalette.classList.add('active');
+                commandInput.value = '';
+                commandSelectedIndex = 0;
+                renderCommandResults('');
+                setTimeout(() => commandInput.focus(), 50);
+            }
+
+            function closeCommandPalette() {
+                commandBackdrop.classList.remove('active');
+                commandPalette.classList.remove('active');
+            }
+
+            function toggleCommandPalette() {
+                if (commandPalette.classList.contains('active')) closeCommandPalette();
+                else openCommandPalette();
+            }
+
+            function renderCommandResults(query) {
+                const q = query.trim().toLowerCase();
+                const commands = getStaticCommands().filter(c =>
+                    !q || c.title.toLowerCase().includes(q) || c.sub.toLowerCase().includes(q)
+                );
+                activeCommandList = commands;
+
+                let html = '';
+                if (commands.length) {
+                    html += `<div class="command-section-label">Commands</div>`;
+                    html += commands.map((c, i) => `
+                        <div class="command-item ${i === commandSelectedIndex ? 'selected' : ''}" data-cmd-index="${i}">
+                            <div class="command-item-icon"><i data-lucide="${c.icon}" style="width:15px;height:15px;"></i></div>
+                            <div class="command-item-body">
+                                <div class="command-item-title">${escapeHtml(c.title)}</div>
+                                <div class="command-item-sub">${escapeHtml(c.sub)}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                commandResults.innerHTML = html || `<div class="command-empty">No matching commands</div>`;
+                lucide.createIcons();
+
+                commandResults.querySelectorAll('.command-item[data-cmd-index]').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const idx = parseInt(el.dataset.cmdIndex, 10);
+                        activeCommandList[idx].action();
+                        closeCommandPalette();
                     });
                 });
 
-                // Hamburger
-                hamburgerBtn.addEventListener('click', () => {
-                    sidebar.classList.toggle('mobile-open');
-                });
+                clearTimeout(commandSearchDebounce);
+                if (q.length >= 3) {
+                    commandSearchDebounce = setTimeout(() => runCommandSearch(q), 300);
+                }
+            }
 
-                // Click outside sidebar on mobile
-                document.addEventListener('click', (e) => {
-                    if (sidebar.classList.contains('mobile-open') &&
-                        !sidebar.contains(e.target) &&
-                        e.target !== hamburgerBtn) {
-                        sidebar.classList.remove('mobile-open');
-                    }
+            function moveCommandSelection(delta) {
+                if (!activeCommandList.length) return;
+                commandSelectedIndex = (commandSelectedIndex + delta + activeCommandList.length) % activeCommandList.length;
+                commandResults.querySelectorAll('.command-item[data-cmd-index]').forEach((el, i) => {
+                    el.classList.toggle('selected', i === commandSelectedIndex);
                 });
+            }
+
+            function runSelectedCommand() {
+                if (activeCommandList[commandSelectedIndex]) {
+                    activeCommandList[commandSelectedIndex].action();
+                    closeCommandPalette();
+                }
+            }
+
+            async function runCommandSearch(query) {
+                if (!token) return;
+                try {
+                    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&token=${token}&limit=6`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const results = data.results || [];
+                    if (!results.length) return;
+
+                    const html = `
+                        <div class="command-section-label">From your knowledge base</div>
+                        ${results.map(r => `
+                            <div class="command-item">
+                                <div class="command-item-icon"><i data-lucide="file-text" style="width:15px;height:15px;"></i></div>
+                                <div class="command-item-body">
+                                    <div class="command-item-title">${escapeHtml((r.content || '').slice(0, 80))}</div>
+                                    <div class="command-item-sub">${escapeHtml(r.section ? 'Section ' + r.section : (r.source_type || ''))}</div>
+                                </div>
+                                <span class="command-item-tag">${escapeHtml(r.epistemic_status || '')}</span>
+                            </div>
+                        `).join('')}
+                    `;
+                    commandResults.insertAdjacentHTML('beforeend', html);
+                    lucide.createIcons();
+                } catch (err) {
+                    console.error('Search error:', err);
+                }
+            }
+
+            // --- Tray badges (real counts, not placeholders) ---
+
+            function setBadge(id, text) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = text;
+            }
+
+            function updateHealthRing(pct) {
+                const fill = document.getElementById('healthRingFill');
+                const ring = document.getElementById('healthRing');
+                const pillCoverage = document.getElementById('pillCoverage');
+                const circumference = 2 * Math.PI * 13;
+                const offset = circumference * (1 - Math.max(0, Math.min(100, pct)) / 100);
+                if (fill) {
+                    fill.style.strokeDasharray = `${circumference.toFixed(2)}`;
+                    fill.style.strokeDashoffset = `${offset.toFixed(2)}`;
+                }
+                if (ring) ring.title = `${Math.round(pct)}% plan coverage`;
+                if (pillCoverage) pillCoverage.textContent = `${Math.round(pct)}%`;
+            }
+
+            function updateIssuesPill(count) {
+                const el = document.getElementById('pillIssues');
+                if (el) el.textContent = `${count} issue${count === 1 ? '' : 's'}`;
+            }
+
+            function refreshTrayBadges() {
+                if (!token) return;
+
+                // Each badge updates as soon as ITS OWN request resolves —
+                // deliberately not gated behind Promise.allSettled on every
+                // endpoint. /api/dashboard is cheap (60s server-side cache)
+                // and covers coverage + issues; /api/inspect/coverage does
+                // a real per-node RAG scan (~15-20s cold) purely to find
+                // which sections still need data for the Build badge. That
+                // one endpoint being slow used to freeze every other badge
+                // — including fast ones like Validate/Challenge/Export —
+                // behind it. Now it only holds up its own badge.
+
+                fetch(`/api/dashboard?token=${token}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        updateHealthRing(data.coverage_pct || 0);
+                        updateIssuesPill(data.contradiction_count || 0);
+                        const count = data.contradiction_count || 0;
+                        setBadge('badgeInspect', count > 0 ? `${count} issue(s)` : 'No issues found');
+                    })
+                    .catch(err => console.error('Dashboard badge refresh error:', err));
+
+                fetch(`/api/inspect/coverage?token=${token}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        const sections = data.sections || [];
+                        // An empty sections array means coverage couldn't be
+                        // computed (a real, currently-open backend issue —
+                        // section tagging on stored facts doesn't line up
+                        // with the per-node coverage query) — NOT "nothing
+                        // needs data." Treating it as success was actively
+                        // misleading (showed "All sections have data" while
+                        // real coverage was 0%).
+                        if (sections.length === 0) {
+                            setBadge('badgeBuild', 'Coverage data unavailable');
+                            return;
+                        }
+                        const needsData = sections.filter(s => s.status === 'empty' || s.status === 'weak').length;
+                        setBadge('badgeBuild', needsData > 0 ? `${needsData} section(s) need data` : 'All sections have data');
+                    })
+                    .catch(err => console.error('Build badge refresh error:', err));
+
+                fetch(`/api/validate/queue?token=${token}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        const count = data.count || 0;
+                        setBadge('badgeValidate', count > 0 ? `${count} pending` : 'Nothing pending');
+                    })
+                    .catch(err => console.error('Validate badge refresh error:', err));
+
+                fetch(`/api/challenge/vulnerabilities?token=${token}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        const count = data.count || 0;
+                        setBadge('badgeChallenge', count > 0 ? `${count} vulnerable` : 'Nothing found');
+                    })
+                    .catch(err => console.error('Challenge badge refresh error:', err));
+
+                fetch(`/api/export/readiness?token=${token}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        const pct = Math.round(data.coverage_pct || 0);
+                        setBadge('badgeExport', `${pct}% coverage`);
+                    })
+                    .catch(err => console.error('Export badge refresh error:', err));
+            }
+
+            // Real highest-leverage recommendation (services/recommendation_engine.py)
+            // — this used to be a hardcoded string in the HTML ("Your Opportunity
+            // section needs 3 assumptions validated...") that could never reflect
+            // actual plan state.
+            function refreshRecommendation() {
+                if (!token) return;
+                const el = document.getElementById('recommendationText');
+                if (!el) return;
+
+                fetch(`/api/recommendation?token=${token}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data || !data.action_text) return;
+                        const ws = data.workspace ? data.workspace.charAt(0).toUpperCase() + data.workspace.slice(1) : '';
+                        el.innerHTML = `<strong>Recommended:</strong> ${escapeHtml(data.action_text)}${ws ? ` Try <strong>${escapeHtml(ws)}</strong>.` : ''}`;
+                    })
+                    .catch(err => console.error('Recommendation refresh error:', err));
+            }
+
+            // --- Epistemic Log (killed ideas, council reviews, staleness) ---
+            function openEpistemicDrawer() {
+                epistemicDrawer.classList.add('active');
+                epistemicBackdrop.classList.add('active');
+                if (!epistemicLoaded) {
+                    loadEpistemicLog();
+                }
+            }
+
+            function closeEpistemicDrawer() {
+                epistemicDrawer.classList.remove('active');
+                epistemicBackdrop.classList.remove('active');
+            }
+
+            async function loadEpistemicLog() {
+                if (!token) return;
+                epistemicLoaded = true;
+
+                const [killedRes, councilRes, staleRes] = await Promise.allSettled([
+                    fetch(`/api/epistemic/killed-ideas?token=${token}`).then(r => r.ok ? r.json() : { killed_ideas: [] }),
+                    fetch(`/api/epistemic/council?token=${token}`).then(r => r.ok ? r.json() : { reports: [] }),
+                    fetch(`/api/inspect/stale?token=${token}`).then(r => r.ok ? r.json() : { items: [] }),
+                ]);
+
+                const killedIdeas = killedRes.status === 'fulfilled' ? (killedRes.value.killed_ideas || []) : [];
+                const councilReports = councilRes.status === 'fulfilled' ? (councilRes.value.reports || []) : [];
+                const staleItems = staleRes.status === 'fulfilled' ? (staleRes.value.items || []) : [];
+
+                epistemicDrawerBody.innerHTML = `
+                    ${renderEpistemicSection('Killed ideas', killedIdeas.length, renderKilledIdeas(killedIdeas))}
+                    ${renderEpistemicSection('Quality reviews', councilReports.length, renderCouncilReports(councilReports))}
+                    ${renderEpistemicSection('Stale facts', staleItems.length, renderStaleItems(staleItems))}
+                `;
+                lucide.createIcons();
+                bindConfirmButtons();
+            }
+
+            function renderEpistemicSection(title, count, bodyHtml) {
+                return `
+                    <div class="epistemic-section">
+                        <div class="epistemic-section-title">${escapeHtml(title)} (${count})</div>
+                        ${bodyHtml}
+                    </div>
+                `;
+            }
+
+            function renderKilledIdeas(items) {
+                if (!items.length) {
+                    return '<div class="epistemic-item"><span class="epistemic-item-text" style="color:var(--text-tertiary)">Nothing killed yet — ideas rejected in Feed/Challenge will show up here so they\'re never silently re-suggested.</span></div>';
+                }
+                return items.map(i => `
+                    <div class="epistemic-item">
+                        <div class="epistemic-item-text">${escapeHtml((i.content || '').slice(0, 160))}</div>
+                        <div class="epistemic-item-meta">
+                            ${i.section ? `<span>${escapeHtml(i.section)}</span> ·` : ''}
+                            <span>${i.created_at ? formatTime(new Date(i.created_at)) : ''}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            function renderCouncilReports(items) {
+                if (!items.length) {
+                    return '<div class="epistemic-item"><span class="epistemic-item-text" style="color:var(--text-tertiary)">No quality reviews recorded yet — these appear after a section is built and the council scores it.</span></div>';
+                }
+                return items.map(r => `
+                    <div class="epistemic-item">
+                        <div class="epistemic-item-text">
+                            <strong>${escapeHtml(r.section_number || '?')}</strong> — ${escapeHtml(r.agent_name || 'agent')}
+                            (attempt ${r.attempt || 1})
+                        </div>
+                        <div class="epistemic-item-meta">
+                            <span class="council-score decision-${(r.decision || 'pass').toLowerCase()}">${escapeHtml((r.decision || '').toUpperCase())} · ${r.score ?? '—'}</span>
+                            <span>${r.created_at ? formatTime(new Date(r.created_at)) : ''}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            function renderStaleItems(items) {
+                if (!items.length) {
+                    return '<div class="epistemic-item"><span class="epistemic-item-text" style="color:var(--text-tertiary)">Nothing stale — all facts are within their freshness window.</span></div>';
+                }
+                return items.map(i => `
+                    <div class="epistemic-item">
+                        <div class="epistemic-item-text">${escapeHtml(i.content_preview || '')}</div>
+                        <div class="epistemic-item-meta">
+                            <span>${i.age_days ?? '?'}d old</span>
+                            <button class="confirm-chunk-btn" data-chunk-id="${escapeHtml(i.id || '')}">Confirm still true</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            function bindConfirmButtons() {
+                document.querySelectorAll('.confirm-chunk-btn').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        const chunkId = btn.dataset.chunkId;
+                        if (!chunkId || !token) return;
+                        btn.disabled = true;
+                        btn.textContent = 'Confirming...';
+                        try {
+                            const res = await fetch('/api/epistemic/confirm-chunk', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chunk_id: chunkId, token }),
+                            });
+                            if (res.ok) {
+                                btn.textContent = 'Confirmed';
+                                showToast('Fact re-confirmed', 'success');
+                            } else {
+                                btn.disabled = false;
+                                btn.textContent = 'Confirm still true';
+                                showToast('Could not confirm — try again', 'error');
+                            }
+                        } catch (err) {
+                            btn.disabled = false;
+                            btn.textContent = 'Confirm still true';
+                            showToast('Could not confirm — try again', 'error');
+                        }
+                    });
+                });
+            }
+
+            // --- Attachment (preview chip; actual upload happens in uploadAttachment()) ---
+            function setAttachment(file) {
+                pendingAttachment = file;
+                attachmentPreview.innerHTML = `
+                    <span class="attachment-chip">
+                        <i data-lucide="paperclip" style="width:12px;height:12px;"></i>
+                        ${escapeHtml(file.name)}
+                        <button type="button" class="attachment-chip-remove" id="removeAttachmentBtn">
+                            <i data-lucide="x" style="width:11px;height:11px;"></i>
+                        </button>
+                    </span>
+                `;
+                lucide.createIcons();
+                document.getElementById('removeAttachmentBtn').addEventListener('click', clearAttachment);
+            }
+
+            function clearAttachment() {
+                pendingAttachment = null;
+                attachmentPreview.innerHTML = '';
+                attachFileInput.value = '';
+            }
+
+            // --- Voice input (Web Speech API — client-side only) ---
+            function toggleVoiceInput() {
+                const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognitionCtor) {
+                    showToast('Voice input is not supported in this browser', 'warning');
+                    return;
+                }
+                if (isListening) {
+                    recognition && recognition.stop();
+                    return;
+                }
+                recognition = new SpeechRecognitionCtor();
+                recognition.lang = 'en-US';
+                recognition.interimResults = true;
+                recognition.continuous = false;
+
+                recognition.onstart = () => {
+                    isListening = true;
+                    micBtn.classList.add('listening');
+                };
+
+                recognition.onresult = (event) => {
+                    let transcript = '';
+                    for (let i = 0; i < event.results.length; i++) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                    inputField.value = transcript;
+                    inputField.style.height = 'auto';
+                    inputField.style.height = Math.min(inputField.scrollHeight, 120) + 'px';
+                };
+
+                recognition.onerror = () => {
+                    isListening = false;
+                    micBtn.classList.remove('listening');
+                };
+
+                recognition.onend = () => {
+                    isListening = false;
+                    micBtn.classList.remove('listening');
+                };
+
+                recognition.start();
             }
 
             // --- Connection ---
@@ -1252,6 +3153,8 @@
                 fetchSessionKey().then(() => {
                     connectWebSocket();
                     fetchMenu();
+                    refreshTrayBadges();
+                    refreshRecommendation();
                 });
             }
 
@@ -1307,6 +3210,15 @@
             function handleWsMessage(data) {
                 if (data.role === 'user') {
                     return;
+                } else if (data.type === 'workspace_update') {
+                    // Another client (or a Telegram-side switch) changed the
+                    // active workspace — mirror it here without re-sending.
+                    if (data.workspace) {
+                        switchWorkspace(data.workspace, false);
+                    }
+                } else if (data.role === 'trace') {
+                    handleTraceEvent(data);
+                    handleProcessTraceEvent(data);
                 } else if (data.role === 'status') {
                     if (data.text) {
                         showTypingIndicator();
@@ -1329,13 +3241,17 @@
             // --- Messages ---
             async function sendMessage() {
                 const text = inputField.value.trim();
-                if (!text) return;
+                const attachment = pendingAttachment;
+                if (!text && !attachment) return;
 
-                appendUserMessage(text);
+                if (text) {
+                    appendUserMessage(text);
+                }
                 inputField.value = '';
                 inputField.style.height = 'auto';
+                clearAttachment();
 
-                if (token) {
+                if (text && token) {
                     try {
                         await fetch('/api/messages', {
                             method: 'POST',
@@ -1346,6 +3262,12 @@
                         console.error('Send error:', err);
                         showToast('Failed to send message', 'error');
                     }
+                }
+
+                // A real upload — extraction + classification happens server-side,
+                // narrated live in the Process panel, then reviewed there before storing.
+                if (attachment) {
+                    uploadAttachment(attachment);
                 }
             }
 
@@ -1407,16 +3329,21 @@
             }
 
             function renderHeatmap(meta) {
+                // Real data from get_coverage_heatmap() (inspect_handler.py) uses
+                // section_id/title/coverage_pct — not name/coverage. Fall back to
+                // the older key names too so this still renders if ever fed the
+                // demo-shaped fixture.
                 const rows = (meta.sections || []).map(s => {
-                    const pct = s.coverage || 0;
+                    const pct = s.coverage_pct ?? s.coverage ?? 0;
+                    const label = s.title || s.name || s.section_id || '';
                     const color = pct >= 70 ? 'var(--success)' : pct >= 40 ? 'var(--warning)' : 'var(--danger)';
                     return `
                         <div class="heatmap-row">
-                            <span class="heatmap-label">${escapeHtml(s.name)}</span>
+                            <span class="heatmap-label">${escapeHtml(label)}</span>
                             <div class="heatmap-bar-container">
                                 <div class="heatmap-bar" style="width:${pct}%;background:${color}"></div>
                             </div>
-                            <span class="heatmap-value mono">${pct}%</span>
+                            <span class="heatmap-value mono">${Math.round(pct)}%</span>
                         </div>
                     `;
                 }).join('');
@@ -1433,12 +3360,16 @@
             }
 
             function renderFactList(meta) {
+                // Real chunk objects (services/rag_service.py Chunk) use
+                // epistemic_status/content — not status/text.
                 const items = (meta.facts || []).map(f => {
-                    const badgeClass = `badge-${(f.status || 'inferred').toLowerCase()}`;
+                    const status = f.epistemic_status || f.status || 'INFERRED';
+                    const text = f.content || f.text || '';
+                    const badgeClass = `badge-${status.toLowerCase()}`;
                     return `
                         <div class="fact-item">
-                            <span class="badge ${badgeClass}">${escapeHtml(f.status || 'INFERRED')}</span>
-                            <span class="fact-text">${escapeHtml(f.text)}</span>
+                            <span class="badge ${badgeClass}">${escapeHtml(status)}</span>
+                            <span class="fact-text">${escapeHtml(text)}</span>
                         </div>
                     `;
                 }).join('');
@@ -1533,10 +3464,6 @@
                 currentWorkspace = ws_info.name;
                 currentWorkspaceNum = num;
 
-                document.querySelectorAll('.sidebar-item').forEach(item => {
-                    item.classList.toggle('active', parseInt(item.dataset.workspace) === num);
-                });
-
                 topbarTitle.textContent = ws_info.name;
                 topbarIcon.setAttribute('data-lucide', ws_info.icon);
                 lucide.createIcons();
@@ -1564,6 +3491,8 @@
                 plusTray.classList.add('active');
                 trayBackdrop.classList.add('active');
                 fetchMenu();
+                refreshTrayBadges();
+                refreshRecommendation();
             }
 
             function closeTray() {
@@ -1626,114 +3555,55 @@
                 return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             }
 
-            // --- Demo Content ---
-            function loadDemoContent() {
-                const demoMessages = [
-                    {
-                        type: 'system',
-                        text: 'Welcome back, Alex. Your plan is at 47% coverage with 9 open issues. What would you like to work on?'
-                    },
-                    {
-                        type: 'user',
-                        text: 'Show me what needs attention'
-                    },
-                    {
-                        type: 'system',
-                        rich: true,
-                        metadata: {
-                            rich_type: 'workspace_intro',
-                            title: 'Inspect Workspace',
-                            icon: 'search',
-                            color: '#0EA5E9',
-                            description: 'Explore your plan\'s epistemic foundation. See what\'s confirmed, what\'s assumed, and where contradictions exist.',
-                            options: ['Show all assumptions', 'Find contradictions', 'Coverage gaps', 'Recent changes']
-                        }
-                    },
-                    {
-                        type: 'system',
-                        text: 'Here\'s your current coverage across plan sections:'
-                    },
-                    {
-                        type: 'system',
-                        rich: true,
-                        metadata: {
-                            rich_type: 'heatmap',
-                            sections: [
-                                { name: 'Opportunity', coverage: 72 },
-                                { name: 'Market Size', coverage: 45 },
-                                { name: 'Competitors', coverage: 38 },
-                                { name: 'Revenue Model', coverage: 61 },
-                                { name: 'Go-to-Market', coverage: 29 },
-                                { name: 'Team', coverage: 85 },
-                                { name: 'Financials', coverage: 22 }
-                            ]
-                        }
-                    },
-                    {
-                        type: 'system',
-                        text: 'Key facts from your Opportunity section:'
-                    },
-                    {
-                        type: 'system',
-                        rich: true,
-                        metadata: {
-                            rich_type: 'fact_list',
-                            facts: [
-                                { text: 'TAM estimated at $4.2B globally for epistemic tools', status: 'CONFIRMED' },
-                                { text: 'Primary user segment: solo founders pre-Series A', status: 'ASSUMPTION' },
-                                { text: 'Previous market sizing put TAM at $800M (2024 report)', status: 'CONTRADICTION' },
-                                { text: 'Adjacent market in research tools growing 34% YoY', status: 'INFERRED' }
-                            ]
-                        }
-                    },
-                    {
-                        type: 'user',
-                        text: 'The $4.2B figure is correct - it includes all knowledge management SaaS'
-                    },
-                    {
-                        type: 'system',
-                        text: 'Got it. I\'ve marked the TAM figure as confirmed and flagged the 2024 report as superseded. The contradiction is resolved.\n\nWould you like me to proceed with validating the remaining assumptions in Opportunity, or switch focus to Go-to-Market which has the lowest coverage?'
-                    }
-                ];
-
-                demoMessages.forEach(msg => {
-                    if (msg.type === 'user') {
-                        const html = `
-                            <div class="message message-user">
-                                <div class="message-avatar">A</div>
-                                <div class="message-body">
-                                    <div class="message-bubble">${escapeHtml(msg.text)}</div>
-                                </div>
-                            </div>
-                        `;
-                        messagesContainer.insertAdjacentHTML('beforeend', html);
-                    } else if (msg.rich) {
-                        let content = renderRichContent(msg.metadata);
-                        const html = `
-                            <div class="message message-system">
-                                <div class="message-avatar">EO</div>
-                                <div class="message-body">
-                                    ${content}
-                                </div>
-                            </div>
-                        `;
-                        messagesContainer.insertAdjacentHTML('beforeend', html);
-                    } else {
-                        const html = `
-                            <div class="message message-system">
-                                <div class="message-avatar">EO</div>
-                                <div class="message-body">
-                                    <div class="message-bubble">${formatMessageText(msg.text)}</div>
-                                </div>
-                            </div>
-                        `;
-                        messagesContainer.insertAdjacentHTML('beforeend', html);
-                    }
-                });
-
+            // --- Welcome message ---
+            // This used to be called loadDemoContent() and rendered a fully
+            // scripted, hardcoded fake conversation on every page load —
+            // fake coverage %, fake $4.2B TAM figure, a fake resolved
+            // contradiction — none of it reflected real system state, and
+            // it looked identical on every reload regardless of what was
+            // actually in the knowledge base. Replaced with a single real
+            // welcome line built from live /api/dashboard stats. Building a
+            // full real conversation-history feed (the web chat's messages
+            // aren't in the same store the Telegram-era /api/messages
+            // endpoint reads from) is a larger feature left for later —
+            // this at least stops the UI from lying about plan state.
+            function loadWelcomeMessage() {
+                const html = `
+                    <div class="message message-system">
+                        <div class="message-avatar">EO</div>
+                        <div class="message-body">
+                            <div class="message-bubble" id="welcomeBubble">Loading your plan status...</div>
+                        </div>
+                    </div>
+                `;
+                messagesContainer.insertAdjacentHTML('beforeend', html);
                 lucide.createIcons();
                 bindActionButtons();
                 scrollToBottom();
+
+                // Don't depend on the global `token` var — this function runs
+                // BEFORE initConnection() (which is what actually sets it) in
+                // the DOMContentLoaded sequence, so `token` is still null here.
+                // Resolve it directly the same way getTokenFromUrl() does.
+                const welcomeToken = getTokenFromUrl();
+                fetch(`/api/dashboard?token=${welcomeToken}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        const bubble = document.getElementById('welcomeBubble');
+                        if (!bubble) return;
+                        if (!data) {
+                            bubble.textContent = 'Welcome back, Alex. What would you like to work on?';
+                            return;
+                        }
+                        const coverage = Math.round(data.coverage_pct || 0);
+                        const issues = data.contradiction_count || 0;
+                        bubble.textContent = `Welcome back, Alex. Your plan is at ${coverage}% coverage with ${issues} open issue${issues === 1 ? '' : 's'}. What would you like to work on?`;
+                    })
+                    .catch(err => {
+                        console.error('Dashboard welcome fetch error:', err);
+                        const bubble = document.getElementById('welcomeBubble');
+                        if (bubble) bubble.textContent = 'Welcome back, Alex. What would you like to work on?';
+                    });
             }
 
         })();

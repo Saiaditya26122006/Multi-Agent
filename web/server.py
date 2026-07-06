@@ -208,6 +208,17 @@ def _dispatch_build(text_lower: str, text: str, session_id: str) -> str:
         section_list = ", ".join(sections) if sections else "e.g. 'BP.9' or '9'"
         return f"Which section would you like to build?\n\nAvailable: {section_list}"
 
+    # Anything question-shaped ("can you tell me where we are in opportunity
+    # part") used to fall straight into build_section() below and get
+    # silently normalized into a garbage section ID like
+    # "BP.can you tell me where we are in opportunity part" — same class of
+    # bug Feed had before its question gate. Answer it (or redirect to the
+    # right workspace) instead of trying to build it.
+    from tools.question_gate import looks_like_question, handle_workspace_question
+
+    if looks_like_question(text):
+        return handle_workspace_question(text, "Build", session_id=session_id)
+
     # Anything else while in Build isn't a menu key — treat it as a section
     # identifier for a single-section build (this is what "b" used to skip).
     if text.strip():
@@ -264,6 +275,15 @@ def _dispatch_challenge(text_lower: str, text: str, session_id: str) -> str:
             logger.error("[Challenge] Error handling '%s': %s", text_lower, e)
             return f"Error running challenge: {e}"
 
+    # Same misparse risk as Build: a plain question ("what's our weakest
+    # section?") would otherwise get treated as a literal claim to
+    # stress-test, producing a nonsensical "challenge" built around the
+    # question text itself.
+    from tools.question_gate import looks_like_question, handle_workspace_question
+
+    if looks_like_question(text):
+        return handle_workspace_question(text, "Challenge", session_id=session_id)
+
     try:
         result = challenge_claim(text, session_id=session_id)
         return format_challenge_response(result)
@@ -307,6 +327,15 @@ def _dispatch_validate(text_lower: str, text: str, session_id: str) -> str:
         if assumption_text:
             return request_confirm(assumption_text, evidence, session_id=session_id)
 
+    # Anything question-shaped that isn't a menu key or a kill/validate
+    # command used to fall through to a bare "" here, which server.py then
+    # papers over with a generic "nothing to show for that input" — not
+    # useful if Alex actually asked something answerable.
+    from tools.question_gate import looks_like_question, handle_workspace_question
+
+    if looks_like_question(text):
+        return handle_workspace_question(text, "Validate", session_id=session_id)
+
     return ""
 
 
@@ -334,6 +363,11 @@ def _dispatch_export(text_lower: str, text: str, session_id: str) -> str:
         except Exception as e:
             logger.error("[Export] Error handling '%s': %s", text_lower, e)
             return f"Error: {e}"
+
+    from tools.question_gate import looks_like_question, handle_workspace_question
+
+    if looks_like_question(text):
+        return handle_workspace_question(text, "Export", session_id=session_id)
 
     return ""
 

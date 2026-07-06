@@ -8,11 +8,22 @@ stale data, dependency chains, section deep-dives.
 import logging
 from typing import Optional
 
+from tools.trace_emitter import emit_trace
+
 logger = logging.getLogger(__name__)
 
 
-def get_coverage_heatmap() -> dict:
+def _trace(session_id: Optional[str], step: str, detail: str, data: Optional[dict] = None) -> None:
+    """Emit a trace event only if we actually have a session to broadcast to."""
+    if session_id:
+        emit_trace(session_id, "Inspect", step, detail, data or {})
+
+
+def get_coverage_heatmap(session_id: Optional[str] = None) -> dict:
     """Get section-by-section coverage for panel visualization.
+
+    Args:
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with sections list, each having section_id, title, coverage_pct, status.
@@ -20,6 +31,7 @@ def get_coverage_heatmap() -> dict:
     try:
         from services.coverage_calculator import get_plan_coverage
 
+        _trace(session_id, "computing_coverage", "Calculating coverage across all plan sections...")
         coverage = get_plan_coverage()
         per_section = coverage.get("per_section", {})
 
@@ -44,6 +56,11 @@ def get_coverage_heatmap() -> dict:
                 "status": status,
             })
 
+        _trace(
+            session_id, "coverage_complete",
+            f"Coverage computed — {coverage.get('coverage_pct', 0):.0f}% overall across {len(sections)} section(s)",
+        )
+
         return {
             "overall_coverage_pct": coverage.get("coverage_pct", 0),
             "total_nodes": coverage.get("total_nodes", 0),
@@ -55,8 +72,11 @@ def get_coverage_heatmap() -> dict:
         return {"overall_coverage_pct": 0, "sections": []}
 
 
-def get_confidence_breakdown() -> dict:
+def get_confidence_breakdown(session_id: Optional[str] = None) -> dict:
     """Get per-section CONFIRMED vs ASSUMPTION vs INFERRED split.
+
+    Args:
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with breakdown counts and percentages.
@@ -64,40 +84,41 @@ def get_confidence_breakdown() -> dict:
     try:
         from services.coverage_calculator import get_confidence_breakdown as calc_confidence
 
-        return calc_confidence()
+        _trace(session_id, "computing_confidence", "Breaking down data by epistemic status...")
+        result = calc_confidence()
+        _trace(
+            session_id, "confidence_complete",
+            f"Confidence breakdown ready — {result.get('confidence_pct', 0):.0f}% CONFIRMED",
+        )
+        return result
     except Exception as e:
         logger.error("[InspectHandler] Error getting confidence: %s", e)
         return {"breakdown": {}, "confidence_pct": 0}
 
 
-def get_contradictions_list() -> dict:
+def get_contradictions_list(session_id: Optional[str] = None) -> dict:
     """Get all unresolved contradictions with details.
+
+    Args:
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with count and list of contradiction details.
     """
     try:
-        from services.rag_service import retrieve
-
-        chunks = retrieve(
-            query="contradiction conflict inconsistency disagreement",
-            source_types=["contradiction_resolution"],
-            top_k=50,
-            threshold=0.3,
-        )
-
-        contradictions = []
-        for chunk in chunks:
-            if chunk.metadata.get("resolved") is not True:
-                contradictions.append({
-                    "id": chunk.id,
-                    "content": chunk.content,
-                    "section": chunk.section,
-                    "created_at": chunk.created_at,
-                })
-
         from services.rag_service import _get_supabase, TABLE_NAME
 
+        # Only rows explicitly tagged epistemic_status="CONTRADICTION" with
+        # no superseded_by represent a genuinely open issue. We deliberately
+        # do NOT scan "contradiction_resolution" chunks here — those are
+        # only ever written after a contradiction is resolved (see
+        # services.rag_hooks.store_contradiction_resolution), so every one
+        # of them already represents a closed issue, not an open one. An
+        # earlier version of this function checked for a "resolved"
+        # metadata flag on those chunks that no code ever actually sets,
+        # which meant every past resolution got double-counted as a brand
+        # new open contradiction (inflated the count by ~25x in practice).
+        _trace(session_id, "checking_flagged", "Checking for explicitly flagged CONTRADICTION records...")
         supabase = _get_supabase()
         result = (
             supabase.table(TABLE_NAME)
@@ -107,15 +128,20 @@ def get_contradictions_list() -> dict:
             .execute()
         )
 
+        contradictions = []
         if result.data:
             for row in result.data:
-                if not any(c["id"] == row["id"] for c in contradictions):
-                    contradictions.append({
-                        "id": row["id"],
-                        "content": row["content"],
-                        "section": row.get("section"),
-                        "created_at": row.get("created_at"),
-                    })
+                contradictions.append({
+                    "id": row["id"],
+                    "content": row["content"],
+                    "section": row.get("section"),
+                    "created_at": row.get("created_at"),
+                })
+
+        _trace(
+            session_id, "contradictions_complete",
+            f"Found {len(contradictions)} unresolved contradiction(s)",
+        )
 
         return {
             "count": len(contradictions),
@@ -126,11 +152,12 @@ def get_contradictions_list() -> dict:
         return {"count": 0, "contradictions": []}
 
 
-def get_stale_data_report(max_age_days: int = 30) -> dict:
+def get_stale_data_report(max_age_days: int = 30, session_id: Optional[str] = None) -> dict:
     """Get items needing refresh, ranked by staleness.
 
     Args:
         max_age_days: Threshold for staleness.
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with count and list of stale items.
@@ -138,7 +165,9 @@ def get_stale_data_report(max_age_days: int = 30) -> dict:
     try:
         from services.coverage_calculator import get_stale_items
 
+        _trace(session_id, "scanning_staleness", f"Scanning for data older than {max_age_days} days...")
         stale = get_stale_items(max_age_days=max_age_days)
+        _trace(session_id, "staleness_complete", f"Found {len(stale)} stale item(s)")
         return {
             "count": len(stale),
             "max_age_threshold": max_age_days,
@@ -149,8 +178,11 @@ def get_stale_data_report(max_age_days: int = 30) -> dict:
         return {"count": 0, "items": []}
 
 
-def get_dependency_view() -> dict:
+def get_dependency_view(session_id: Optional[str] = None) -> dict:
     """Get the dependency chain visualization data.
+
+    Args:
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with nodes and edges for the dependency graph.
@@ -158,6 +190,7 @@ def get_dependency_view() -> dict:
     try:
         from services.coverage_calculator import get_blocked_sections, get_sections
 
+        _trace(session_id, "mapping_dependencies", "Mapping section dependencies and blockers...")
         sections = get_sections()
         blocked = get_blocked_sections()
 
@@ -182,6 +215,11 @@ def get_dependency_view() -> dict:
                         "type": "blocks",
                     })
 
+        _trace(
+            session_id, "dependencies_complete",
+            f"Mapped {len(nodes)} section(s), {len(blocked)} blocked",
+        )
+
         return {
             "nodes": nodes,
             "edges": edges,
@@ -192,11 +230,12 @@ def get_dependency_view() -> dict:
         return {"nodes": [], "edges": [], "blocked_count": 0}
 
 
-def get_section_deep_dive(section_id: str) -> dict:
+def get_section_deep_dive(section_id: str, session_id: Optional[str] = None) -> dict:
     """Deep dive into a specific section: all nodes, status, data, ages.
 
     Args:
         section_id: The section to inspect (e.g., "BP.9" or "9").
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with section details, nodes, and their data.
@@ -215,6 +254,11 @@ def get_section_deep_dive(section_id: str) -> dict:
             n for n in nodes
             if n.get("node_id", "").startswith(section_id)
         ]
+
+        _trace(
+            session_id, "deep_dive_start",
+            f"Deep-diving section {section_id} — checking {len(section_nodes)} node(s) for data...",
+        )
 
         node_details = []
         for node in section_nodes:
@@ -241,6 +285,11 @@ def get_section_deep_dive(section_id: str) -> dict:
         filled = sum(1 for n in node_details if n["has_data"])
         total = len(node_details)
 
+        _trace(
+            session_id, "deep_dive_complete",
+            f"Section {section_id}: {filled}/{total} node(s) filled",
+        )
+
         return {
             "section_id": section_id,
             "total_nodes": total,
@@ -253,11 +302,12 @@ def get_section_deep_dive(section_id: str) -> dict:
         return {"section_id": section_id, "total_nodes": 0, "nodes": []}
 
 
-def answer_inspect_question(question: str) -> dict:
+def answer_inspect_question(question: str, session_id: Optional[str] = None) -> dict:
     """Answer a free-form inspection question using RAG + LLM synthesis.
 
     Args:
         question: Alex's natural language question about plan state.
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with answer text and supporting sources.
@@ -266,6 +316,7 @@ def answer_inspect_question(question: str) -> dict:
         from services.rag_service import retrieve
         from web.handlers.llm_helper import generate_answer
 
+        _trace(session_id, "searching_kb", f"Searching the knowledge base for: \"{question[:60]}\"...")
         chunks = retrieve(
             query=question,
             top_k=10,
@@ -279,11 +330,16 @@ def answer_inspect_question(question: str) -> dict:
         ]
 
         if not filtered:
+            _trace(session_id, "no_results", "No relevant data found in the knowledge base")
             return {
                 "answer": "No relevant data found in the knowledge base for that question.",
                 "sources": [],
             }
 
+        _trace(
+            session_id, "synthesizing",
+            f"Found {len(filtered)} relevant fact(s) — asking the model to synthesize an answer...",
+        )
         answer = generate_answer(question, filtered[:5])
 
         sources = [
@@ -296,6 +352,8 @@ def answer_inspect_question(question: str) -> dict:
             }
             for c in filtered[:5]
         ]
+
+        _trace(session_id, "answer_ready", "Answer ready", {"source_count": len(sources)})
 
         return {
             "answer": answer,
