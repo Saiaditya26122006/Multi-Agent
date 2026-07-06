@@ -5,10 +5,27 @@ Handles: confirming assumptions, killing assumptions, reporting conversations,
 updating decisions, showing cascade previews.
 """
 
+import json
 import logging
 from typing import Optional
 
+from tools.trace_emitter import emit_trace
+
 logger = logging.getLogger(__name__)
+
+_KILL_CONFIRM_PREFIX = "validate_kill_pending:"
+_CONFIRM_CONFIRM_PREFIX = "validate_confirm_pending:"
+
+
+def _get_redis():
+    from memory.redis_client import RedisClient
+    return RedisClient()
+
+
+def _trace(session_id: Optional[str], step: str, detail: str, data: Optional[dict] = None) -> None:
+    """Emit a trace event only if we actually have a session to broadcast to."""
+    if session_id:
+        emit_trace(session_id, "Validate", step, detail, data or {})
 
 
 def confirm_assumption(
@@ -32,6 +49,7 @@ def confirm_assumption(
         from services.assumption_tracker import record_evidence
         from services.rag_service import retrieve, store
 
+        _trace(session_id, "matching_assumption", f"Looking up: \"{assumption_text[:60]}\"...")
         related = retrieve(
             query=assumption_text,
             source_types=["ceo_doc", "conversation"],
@@ -45,6 +63,7 @@ def confirm_assumption(
                 assumption_chunk = chunk
                 break
 
+        _trace(session_id, "storing_validation", "Recording evidence and upgrading status to CONFIRMED...")
         store(
             content=f"VALIDATED: {assumption_text} — Evidence: {evidence}",
             source_type="assumption_lifecycle",
@@ -59,7 +78,13 @@ def confirm_assumption(
             },
         )
 
-        cascade = get_cascade_preview(assumption_text)
+        _trace(session_id, "checking_cascade", "Checking downstream impact on dependent sections...")
+        cascade = get_cascade_preview(assumption_text, session_id=session_id)
+
+        _trace(
+            session_id, "confirm_complete",
+            f"Confirmed — {cascade.get('affected_count', 0)} downstream node(s) strengthened",
+        )
 
         return {
             "success": True,
@@ -97,6 +122,7 @@ def kill_assumption(
         from services.rag_service import store
         from services.conversation_store import store_decision
 
+        _trace(session_id, "storing_kill", f"Marking as killed: \"{assumption_text[:60]}\"...")
         store(
             content=f"KILLED ASSUMPTION: {assumption_text} — Reason: {reason}",
             source_type="negative_knowledge",
@@ -110,8 +136,10 @@ def kill_assumption(
             },
         )
 
-        cascade = get_cascade_preview(assumption_text)
+        _trace(session_id, "checking_cascade", "Checking downstream impact before finalizing...")
+        cascade = get_cascade_preview(assumption_text, session_id=session_id)
         affected = cascade.get("affected_count", 0)
+        _trace(session_id, "kill_complete", f"Killed — {affected} downstream node(s) affected")
 
         warning = None
         if affected > 3:
@@ -162,6 +190,7 @@ def report_conversation(
             f"Outcome: {outcome}"
         )
 
+        _trace(session_id, "logging_conversation", f"Logging conversation with {who} as CONFIRMED evidence...")
         chunk_id = store(
             content=content,
             source_type="conversation",
@@ -175,6 +204,8 @@ def report_conversation(
                 "type": "external_conversation",
             },
         )
+
+        _trace(session_id, "conversation_logged", f"Logged conversation with {who}")
 
         return {
             "success": True,
@@ -212,11 +243,13 @@ def update_decision(
     try:
         from services.conversation_store import store_correction
 
+        _trace(session_id, "updating_decision", f"Superseding decision: \"{original_decision[:50]}\"...")
         new_id = store_correction(
             original_fact=f"Decision: {original_decision}",
             corrected_fact=f"Updated decision: {new_decision} (Reason: {reason})",
             session_id=session_id,
         )
+        _trace(session_id, "decision_updated", "Decision updated")
 
         return {
             "success": True,
@@ -231,11 +264,12 @@ def update_decision(
         return {"success": False, "error": str(e)}
 
 
-def get_cascade_preview(assumption_text: str) -> dict:
+def get_cascade_preview(assumption_text: str, session_id: Optional[str] = None) -> dict:
     """Show what changes if an assumption is confirmed or killed.
 
     Args:
         assumption_text: The assumption to check dependencies for.
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with affected_count, affected_sections, impact_level.
@@ -271,8 +305,11 @@ def get_cascade_preview(assumption_text: str) -> dict:
         return {"affected_count": 0, "affected_sections": [], "impact_level": "unknown"}
 
 
-def get_assumption_queue() -> dict:
+def get_assumption_queue(session_id: Optional[str] = None) -> dict:
     """Panel view: assumptions ranked by age + downstream impact.
+
+    Args:
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with queue list ordered by priority.
@@ -280,12 +317,19 @@ def get_assumption_queue() -> dict:
     try:
         from services.coverage_calculator import get_oldest_assumptions
 
+        _trace(session_id, "loading_assumptions", "Loading assumptions ranked by age...")
         assumptions = get_oldest_assumptions(top_k=20)
 
         queue = []
-        for a in assumptions:
+        for i, a in enumerate(assumptions):
             cascade = get_cascade_preview(a["content_preview"])
             priority_score = a["age_days"] * (cascade.get("affected_count", 1) + 1)
+
+            if assumptions and (i + 1) % 5 == 0:
+                _trace(
+                    session_id, "scoring_progress",
+                    f"Scored {i + 1}/{len(assumptions)} assumption(s) by impact...",
+                )
 
             queue.append({
                 "id": a["id"],
@@ -297,6 +341,8 @@ def get_assumption_queue() -> dict:
             })
 
         queue.sort(key=lambda x: x["priority_score"], reverse=True)
+
+        _trace(session_id, "queue_ready", f"Validation queue ready — {len(queue)} assumption(s), ranked")
 
         return {
             "count": len(queue),
@@ -332,3 +378,115 @@ def format_validate_response(result: dict) -> str:
         message += f"\n\n⚠ {warning}"
 
     return message
+
+
+def request_kill(
+    assumption_text: str,
+    reason: str,
+    session_id: Optional[str] = None,
+) -> str:
+    """Stage a kill and ask for confirmation before executing."""
+    redis = _get_redis()
+    key = f"{_KILL_CONFIRM_PREFIX}{session_id}"
+    redis.client.set(
+        key,
+        json.dumps({
+            "assumption_text": assumption_text,
+            "reason": reason,
+            "session_id": session_id,
+        }),
+        ex=600,
+    )
+    cascade = get_cascade_preview(assumption_text, session_id=session_id)
+    affected = cascade.get("affected_count", 0)
+
+    msg = (
+        f"You're about to kill assumption: \"{assumption_text}\"\n"
+        f"Reason: {reason}\n"
+        f"Downstream impact: {affected} node(s) affected.\n\n"
+        f"This is irreversible. Type 'confirm kill' to proceed or anything else to cancel."
+    )
+    _trace(session_id, "awaiting_kill_confirm", f"Awaiting kill confirmation for: {assumption_text[:60]}")
+    return msg
+
+
+def request_confirm(
+    assumption_text: str,
+    evidence: str,
+    source: Optional[str] = None,
+    session_id: Optional[str] = None,
+) -> str:
+    """Stage a confirm and ask for confirmation before executing."""
+    redis = _get_redis()
+    key = f"{_CONFIRM_CONFIRM_PREFIX}{session_id}"
+    redis.client.set(
+        key,
+        json.dumps({
+            "assumption_text": assumption_text,
+            "evidence": evidence,
+            "source": source,
+            "session_id": session_id,
+        }),
+        ex=600,
+    )
+
+    msg = (
+        f"You're about to validate assumption: \"{assumption_text}\"\n"
+        f"Evidence: {evidence}\n\n"
+        f"Type 'confirm' to mark this as validated or anything else to cancel."
+    )
+    _trace(session_id, "awaiting_confirm", f"Awaiting validation confirmation for: {assumption_text[:60]}")
+    return msg
+
+
+def handle_pending_response(text: str, session_id: Optional[str] = None) -> Optional[str]:
+    """Check if there's a pending kill/confirm gate and handle the response.
+
+    Returns:
+        Response string if a gate was active (consumed), or None if no gate.
+    """
+    redis = _get_redis()
+    text_lower = text.strip().lower()
+
+    kill_key = f"{_KILL_CONFIRM_PREFIX}{session_id}"
+    kill_pending = redis.client.get(kill_key)
+    if kill_pending:
+        redis.client.delete(kill_key)
+        if text_lower == "confirm kill":
+            data = json.loads(
+                kill_pending.decode("utf-8")
+                if isinstance(kill_pending, bytes)
+                else kill_pending
+            )
+            result = kill_assumption(
+                assumption_text=data["assumption_text"],
+                reason=data["reason"],
+                session_id=data.get("session_id"),
+            )
+            return format_validate_response(result)
+        else:
+            _trace(session_id, "kill_cancelled", "Kill cancelled by user")
+            return "Kill cancelled. Assumption remains unchanged."
+
+    confirm_key = f"{_CONFIRM_CONFIRM_PREFIX}{session_id}"
+    confirm_pending = redis.client.get(confirm_key)
+    if confirm_pending:
+        redis.client.delete(confirm_key)
+        if text_lower == "confirm":
+            data = json.loads(
+                confirm_pending.decode("utf-8")
+                if isinstance(confirm_pending, bytes)
+                else confirm_pending
+            )
+            result = confirm_assumption(
+                assumption_text=data["assumption_text"],
+                evidence=data["evidence"],
+                source=data.get("source"),
+                session_id=data.get("session_id"),
+            )
+            return format_validate_response(result)
+        else:
+            _trace(session_id, "confirm_cancelled", "Validation cancelled by user")
+            return "Validation cancelled. Assumption remains unconfirmed."
+
+    return None

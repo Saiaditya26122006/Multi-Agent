@@ -276,7 +276,14 @@ def _dispatch_validate(text_lower: str, text: str, session_id: str) -> str:
     from web.handlers.validate_handler import (
         get_assumption_queue,
         format_validate_response,
+        handle_pending_response,
+        request_kill,
+        request_confirm,
     )
+
+    pending_result = handle_pending_response(text, session_id=session_id)
+    if pending_result is not None:
+        return pending_result
 
     if text_lower == "a":
         try:
@@ -285,6 +292,20 @@ def _dispatch_validate(text_lower: str, text: str, session_id: str) -> str:
         except Exception as e:
             logger.error("[Validate] Error: %s", e)
             return f"Error: {e}"
+
+    if text_lower.startswith("kill "):
+        parts = text[5:].split("|", 1)
+        assumption_text = parts[0].strip()
+        reason = parts[1].strip() if len(parts) > 1 else "Killed by CEO"
+        if assumption_text:
+            return request_kill(assumption_text, reason, session_id=session_id)
+
+    if text_lower.startswith("validate "):
+        parts = text[9:].split("|", 1)
+        assumption_text = parts[0].strip()
+        evidence = parts[1].strip() if len(parts) > 1 else "CEO confirmed"
+        if assumption_text:
+            return request_confirm(assumption_text, evidence, session_id=session_id)
 
     return ""
 
