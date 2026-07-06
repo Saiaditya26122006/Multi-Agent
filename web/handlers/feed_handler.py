@@ -12,6 +12,8 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
+from tools.trace_emitter import emit_trace
+
 logger = logging.getLogger(__name__)
 
 PENDING_FACT_TTL = 600  # 10 minutes
@@ -999,8 +1001,319 @@ def _run_post_store_hooks(
         )
         logger.debug("[FeedHandler] Stored chunk %s with temporal score: %.4f", chunk_id, score)
 
+        try:
+            from services.memory_index import link_new_chunk
+
+            link_new_chunk(
+                chunk_id=chunk_id,
+                content=content,
+                metadata={"epistemic_status": epistemic_status},
+                session_id=session_id,
+            )
+        except Exception as link_err:
+            logger.error("[FeedHandler] Memory index linking failed (non-fatal): %s", link_err)
+
     except Exception as e:
         logger.error("[FeedHandler] Post-store hooks error (non-fatal): %s", e)
+
+
+# --- Batch document processing (file uploads) ---
+#
+# handle_raw_text() above is the CHAT flow: one fact at a time, approved via
+# a back-and-forth conversation. That doesn't scale to a whole uploaded
+# document, which can yield dozens of atomic facts. The functions below
+# classify the ENTIRE batch up front (for the Process panel's live narration
+# and review checklist) and defer storage until Alex bulk-approves a subset.
+
+
+def _batch_key(session_id: str) -> str:
+    """Redis key for a pending document batch awaiting bulk review."""
+    return f"feed_batch:{session_id}"
+
+
+def _store_batch(session_id: str, batch_data: dict) -> None:
+    """Store a classified document batch in Redis awaiting bulk approval."""
+    try:
+        r = _get_redis()
+        r.set(_batch_key(session_id), json.dumps(batch_data), ex=PENDING_FACT_TTL * 3)
+    except Exception as e:
+        logger.error("[FeedHandler] Redis error storing batch: %s", e)
+
+
+def get_batch(session_id: str) -> Optional[dict]:
+    """Retrieve the pending document batch from Redis.
+
+    Returns:
+        The batch dict (batch_id, filename, facts, ...) or None if expired
+        or never created.
+    """
+    try:
+        r = _get_redis()
+        raw = r.get(_batch_key(session_id))
+        if raw is None:
+            return None
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        return json.loads(raw)
+    except Exception as e:
+        logger.error("[FeedHandler] Redis error getting batch: %s", e)
+        return None
+
+
+def clear_batch(session_id: str) -> None:
+    """Remove the pending document batch."""
+    try:
+        r = _get_redis()
+        r.delete(_batch_key(session_id))
+    except Exception as e:
+        logger.error("[FeedHandler] Redis error clearing batch: %s", e)
+
+
+def process_uploaded_document(
+    text: str, filename: str, session_id: str, max_facts: int = 200
+) -> dict:
+    """Split extracted document text into atomic facts and classify all of them.
+
+    Unlike handle_raw_text() (one fact per chat turn), this classifies the
+    whole document up front so the Process panel can show a single bulk
+    review checklist. Nothing is written to the knowledge base here —
+    bulk_store_facts() does that once Alex approves a subset.
+
+    Args:
+        text: Extracted plain text (from services.document_extractor).
+        filename: Original filename, kept for provenance and display.
+        session_id: Current session ID.
+        max_facts: Safety cap on facts classified in one batch. Node
+            matching runs a local embedding compare per fact — cheap
+            individually, but a large document can yield hundreds of
+            sentences, so this keeps a single upload bounded.
+
+    Returns:
+        Dict with: batch_id, filename, total_facts, truncated, facts (each:
+        id, verbatim_text, content_type, content_confidence,
+        epistemic_status, proposed_node, node_confidence,
+        all_node_candidates, selected).
+    """
+    fmt = detect_format(text)
+    raw_facts = split_into_atomic_facts(text, fmt)
+
+    truncated = len(raw_facts) > max_facts
+    raw_facts = raw_facts[:max_facts]
+
+    if not raw_facts:
+        emit_trace(
+            session_id, "Feed", "no_facts_found",
+            f"No extractable facts found in {filename}",
+            {"filename": filename},
+        )
+        return {
+            "batch_id": None,
+            "filename": filename,
+            "total_facts": 0,
+            "truncated": False,
+            "facts": [],
+        }
+
+    emit_trace(
+        session_id, "Feed", "classifying",
+        f"Classifying {len(raw_facts)} extracted fact(s) from {filename}...",
+        {"filename": filename, "fact_count": len(raw_facts)},
+    )
+
+    classified = []
+    checkpoint = max(1, len(raw_facts) // 5)
+    for i, fact in enumerate(raw_facts):
+        fact_text = fact["text"]
+
+        content_classification = classify_content_type(fact_text)
+        content_type = content_classification["content_type"]
+        epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(
+            content_type, fact.get("inferred_status", "INFERRED")
+        )
+
+        # Use the local cached-embedding matcher (not match_bp_node's RAG
+        # round trip) — a batch of a hundred-plus facts doing a network
+        # call each would be far too slow for a "live" process panel.
+        node_matches = _direct_node_match(fact_text, top_k=3)
+
+        proposed_node = None
+        node_confidence = "unmatched"
+        if node_matches and node_matches[0]["similarity"] >= 0.6:
+            proposed_node = node_matches[0]
+            node_confidence = "matched"
+        elif node_matches:
+            proposed_node = node_matches[0]
+            node_confidence = "low_confidence"
+
+        classified.append({
+            "id": str(i),
+            "verbatim_text": fact_text,
+            "content_type": content_type,
+            "content_confidence": content_classification["confidence"],
+            "epistemic_status": epistemic_status,
+            "proposed_node": proposed_node,
+            "node_confidence": node_confidence,
+            "all_node_candidates": node_matches[:3],
+            "source_format": fact.get("source_format", fmt),
+            # Pre-check facts with a usable node match; leave unmatched ones
+            # unchecked so Alex has to make an explicit call on those.
+            "selected": node_confidence in ("matched", "low_confidence"),
+        })
+
+        if (i + 1) % checkpoint == 0 or i == len(raw_facts) - 1:
+            emit_trace(
+                session_id, "Feed", "classifying_progress",
+                f"Classified {i + 1}/{len(raw_facts)} fact(s) from {filename}...",
+                {"filename": filename, "done": i + 1, "total": len(raw_facts)},
+            )
+
+    batch_id = f"batch_{session_id}_{int(datetime.now(timezone.utc).timestamp())}"
+
+    batch_data = {
+        "batch_id": batch_id,
+        "filename": filename,
+        "total_facts": len(classified),
+        "truncated": truncated,
+        "facts": classified,
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    _store_batch(session_id, batch_data)
+
+    emit_trace(
+        session_id, "Feed", "ready_for_review",
+        f"Ready for review — {len(classified)} fact(s) extracted from {filename}"
+        + (" (truncated)" if truncated else ""),
+        {"filename": filename, "batch_id": batch_id, "fact_count": len(classified)},
+    )
+
+    return batch_data
+
+
+def bulk_store_facts(
+    session_id: str,
+    accepted_fact_ids: list[str],
+    edited_texts: Optional[dict] = None,
+) -> dict:
+    """Store the Alex-approved subset of a classified document batch.
+
+    Runs each approved fact through the same store() + post-store-hooks path
+    as the chat approval flow (_execute_approval), so document-sourced facts
+    get identical epistemic tagging, dedup, and contradiction handling.
+
+    Args:
+        session_id: Current session ID.
+        accepted_fact_ids: The "id" values (from process_uploaded_document's
+            fact list) that Alex approved for storage.
+        edited_texts: Optional {fact_id: corrected_text} for facts Alex
+            edited in the review panel before approving.
+
+    Returns:
+        Dict with: stored_count, duplicate_count, skipped_count, results
+        (per-fact outcome), filename.
+    """
+    from services.rag_service import store
+
+    batch = get_batch(session_id)
+    if not batch:
+        return {
+            "stored_count": 0,
+            "duplicate_count": 0,
+            "skipped_count": 0,
+            "results": [],
+            "error": "No pending batch found — it may have expired. Please re-upload.",
+        }
+
+    edited_texts = edited_texts or {}
+    facts_by_id = {f["id"]: f for f in batch["facts"]}
+    filename = batch["filename"]
+
+    emit_trace(
+        session_id, "Feed", "storing",
+        f"Storing {len(accepted_fact_ids)} approved fact(s) from {filename}...",
+        {"filename": filename, "count": len(accepted_fact_ids)},
+    )
+
+    results = []
+    stored_count = 0
+    duplicate_count = 0
+
+    for fact_id in accepted_fact_ids:
+        fact = facts_by_id.get(fact_id)
+        if not fact:
+            continue
+
+        verbatim = edited_texts.get(fact_id, fact["verbatim_text"])
+        proposed_node = fact.get("proposed_node")
+        node_id = proposed_node["node_id"] if proposed_node else None
+        node_title = proposed_node["node_title"] if proposed_node else "Unmatched"
+        section = (
+            node_id.split(".")[1] if node_id and "." in node_id else None
+        )
+
+        try:
+            chunk_id = store(
+                content=verbatim,
+                source_type="ceo_doc",
+                section=section,
+                epistemic_status=fact["epistemic_status"],
+                topic_tags=[
+                    fact["content_type"],
+                    f"node:{node_id or 'unmatched'}",
+                    f"file:{filename}",
+                ],
+                session_id=session_id,
+                confidence=fact.get("content_confidence", 0.5),
+                metadata={
+                    "content_type": fact["content_type"],
+                    "node_id": node_id,
+                    "node_title": node_title,
+                    "source": "feed_document_upload",
+                    "source_filename": filename,
+                    "approved_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+            if chunk_id is None:
+                duplicate_count += 1
+                results.append({
+                    "fact_id": fact_id, "status": "duplicate", "text": verbatim[:80],
+                })
+                continue
+
+            _run_post_store_hooks(verbatim, chunk_id, fact["epistemic_status"], session_id)
+            stored_count += 1
+            results.append({
+                "fact_id": fact_id, "status": "stored", "chunk_id": chunk_id,
+                "node_id": node_id, "text": verbatim[:80],
+            })
+
+        except Exception as e:
+            logger.error("[FeedHandler] Bulk store failed for fact %s: %s", fact_id, e)
+            results.append({
+                "fact_id": fact_id, "status": "error", "error": str(e), "text": verbatim[:80],
+            })
+
+    skipped_count = len(batch["facts"]) - len(accepted_fact_ids)
+    clear_batch(session_id)
+
+    emit_trace(
+        session_id, "Feed", "storage_complete",
+        f"Stored {stored_count} fact(s) from {filename} "
+        f"({duplicate_count} duplicate(s), {skipped_count} skipped)",
+        {
+            "filename": filename, "stored": stored_count,
+            "duplicates": duplicate_count, "skipped": skipped_count,
+        },
+    )
+
+    return {
+        "stored_count": stored_count,
+        "duplicate_count": duplicate_count,
+        "skipped_count": skipped_count,
+        "results": results,
+        "filename": filename,
+    }
 
 
 def _process_next_fact(remaining_facts: list[str], session_id: str) -> dict:
@@ -1154,6 +1467,105 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
     return "\n".join(lines)
 
 
+# --- Question detection ---
+#
+# Feed mode has exactly one job: turn typed/uploaded text into stored facts.
+# It has zero intent detection otherwise, so a plain question like "can you
+# show me the last feed" used to get run through classify_content_type() /
+# match_bp_node() just like real data, and come back as a nonsensical
+# "ADD — Review before storing" prompt. The functions below catch anything
+# question-shaped before it reaches that pipeline.
+
+QUESTION_LEAD_PATTERN = re.compile(
+    r"^\s*(who|what|when|where|why|how|which)\b"
+    r"|^\s*(can|could|would|should|do|does|did|is|are|will)\s+(i|you|we|it|this|there|these)\b"
+    r"|^\s*(show|tell|list|find|give|help)\s+me\b",
+    re.IGNORECASE,
+)
+
+# Phrases that signal Alex is asking for an ACTION Feed can't perform —
+# these get an honest "I can't do that here" redirect instead of an
+# attempted Q&A answer, since a RAG lookup would just come back empty for
+# something like "build the financial section".
+ACTION_REDIRECTS = [
+    (re.compile(r"\bbuild\b.*\bsection\b|\bgenerate the plan\b|\bcompile the plan\b|\bwrite the section\b", re.IGNORECASE), "Build"),
+    (re.compile(r"\bexport\b|\bdownload the plan\b|\bgenerate a (pdf|docx|word doc)\b", re.IGNORECASE), "Export"),
+    (re.compile(r"\bvalidate\b|\bvalidation queue\b|\bcheck( the)? assumptions\b", re.IGNORECASE), "Validate"),
+    (re.compile(r"\bchallenge\b|\bdevil'?s advocate\b|\bstress[- ]test\b", re.IGNORECASE), "Challenge"),
+]
+
+
+def looks_like_question(text: str) -> bool:
+    """Heuristic: does this read as a question/request rather than data to store?
+
+    Args:
+        text: Alex's raw message.
+
+    Returns:
+        True if this looks like a question or command rather than a
+        statement of fact that should be classified and stored.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return False
+    if stripped.endswith("?"):
+        return True
+    return bool(QUESTION_LEAD_PATTERN.match(stripped))
+
+
+def handle_feed_question(text: str, session_id: str) -> dict:
+    """Answer a question typed in Feed mode instead of misfiling it as data.
+
+    Tries Inspect's RAG-backed Q&A first (a lot of questions asked while
+    sitting in Feed are legitimate lookups — "what's our TAM assumption").
+    If that comes back empty, or the question is really an action request
+    for a different workspace, this says so plainly instead of pretending
+    Feed can help.
+
+    Args:
+        text: Alex's message (already detected as question-shaped).
+        session_id: Current session ID.
+
+    Returns:
+        Dict with action and response_text.
+    """
+    for pattern, workspace_name in ACTION_REDIRECTS:
+        if pattern.search(text):
+            return {
+                "action": "redirect",
+                "response_text": (
+                    f"I can't do that from Feed — I don't have that feature here. "
+                    f"Feed only adds new data. That sounds like a {workspace_name} "
+                    f"task; switch workspaces (the + menu, top left) and ask there."
+                ),
+            }
+
+    try:
+        from web.handlers.inspect_handler import answer_inspect_question
+
+        result = answer_inspect_question(text)
+        answer = result.get("answer", "") or ""
+        sources = result.get("sources", [])
+
+        if not sources or answer.startswith("No relevant data found"):
+            return {
+                "action": "no_answer",
+                "response_text": (
+                    "I don't have anything in the knowledge base to answer that. "
+                    "If you meant to add data, rephrase it as a statement — "
+                    "otherwise try asking in Inspect instead."
+                ),
+            }
+
+        return {"action": "answered", "response_text": answer}
+    except Exception as e:
+        logger.error("[FeedHandler] Error answering question in Feed mode: %s", e)
+        return {
+            "action": "error",
+            "response_text": "I couldn't look that up right now. Try again, or ask in Inspect.",
+        }
+
+
 def handle_feed_message(text: str, session_id: str) -> str:
     """Main entry point for all feed workspace messages.
 
@@ -1188,6 +1600,10 @@ def handle_feed_message(text: str, session_id: str) -> str:
         if state == "FEED_AWAITING_PARENT_SELECTION":
             result = handle_parent_selection(text, session_id)
             return result.get("response_text") or "Processing parent selection..."
+
+        if looks_like_question(text):
+            result = handle_feed_question(text, session_id)
+            return result.get("response_text") or "I'm not sure how to answer that here."
 
         result = handle_raw_text(text, session_id=session_id)
         return result.get("response_text") or "Input received but no facts could be extracted. Try rephrasing."

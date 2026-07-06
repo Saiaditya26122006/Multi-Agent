@@ -128,25 +128,37 @@ def handle_auto_message(message: str, session_id: Optional[str] = None) -> dict:
 
 
 def _handle_question(message: str, classification: dict) -> dict:
-    """Handle a question using RAG + LLM synthesis."""
+    """Handle a question using RAG + LLM synthesis with relationship context."""
     try:
-        from services.rag_service import retrieve
+        from services.rag_service import retrieve_with_relationships
         from web.handlers.llm_helper import generate_answer
 
-        chunks = retrieve(
+        enriched = retrieve_with_relationships(
             query=message,
             top_k=10,
             threshold=0.38,
         )
 
         filtered = [
-            c for c in chunks
-            if c.source_type not in ("conversation",)
-            and "unique_retrieval_test" not in (c.content or "")
+            entry for entry in enriched
+            if entry["chunk"].source_type not in ("conversation",)
+            and "unique_retrieval_test" not in (entry["chunk"].content or "")
         ]
 
         if filtered:
-            response = generate_answer(message, filtered[:5])
+            chunks_for_llm = []
+            for entry in filtered[:5]:
+                chunk = entry["chunk"]
+                rels = entry.get("relationships", [])
+                if rels:
+                    rel_notes = []
+                    for rel in rels[:3]:
+                        rel_type = rel["relationship_type"]
+                        rel_content = rel["related_chunk"].content[:100]
+                        rel_notes.append(f"(Note: this {rel_type} \"{rel_content}\")")
+                    chunk.content = chunk.content + " " + " ".join(rel_notes)
+                chunks_for_llm.append(chunk)
+            response = generate_answer(message, chunks_for_llm)
         else:
             response = "No relevant data found in the knowledge base for that question. Try rephrasing, or switch to INSPECT for deeper analysis."
 

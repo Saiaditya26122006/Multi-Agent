@@ -449,6 +449,83 @@ def delete(chunk_id: str) -> bool:
     return False
 
 
+def retrieve_with_relationships(
+    query: str,
+    top_k: int = 5,
+    threshold: float = DEFAULT_THRESHOLD,
+    source_types: Optional[list[str]] = None,
+) -> list[dict]:
+    """Retrieve chunks with their relationships to other chunks.
+
+    Args:
+        query: The search query text.
+        top_k: Maximum number of primary results.
+        threshold: Minimum similarity score.
+        source_types: Filter to these source types only.
+
+    Returns:
+        List of dicts, each with: chunk (Chunk), relationships (list of
+        {related_chunk: Chunk, relationship_type: str, confidence: float}).
+    """
+    from services.memory_index import get_relationships
+
+    chunks = retrieve(
+        query=query,
+        top_k=top_k,
+        threshold=threshold,
+        source_types=source_types,
+    )
+
+    if not chunks:
+        return []
+
+    supabase = _get_supabase()
+    results = []
+
+    for chunk in chunks:
+        rels = get_relationships(chunk.id)
+
+        enriched_rels = []
+        for rel in rels:
+            related_id = rel["related_chunk_id"]
+            try:
+                row_result = (
+                    supabase.table(TABLE_NAME)
+                    .select("*")
+                    .eq("id", related_id)
+                    .limit(1)
+                    .execute()
+                )
+                if not row_result.data:
+                    continue
+                row = row_result.data[0]
+                related_chunk = Chunk(
+                    id=row["id"],
+                    content=row["content"],
+                    source_type=row["source_type"],
+                    similarity=0.0,
+                    section=row.get("section"),
+                    epistemic_status=row.get("epistemic_status"),
+                    topic_tags=row.get("topic_tags", []),
+                    metadata=row.get("metadata", {}),
+                    created_at=row.get("created_at"),
+                )
+                enriched_rels.append({
+                    "related_chunk": related_chunk,
+                    "relationship_type": rel["relationship_type"],
+                    "confidence": rel["confidence"],
+                })
+            except Exception:
+                continue
+
+        results.append({
+            "chunk": chunk,
+            "relationships": enriched_rels,
+        })
+
+    return results
+
+
 def format_chunks_for_injection(
     chunks: list[Chunk], max_chars: int = 3000
 ) -> str:
