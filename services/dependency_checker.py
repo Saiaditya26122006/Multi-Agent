@@ -7,7 +7,7 @@ upstream/downstream dependencies, cascade risk, and blocking nodes.
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +154,72 @@ def get_cascade_risk(node_id: str) -> int:
                 queue.append(dependent)
 
     return len(visited)
+
+
+def get_reopen_triggers() -> dict[str, str]:
+    """Load reopen_triggers from bp_dependencies.json.
+
+    Returns:
+        Dict mapping node_id -> trigger description string.
+        Empty dict if file is missing or field absent.
+    """
+    data = _load_dependencies_file()
+    triggers = data.get("reopen_triggers", {})
+    if not isinstance(triggers, dict):
+        logger.error("reopen_triggers field is not a dict")
+        return {}
+    return triggers
+
+
+def get_downstream_sections_to_reopen(
+    changed_section: str, section_dependency_map: Optional[dict[str, Any]] = None
+) -> list[str]:
+    """Given a section that changed, return section IDs that must be reopened.
+
+    Uses two sources:
+    1. Node-level: bp_dependencies.json graph (nodes in other sections depending
+       on nodes in the changed section).
+    2. Section-level: dependency_map.yaml (sections whose depends_on includes
+       the changed section).
+
+    Args:
+        changed_section: Section number like "1" or "3".
+        section_dependency_map: Optional dict from dependency_map.yaml with
+            structure {"sections": {"1": {"depends_on": [...]}, ...}}.
+            If not provided, only node-level dependencies are used.
+
+    Returns:
+        Sorted list of section numbers (as strings) that should be reopened.
+    """
+    downstream_sections: set[str] = set()
+
+    # Source 1: node-level graph from bp_dependencies.json
+    graph = get_dependency_graph()
+    if graph:
+        bp_prefix = f"BP.{changed_section}"
+        triggers = get_reopen_triggers()
+        changed_nodes = {
+            nid for nid in list(graph.keys()) + list(triggers.keys())
+            if nid == bp_prefix or nid.startswith(bp_prefix + ".")
+        }
+
+        for node_id, deps in graph.items():
+            for dep in deps:
+                if dep in changed_nodes and node_id not in changed_nodes:
+                    section_num = node_id.split(".")[1] if "." in node_id else ""
+                    if section_num and section_num != changed_section:
+                        downstream_sections.add(section_num)
+
+    # Source 2: section-level depends_on from dependency_map.yaml
+    if section_dependency_map:
+        sections_config = section_dependency_map.get("sections", {})
+        for sec_num, sec_config in sections_config.items():
+            deps_on = sec_config.get("depends_on", [])
+            if str(changed_section) in [str(d) for d in deps_on]:
+                if str(sec_num) != str(changed_section):
+                    downstream_sections.add(str(sec_num))
+
+    return sorted(downstream_sections)
 
 
 def get_dependency_chain(section_id: str) -> dict[str, Any]:

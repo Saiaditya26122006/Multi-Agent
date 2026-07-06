@@ -44,6 +44,7 @@ from agents.phase2.conflict_resolver import ConflictResolver
 from config.phase2.council_config import COUNCIL_GATED_SECTIONS
 from ceo_data.loader import load_all_ceo_data, get_relevant_ceo_data
 from services.rag_hooks import check_negative_knowledge, store_agent_insight, store_run_metadata
+from services.dependency_checker import get_downstream_sections_to_reopen
 
 
 def load_yaml(path: str) -> dict:
@@ -1290,6 +1291,8 @@ class MotherAgent(Agent):
             ex=3600,
         )
 
+        self._reopen_downstream_sections(section, session_id, run_id)
+
         await send_acl(
             self,
             to_jid=agent_jid,
@@ -1370,6 +1373,86 @@ class MotherAgent(Agent):
             },
         }
         return fallback_templates.get(str(section))
+
+    # ── Reopen downstream sections ───────────────────────────────────────────
+
+    def _reopen_downstream_sections(
+        self, changed_section: str, session_id: str, run_id: str
+    ):
+        """Flip downstream sections back to awaiting_approval when upstream is revised.
+
+        Reads reopen_triggers from bp_dependencies.json, finds downstream sections
+        whose status is 'completed' or 'approved', flips them to 'awaiting_approval',
+        logs to events_logs, and notifies Alex via WebSocket.
+        """
+        from memory.supabase_client import log_event
+
+        downstream = get_downstream_sections_to_reopen(
+            changed_section, section_dependency_map=self.dependency_map
+        )
+        if not downstream:
+            return
+
+        trace_key = self._get_trace_key(session_id)
+        changed_name = self.dependency_map.get("sections", {}).get(
+            str(changed_section), {}
+        ).get("name", f"Section {changed_section}")
+
+        for section_num in downstream:
+            result = (
+                self.db.client.table("bp_section_metadata")
+                .select("status, section_name")
+                .eq("pipeline_run_id", run_id)
+                .eq("section_number", str(section_num))
+                .execute()
+            )
+            if not result.data:
+                continue
+
+            current_status = result.data[0].get("status", "")
+            if current_status not in ("completed", "approved", "delivered"):
+                continue
+
+            section_name = result.data[0].get(
+                "section_name", f"Section {section_num}"
+            )
+
+            self.db.client.table("bp_section_metadata").update(
+                {"status": "awaiting_approval"}
+            ).eq("pipeline_run_id", run_id).eq(
+                "section_number", str(section_num)
+            ).execute()
+
+            log_event(
+                agent_id="mother_agent",
+                action="section_reopened",
+                session_id=session_id,
+                state_before=current_status,
+                state_after="awaiting_approval",
+                input_ref=str(changed_section),
+                output_ref=str(section_num),
+            )
+
+            emit_trace(
+                trace_key,
+                "Mother",
+                "section_reopened",
+                f"{section_name} was reopened because {changed_name} was revised. "
+                f"Please re-review before final delivery.",
+                {
+                    "event_type": "section_reopened",
+                    "section_id": str(section_num),
+                    "triggered_by": str(changed_section),
+                    "reason": "upstream section re-dispatched",
+                },
+            )
+
+            logger.info(
+                "[MotherAgent] Reopened section %s (was %s) — triggered by section %s revision",
+                section_num,
+                current_status,
+                changed_section,
+            )
 
     # ── Backward pass ────────────────────────────────────────────────────────
 
@@ -1471,6 +1554,8 @@ class MotherAgent(Agent):
                 "acceptance_criteria": "Resolve all flagged conflicts. Numbers must match downstream sections.",
                 "timeout_seconds": agent_config.get("timeout_seconds", 90),
             }
+
+            self._reopen_downstream_sections(section, session_id, run_id)
 
             emit_trace(
                 trace_key, "Mother", "backward_dispatch",
