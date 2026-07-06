@@ -1623,7 +1623,7 @@ class MotherAgent(Agent):
 
         if len(section_summaries) < 2:
             logger.info("[MotherAgent] Too few sections for coherence check — delivering")
-            await self._deliver_plan(session_id, run_id, all_outputs)
+            await self._gate_then_deliver(session_id, run_id, all_outputs)
             return
 
         truncated = json.dumps(section_summaries, indent=1, default=str)[:12000]
@@ -1668,7 +1668,7 @@ If no issues found, return {{"passed": true, "issues": [], "confidence_summary":
             audit_result = json.loads(raw)
         except Exception as e:
             logger.error("[MotherAgent] Coherence audit LLM failed: %s — delivering anyway", e)
-            await self._deliver_plan(session_id, run_id, all_outputs)
+            await self._gate_then_deliver(session_id, run_id, all_outputs)
             return
 
         self.db.client.table("pipeline_runs") \
@@ -1726,7 +1726,7 @@ If no issues found, return {{"passed": true, "issues": [], "confidence_summary":
         )
         emit_trace(trace_key, "Mother", "coherence_audit_done", f"Audit complete — {len(issues)} issues, confidence: {overall}", {"issues_count": len(issues), "overall_confidence": overall})
 
-        await self._deliver_plan(session_id, run_id, all_outputs)
+        await self._gate_then_deliver(session_id, run_id, all_outputs)
 
     def _deduplicate_assumptions(self, all_outputs: dict) -> dict:
         """Find duplicate and conflicting assumptions across all section outputs."""
@@ -2227,6 +2227,116 @@ Only include sections where the condition clearly applies based on the business 
         self._send_telegram(session_id, "Group killed. Pipeline stopped. Nothing has been executed.")
 
     # ── Delivery ──────────────────────────────────────────────────────────────
+
+    async def _gate_then_deliver(
+        self, session_id: str, run_id: str, all_outputs: dict
+    ):
+        """Final delivery approval gate — waits for Alex to say 'deliver' before shipping."""
+        trace_key = self._get_trace_key(session_id)
+
+        section_lines = []
+        for sec_num, output in sorted(all_outputs.items(), key=lambda x: str(x[0])):
+            sec_name = (
+                self.dependency_map.get("sections", {})
+                .get(str(sec_num), {})
+                .get("name", f"Section {sec_num}")
+            )
+            confidence = (
+                output.get("confidence_score", "unknown")
+                if isinstance(output, dict)
+                else "unknown"
+            )
+            meta = (
+                self.db.client.table("bp_section_metadata")
+                .select("status, updated_at")
+                .eq("pipeline_run_id", run_id)
+                .eq("section_number", str(sec_num))
+                .execute()
+            )
+            timestamp = "unknown"
+            if meta.data:
+                timestamp = meta.data[0].get("updated_at", "unknown")
+            section_lines.append(
+                f"• {sec_name} — confidence: {confidence}, last updated: {timestamp}"
+            )
+
+        summary_text = "\n".join(section_lines)
+        self._send_telegram(
+            session_id,
+            f"All {len(all_outputs)} sections are ready for delivery:\n\n"
+            f"{summary_text}\n\n"
+            f"Reply 'deliver' to send the final plan, or 'cancel' to hold."
+        )
+        emit_trace(
+            trace_key,
+            "Mother",
+            "awaiting_final_delivery",
+            f"Waiting for Alex to confirm delivery of {len(all_outputs)} sections",
+        )
+
+        self.redis.client.set(
+            f"final_delivery_state:{run_id}",
+            json.dumps({
+                "session_id": session_id,
+                "run_id": run_id,
+                "status": "AWAITING_FINAL_DELIVERY",
+                "sections": list(all_outputs.keys()),
+            }),
+            ex=86400,
+        )
+
+        response = await self._wait_for_final_delivery_response(run_id)
+
+        if response == "deliver":
+            self.redis.client.delete(f"final_delivery_state:{run_id}")
+            emit_trace(
+                trace_key, "Mother", "delivery_confirmed",
+                "Alex confirmed delivery — sending final plan",
+            )
+            await self._deliver_plan(session_id, run_id, all_outputs)
+        else:
+            emit_trace(
+                trace_key, "Mother", "delivery_held",
+                "Alex cancelled delivery — plan held for further review",
+            )
+            reopened = [
+                sec for sec in all_outputs
+                if isinstance(all_outputs[sec], dict)
+                and all_outputs[sec].get("confidence_score") == "low"
+            ]
+            pending_msg = (
+                f"Plan delivery held. {len(all_outputs)} sections pending."
+            )
+            if reopened:
+                pending_msg += (
+                    f"\nLow-confidence sections that may need revision: "
+                    f"{', '.join(str(s) for s in reopened)}"
+                )
+            self._send_telegram(session_id, pending_msg)
+
+    async def _wait_for_final_delivery_response(self, run_id: str) -> str:
+        """Poll Redis for final delivery confirmation from Alex."""
+        timeout = 14400  # 4 hours
+        elapsed = 0
+        while elapsed < timeout:
+            response = self.redis.client.get(f"final_delivery_response:{run_id}")
+            if response:
+                self.redis.client.delete(f"final_delivery_response:{run_id}")
+                return response.decode() if isinstance(response, bytes) else response
+            await asyncio.sleep(10)
+            elapsed += 10
+            if elapsed % 3600 == 0:
+                session_data = self.redis.client.get(
+                    f"final_delivery_state:{run_id}"
+                )
+                if session_data:
+                    data = json.loads(session_data)
+                    self._send_telegram(
+                        data["session_id"],
+                        "Still waiting for your delivery confirmation. "
+                        "Reply 'deliver' or 'cancel'.",
+                    )
+        return "cancel"
 
     async def _deliver_plan(self, session_id: str, run_id: str, all_outputs: dict):
         trace_key = self._get_trace_key(session_id)

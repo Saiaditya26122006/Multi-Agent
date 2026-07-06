@@ -455,6 +455,26 @@ async def handle_message(message_data):
             return
 
     # ========================================================================
+    # STEP 1.55: Handle DELIVER/CANCEL response for final delivery gate
+    # ========================================================================
+    if text_lower in ("deliver", "cancel"):
+        pending_keys = redis_client.keys("final_delivery_state:*")
+        if pending_keys:
+            key = pending_keys[0]
+            if isinstance(key, bytes):
+                key = key.decode("utf-8")
+            run_id = key.replace("final_delivery_state:", "")
+            safe_redis_set(f"final_delivery_response:{run_id}", text_lower, ex=3600)
+            ack = (
+                "Delivering the final plan now."
+                if text_lower == "deliver"
+                else "Plan delivery held. You can review sections and say 'deliver' when ready."
+            )
+            await send_reply(chat_id, ack)
+            print(f"[DELIVERY_GATE] ✓ Response '{text_lower}' stored for run {run_id}")
+            return
+
+    # ========================================================================
     # STEP 1.6: Handle PROCEED/SKIP response for demo pipeline
     # ========================================================================
     if text_lower in ["proceed", "skip"]:

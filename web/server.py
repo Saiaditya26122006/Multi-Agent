@@ -9,12 +9,20 @@ import logging
 import asyncio
 import uuid
 import json
-from typing import Dict, Set
+from typing import Dict, Optional, Set
 from pathlib import Path
 from datetime import datetime
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import (
+    FastAPI,
+    WebSocket,
+    WebSocketDisconnect,
+    HTTPException,
+    UploadFile,
+    File,
+    Form,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -33,6 +41,20 @@ STATIC_DIR = Path(__file__).parent / "static"
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 WEB_AUTH_TOKEN = os.getenv("WEB_AUTH_TOKEN", "changeme")
+
+
+@app.on_event("startup")
+async def _register_main_loop() -> None:
+    """Register this process's event loop with the trace emitter.
+
+    Document extraction (Feed uploads) runs in a worker thread via
+    asyncio.to_thread() so it doesn't block the server while parsing a
+    file — but emit_trace() calls from that thread need a reference to
+    THIS loop to actually reach connected WebSocket clients.
+    """
+    from tools.trace_emitter import set_main_loop
+
+    set_main_loop(asyncio.get_running_loop())
 
 
 class ConnectionManager:
@@ -117,11 +139,11 @@ def _dispatch_inspect(text_lower: str, text: str, session_id: str) -> str:
     )
 
     commands = {
-        "a": ("heatmap", lambda: get_coverage_heatmap()),
-        "b": ("confidence", lambda: get_confidence_breakdown()),
-        "c": ("contradictions", lambda: get_contradictions_list()),
-        "d": ("stale", lambda: get_stale_data_report()),
-        "e": ("dependencies", lambda: get_dependency_view()),
+        "a": ("heatmap", lambda: get_coverage_heatmap(session_id=session_id)),
+        "b": ("confidence", lambda: get_confidence_breakdown(session_id=session_id)),
+        "c": ("contradictions", lambda: get_contradictions_list(session_id=session_id)),
+        "d": ("stale", lambda: get_stale_data_report(session_id=session_id)),
+        "e": ("dependencies", lambda: get_dependency_view(session_id=session_id)),
     }
 
     if text_lower in commands:
@@ -141,7 +163,7 @@ def _dispatch_inspect(text_lower: str, text: str, session_id: str) -> str:
         )
 
     try:
-        result = answer_inspect_question(text)
+        result = answer_inspect_question(text, session_id=session_id)
         return format_inspect_response(result, "question")
     except Exception as e:
         logger.error("[Inspect] Error answering question: %s", e)
@@ -156,11 +178,11 @@ def _dispatch_build(text_lower: str, text: str, session_id: str) -> str:
         build_weak_sections,
         get_build_status,
         format_build_response,
+        _get_all_sections,
     )
 
     commands = {
         "a": ("full_plan", lambda: build_full_plan(session_id)),
-        "b": ("section", lambda: get_build_status()),
         "c": ("incremental", lambda: build_incremental(session_id)),
         "d": ("weak", lambda: build_weak_sections(session_id=session_id)),
     }
@@ -173,6 +195,28 @@ def _dispatch_build(text_lower: str, text: str, session_id: str) -> str:
         except Exception as e:
             logger.error("[Build] Error handling '%s': %s", text_lower, e)
             return f"Error running build command: {e}"
+
+    # "b" — single section build. Prompt for which section, same pattern as
+    # Inspect's deep-dive ("f"): first show the picker, then treat the next
+    # free-text reply as the section identifier itself.
+    if text_lower == "b":
+        try:
+            sections = _get_all_sections()
+        except Exception as e:
+            logger.error("[Build] Error listing sections: %s", e)
+            sections = []
+        section_list = ", ".join(sections) if sections else "e.g. 'BP.9' or '9'"
+        return f"Which section would you like to build?\n\nAvailable: {section_list}"
+
+    # Anything else while in Build isn't a menu key — treat it as a section
+    # identifier for a single-section build (this is what "b" used to skip).
+    if text.strip():
+        try:
+            data = build_section(text.strip(), session_id)
+            return format_build_response(data)
+        except Exception as e:
+            logger.error("[Build] Error building section '%s': %s", text, e)
+            return f"Error building section '{text}': {e}"
 
     return ""
 
@@ -206,9 +250,9 @@ def _dispatch_challenge(text_lower: str, text: str, session_id: str) -> str:
     )
 
     commands = {
-        "a": ("weakest", lambda: challenge_weakest_assumptions()),
-        "b": ("full_plan", lambda: challenge_full_plan()),
-        "c": ("vulnerabilities", lambda: get_vulnerability_list()),
+        "a": ("weakest", lambda: challenge_weakest_assumptions(session_id=session_id)),
+        "b": ("full_plan", lambda: challenge_full_plan(session_id=session_id)),
+        "c": ("vulnerabilities", lambda: get_vulnerability_list(session_id=session_id)),
     }
 
     if text_lower in commands:
@@ -221,7 +265,7 @@ def _dispatch_challenge(text_lower: str, text: str, session_id: str) -> str:
             return f"Error running challenge: {e}"
 
     try:
-        result = challenge_claim(text)
+        result = challenge_claim(text, session_id=session_id)
         return format_challenge_response(result)
     except Exception as e:
         logger.error("[Challenge] Error challenging claim: %s", e)
@@ -236,7 +280,7 @@ def _dispatch_validate(text_lower: str, text: str, session_id: str) -> str:
 
     if text_lower == "a":
         try:
-            data = get_assumption_queue()
+            data = get_assumption_queue(session_id=session_id)
             return format_validate_response(data)
         except Exception as e:
             logger.error("[Validate] Error: %s", e)
@@ -258,7 +302,7 @@ def _dispatch_export(text_lower: str, text: str, session_id: str) -> str:
         "a": ("full", lambda: export_full_plan(session_id)),
         "b": ("summary", lambda: export_executive_summary(session_id)),
         "c": ("gaps", lambda: export_gap_report(session_id)),
-        "d": ("readiness", lambda: get_export_readiness()),
+        "d": ("readiness", lambda: get_export_readiness(session_id=session_id)),
     }
 
     if text_lower in commands:
@@ -410,6 +454,46 @@ async def post_message(req: SendMessageRequest):
             )
         return {"status": "feed_approval", "session_key": session_key, "workspace": "feed"}
 
+    # ── Final delivery gate: intercept "deliver"/"cancel" ─────────────────
+    text_lower_trimmed = req.text.strip().lower()
+    if text_lower_trimmed in ("deliver", "cancel"):
+        try:
+            from memory.redis_client import RedisClient
+
+            _redis = RedisClient()
+            pending_keys = _redis.client.keys("final_delivery_state:*")
+            if pending_keys:
+                key = pending_keys[0]
+                if isinstance(key, bytes):
+                    key = key.decode("utf-8")
+                run_id = key.replace("final_delivery_state:", "")
+                _redis.client.set(
+                    f"final_delivery_response:{run_id}",
+                    text_lower_trimmed,
+                    ex=3600,
+                )
+                ack = (
+                    "Delivering the final plan now."
+                    if text_lower_trimmed == "deliver"
+                    else "Plan delivery held. You can review sections and say 'deliver' when ready."
+                )
+                await manager.broadcast(
+                    session_key,
+                    {
+                        "role": "assistant",
+                        "text": ack,
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "channel": "system",
+                    },
+                )
+                return {
+                    "status": "delivery_gate",
+                    "action": text_lower_trimmed,
+                    "session_key": session_key,
+                }
+        except Exception as e:
+            logger.warning("[Server] Final delivery gate check failed: %s", e)
+
     routed = workspace_dispatch(session_key, req.text.strip())
 
     if routed["action"] == "show_menu":
@@ -477,7 +561,15 @@ async def post_message(req: SendMessageRequest):
     current_ws = routed["workspace"]
 
     if current_ws != Workspace.AUTO:
-        response_text = _handle_workspace_message(current_ws, req.text.strip(), session_key)
+        # Off the event loop: these handlers do real synchronous work (RAG
+        # retrieval, Supabase reads/writes, LLM calls) and emit trace events
+        # as they go. Running them inline would block the loop for the
+        # whole request, which delays/bursts every trace broadcast and can
+        # starve the WebSocket's ping/pong — the same bug that broke live
+        # narration in Feed's upload flow before asyncio.to_thread() fixed it.
+        response_text = await asyncio.to_thread(
+            _handle_workspace_message, current_ws, req.text.strip(), session_key
+        )
         if response_text:
             await manager.broadcast(
                 session_key,
@@ -503,7 +595,9 @@ async def post_message(req: SendMessageRequest):
     )
 
     if not use_pipeline:
-        result = handle_auto_message(req.text.strip(), session_id=session_key)
+        result = await asyncio.to_thread(
+            handle_auto_message, req.text.strip(), session_id=session_key
+        )
         response_text = format_auto_response(result)
 
         await manager.broadcast(
@@ -677,6 +771,14 @@ async def switch_workspace(req: WorkspaceSwitchRequest):
     sub_menu = generate_sub_menu(ws)
     sub_menu["formatted_text"] = format_sub_menu_as_text(sub_menu)
 
+    # Broadcast the switch to any other connected clients (other tabs, or a
+    # workspace change triggered from Telegram) so they stay in sync live
+    # instead of only updating whichever client made this request.
+    try:
+        await push_workspace_update(session_key, ws.value, sub_menu)
+    except Exception as e:
+        logger.warning("Could not broadcast workspace update: %s", e)
+
     return {
         "workspace": ws.value,
         "sub_menu": sub_menu,
@@ -716,7 +818,7 @@ async def get_inspect_coverage(token: str = "") -> dict:
     try:
         from web.handlers.inspect_handler import get_coverage_heatmap
 
-        return get_coverage_heatmap()
+        return await asyncio.to_thread(get_coverage_heatmap, session_id=_get_session_key())
     except Exception as e:
         logger.error(f"Error getting coverage heatmap: {e}")
         raise HTTPException(
@@ -733,7 +835,7 @@ async def get_inspect_contradictions(token: str = "") -> dict:
     try:
         from web.handlers.inspect_handler import get_contradictions_list
 
-        return get_contradictions_list()
+        return await asyncio.to_thread(get_contradictions_list, session_id=_get_session_key())
     except Exception as e:
         logger.error(f"Error getting contradictions: {e}")
         raise HTTPException(
@@ -750,12 +852,257 @@ async def get_inspect_stale(token: str = "") -> dict:
     try:
         from web.handlers.inspect_handler import get_stale_data_report
 
-        return get_stale_data_report()
+        return await asyncio.to_thread(get_stale_data_report, session_id=_get_session_key())
     except Exception as e:
         logger.error(f"Error getting stale data report: {e}")
         raise HTTPException(
             status_code=500, detail="Failed to compute stale data report"
         )
+
+
+# ============================================================================
+# EPISTEMIC TRACKING — surfaces data the backend already computes (council
+# quality-review scores, killed ideas, fact staleness) that had no endpoint
+# before. Read-only except confirm-chunk, which just resets a freshness
+# timestamp — no agent/pipeline logic is touched by any of these.
+# ============================================================================
+
+
+@app.get("/api/epistemic/council")
+async def get_epistemic_council(token: str = "", limit: int = 30) -> dict:
+    """Return recent council quality-review reports (pass/revise/escalate)."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from services.rag_service import _get_supabase
+
+        supabase = _get_supabase()
+        result = (
+            supabase.table("council_reports")
+            .select(
+                "id, section_number, agent_name, attempt, score, decision, "
+                "critiques, improvements_made, revision_instructions, created_at"
+            )
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return {"reports": result.data or []}
+    except Exception as e:
+        logger.error(f"Error getting council reports: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve council reports"
+        )
+
+
+@app.get("/api/epistemic/killed-ideas")
+async def get_epistemic_killed_ideas(token: str = "", limit: int = 30) -> dict:
+    """Return ideas explicitly killed (negative knowledge) so they're never
+    silently re-suggested — surfaced here for transparency."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        supabase = _get_supabase()
+        result = (
+            supabase.table(TABLE_NAME)
+            .select("id, content, section, created_at")
+            .eq("source_type", "negative_knowledge")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return {"killed_ideas": result.data or []}
+    except Exception as e:
+        logger.error(f"Error getting killed ideas: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve killed ideas"
+        )
+
+
+class ConfirmChunkRequest(BaseModel):
+    """Payload for POST /api/epistemic/confirm-chunk."""
+
+    chunk_id: str
+    token: str
+
+
+@app.post("/api/epistemic/confirm-chunk")
+async def post_confirm_chunk(req: ConfirmChunkRequest) -> dict:
+    """Re-confirm a fact, resetting its staleness clock."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from services.temporal_decay import confirm_chunk
+
+        success = confirm_chunk(req.chunk_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Chunk not found")
+        return {"success": True, "chunk_id": req.chunk_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error confirming chunk {req.chunk_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to confirm chunk")
+
+
+def _get_session_key() -> str:
+    """Resolve the current CEO session key the same way every other endpoint does."""
+    try:
+        from memory.supabase_client import get_ceo_context
+
+        ceo_context = get_ceo_context()
+    except Exception:
+        ceo_context = None
+    if not ceo_context:
+        ceo_context = {"chat_id": 1, "name": "Alex"}
+    return str(ceo_context.get("chat_id", 1))
+
+
+@app.post("/api/feed/upload")
+async def upload_feed_document(
+    file: UploadFile = File(...), token: str = Form(...)
+) -> dict:
+    """Upload a raw document (PDF/DOCX/XLSX/TXT/CSV) into Feed mode.
+
+    Extracts text, classifies every atomic fact found, and returns the
+    full batch for review — the Process panel shows the extraction steps
+    live via trace events, then flips to this batch for bulk review.
+    Nothing is written to the knowledge base yet; see /api/feed/bulk-approve.
+    """
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    session_key = _get_session_key()
+    filename = file.filename or "upload"
+    file_bytes = await file.read()
+
+    await manager.broadcast(
+        session_key,
+        {
+            "role": "user",
+            "text": f"[Uploaded: {filename}]",
+            "timestamp": datetime.utcnow().isoformat(),
+            "channel": "web",
+        },
+    )
+
+    from services.document_extractor import extract_text, ExtractionError
+    from web.handlers.feed_handler import process_uploaded_document
+
+    try:
+        # Both of these are synchronous, CPU-bound (PDF parsing, local
+        # embedding inference for node matching) and can take several
+        # seconds on a real document. Running them directly here would
+        # block the event loop — no other request, no WebSocket ping/pong,
+        # and critically none of the trace broadcasts scheduled during
+        # extraction would actually go out until this endpoint returned,
+        # defeating the entire point of "live" narration. to_thread() keeps
+        # the loop free so trace events stream out as they're emitted.
+        text = await asyncio.to_thread(extract_text, file_bytes, filename, session_key)
+        batch = await asyncio.to_thread(
+            process_uploaded_document, text, filename, session_key
+        )
+    except ExtractionError as e:
+        await manager.broadcast(
+            session_key,
+            {
+                "role": "assistant",
+                "text": str(e),
+                "timestamp": datetime.utcnow().isoformat(),
+                "channel": "system",
+                "workspace": "feed",
+            },
+        )
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error processing uploaded document {filename}: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to process {filename}"
+        )
+
+    if batch.get("total_facts", 0) == 0:
+        await manager.broadcast(
+            session_key,
+            {
+                "role": "assistant",
+                "text": f"No extractable facts found in {filename}.",
+                "timestamp": datetime.utcnow().isoformat(),
+                "channel": "system",
+                "workspace": "feed",
+            },
+        )
+        return {"status": "no_facts", "session_key": session_key, "batch": batch}
+
+    await manager.broadcast(
+        session_key,
+        {
+            "role": "assistant",
+            "text": (
+                f"Extracted {batch['total_facts']} fact(s) from {filename}. "
+                f"Open the Process panel to review before storing."
+            ),
+            "timestamp": datetime.utcnow().isoformat(),
+            "channel": "system",
+            "workspace": "feed",
+        },
+    )
+
+    return {"status": "awaiting_review", "session_key": session_key, "batch": batch}
+
+
+class BulkApproveRequest(BaseModel):
+    """Payload for POST /api/feed/bulk-approve."""
+
+    token: str
+    accepted_fact_ids: list[str]
+    edited_texts: Optional[dict] = None
+
+
+@app.post("/api/feed/bulk-approve")
+async def bulk_approve_feed_batch(req: BulkApproveRequest) -> dict:
+    """Store the Alex-approved subset of a classified document batch."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    session_key = _get_session_key()
+
+    from web.handlers.feed_handler import bulk_store_facts
+
+    # Same reasoning as the upload endpoint: store() does network calls
+    # (Supabase writes, RAG retrieval for contradiction/dedup checks) per
+    # fact — off the event loop so trace events stream live instead of
+    # arriving in one burst when the request finally returns.
+    result = await asyncio.to_thread(
+        bulk_store_facts, session_key, req.accepted_fact_ids, req.edited_texts
+    )
+
+    if result.get("error"):
+        summary = result["error"]
+    else:
+        summary = f"Stored {result['stored_count']} fact(s)"
+        if result.get("duplicate_count"):
+            summary += f", {result['duplicate_count']} duplicate(s) skipped"
+        if result.get("skipped_count"):
+            summary += f", {result['skipped_count']} not selected"
+        summary += "."
+
+    await manager.broadcast(
+        session_key,
+        {
+            "role": "assistant",
+            "text": summary,
+            "timestamp": datetime.utcnow().isoformat(),
+            "channel": "system",
+            "workspace": "feed",
+        },
+    )
+
+    return {"status": "done", "session_key": session_key, **result}
 
 
 @app.get("/api/validate/queue")
@@ -767,7 +1114,7 @@ async def get_validate_queue(token: str = "") -> dict:
     try:
         from web.handlers.validate_handler import get_assumption_queue
 
-        return get_assumption_queue()
+        return await asyncio.to_thread(get_assumption_queue, session_id=_get_session_key())
     except Exception as e:
         logger.error(f"Error getting assumption queue: {e}")
         raise HTTPException(
@@ -794,6 +1141,23 @@ async def get_build_status(token: str = "") -> dict:
         )
 
 
+@app.get("/api/challenge/vulnerabilities")
+async def get_challenge_vulnerabilities(token: str = "") -> dict:
+    """Return the ranked vulnerability list — used to badge the Challenge tile."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from web.handlers.challenge_handler import get_vulnerability_list
+
+        return await asyncio.to_thread(get_vulnerability_list, session_id=_get_session_key())
+    except Exception as e:
+        logger.error(f"Error getting vulnerability list: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to retrieve vulnerability list"
+        )
+
+
 @app.get("/api/export/readiness")
 async def get_export_readiness(token: str = "") -> dict:
     """Return export readiness check — which formats are ready."""
@@ -805,7 +1169,7 @@ async def get_export_readiness(token: str = "") -> dict:
             get_export_readiness as _get_export_readiness,
         )
 
-        return _get_export_readiness()
+        return await asyncio.to_thread(_get_export_readiness, session_id=_get_session_key())
     except Exception as e:
         logger.error(f"Error getting export readiness: {e}")
         raise HTTPException(
@@ -850,7 +1214,8 @@ async def post_export_generate(req: ExportRequest) -> dict:
         }
 
         handler_fn = format_dispatch[req.format]
-        result = handler_fn()
+        session_key = _get_session_key()
+        result = await asyncio.to_thread(handler_fn, session_id=session_key)
         return result
     except Exception as e:
         logger.error(f"Error generating export ({req.format}): {e}")
@@ -858,6 +1223,37 @@ async def post_export_generate(req: ExportRequest) -> dict:
             status_code=500,
             detail=f"Failed to generate {req.format} export",
         )
+
+
+@app.get("/api/export/download/{filename}")
+async def download_export_file(filename: str, token: str = ""):
+    """Serve a previously generated export file for download.
+
+    The Process panel surfaces a Download button the moment export_full_plan()
+    finishes — this is what it links to.
+    """
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    from web.handlers.export_handler import OUTPUTS_DIR
+
+    # Resolve strictly within OUTPUTS_DIR — reject anything that escapes it
+    # (path traversal via "../", absolute paths, etc.) before touching disk.
+    safe_name = Path(filename).name
+    file_path = (OUTPUTS_DIR / safe_name).resolve()
+    try:
+        file_path.relative_to(OUTPUTS_DIR.resolve())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Export file not found")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=safe_name,
+        media_type="application/octet-stream",
+    )
 
 
 @app.get("/api/non-scope/queue")
@@ -908,6 +1304,44 @@ async def get_knowledge_base(token: str = ""):
     except Exception as e:
         logger.error(f"Error loading knowledge base: {e}")
         raise HTTPException(status_code=500, detail="Failed to load knowledge base")
+
+
+@app.get("/api/search")
+async def search_knowledge_base(q: str = "", token: str = "", limit: int = 8) -> dict:
+    """Semantic search across the whole knowledge base — powers the command palette."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not q.strip():
+        return {"query": q, "results": []}
+
+    try:
+        from services.rag_service import retrieve
+        from tools.trace_emitter import emit_trace
+
+        session_key = _get_session_key()
+        emit_trace(session_key, "Search", "searching", f"Searching for: \"{q[:60]}\"...")
+
+        chunks = await asyncio.to_thread(retrieve, query=q.strip(), top_k=limit, threshold=0.3)
+
+        results = [
+            {
+                "id": c.id,
+                "content": c.content[:200],
+                "source_type": c.source_type,
+                "section": c.section,
+                "epistemic_status": c.epistemic_status,
+                "similarity": round(c.similarity, 3),
+            }
+            for c in chunks
+        ]
+
+        emit_trace(session_key, "Search", "search_complete", f"Found {len(results)} result(s)")
+
+        return {"query": q, "results": results}
+    except Exception as e:
+        logger.error(f"Error searching knowledge base: {e}")
+        raise HTTPException(status_code=500, detail="Search failed")
 
 
 @app.post("/api/knowledge-base/add")
