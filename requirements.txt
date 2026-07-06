@@ -34,3 +34,9 @@ tavily-python
 
 # DOCX export
 python-docx>=1.1.0
+
+# Feed workspace — document ingestion (PDF/XLSX text extraction, file uploads)
+pypdf>=4.0.0
+openpyxl>=3.1.0
+python-multipart==0.0.20
+python-multipart
