@@ -131,25 +131,67 @@ def _get_node_details(node_id: str) -> Optional[dict]:
     return None
 
 
-def _get_suggested_parent(candidates: list[dict]) -> dict:
-    """Determine the best parent node for a potential new node."""
-    if candidates:
-        top = candidates[0]
-        node_details = _get_node_details(top["node_id"])
-        if node_details:
-            parent_id = node_details.get("parent_node") or top["node_id"]
-            parent_details = _get_node_details(parent_id)
-            if parent_details:
-                return {
-                    "node_id": parent_id,
-                    "node_title": parent_details.get("node_title", parent_id),
-                }
-            return {"node_id": parent_id, "node_title": parent_id}
-    nodes = _load_bp_architecture()
-    level_1 = [n for n in nodes if n.get("level") == 1]
-    if level_1:
-        return {"node_id": level_1[0]["node_id"], "node_title": level_1[0].get("node_title", "")}
-    return {"node_id": "BP.1", "node_title": "Product, Workflow, and Scope Definition"}
+LEVEL1_KEYWORDS: dict[str, list[str]] = {
+    "BP.1": ["product", "scope", "workflow", "platform",
+             "diagnostic", "tool", "system"],
+    "BP.2": ["team", "founder", "people", "organisation",
+             "structure", "roles"],
+    "BP.3": ["market", "size", "tam", "segment", "industry"],
+    "BP.4": ["competition", "competitor", "alternative",
+             "substitute"],
+    "BP.5": ["buyer", "customer", "icp", "persona",
+             "willingness", "pay", "wtp", "dean", "director"],
+    "BP.6": ["evidence", "interview", "validation", "confirmed",
+             "research", "data", "survey"],
+    "BP.7": ["gtm", "sales", "channel", "distribution",
+             "outreach", "partner"],
+    "BP.8": ["pricing", "price", "revenue", "model", "euros",
+             "license", "subscription"],
+    "BP.9": ["risk", "compliance", "regulation", "legal",
+             "gdpr"],
+    "BP.10": ["operations", "process", "workflow", "delivery"],
+    "BP.11": ["finance", "cost", "budget", "unit economics"],
+    "BP.12": ["technology", "stack", "infrastructure", "data"],
+}
+
+LEVEL1_TITLES: dict[str, str] = {
+    "BP.1": "Product, Workflow, and Scope Definition",
+    "BP.2": "Team and Organisation",
+    "BP.3": "Market Size and Segmentation",
+    "BP.4": "Competition and Alternatives",
+    "BP.5": "Buyer and Customer Profile",
+    "BP.6": "Evidence and Validation",
+    "BP.7": "Go-to-Market Strategy",
+    "BP.8": "Pricing and Revenue Model",
+    "BP.9": "Risk and Compliance",
+    "BP.10": "Operations and Delivery",
+    "BP.11": "Finance and Unit Economics",
+    "BP.12": "Technology and Infrastructure",
+}
+
+
+def _get_suggested_parent(candidates: list[dict], text: str = "") -> dict:
+    """Determine the best level-1 parent using keyword matching against text.
+
+    Args:
+        candidates: Node match candidates (unused, kept for call-site compat).
+        text: The fact text to match keywords against.
+
+    Returns:
+        Dict with node_id and node_title of the best level-1 parent.
+    """
+    if text:
+        text_lower = text.lower()
+        scores: dict[str, int] = {}
+        for node_id, keywords in LEVEL1_KEYWORDS.items():
+            score = sum(1 for kw in keywords if kw in text_lower)
+            if score > 0:
+                scores[node_id] = score
+        if scores:
+            best = max(scores, key=scores.get)
+            return {"node_id": best, "node_title": LEVEL1_TITLES.get(best, best)}
+
+    return {"node_id": "BP.6", "node_title": "Evidence and Validation"}
 
 
 def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
@@ -463,9 +505,17 @@ def handle_raw_text(
         if node_matches and node_matches[0]["similarity"] >= 0.6:
             proposed_node = node_matches[0]
             node_confidence = "matched"
-        elif node_matches:
+        elif node_matches and node_matches[0]["similarity"] >= 0.3:
             proposed_node = node_matches[0]
             node_confidence = "low_confidence"
+
+        all_below_threshold = not node_matches or node_matches[0].get("similarity", 0) < 0.3
+
+        if all_below_threshold and session_id:
+            return _auto_place_no_match(
+                fact_text, content_type, content_classification["confidence"],
+                epistemic_status, fmt, [f["text"] for f in facts[1:]], session_id,
+            )
 
         fact_data = {
             "verbatim_text": fact_text,
@@ -498,6 +548,77 @@ def handle_raw_text(
             "action": "error",
             "response_text": f"Error processing input: {e}",
         }
+
+
+def _auto_place_no_match(
+    fact_text: str,
+    content_type: str,
+    content_confidence: float,
+    epistemic_status: str,
+    source_format: str,
+    remaining_facts: list[str],
+    session_id: str,
+) -> dict:
+    """Auto-place a fact when no BP node matched above threshold.
+
+    Stores immediately under the best keyword-matched level-1 parent
+    with needs_review=True. No menu shown to Alex.
+    """
+    from services.rag_service import store
+
+    parent = _get_suggested_parent([], text=fact_text)
+    node_id = parent["node_id"]
+    node_title = parent["node_title"]
+    section = node_id.split(".")[1] if "." in node_id else None
+
+    chunk_id = store(
+        content=fact_text,
+        source_type="ceo_doc",
+        section=section,
+        epistemic_status=epistemic_status,
+        topic_tags=[content_type, f"node:{node_id}", "auto_placed"],
+        session_id=session_id,
+        confidence=content_confidence,
+        metadata={
+            "content_type": content_type,
+            "node_id": node_id,
+            "node_title": node_title,
+            "source": "feed_handler",
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+            "node_confidence": "auto_placed",
+            "needs_review": True,
+        },
+    )
+
+    if chunk_id is None:
+        return {
+            "action": "deduplicated",
+            "response_text": "This fact already exists in the knowledge base (duplicate detected). Nothing new was stored.",
+        }
+
+    _run_post_store_hooks(fact_text, chunk_id, epistemic_status, session_id)
+
+    confirmation = (
+        f"No specific node matched. Stored [{epistemic_status}] under "
+        f"{node_id} — {node_title} for review.\n"
+        f"Type 'adjust' to move it or 'undo' to remove."
+    )
+
+    if remaining_facts:
+        set_feed_state(session_id, None)
+        next_result = _process_next_fact(remaining_facts, session_id)
+        confirmation += f"\n\n---\n\n{next_result['response_text']}"
+        return {
+            "action": "auto_placed_with_next",
+            "response_text": confirmation,
+            "chunk_id": chunk_id,
+        }
+
+    return {
+        "action": "auto_placed",
+        "response_text": confirmation,
+        "chunk_id": chunk_id,
+    }
 
 
 def handle_approval_response(
@@ -573,7 +694,7 @@ def _handle_matched_response(text_lower: str, pending: dict, session_id: str) ->
 
     if text_lower in ("create", "new node", "create new node", "3"):
         suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
-            pending.get("all_node_candidates", [])
+            pending.get("all_node_candidates", []), text=pending.get("verbatim_text", "")
         )
         set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
         pending["suggested_parent"] = suggested_parent
@@ -601,7 +722,9 @@ def _handle_matched_response(text_lower: str, pending: dict, session_id: str) ->
 def _handle_low_confidence_response(text_lower: str, pending: dict, session_id: str) -> dict:
     """Handle response when candidates exist but none above 0.6."""
     candidates = pending.get("all_node_candidates", [])
-    suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(candidates)
+    suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
+        candidates, text=pending.get("verbatim_text", "")
+    )
 
     if text_lower == "1" and len(candidates) >= 1:
         pending["proposed_node"] = candidates[0]
@@ -660,7 +783,9 @@ def _handle_low_confidence_response(text_lower: str, pending: dict, session_id: 
 def _handle_very_low_response(text_lower: str, pending: dict, session_id: str) -> dict:
     """Handle response when all candidates are below 0.3 (no useful matches)."""
     candidates = pending.get("all_node_candidates", [])
-    suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(candidates)
+    suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
+        candidates, text=pending.get("verbatim_text", "")
+    )
 
     if text_lower == "1":
         set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
@@ -826,7 +951,7 @@ def handle_new_node_name(response_text: str, session_id: str) -> dict:
         }
 
     suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
-        pending.get("all_node_candidates", [])
+        pending.get("all_node_candidates", []), text=pending.get("verbatim_text", "")
     )
 
     pending["proposed_node"] = {
@@ -1338,12 +1463,20 @@ def _process_next_fact(remaining_facts: list[str], session_id: str) -> dict:
     epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(content_type, "INFERRED")
     node_matches = match_bp_node(next_text)
 
+    all_below_threshold = not node_matches or node_matches[0].get("similarity", 0) < 0.3
+
+    if all_below_threshold:
+        return _auto_place_no_match(
+            next_text, content_type, content_classification["confidence"],
+            epistemic_status, "queued", remaining_facts[1:], session_id,
+        )
+
     proposed_node = None
     node_confidence = "unmatched"
     if node_matches and node_matches[0]["similarity"] >= 0.6:
         proposed_node = node_matches[0]
         node_confidence = "matched"
-    elif node_matches:
+    elif node_matches and node_matches[0]["similarity"] >= 0.3:
         proposed_node = node_matches[0]
         node_confidence = "low_confidence"
 
@@ -1428,7 +1561,9 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
                 lines.append(f"      Purpose: {purpose[:100]}")
             lines.append("")
 
-        suggested_parent = fact_data.get("suggested_parent") or _get_suggested_parent(candidates)
+        suggested_parent = fact_data.get("suggested_parent") or _get_suggested_parent(
+            candidates, text=verbatim
+        )
         fact_data["suggested_parent"] = suggested_parent
         lines.append(
             f"  If none fit, a new node could sit under: "
@@ -1446,19 +1581,14 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
         lines.append("  [skip] — discard this fact")
 
     else:
-        suggested_parent = fact_data.get("suggested_parent") or _get_suggested_parent(candidates)
+        suggested_parent = fact_data.get("suggested_parent") or _get_suggested_parent(
+            candidates, text=verbatim
+        )
         fact_data["suggested_parent"] = suggested_parent
         lines.append(
-            "  This doesn't match anything in the current architecture."
+            f"  No specific node matched. Will auto-place under "
+            f"{suggested_parent['node_id']} — {suggested_parent['node_title']} for review."
         )
-        lines.append(
-            f"  Suggested parent: {suggested_parent['node_id']} — {suggested_parent['node_title']}"
-        )
-        lines.append("")
-        lines.append("-" * 40)
-        lines.append(f"  [1] Create new node under {suggested_parent['node_id']}")
-        lines.append("  [2] Pick a different parent — I'll tell you which")
-        lines.append("  [skip] — discard this fact")
 
     if remaining > 0:
         lines.append("")
