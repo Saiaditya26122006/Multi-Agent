@@ -8,14 +8,23 @@ full devil's advocate runs, competitor comparisons.
 import logging
 from typing import Optional
 
+from tools.trace_emitter import emit_trace
+
 logger = logging.getLogger(__name__)
 
 
-def challenge_weakest_assumptions(top_k: int = 3) -> dict:
+def _trace(session_id: Optional[str], step: str, detail: str, data: Optional[dict] = None) -> None:
+    """Emit a trace event only if we actually have a session to broadcast to."""
+    if session_id:
+        emit_trace(session_id, "Challenge", step, detail, data or {})
+
+
+def challenge_weakest_assumptions(top_k: int = 3, session_id: Optional[str] = None) -> dict:
     """Auto-pick the top vulnerable assumptions and attack them.
 
     Args:
         top_k: Number of assumptions to challenge.
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with assumptions list and their vulnerabilities.
@@ -23,6 +32,7 @@ def challenge_weakest_assumptions(top_k: int = 3) -> dict:
     try:
         from services.coverage_calculator import get_oldest_assumptions
 
+        _trace(session_id, "finding_targets", f"Ranking assumptions by age to find the top {top_k} most vulnerable...")
         oldest = get_oldest_assumptions(top_k=top_k)
 
         if not oldest:
@@ -43,6 +53,8 @@ def challenge_weakest_assumptions(top_k: int = 3) -> dict:
             }
             vulnerabilities.append(vulnerability)
 
+        _trace(session_id, "challenges_ready", f"Built {len(vulnerabilities)} challenge(s)")
+
         return {
             "status": "challenges_ready",
             "message": f"Found {len(vulnerabilities)} vulnerable assumption(s) to challenge.",
@@ -53,11 +65,12 @@ def challenge_weakest_assumptions(top_k: int = 3) -> dict:
         return {"status": "error", "message": str(e), "assumptions": []}
 
 
-def challenge_section(section_id: str) -> dict:
+def challenge_section(section_id: str, session_id: Optional[str] = None) -> dict:
     """Stress test a specific business plan section.
 
     Args:
         section_id: The section to challenge (e.g., "9" or "BP.9").
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with section vulnerabilities and challenges.
@@ -68,6 +81,7 @@ def challenge_section(section_id: str) -> dict:
     try:
         from services.rag_service import retrieve
 
+        _trace(session_id, "retrieving_claims", f"Retrieving claims and assumptions in {section_id}...")
         chunks = retrieve(
             query=f"section {section_id} assumptions claims hypotheses",
             section=section_id.replace("BP.", ""),
@@ -91,6 +105,11 @@ def challenge_section(section_id: str) -> dict:
                 "severity": "high",
             })
 
+        _trace(
+            session_id, "section_verdict",
+            f"{section_id}: {len(assumptions_in_section)} assumption(s), {len(confirmed_in_section)} confirmed",
+        )
+
         return {
             "status": "section_challenged",
             "section_id": section_id,
@@ -105,11 +124,12 @@ def challenge_section(section_id: str) -> dict:
         return {"status": "error", "section_id": section_id, "message": str(e)}
 
 
-def challenge_claim(claim_text: str) -> dict:
+def challenge_claim(claim_text: str, session_id: Optional[str] = None) -> dict:
     """Adversarial analysis of one specific claim.
 
     Args:
         claim_text: The claim to challenge.
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with challenge details, evidence gaps, and counter-arguments.
@@ -117,6 +137,7 @@ def challenge_claim(claim_text: str) -> dict:
     try:
         from services.rag_service import retrieve
 
+        _trace(session_id, "gathering_evidence", f"Gathering evidence for/against: \"{claim_text[:60]}\"...")
         related = retrieve(
             query=claim_text,
             top_k=5,
@@ -125,6 +146,11 @@ def challenge_claim(claim_text: str) -> dict:
 
         supporting = [c for c in related if c.epistemic_status == "CONFIRMED"]
         contradicting = [c for c in related if c.epistemic_status == "CONTRADICTION"]
+
+        _trace(
+            session_id, "claim_assessed",
+            f"{len(supporting)} supporting, {len(contradicting)} contradicting",
+        )
 
         return {
             "status": "claim_challenged",
@@ -140,8 +166,11 @@ def challenge_claim(claim_text: str) -> dict:
         return {"status": "error", "claim": claim_text, "message": str(e)}
 
 
-def challenge_full_plan() -> dict:
+def challenge_full_plan(session_id: Optional[str] = None) -> dict:
     """Run full devil's advocate pass on the entire plan.
+
+    Args:
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with per-section vulnerability summary.
@@ -149,12 +178,14 @@ def challenge_full_plan() -> dict:
     try:
         from services.coverage_calculator import get_sections, get_oldest_assumptions
 
+        _trace(session_id, "full_challenge_start", "Starting full devil's-advocate pass across the plan...")
         sections = get_sections()
         oldest = get_oldest_assumptions(top_k=10)
 
         section_risks = []
         for section_id in sorted(sections.keys()):
-            result = challenge_section(section_id)
+            _trace(session_id, "challenging_section", f"Challenging {section_id}...")
+            result = challenge_section(section_id, session_id=session_id)
             if result.get("status") == "section_challenged":
                 section_risks.append({
                     "section_id": section_id,
@@ -162,6 +193,8 @@ def challenge_full_plan() -> dict:
                     "confirmed": result.get("confirmed", 0),
                     "verdict": result.get("verdict", "unknown"),
                 })
+
+        _trace(session_id, "full_challenge_complete", f"Challenged {len(section_risks)} section(s)")
 
         return {
             "status": "full_challenge_complete",
@@ -175,11 +208,12 @@ def challenge_full_plan() -> dict:
         return {"status": "error", "message": str(e)}
 
 
-def compare_competitor(competitor_name: str) -> dict:
+def compare_competitor(competitor_name: str, session_id: Optional[str] = None) -> dict:
     """Position check against a named competitor.
 
     Args:
         competitor_name: Name of the competitor to compare against.
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with comparison data.
@@ -187,6 +221,7 @@ def compare_competitor(competitor_name: str) -> dict:
     try:
         from services.rag_service import retrieve
 
+        _trace(session_id, "researching_competitor", f"Looking up data on {competitor_name}...")
         chunks = retrieve(
             query=f"competitor {competitor_name} comparison positioning",
             source_types=["ceo_doc", "external_research"],
@@ -218,8 +253,11 @@ def compare_competitor(competitor_name: str) -> dict:
         return {"status": "error", "competitor": competitor_name, "message": str(e)}
 
 
-def get_vulnerability_list() -> dict:
+def get_vulnerability_list(session_id: Optional[str] = None) -> dict:
     """Panel view of all weak points ranked by severity.
+
+    Args:
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with ranked vulnerabilities.
@@ -227,6 +265,7 @@ def get_vulnerability_list() -> dict:
     try:
         from services.coverage_calculator import get_oldest_assumptions, get_stale_items
 
+        _trace(session_id, "scanning_vulnerabilities", "Scanning assumptions and stale data for weak points...")
         assumptions = get_oldest_assumptions(top_k=10)
         stale = get_stale_items(max_age_days=21)
 
@@ -253,6 +292,8 @@ def get_vulnerability_list() -> dict:
             })
 
         vulnerabilities.sort(key=lambda v: v["severity_score"], reverse=True)
+
+        _trace(session_id, "vulnerabilities_ready", f"Found {len(vulnerabilities)} vulnerability/vulnerabilities, ranked")
 
         return {
             "count": len(vulnerabilities),
@@ -309,6 +350,27 @@ def format_challenge_response(result: dict) -> str:
         lines.append(f"  Challenge: {result.get('challenge', '')}")
         lines.append(f"  Evidence gap: {result.get('evidence_gap', '')}")
         lines.append(f"  Risk: {result.get('risk_assessment', '')}")
+        return "\n".join(lines)
+
+    # get_vulnerability_list() (the "c" menu command) returns
+    # {"count", "vulnerabilities": [...]} with no "status"/"message" key —
+    # without this branch it fell through to `str(result)`, printing a raw
+    # Python dict repr into the chat instead of a formatted list.
+    if "vulnerabilities" in result:
+        vulns = result.get("vulnerabilities", [])
+        count = result.get("count", len(vulns))
+        if count == 0:
+            return "No vulnerabilities found — assumptions and data all look current."
+        lines = [f"{count} vulnerability/vulnerabilities found, ranked by severity:"]
+        lines.append("")
+        for i, v in enumerate(vulns[:15], 1):
+            lines.append(
+                f"  {i}. [{v.get('severity', 'unknown').upper()}] "
+                f"({v.get('type', '?')}) {v.get('content', '')[:70]}"
+            )
+            lines.append(f"     Age: {v.get('age_days', '?')} days")
+        if count > 15:
+            lines.append(f"\n  ...and {count - 15} more.")
         return "\n".join(lines)
 
     return result.get("message", str(result))

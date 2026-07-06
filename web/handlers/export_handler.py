@@ -9,9 +9,17 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from tools.trace_emitter import emit_trace
+
 logger = logging.getLogger(__name__)
 
 OUTPUTS_DIR = Path(__file__).parent.parent.parent / "outputs"
+
+
+def _trace(session_id: Optional[str], step: str, detail: str, data: Optional[dict] = None) -> None:
+    """Emit a trace event only if we actually have a session to broadcast to."""
+    if session_id:
+        emit_trace(session_id, "Export", step, detail, data or {})
 
 
 def export_full_plan(session_id: Optional[str] = None) -> dict:
@@ -21,18 +29,28 @@ def export_full_plan(session_id: Optional[str] = None) -> dict:
         session_id: Current session ID.
 
     Returns:
-        Dict with: success, file_path, warnings.
+        Dict with: success, file_path, download_url, warnings.
     """
-    readiness = get_export_readiness()
+    _trace(session_id, "checking_readiness", "Checking plan readiness before export...")
+    readiness = get_export_readiness(session_id=session_id)
 
     try:
         from evaluation.export_docx import generate_business_plan_docx
 
+        _trace(session_id, "generating_docx", "Compiling sections into a DOCX document...")
         file_path = generate_business_plan_docx()
+        filename = Path(file_path).name
+
+        _trace(
+            session_id, "export_ready",
+            f"Export ready: {filename}",
+            {"filename": filename, "downloadable": True},
+        )
 
         return {
             "success": True,
             "file_path": str(file_path),
+            "download_url": f"/api/export/download/{filename}",
             "format": "full_plan",
             "warnings": readiness.get("warnings", []),
             "message": f"Full business plan exported to: {file_path}",
@@ -54,6 +72,7 @@ def export_executive_summary(session_id: Optional[str] = None) -> dict:
     try:
         from services.rag_service import retrieve
 
+        _trace(session_id, "retrieving_summary", "Retrieving executive summary insights...")
         chunks = retrieve(
             query="executive summary overview business plan",
             source_types=["agent_insight"],
@@ -65,6 +84,8 @@ def export_executive_summary(session_id: Optional[str] = None) -> dict:
             summary_text = "\n\n".join(c.content for c in chunks[:3])
         else:
             summary_text = "Executive summary not yet generated. Run BUILD first to produce section outputs."
+
+        _trace(session_id, "summary_ready", "Executive summary retrieved")
 
         return {
             "success": True,
@@ -88,7 +109,8 @@ def export_investor_version(session_id: Optional[str] = None) -> dict:
     Returns:
         Dict with: success, message, hidden_count.
     """
-    readiness = get_export_readiness()
+    _trace(session_id, "checking_readiness", "Checking coverage before generating investor version...")
+    readiness = get_export_readiness(session_id=session_id)
     coverage = readiness.get("coverage_pct", 0)
 
     if coverage < 40:
@@ -105,6 +127,7 @@ def export_investor_version(session_id: Optional[str] = None) -> dict:
     try:
         from services.rag_service import _get_supabase, TABLE_NAME
 
+        _trace(session_id, "filtering_assumptions", "Filtering out unconfirmed assumptions for the investor cut...")
         supabase = _get_supabase()
         result = (
             supabase.table(TABLE_NAME)
@@ -114,6 +137,7 @@ def export_investor_version(session_id: Optional[str] = None) -> dict:
             .execute()
         )
         hidden_count = len(result.data) if result.data else 0
+        _trace(session_id, "investor_ready", f"Investor version ready — {hidden_count} assumption(s) hidden")
 
         return {
             "success": True,
@@ -142,7 +166,9 @@ def export_internal_version(session_id: Optional[str] = None) -> dict:
     try:
         from services.coverage_calculator import get_confidence_breakdown
 
+        _trace(session_id, "computing_confidence", "Computing full epistemic breakdown for internal version...")
         confidence = get_confidence_breakdown()
+        _trace(session_id, "internal_ready", "Internal version ready with full transparency")
 
         return {
             "success": True,
@@ -179,6 +205,7 @@ def export_gap_report(session_id: Optional[str] = None) -> dict:
             get_blocked_sections,
         )
 
+        _trace(session_id, "assembling_gap_report", "Checking coverage, staleness, and blockers for the gap report...")
         coverage = get_plan_coverage()
         oldest = get_oldest_assumptions(top_k=5)
         stale = get_stale_items()
@@ -220,6 +247,8 @@ def export_gap_report(session_id: Optional[str] = None) -> dict:
             and len(gaps) == 0
         )
 
+        _trace(session_id, "gap_report_ready", f"Gap report ready — {len(gaps)} gap(s) found")
+
         return {
             "success": True,
             "format": "gap_report",
@@ -237,8 +266,11 @@ def export_gap_report(session_id: Optional[str] = None) -> dict:
         return {"success": False, "error": str(e), "format": "gap_report"}
 
 
-def get_export_readiness() -> dict:
+def get_export_readiness(session_id: Optional[str] = None) -> dict:
     """Check if the plan is ready for export.
+
+    Args:
+        session_id: Current session ID, for live trace narration.
 
     Returns:
         Dict with: ready (bool), coverage_pct, warnings list.
@@ -291,6 +323,25 @@ def format_export_response(result: dict) -> str:
     Returns:
         Formatted string for chat.
     """
+    # get_export_readiness() (the "d" menu command) returns
+    # {"ready", "coverage_pct", "warnings"} with no "success" key at all —
+    # `result.get("success", False)` therefore defaulted to False and this
+    # branch reported "Export failed: Export failed." for a readiness
+    # check that actually succeeded and computed real data.
+    if "ready" in result and "success" not in result:
+        coverage = result.get("coverage_pct", 0)
+        lines = [
+            f"Export readiness: {'READY' if result.get('ready') else 'NOT READY'} "
+            f"({coverage:.0f}% coverage)"
+        ]
+        warnings = result.get("warnings", [])
+        if warnings:
+            lines.append("")
+            lines.append("Warnings:")
+            for w in warnings:
+                lines.append(f"  - {w}")
+        return "\n".join(lines)
+
     if not result.get("success", False):
         error = result.get("error") or result.get("message", "Export failed.")
         return f"Export failed: {error}"
@@ -299,6 +350,13 @@ def format_export_response(result: dict) -> str:
     message = result.get("message", "Export complete.")
 
     lines = [message]
+
+    # export_executive_summary() puts the actual content in "summary_text"
+    # and leaves "message" as a generic "Executive summary retrieved." —
+    # without this, the summary itself never reached the chat.
+    if fmt == "executive_summary" and result.get("summary_text"):
+        lines.append("")
+        lines.append(result["summary_text"])
 
     warnings = result.get("warnings", [])
     if warnings:

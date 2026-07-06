@@ -365,6 +365,34 @@ def format_validate_response(result: dict) -> str:
     if not result.get("success", True):
         return f"Error: {result.get('error', 'Unknown error')}"
 
+    # get_assumption_queue() (the "a" menu command — Validate's primary
+    # feature) returns {"count", "queue": [...]} with no "message" key.
+    # Without this branch, the code below always fell through to an empty
+    # string, and server.py's fallback silently replaced it with "Received
+    # — nothing to show for that input." — hiding a fully-computed,
+    # correctly-ranked 20-assumption queue behind a useless message.
+    if "queue" in result:
+        queue = result.get("queue", [])
+        count = result.get("count", len(queue))
+        if count == 0:
+            return "No assumptions in the queue — nothing waiting on validation right now."
+        lines = [f"Validation queue — {count} assumption(s), ranked by age × downstream impact:"]
+        lines.append("")
+        for i, a in enumerate(queue[:15], 1):
+            lines.append(
+                f"  {i}. [{a.get('impact_level', 'unknown').upper()}] "
+                f"{a.get('content', '')[:70]}"
+            )
+            lines.append(
+                f"     Age: {a.get('age_days', '?')}d, "
+                f"affects {a.get('affected_count', 0)} item(s)"
+            )
+        if count > 15:
+            lines.append(f"\n  ...and {count - 15} more.")
+        lines.append("")
+        lines.append("Type 'validate <text>|<evidence>' to confirm one, or 'kill <text>|<reason>' to kill one.")
+        return "\n".join(lines)
+
     message = result.get("message", "")
 
     cascade = result.get("cascade_effect")

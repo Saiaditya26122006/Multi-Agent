@@ -437,13 +437,21 @@ def format_inspect_response(data: dict, query_type: str) -> str:
         return data.get("answer", "No data found.")
 
     if query_type == "dependencies":
-        chains = data.get("chains", [])
-        if not chains:
-            return "No dependency chains found."
-        lines = ["Dependency chains:"]
+        # get_dependency_view() actually returns {"nodes", "edges",
+        # "blocked_count"} — there is no "chains" key. Reading data.get
+        # ("chains", []) always returned an empty list, so this command
+        # showed "No dependency chains found." unconditionally, even when
+        # sections were genuinely blocked.
+        edges = data.get("edges", [])
+        blocked_count = data.get("blocked_count", 0)
+        if not edges:
+            return "No dependency chains found — nothing is currently blocked by a missing upstream section."
+        lines = [f"Dependency chains — {blocked_count} section(s) blocked:"]
         lines.append("")
-        for chain in chains[:10]:
-            lines.append(f"  {chain.get('from', '?')} → {chain.get('to', '?')}: {chain.get('reason', '')}")
+        for edge in edges[:15]:
+            lines.append(f"  {edge.get('from', '?')} → {edge.get('to', '?')} ({edge.get('type', 'blocks')})")
+        if len(edges) > 15:
+            lines.append(f"\n  ...and {len(edges) - 15} more.")
         return "\n".join(lines)
 
     return str(data)
