@@ -131,42 +131,58 @@ def _get_node_details(node_id: str) -> Optional[dict]:
     return None
 
 
+# This map MUST mirror the real top-level domains defined in
+# bp_architecture.json (verified directly against that file — there are
+# exactly 11, BP.1-BP.11, no BP.12). The previous version of this map was a
+# second, independent, WRONG invented taxonomy that didn't match the real
+# architecture at all — e.g. it claimed BP.6 = "Evidence and Validation",
+# when the real BP.6 is "Customer Discovery, Adoption, and Institutional
+# Legitimacy" (the real "evidence" domain is BP.3). That mismatch is exactly
+# why Alex saw "a new node could sit under: BP.6 — Evidence and Validation"
+# and assumed the system was about to create a duplicate BP.6 — it wasn't
+# creating anything, it was just mislabeling the real, existing node.
+# services/ingestion_pipeline.py's SECTION_MAP had this identical class of
+# bug; this is the same fix applied here.
 LEVEL1_KEYWORDS: dict[str, list[str]] = {
     "BP.1": ["product", "scope", "workflow", "platform",
-             "diagnostic", "tool", "system"],
-    "BP.2": ["team", "founder", "people", "organisation",
-             "structure", "roles"],
-    "BP.3": ["market", "size", "tam", "segment", "industry"],
-    "BP.4": ["competition", "competitor", "alternative",
-             "substitute"],
-    "BP.5": ["buyer", "customer", "icp", "persona",
-             "willingness", "pay", "wtp", "dean", "director"],
-    "BP.6": ["evidence", "interview", "validation", "confirmed",
-             "research", "data", "survey"],
-    "BP.7": ["gtm", "sales", "channel", "distribution",
-             "outreach", "partner"],
-    "BP.8": ["pricing", "price", "revenue", "model", "euros",
-             "license", "subscription"],
-    "BP.9": ["risk", "compliance", "regulation", "legal",
-             "gdpr"],
-    "BP.10": ["operations", "process", "workflow", "delivery"],
-    "BP.11": ["finance", "cost", "budget", "unit economics"],
-    "BP.12": ["technology", "stack", "infrastructure", "data"],
+             "diagnostic", "tool", "system", "capability"],
+    "BP.2": ["problem", "urgency", "hypothesis", "pain point",
+             "jtbd", "why now", "governing"],
+    "BP.3": ["evidence", "source", "citation", "provenance",
+             "methodology", "research quality", "data governance"],
+    "BP.4": ["market", "size", "tam", "segment", "industry",
+             "icp", "boundary", "geography"],
+    "BP.5": ["buyer", "customer", "persona", "willingness",
+             "pay", "wtp", "dean", "director", "procurement",
+             "budget owner"],
+    "BP.6": ["interview", "discovery", "adoption", "pilot",
+             "legitimacy", "institutional trust", "early customer"],
+    "BP.7": ["gdpr", "compliance", "legal", "regulation",
+             "deployability", "privacy", "data governance"],
+    "BP.8": ["competition", "competitor", "alternative",
+             "substitute", "positioning", "differentiation"],
+    "BP.9": ["pricing", "price", "revenue", "model", "euros",
+             "license", "subscription", "gtm", "sales", "channel",
+             "distribution", "outreach", "partner"],
+    "BP.10": ["validation", "confirmed", "survey", "pmf",
+              "behavioural evidence", "proof", "traction"],
+    "BP.11": ["investor", "pitch", "data room", "narrative",
+              "fundraise", "cap table", "finance", "cost",
+              "budget", "unit economics"],
 }
 
 LEVEL1_TITLES: dict[str, str] = {
     "BP.1": "Product, Workflow, and Scope Definition",
-    "BP.2": "Team and Organisation",
-    "BP.3": "Market Size and Segmentation",
-    "BP.4": "Competition and Alternatives",
-    "BP.5": "Buyer and Customer Profile",
-    "BP.6": "Evidence and Validation",
-    "BP.7": "Go-to-Market Strategy",
-    "BP.8": "Pricing and Revenue Model",
-    "BP.9": "Risk and Compliance",
-    "BP.10": "Operations and Delivery",
-    "BP.11": "Finance and Unit Economics",
-    "BP.12": "Technology and Infrastructure",
+    "BP.2": "Core Problem, Urgency, and Governing Hypothesis",
+    "BP.3": "Evidence Base and Source Governance",
+    "BP.4": "Market Boundaries, Sizing, Segmentation, and ICP",
+    "BP.5": "Users, Buyers, Procurement, and Buying System",
+    "BP.6": "Customer Discovery, Adoption, and Institutional Legitimacy",
+    "BP.7": "Legal, Regulatory, Data, and Deployability Governance",
+    "BP.8": "Competitive Landscape, Positioning, and Differentiation",
+    "BP.9": "Business Model, Revenue, and GTM Logic",
+    "BP.10": "Validation, Behavioural Evidence, and PMF Decision Logic",
+    "BP.11": "Investor Narrative, Business Plan, and Data Room Readiness",
 }
 
 
@@ -191,7 +207,12 @@ def _get_suggested_parent(candidates: list[dict], text: str = "") -> dict:
             best = max(scores, key=scores.get)
             return {"node_id": best, "node_title": LEVEL1_TITLES.get(best, best)}
 
-    return {"node_id": "BP.6", "node_title": "Evidence and Validation"}
+    # No keyword hit at all — fall back to BP.1 (Product, Workflow, and
+    # Scope Definition), the most general-purpose real domain, rather than
+    # a made-up title. (Previously this fell back to "BP.6 — Evidence and
+    # Validation", a title that doesn't belong to BP.6 in the real
+    # architecture — see the comment above LEVEL1_KEYWORDS.)
+    return {"node_id": "BP.1", "node_title": LEVEL1_TITLES["BP.1"]}
 
 
 def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
@@ -222,7 +243,7 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
             results = []
             for chunk in chunks[:top_k]:
                 node_id = chunk.metadata.get("node_id", chunk.section or "unknown")
-                node_title = chunk.metadata.get("node_title", "")
+                node_title = chunk.metadata.get("node_title") or ""
                 if not node_title and chunk.content:
                     node_title = chunk.content[:60]
                 node_details = _get_node_details(node_id)
@@ -231,8 +252,8 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
                     "node_title": node_title,
                     "similarity": round(chunk.similarity, 3),
                     "level": chunk.metadata.get("level", 0),
-                    "purpose": node_details.get("purpose", "") if node_details else "",
-                    "parent_node": node_details.get("parent_node", "") if node_details else "",
+                    "purpose": (node_details.get("purpose") or "") if node_details else "",
+                    "parent_node": (node_details.get("parent_node") or "") if node_details else "",
                 })
             return results
     except Exception as e:
@@ -260,14 +281,23 @@ def _get_node_embeddings() -> list[dict]:
 
     cache = []
     for node in nodes:
-        match_text = f"{node.get('node_title', '')}. {node.get('purpose', '')}. {node.get('required_output', '')}"
+        # bp_architecture.json has a handful of nodes with node_title/purpose
+        # explicitly set to null (not just absent) — .get(key, "") does NOT
+        # catch that (the default only applies when the key is missing), so
+        # every field is normalized with `or ""` here, once, at the source,
+        # so nothing downstream (match_bp_node, the LLM candidate block,
+        # node-title search) can crash on a None from one of these nodes.
+        node_title = node.get("node_title") or ""
+        purpose = node.get("purpose") or ""
+        required_output = node.get("required_output") or ""
+        match_text = f"{node_title}. {purpose}. {required_output}"
         embedding = np.array(embed(match_text))
         cache.append({
             "node_id": node.get("node_id", "unknown"),
-            "node_title": node.get("node_title", ""),
+            "node_title": node_title,
             "level": node.get("level", 0),
-            "purpose": node.get("purpose", ""),
-            "parent_node": node.get("parent_node", ""),
+            "purpose": purpose,
+            "parent_node": node.get("parent_node") or "",
             "embedding": embedding,
         })
 
@@ -305,6 +335,68 @@ def _direct_node_match(text: str, top_k: int = 3) -> list[dict]:
 
     scored.sort(key=lambda x: x["similarity"], reverse=True)
     return scored[:top_k]
+
+
+# Candidate pool size handed to the LLM classifier below. Wide enough that
+# the right node is almost always in the shortlist even when the raw
+# embedding similarity is mediocre, narrow enough to keep the prompt (and
+# cost) bounded — this is not "show Alex 3 options", it's "give the LLM
+# enough real context to make one confident, specific pick".
+CLASSIFY_CANDIDATE_POOL = 15
+
+
+def classify_and_match_node(text: str) -> dict:
+    """Classify a fact to exactly one BP architecture node, accurately.
+
+    Two-stage: cheap local embedding similarity narrows ~745 nodes down to
+    a shortlist (CLASSIFY_CANDIDATE_POOL), then an LLM (Bedrock, via
+    web.handlers.llm_helper.classify_fact_to_node) reasons over that
+    shortlist's actual purpose/required_output text to pick the single
+    best, most specific node. Raw embedding cosine similarity alone was
+    the root cause of the accuracy gap Alex saw versus a manual ChatGPT
+    pass on the same data — a small sentence-transformer embedding just
+    isn't discriminating enough across ~745 fine-grained nodes on its own.
+
+    Args:
+        text: The atomic fact/claim to classify.
+
+    Returns:
+        Dict with: node_id, node_title, confidence ("high"/"medium"/"low"),
+        reasoning, none_fit (bool), suggested_parent (dict, only populated
+        when none_fit is True — where a brand-new node would go).
+    """
+    candidates = match_bp_node(text, top_k=CLASSIFY_CANDIDATE_POOL)
+
+    if not candidates:
+        parent = _get_suggested_parent([], text=text)
+        return {
+            "node_id": None, "node_title": "", "confidence": "low",
+            "reasoning": "No architecture nodes available to match against.",
+            "none_fit": True, "suggested_parent": parent,
+        }
+
+    try:
+        from web.handlers.llm_helper import classify_fact_to_node
+
+        result = classify_fact_to_node(text, candidates)
+    except Exception as e:
+        logger.error("[FeedHandler] LLM classification failed, using top embedding candidate: %s", e)
+        top = candidates[0]
+        result = {
+            "node_id": top["node_id"], "node_title": top.get("node_title", ""),
+            "confidence": "low",
+            "reasoning": "LLM classification unavailable — used top embedding match.",
+            "none_fit": False,
+        }
+
+    if result.get("none_fit") or not result.get("node_id"):
+        result["suggested_parent"] = _get_suggested_parent(candidates, text=text)
+    else:
+        node_details = _get_node_details(result["node_id"]) or {}
+        result["purpose"] = node_details.get("purpose") or ""
+        result["level"] = node_details.get("level", 0)
+
+    return result
 
 
 def _get_redis():
@@ -498,33 +590,21 @@ def handle_raw_text(
             content_type, first_fact.get("inferred_status", "INFERRED")
         )
 
-        node_matches = match_bp_node(fact_text)
-
-        proposed_node = None
-        node_confidence = "unmatched"
-        if node_matches and node_matches[0]["similarity"] >= 0.6:
-            proposed_node = node_matches[0]
-            node_confidence = "matched"
-        elif node_matches and node_matches[0]["similarity"] >= 0.3:
-            proposed_node = node_matches[0]
-            node_confidence = "low_confidence"
-
-        all_below_threshold = not node_matches or node_matches[0].get("similarity", 0) < 0.3
-
-        if all_below_threshold and session_id:
-            return _auto_place_no_match(
-                fact_text, content_type, content_classification["confidence"],
-                epistemic_status, fmt, [f["text"] for f in facts[1:]], session_id,
-            )
+        # Every fact — high match or none at all — goes through the same
+        # single confirmation step below. Nothing is ever auto-stored
+        # without Alex seeing it first: an earlier version of this function
+        # silently wrote low-match facts straight to the knowledge base
+        # (tagged needs_review, but already committed), which is exactly
+        # backwards from what Alex asked for — every fact gets a chance to
+        # confirm or adjust before anything is written.
+        classification = classify_and_match_node(fact_text)
 
         fact_data = {
             "verbatim_text": fact_text,
             "content_type": content_type,
             "content_confidence": content_classification["confidence"],
             "epistemic_status": epistemic_status,
-            "proposed_node": proposed_node,
-            "node_confidence": node_confidence,
-            "all_node_candidates": node_matches[:3],
+            "classification": classification,
             "source_format": fmt,
             "submitted_at": datetime.now(timezone.utc).isoformat(),
             "remaining_facts": [f["text"] for f in facts[1:]],
@@ -550,86 +630,37 @@ def handle_raw_text(
         }
 
 
-def _auto_place_no_match(
-    fact_text: str,
-    content_type: str,
-    content_confidence: float,
-    epistemic_status: str,
-    source_format: str,
-    remaining_facts: list[str],
-    session_id: str,
-) -> dict:
-    """Auto-place a fact when no BP node matched above threshold.
+def _normalize_menu_reply(text: str) -> str:
+    """Normalize a menu reply so pasting the literal option text works too.
 
-    Stores immediately under the best keyword-matched level-1 parent
-    with needs_review=True. No menu shown to Alex.
+    Alex's actual reported bug: typing "[skip] — discard this fact" (copy-
+    pasted straight from the menu) didn't match the exact-string checks
+    that only recognized bare "skip", so the system just re-displayed the
+    same prompt with no explanation. This strips a leading bracketed token
+    ("[skip]" -> "skip", "[2]" -> "2") so pasting the option text works
+    identically to typing just the short form.
     """
-    from services.rag_service import store
-
-    parent = _get_suggested_parent([], text=fact_text)
-    node_id = parent["node_id"]
-    node_title = parent["node_title"]
-    section = node_id.split(".")[1] if "." in node_id else None
-
-    chunk_id = store(
-        content=fact_text,
-        source_type="ceo_doc",
-        section=section,
-        epistemic_status=epistemic_status,
-        topic_tags=[content_type, f"node:{node_id}", "auto_placed"],
-        session_id=session_id,
-        confidence=content_confidence,
-        metadata={
-            "content_type": content_type,
-            "node_id": node_id,
-            "node_title": node_title,
-            "source": "feed_handler",
-            "approved_at": datetime.now(timezone.utc).isoformat(),
-            "node_confidence": "auto_placed",
-            "needs_review": True,
-        },
-    )
-
-    if chunk_id is None:
-        return {
-            "action": "deduplicated",
-            "response_text": "This fact already exists in the knowledge base (duplicate detected). Nothing new was stored.",
-        }
-
-    _run_post_store_hooks(fact_text, chunk_id, epistemic_status, session_id)
-
-    confirmation = (
-        f"No specific node matched. Stored [{epistemic_status}] under "
-        f"{node_id} — {node_title} for review.\n"
-        f"Type 'adjust' to move it or 'undo' to remove."
-    )
-
-    if remaining_facts:
-        set_feed_state(session_id, None)
-        next_result = _process_next_fact(remaining_facts, session_id)
-        confirmation += f"\n\n---\n\n{next_result['response_text']}"
-        return {
-            "action": "auto_placed_with_next",
-            "response_text": confirmation,
-            "chunk_id": chunk_id,
-        }
-
-    return {
-        "action": "auto_placed",
-        "response_text": confirmation,
-        "chunk_id": chunk_id,
-    }
+    t = text.strip().lower()
+    m = re.match(r"^\[([^\]]+)\]", t)
+    if m:
+        return m.group(1).strip()
+    return t
 
 
-def handle_approval_response(
-    response_text: str, session_id: str
-) -> dict:
+SKIP_WORDS = ("skip", "no", "drop", "cancel", "discard", "discard this fact", "n")
+CONFIRM_WORDS = ("confirm", "approve", "yes", "y", "ok", "confirmed", "1", "store here", "store", "create new node here")
+ADJUST_WORDS = ("adjust", "2", "change node", "different node", "pick a different node")
+
+
+def handle_approval_response(response_text: str, session_id: str) -> dict:
     """Handle Alex's response to a pending fact review.
 
-    Routing depends on the node_confidence level:
-    - "matched": [1]=approve, [2]=adjust, [3]=create new
-    - "low_confidence": [1-3]=pick candidate, [4]=create under parent, [5]=pick parent
-    - "unmatched" (very low): [1]=create under parent, [2]=pick parent
+    Every fact now gets exactly the same three options regardless of match
+    confidence: confirm/create, adjust, skip. (Previously this branched
+    into three different menus with three different option sets depending
+    on similarity thresholds — which is exactly why "[2] Adjust — pick a
+    different node" showed up on some prompts but not others, the
+    inconsistency Alex reported.)
 
     Args:
         response_text: Alex's reply.
@@ -646,12 +677,11 @@ def handle_approval_response(
             "response_text": "No pending fact to approve. The review may have expired. Please re-submit your data.",
         }
 
-    text_lower = response_text.strip().lower()
-    node_confidence = pending.get("node_confidence", "unmatched")
-    candidates = pending.get("all_node_candidates", [])
-    all_below_threshold = not candidates or candidates[0].get("similarity", 0) < 0.3
+    text_lower = _normalize_menu_reply(response_text)
+    classification = pending.get("classification", {})
+    none_fit = classification.get("none_fit", True) or not classification.get("node_id")
 
-    if text_lower in ("skip", "no", "drop", "cancel"):
+    if text_lower in SKIP_WORDS:
         clear_pending_fact(session_id)
         remaining = pending.get("remaining_facts", [])
         if remaining:
@@ -663,168 +693,58 @@ def handle_approval_response(
             "response_text": "Fact skipped. Nothing was stored.",
         }
 
-    if node_confidence == "matched":
-        return _handle_matched_response(text_lower, pending, session_id)
-
-    if all_below_threshold:
-        return _handle_very_low_response(text_lower, pending, session_id)
-
-    return _handle_low_confidence_response(text_lower, pending, session_id)
-
-
-def _handle_matched_response(text_lower: str, pending: dict, session_id: str) -> dict:
-    """Handle response when node match is confident (>=0.6)."""
-    if text_lower in ("approve", "yes", "y", "ok", "confirmed", "1"):
-        return _execute_approval(pending, session_id)
-
-    if text_lower in ("adjust", "change node", "different node", "2"):
+    if text_lower in ADJUST_WORDS:
         set_feed_state(session_id, "FEED_AWAITING_NODE_SELECTION")
-        candidates = pending.get("all_node_candidates", [])
-        lines = ["Which node should this go to?\n"]
-        for i, candidate in enumerate(candidates, 1):
-            lines.append(
-                f"  [{i}] {candidate['node_id']} — {candidate['node_title']} "
-                f"({int(candidate['similarity'] * 100)}% match)"
-            )
-        lines.append("\n  Or type a node ID directly (e.g. BP.1.1.3).")
         return {
             "action": "awaiting_node_selection",
-            "response_text": "\n".join(lines),
-        }
-
-    if text_lower in ("create", "new node", "create new node", "3"):
-        suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
-            pending.get("all_node_candidates", []), text=pending.get("verbatim_text", "")
-        )
-        set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
-        pending["suggested_parent"] = suggested_parent
-        store_pending_fact(session_id, pending)
-        return {
-            "action": "awaiting_new_node_name",
             "response_text": (
-                f"Creating a new node under {suggested_parent['node_id']} — {suggested_parent['node_title']}.\n"
-                "What should it be called?"
+                "Type the node ID directly (e.g. BP.1.1.3), or part of a node's title to search for it."
             ),
         }
 
-    return {
-        "action": "unrecognized",
-        "response_text": (
-            "Reply with:\n"
-            "  [1] Approve — store as shown\n"
-            "  [2] Adjust — pick a different node\n"
-            "  [3] Create new node — flag for review\n"
-            "  [skip] — discard this fact"
-        ),
-    }
-
-
-def _handle_low_confidence_response(text_lower: str, pending: dict, session_id: str) -> dict:
-    """Handle response when candidates exist but none above 0.6."""
-    candidates = pending.get("all_node_candidates", [])
-    suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
-        candidates, text=pending.get("verbatim_text", "")
-    )
-
-    if text_lower == "1" and len(candidates) >= 1:
-        pending["proposed_node"] = candidates[0]
-        pending["node_confidence"] = "manual_override"
+    if text_lower in CONFIRM_WORDS or (none_fit and text_lower in ("1", "create", "create new node", "create here")):
+        if none_fit:
+            suggested_parent = classification.get("suggested_parent") or _get_suggested_parent(
+                [], text=pending.get("verbatim_text", "")
+            )
+            set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
+            pending["suggested_parent"] = suggested_parent
+            store_pending_fact(session_id, pending)
+            return {
+                "action": "awaiting_new_node_name",
+                "response_text": (
+                    f"Creating a new node under {suggested_parent['node_id']} — {suggested_parent['node_title']}.\n"
+                    "What should it be called?"
+                ),
+            }
+        # Promote the LLM's classification into the "final decided node"
+        # field _execute_approval() writes from, now that Alex has
+        # confirmed it.
+        pending["proposed_node"] = {
+            "node_id": classification["node_id"],
+            "node_title": classification.get("node_title", ""),
+        }
+        pending["node_confidence"] = classification.get("confidence", "medium")
         store_pending_fact(session_id, pending)
         return _execute_approval(pending, session_id)
 
-    if text_lower == "2" and len(candidates) >= 2:
-        pending["proposed_node"] = candidates[1]
-        pending["node_confidence"] = "manual_override"
-        store_pending_fact(session_id, pending)
-        return _execute_approval(pending, session_id)
-
-    if text_lower == "3" and len(candidates) >= 3:
-        pending["proposed_node"] = candidates[2]
-        pending["node_confidence"] = "manual_override"
-        store_pending_fact(session_id, pending)
-        return _execute_approval(pending, session_id)
-
-    if text_lower == "4":
-        set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
-        pending["suggested_parent"] = suggested_parent
-        store_pending_fact(session_id, pending)
-        return {
-            "action": "awaiting_new_node_name",
-            "response_text": (
-                f"Creating a new node under {suggested_parent['node_id']} — {suggested_parent['node_title']}.\n"
-                "What should it be called?"
-            ),
-        }
-
-    if text_lower == "5":
-        set_feed_state(session_id, "FEED_AWAITING_PARENT_SELECTION")
-        return {
-            "action": "awaiting_parent_selection",
-            "response_text": (
-                "Which node should be the parent?\n"
-                "Reply with a node ID (e.g. BP.2.1) or a title."
-            ),
-        }
-
     return {
         "action": "unrecognized",
-        "response_text": (
-            "Reply with a number:\n"
-            f"  [1] Use {candidates[0]['node_title'] if candidates else '?'}\n"
-            + (f"  [2] Use {candidates[1]['node_title']}\n" if len(candidates) > 1 else "")
-            + (f"  [3] Use {candidates[2]['node_title']}\n" if len(candidates) > 2 else "")
-            + f"  [4] Create new node under {suggested_parent['node_id']}\n"
-            "  [5] Pick a different parent\n"
-            "  [skip] — discard"
-        ),
-    }
-
-
-def _handle_very_low_response(text_lower: str, pending: dict, session_id: str) -> dict:
-    """Handle response when all candidates are below 0.3 (no useful matches)."""
-    candidates = pending.get("all_node_candidates", [])
-    suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
-        candidates, text=pending.get("verbatim_text", "")
-    )
-
-    if text_lower == "1":
-        set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
-        pending["suggested_parent"] = suggested_parent
-        store_pending_fact(session_id, pending)
-        return {
-            "action": "awaiting_new_node_name",
-            "response_text": (
-                f"Creating a new node under {suggested_parent['node_id']} — {suggested_parent['node_title']}.\n"
-                "What should it be called?"
-            ),
-        }
-
-    if text_lower == "2":
-        set_feed_state(session_id, "FEED_AWAITING_PARENT_SELECTION")
-        return {
-            "action": "awaiting_parent_selection",
-            "response_text": (
-                "Which node should be the parent?\n"
-                "Reply with a node ID (e.g. BP.2.1) or a title."
-            ),
-        }
-
-    return {
-        "action": "unrecognized",
-        "response_text": (
-            "Reply with:\n"
-            f"  [1] Create new node under {suggested_parent['node_id']}\n"
-            "  [2] Pick a different parent\n"
-            "  [skip] — discard"
-        ),
+        "response_text": _format_review_block(pending, remaining=len(pending.get("remaining_facts", []))),
     }
 
 
 def handle_node_selection(response_text: str, session_id: str) -> dict:
     """Handle Alex's node selection after choosing 'adjust'.
 
+    Accepts either an exact node ID (e.g. "BP.1.1.3") or free text to
+    search node titles by substring — there's no numbered candidate list
+    to pick from anymore (the review block now shows one classified node,
+    not a menu of three), so "adjust" is a general lookup, not a pick from
+    a fixed set.
+
     Args:
-        response_text: Node number, node ID, or cancel.
+        response_text: A node ID or a title search string.
         session_id: Current session ID.
 
     Returns:
@@ -839,29 +759,45 @@ def handle_node_selection(response_text: str, session_id: str) -> dict:
         }
 
     text = response_text.strip()
-    candidates = pending.get("all_node_candidates", [])
-
+    nodes = _load_bp_architecture()
     selected_node = None
 
-    if text.isdigit() and 1 <= int(text) <= len(candidates):
-        selected_node = candidates[int(text) - 1]
-    elif re.match(r"^BP\.\d", text, re.IGNORECASE):
-        nodes = _load_bp_architecture()
+    if re.match(r"^BP\.\d", text, re.IGNORECASE):
         for node in nodes:
             if node.get("node_id", "").upper() == text.upper():
                 selected_node = {
                     "node_id": node["node_id"],
-                    "node_title": node.get("node_title", ""),
-                    "similarity": 1.0,
-                    "level": node.get("level", 0),
+                    "node_title": node.get("node_title") or "",
                 }
                 break
-
-    if selected_node is None:
-        return {
-            "action": "invalid_selection",
-            "response_text": f"Couldn't find node '{text}'. Type a number (1-{len(candidates)}) or a valid BP node ID.",
-        }
+        if selected_node is None:
+            return {
+                "action": "invalid_selection",
+                "response_text": f"No node with ID '{text}' exists. Double-check the ID, or search by part of a title instead.",
+            }
+    else:
+        # Some architecture nodes have node_title: null in bp_architecture.json
+        # (4 confirmed via grep) — n.get("node_title", "") only substitutes the
+        # default when the KEY is absent, not when its value is None, so a
+        # bare .get(...).lower() crashes with 'NoneType has no attribute lower'
+        # the moment a null-titled node is scanned. Always coerce with `or ""`.
+        matches = [
+            n for n in nodes
+            if text.lower() in (n.get("node_title") or "").lower() and n.get("node_id")
+        ]
+        if not matches:
+            return {
+                "action": "invalid_selection",
+                "response_text": f"No node title matches '{text}'. Try a node ID (e.g. BP.1.1.3) or different search words.",
+            }
+        if len(matches) > 1:
+            lines = [f"{len(matches)} nodes match '{text}'. Reply with the exact ID:\n"]
+            for n in matches[:10]:
+                lines.append(f"  {n['node_id']} — {n.get('node_title') or ''}")
+            if len(matches) > 10:
+                lines.append(f"  ...and {len(matches) - 10} more. Try narrowing your search.")
+            return {"action": "multiple_matches", "response_text": "\n".join(lines)}
+        selected_node = {"node_id": matches[0]["node_id"], "node_title": matches[0].get("node_title") or ""}
 
     pending["proposed_node"] = selected_node
     pending["node_confidence"] = "manual_override"
@@ -894,16 +830,16 @@ def handle_parent_selection(response_text: str, session_id: str) -> dict:
 
     for node in nodes:
         if node.get("node_id", "").upper() == text.upper():
-            selected_parent = {"node_id": node["node_id"], "node_title": node.get("node_title", "")}
+            selected_parent = {"node_id": node["node_id"], "node_title": node.get("node_title") or ""}
             break
-        if node.get("node_title", "").lower() == text.lower():
-            selected_parent = {"node_id": node["node_id"], "node_title": node["node_title"]}
+        if (node.get("node_title") or "").lower() == text.lower():
+            selected_parent = {"node_id": node["node_id"], "node_title": node.get("node_title") or ""}
             break
 
     if not selected_parent:
         for node in nodes:
-            if text.lower() in node.get("node_title", "").lower():
-                selected_parent = {"node_id": node["node_id"], "node_title": node["node_title"]}
+            if text.lower() in (node.get("node_title") or "").lower():
+                selected_parent = {"node_id": node["node_id"], "node_title": node.get("node_title") or ""}
                 break
 
     if not selected_parent:
@@ -951,7 +887,7 @@ def handle_new_node_name(response_text: str, session_id: str) -> dict:
         }
 
     suggested_parent = pending.get("suggested_parent") or _get_suggested_parent(
-        pending.get("all_node_candidates", []), text=pending.get("verbatim_text", "")
+        [], text=pending.get("verbatim_text", "")
     )
 
     pending["proposed_node"] = {
@@ -1461,33 +1397,15 @@ def _process_next_fact(remaining_facts: list[str], session_id: str) -> dict:
     content_classification = classify_content_type(next_text)
     content_type = content_classification["content_type"]
     epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(content_type, "INFERRED")
-    node_matches = match_bp_node(next_text)
 
-    all_below_threshold = not node_matches or node_matches[0].get("similarity", 0) < 0.3
-
-    if all_below_threshold:
-        return _auto_place_no_match(
-            next_text, content_type, content_classification["confidence"],
-            epistemic_status, "queued", remaining_facts[1:], session_id,
-        )
-
-    proposed_node = None
-    node_confidence = "unmatched"
-    if node_matches and node_matches[0]["similarity"] >= 0.6:
-        proposed_node = node_matches[0]
-        node_confidence = "matched"
-    elif node_matches and node_matches[0]["similarity"] >= 0.3:
-        proposed_node = node_matches[0]
-        node_confidence = "low_confidence"
+    classification = classify_and_match_node(next_text)
 
     fact_data = {
         "verbatim_text": next_text,
         "content_type": content_type,
         "content_confidence": content_classification["confidence"],
         "epistemic_status": epistemic_status,
-        "proposed_node": proposed_node,
-        "node_confidence": node_confidence,
-        "all_node_candidates": node_matches[:3],
+        "classification": classification,
         "source_format": "queued",
         "submitted_at": datetime.now(timezone.utc).isoformat(),
         "remaining_facts": remaining_facts[1:],
@@ -1504,15 +1422,16 @@ def _process_next_fact(remaining_facts: list[str], session_id: str) -> dict:
 
 
 def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
-    """Format a pending fact as a review block for Alex.
+    """Format a pending fact as a single, clean confirmation for Alex.
 
-    Shows different options depending on match confidence:
-    - High confidence (>=0.6): simple approve/adjust/create
-    - Low confidence (<0.6, >=0.3): show top 3 candidates with reasoning
-    - Very low (<0.3): skip candidates, suggest parent for new node
+    One consistent shape regardless of classification confidence — the
+    LLM-based classifier (classify_and_match_node) picks exactly one node,
+    so there's no menu of 3 similarity-ranked guesses to choose between
+    anymore. This is the "Node: BP.x.x.x / node_title: ..." format Alex
+    asked for directly, matching what he saw a manual ChatGPT pass produce.
 
     Args:
-        fact_data: The full fact dict.
+        fact_data: The full fact dict (must include "classification").
         remaining: Number of facts still queued.
 
     Returns:
@@ -1521,74 +1440,52 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
     content_type = fact_data["content_type"]
     confidence = fact_data.get("content_confidence", 0.0)
     epistemic_status = fact_data["epistemic_status"]
-    proposed_node = fact_data.get("proposed_node")
-    node_confidence = fact_data.get("node_confidence", "unmatched")
     verbatim = fact_data["verbatim_text"]
-    candidates = fact_data.get("all_node_candidates", [])
+    classification = fact_data.get("classification", {})
 
     lines = []
     lines.append("ADD — Review before storing")
     lines.append("=" * 40)
     lines.append("")
-    lines.append(f"  Text: \"{verbatim}\"")
+
+    none_fit = classification.get("none_fit", True) or not classification.get("node_id")
+
+    if none_fit:
+        suggested_parent = classification.get("suggested_parent") or _get_suggested_parent(
+            [], text=verbatim
+        )
+        fact_data["suggested_parent"] = suggested_parent
+        lines.append("  No existing node is a strong fit for this fact.")
+        lines.append("")
+        lines.append(f"  Suggested parent: {suggested_parent['node_id']} — {suggested_parent['node_title']}")
+        reasoning = classification.get("reasoning")
+        if reasoning:
+            lines.append(f"  ({reasoning})")
+    else:
+        lines.append(f"  Node: {classification['node_id']}")
+        lines.append(f"  node_title: {classification.get('node_title', '')}")
+        conf = classification.get("confidence", "medium")
+        if conf != "high":
+            reasoning = classification.get("reasoning")
+            lines.append(f"  Match confidence: {conf}" + (f" — {reasoning}" if reasoning else ""))
+
     lines.append("")
     lines.append(f"  Type: {content_type.upper()}" + (
         " (low confidence)" if confidence < 0.7 else ""
     ))
     lines.append(f"  Status: [{epistemic_status}]")
     lines.append("")
+    lines.append(f"  \"{verbatim}\"")
+    lines.append("")
+    lines.append("-" * 40)
 
-    if node_confidence == "matched" and proposed_node:
-        lines.append(
-            f"  Node: {proposed_node['node_id']} — {proposed_node['node_title']}"
-            f" ({int(proposed_node['similarity'] * 100)}% match)"
-        )
-        lines.append("")
-        lines.append("-" * 40)
-        lines.append("  [1] Approve — store as shown")
-        lines.append("  [2] Adjust — pick a different node")
-        lines.append("  [3] Create new node — flag for architecture review")
-        lines.append("  [skip] — discard this fact")
-
-    elif candidates and candidates[0].get("similarity", 0) >= 0.3:
-        lines.append("  No strong match found. Closest candidates:")
-        lines.append("")
-        for i, c in enumerate(candidates[:3], 1):
-            pct = int(c["similarity"] * 100)
-            purpose = c.get("purpose", "")
-            lines.append(f"  [{i}] {c['node_id']} — {c['node_title']} ({pct}% match)")
-            if purpose:
-                lines.append(f"      Purpose: {purpose[:100]}")
-            lines.append("")
-
-        suggested_parent = fact_data.get("suggested_parent") or _get_suggested_parent(
-            candidates, text=verbatim
-        )
-        fact_data["suggested_parent"] = suggested_parent
-        lines.append(
-            f"  If none fit, a new node could sit under: "
-            f"{suggested_parent['node_id']} — {suggested_parent['node_title']}"
-        )
-        lines.append("")
-        lines.append("-" * 40)
-        lines.append(f"  [1] Use {candidates[0]['node_title']}")
-        if len(candidates) > 1:
-            lines.append(f"  [2] Use {candidates[1]['node_title']}")
-        if len(candidates) > 2:
-            lines.append(f"  [3] Use {candidates[2]['node_title']}")
-        lines.append(f"  [4] Create new node under {suggested_parent['node_id']}")
-        lines.append("  [5] Pick a different parent — I'll tell you which")
-        lines.append("  [skip] — discard this fact")
-
+    if none_fit:
+        suggested_parent = fact_data.get("suggested_parent", {})
+        lines.append(f"  [1] Create new node under {suggested_parent.get('node_id', '?')}")
     else:
-        suggested_parent = fact_data.get("suggested_parent") or _get_suggested_parent(
-            candidates, text=verbatim
-        )
-        fact_data["suggested_parent"] = suggested_parent
-        lines.append(
-            f"  No specific node matched. Will auto-place under "
-            f"{suggested_parent['node_id']} — {suggested_parent['node_title']} for review."
-        )
+        lines.append("  [1] Confirm — store here")
+    lines.append("  [2] Adjust — pick a different node")
+    lines.append("  [skip] — discard this fact")
 
     if remaining > 0:
         lines.append("")

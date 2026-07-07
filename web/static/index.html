@@ -473,6 +473,170 @@
         .council-score.decision-revise { color: var(--warning); background: var(--warning-soft); }
         .council-score.decision-escalate { color: var(--danger); background: var(--danger-soft); }
 
+        /* STORED DATA TABLE — wider drawer since a table needs real columns,
+           not stacked cards like the epistemic log. */
+
+        .activity-drawer.stored-data-drawer {
+            width: min(920px, 94vw);
+        }
+
+        .stored-data-export-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            text-decoration: none;
+        }
+
+        .stored-data-export-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .stored-data-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 4px 14px;
+            flex-wrap: wrap;
+        }
+
+        .stored-data-filter-select {
+            font-size: 12px;
+            font-family: inherit;
+            color: var(--text-primary);
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 8px;
+        }
+
+        .stored-data-count {
+            font-size: 11.5px;
+            color: var(--text-tertiary);
+            margin-left: auto;
+        }
+
+        .stored-data-table-wrap {
+            overflow-x: auto;
+        }
+
+        table.stored-data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+        }
+
+        table.stored-data-table th {
+            text-align: left;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: var(--text-tertiary);
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            background: var(--bg-surface);
+        }
+
+        table.stored-data-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-primary);
+            vertical-align: top;
+            line-height: 1.4;
+        }
+
+        table.stored-data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        table.stored-data-table tr:hover td {
+            background: var(--accent-soft);
+        }
+
+        .stored-data-node-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+
+        .stored-data-content-cell {
+            max-width: 320px;
+        }
+
+        .stored-data-status-pill {
+            font-size: 10.5px;
+            font-weight: 600;
+            padding: 1px 7px;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+
+        .stored-data-status-pill.status-confirmed { color: var(--success); background: var(--success-soft); }
+        .stored-data-status-pill.status-assumption { color: var(--warning); background: var(--warning-soft); }
+        .stored-data-status-pill.status-contradiction,
+        .stored-data-status-pill.status-killed { color: var(--danger); background: var(--danger-soft); }
+        .stored-data-status-pill.status-missing,
+        .stored-data-status-pill.status-unknown { color: var(--text-tertiary); background: var(--border); }
+
+        .stored-data-timestamp {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            color: var(--text-tertiary);
+            white-space: nowrap;
+        }
+
+        .stored-data-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 20px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .stored-data-page-btn {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 12px;
+            cursor: pointer;
+        }
+
+        .stored-data-page-btn:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .stored-data-page-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        #storedDataPageInfo {
+            font-size: 11.5px;
+            color: var(--text-tertiary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
         .confirm-chunk-btn {
             font-size: 11px;
             font-weight: 600;
@@ -2213,6 +2377,14 @@
                 </div>
                 <div class="tray-tile-status" style="background:var(--accent)"></div>
             </div>
+            <div class="tray-tile" data-action="stored-data">
+                <i data-lucide="table" class="tray-tile-icon"></i>
+                <div class="tray-tile-info">
+                    <div class="tray-tile-name">Stored Data</div>
+                    <div class="tray-tile-badge">Every fact, node, and status — in one table</div>
+                </div>
+                <div class="tray-tile-status" style="background:var(--accent)"></div>
+            </div>
         </div>
         <div class="tray-recommendation">
             <i data-lucide="sparkles" style="width:16px;height:16px;color:var(--accent);flex-shrink:0;"></i>
@@ -2255,6 +2427,37 @@
             <div class="activity-drawer-empty" id="epistemicLoadingState">
                 Loading...
             </div>
+        </div>
+    </div>
+
+    <!-- STORED DATA DRAWER — flat table view of everything in knowledge_base,
+         same headings whether it came from chat, upload, or an agent, so
+         Alex can see exactly where output landed without opening Supabase. -->
+    <div class="activity-backdrop" id="storedDataBackdrop"></div>
+    <div class="activity-drawer stored-data-drawer" id="storedDataDrawer">
+        <div class="activity-drawer-header">
+            <div>
+                <div class="activity-drawer-title">Stored Data</div>
+                <div class="activity-drawer-sub" id="storedDataSub">Every fact stored, with its node and status</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <a class="stored-data-export-btn" id="storedDataExportBtn" title="Download as .xlsx">
+                    <i data-lucide="download" style="width:14px;height:14px;"></i>
+                </a>
+                <button class="tray-close-btn" id="storedDataCloseBtn" title="Close">
+                    <i data-lucide="x" style="width:14px;height:14px;"></i>
+                </button>
+            </div>
+        </div>
+        <div class="activity-drawer-body" id="storedDataBody">
+            <div class="activity-drawer-empty" id="storedDataLoadingState">
+                Loading...
+            </div>
+        </div>
+        <div class="stored-data-pagination" id="storedDataPagination" style="display:none;">
+            <button class="stored-data-page-btn" id="storedDataPrevBtn">← Newer</button>
+            <span id="storedDataPageInfo"></span>
+            <button class="stored-data-page-btn" id="storedDataNextBtn">Older →</button>
         </div>
     </div>
 
@@ -2320,6 +2523,15 @@
             const epistemicDrawer = document.getElementById('epistemicDrawer');
             const epistemicCloseBtn = document.getElementById('epistemicCloseBtn');
             const epistemicDrawerBody = document.getElementById('epistemicDrawerBody');
+            const storedDataBackdrop = document.getElementById('storedDataBackdrop');
+            const storedDataDrawer = document.getElementById('storedDataDrawer');
+            const storedDataCloseBtn = document.getElementById('storedDataCloseBtn');
+            const storedDataBody = document.getElementById('storedDataBody');
+            const storedDataExportBtn = document.getElementById('storedDataExportBtn');
+            const storedDataPagination = document.getElementById('storedDataPagination');
+            const storedDataPrevBtn = document.getElementById('storedDataPrevBtn');
+            const storedDataNextBtn = document.getElementById('storedDataNextBtn');
+            const storedDataPageInfo = document.getElementById('storedDataPageInfo');
             const processTrigger = document.getElementById('processTrigger');
             const processPanel = document.getElementById('processPanel');
             const processPanelCloseBtn = document.getElementById('processPanelCloseBtn');
@@ -2336,6 +2548,10 @@
             let liveIndicatorTimeout = null;
             let processLiveIndicatorTimeout = null;
             let epistemicLoaded = false;
+            const STORED_DATA_PAGE_SIZE = 50;
+            let storedDataOffset = 0;
+            let storedDataTotal = 0;
+            let storedDataStatusFilter = '';
             let processLog = [];
             let processPhase = 'idle'; // 'idle' | 'processing' | 'review'
             let currentBatch = null;
@@ -2385,6 +2601,11 @@
                         openEpistemicDrawer();
                         return;
                     }
+                    if (tile.dataset.action === 'stored-data') {
+                        closeTray();
+                        openStoredDataDrawer();
+                        return;
+                    }
                     const wsNum = tile.dataset.workspace;
                     switchWorkspace(parseInt(wsNum));
                     closeTray();
@@ -2393,6 +2614,20 @@
                 // Epistemic log drawer
                 epistemicBackdrop.addEventListener('click', closeEpistemicDrawer);
                 epistemicCloseBtn.addEventListener('click', closeEpistemicDrawer);
+
+                // Stored data drawer
+                storedDataBackdrop.addEventListener('click', closeStoredDataDrawer);
+                storedDataCloseBtn.addEventListener('click', closeStoredDataDrawer);
+                storedDataPrevBtn.addEventListener('click', () => {
+                    if (storedDataOffset <= 0) return;
+                    storedDataOffset = Math.max(0, storedDataOffset - STORED_DATA_PAGE_SIZE);
+                    loadStoredData();
+                });
+                storedDataNextBtn.addEventListener('click', () => {
+                    if (storedDataOffset + STORED_DATA_PAGE_SIZE >= storedDataTotal) return;
+                    storedDataOffset += STORED_DATA_PAGE_SIZE;
+                    loadStoredData();
+                });
 
                 // Quick-prompt suggestion chips
                 suggestionChips.addEventListener('click', (e) => {
@@ -2461,6 +2696,7 @@
                         if (plusTray.classList.contains('active')) { closeTray(); return; }
                         if (activityDrawer.classList.contains('active')) { closeActivityDrawer(); return; }
                         if (epistemicDrawer.classList.contains('active')) { closeEpistemicDrawer(); return; }
+                        if (storedDataDrawer.classList.contains('active')) { closeStoredDataDrawer(); return; }
                         if (processPanel.classList.contains('open')) { closeProcessPanel(); return; }
                     }
                 });
@@ -2852,6 +3088,7 @@
                     { icon: 'workflow', title: 'Open Process panel', sub: "See what's happening right now, live", action: () => openProcessPanel() },
                     { icon: 'activity', title: 'Open Live Activity', sub: 'Full pipeline trace history', action: () => openActivityDrawer() },
                     { icon: 'scale', title: 'Open Epistemic Log', sub: 'Killed ideas, reviews, staleness', action: () => openEpistemicDrawer() },
+                    { icon: 'table', title: 'Open Stored Data', sub: 'Every fact, node, and status — in one table', action: () => openStoredDataDrawer() },
                     { icon: isDark ? 'sun' : 'moon', title: isDark ? 'Switch to light mode' : 'Switch to dark mode', sub: 'Toggle color theme', action: () => toggleTheme() },
                 ];
             }
@@ -3197,6 +3434,123 @@
                         }
                     });
                 });
+            }
+
+            // --- Stored Data (flat table over knowledge_base — where Alex's raw
+            // data actually ends up, with node/status, same headings as the export) ---
+            function openStoredDataDrawer() {
+                storedDataDrawer.classList.add('active');
+                storedDataBackdrop.classList.add('active');
+                storedDataOffset = 0;
+                loadStoredData();
+            }
+
+            function closeStoredDataDrawer() {
+                storedDataDrawer.classList.remove('active');
+                storedDataBackdrop.classList.remove('active');
+            }
+
+            async function loadStoredData() {
+                if (!token) return;
+                storedDataBody.innerHTML = '<div class="activity-drawer-empty" id="storedDataLoadingState">Loading...</div>';
+                storedDataPagination.style.display = 'none';
+
+                if (storedDataExportBtn) {
+                    storedDataExportBtn.href = `/api/knowledge/stored/export?token=${token}`;
+                }
+
+                try {
+                    const params = new URLSearchParams({
+                        token,
+                        limit: STORED_DATA_PAGE_SIZE,
+                        offset: storedDataOffset,
+                    });
+                    if (storedDataStatusFilter) params.set('epistemic_status', storedDataStatusFilter);
+
+                    const res = await fetch(`/api/knowledge/stored?${params.toString()}`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    renderStoredData(data);
+                } catch (err) {
+                    console.error('Stored data load error:', err);
+                    storedDataBody.innerHTML = '<div class="activity-drawer-empty">Could not load stored data — try reopening this panel.</div>';
+                }
+            }
+
+            function renderStoredData(data) {
+                const rows = data.rows || [];
+                storedDataTotal = data.total || 0;
+
+                const toolbar = `
+                    <div class="stored-data-toolbar">
+                        <select class="stored-data-filter-select" id="storedDataStatusSelect">
+                            <option value="">All statuses</option>
+                            <option value="CONFIRMED">Confirmed</option>
+                            <option value="ASSUMPTION">Assumption</option>
+                            <option value="CONTRADICTION">Contradiction</option>
+                            <option value="MISSING">Missing</option>
+                        </select>
+                        <span class="stored-data-count">${storedDataTotal} stored fact${storedDataTotal === 1 ? '' : 's'}</span>
+                    </div>
+                `;
+
+                if (!rows.length) {
+                    storedDataBody.innerHTML = toolbar + '<div class="activity-drawer-empty">Nothing stored yet — facts Alex sends and confirms will show up here with the node they were filed under.</div>';
+                } else {
+                    storedDataBody.innerHTML = toolbar + `
+                        <div class="stored-data-table-wrap">
+                            <table class="stored-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Node ID</th>
+                                        <th>Node Title</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>Content</th>
+                                        <th>Source</th>
+                                        <th>Stored At</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rows.map(renderStoredDataRow).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+
+                const select = document.getElementById('storedDataStatusSelect');
+                if (select) {
+                    select.value = storedDataStatusFilter;
+                    select.addEventListener('change', () => {
+                        storedDataStatusFilter = select.value;
+                        storedDataOffset = 0;
+                        loadStoredData();
+                    });
+                }
+
+                const start = storedDataTotal === 0 ? 0 : storedDataOffset + 1;
+                const end = Math.min(storedDataOffset + STORED_DATA_PAGE_SIZE, storedDataTotal);
+                storedDataPageInfo.textContent = `${start}–${end} of ${storedDataTotal}`;
+                storedDataPrevBtn.disabled = storedDataOffset <= 0;
+                storedDataNextBtn.disabled = storedDataOffset + STORED_DATA_PAGE_SIZE >= storedDataTotal;
+                storedDataPagination.style.display = 'flex';
+            }
+
+            function renderStoredDataRow(row) {
+                const status = (row.epistemic_status || 'unknown').toLowerCase();
+                const nodeId = row.node_id ? escapeHtml(row.node_id) : '<span style="color:var(--text-tertiary)">—</span>';
+                return `
+                    <tr>
+                        <td class="stored-data-node-id">${nodeId}</td>
+                        <td>${escapeHtml(row.node_title || '—')}</td>
+                        <td>${escapeHtml(row.content_type || '—')}</td>
+                        <td><span class="stored-data-status-pill status-${status}">${escapeHtml((row.epistemic_status || 'UNKNOWN'))}</span></td>
+                        <td class="stored-data-content-cell">${escapeHtml((row.content || '').slice(0, 200))}</td>
+                        <td>${escapeHtml(row.source || '—')}</td>
+                        <td class="stored-data-timestamp">${row.stored_at ? formatTime(new Date(row.stored_at)) : '—'}</td>
+                    </tr>
+                `;
             }
 
             // --- Attachment (preview chip; actual upload happens in uploadAttachment()) ---

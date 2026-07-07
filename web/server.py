@@ -1356,6 +1356,148 @@ async def get_knowledge_base(token: str = ""):
         raise HTTPException(status_code=500, detail="Failed to load knowledge base")
 
 
+@app.get("/api/knowledge/stored")
+async def get_stored_knowledge(
+    token: str = "",
+    limit: int = 100,
+    offset: int = 0,
+    node_id: str = "",
+    epistemic_status: str = "",
+) -> dict:
+    """Return stored knowledge_base rows as a flat table — Alex's ask for
+    visibility into exactly what got stored and under which node, without
+    needing to open Supabase directly.
+
+    Same headings every row uses, regardless of source: node_id,
+    node_title, content_type, epistemic_status, content, source,
+    stored_at. Supports pagination and optional filtering by node_id
+    (exact) or epistemic_status, so the in-app table can page through the
+    full knowledge base without pulling everything at once.
+    """
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        def _query():
+            supabase = _get_supabase()
+            q = (
+                supabase.table(TABLE_NAME)
+                .select(
+                    "id, content, source_type, section, epistemic_status, "
+                    "topic_tags, confidence, metadata, created_at, superseded_by",
+                    count="exact",
+                )
+                .is_("superseded_by", "null")
+                .order("created_at", desc=True)
+            )
+            if epistemic_status:
+                q = q.eq("epistemic_status", epistemic_status)
+            q = q.range(offset, offset + limit - 1)
+            return q.execute()
+
+        result = await asyncio.to_thread(_query)
+
+        rows = []
+        for row in (result.data or []):
+            meta = row.get("metadata") or {}
+            row_node_id = meta.get("node_id") or row.get("section") or ""
+            if node_id and row_node_id != node_id:
+                continue
+            rows.append({
+                "id": row["id"],
+                "node_id": row_node_id,
+                "node_title": meta.get("node_title", ""),
+                "content_type": meta.get("content_type") or (
+                    row.get("topic_tags") or [""]
+                )[0],
+                "epistemic_status": row.get("epistemic_status", ""),
+                "content": row.get("content", ""),
+                "source": meta.get("source") or row.get("source_type", ""),
+                "stored_at": row.get("created_at", ""),
+                "confidence": row.get("confidence"),
+            })
+
+        return {
+            "rows": rows,
+            "total": getattr(result, "count", None) or len(rows),
+            "limit": limit,
+            "offset": offset,
+        }
+    except Exception as e:
+        logger.error(f"Error fetching stored knowledge table: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load stored knowledge")
+
+
+@app.get("/api/knowledge/stored/export")
+async def export_stored_knowledge(token: str = "") -> FileResponse:
+    """Export the full stored-knowledge table as an .xlsx with the same
+    headings shown in the in-app table, for Alex to open outside the app."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        def _query_all():
+            supabase = _get_supabase()
+            return (
+                supabase.table(TABLE_NAME)
+                .select(
+                    "id, content, source_type, section, epistemic_status, "
+                    "topic_tags, confidence, metadata, created_at, superseded_by"
+                )
+                .is_("superseded_by", "null")
+                .order("created_at", desc=True)
+                .limit(5000)
+                .execute()
+            )
+
+        result = await asyncio.to_thread(_query_all)
+
+        import openpyxl
+        from openpyxl.styles import Font
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Knowledge Base"
+        headers = ["Node ID", "Node Title", "Content Type", "Epistemic Status", "Content", "Source", "Stored At"]
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+
+        for row in (result.data or []):
+            meta = row.get("metadata") or {}
+            ws.append([
+                meta.get("node_id") or row.get("section") or "",
+                meta.get("node_title", ""),
+                meta.get("content_type") or (row.get("topic_tags") or [""])[0],
+                row.get("epistemic_status", ""),
+                row.get("content", ""),
+                meta.get("source") or row.get("source_type", ""),
+                row.get("created_at", ""),
+            ])
+
+        for col in ws.columns:
+            max_len = max((len(str(c.value)) for c in col if c.value), default=10)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 60)
+
+        outputs_dir = Path(__file__).parent.parent / "outputs"
+        outputs_dir.mkdir(exist_ok=True)
+        file_path = outputs_dir / f"knowledge_base_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        wb.save(file_path)
+
+        return FileResponse(
+            path=file_path,
+            filename=file_path.name,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    except Exception as e:
+        logger.error(f"Error exporting stored knowledge table: {e}")
+        raise HTTPException(status_code=500, detail="Export failed")
+
+
 @app.get("/api/search")
 async def search_knowledge_base(q: str = "", token: str = "", limit: int = 8) -> dict:
     """Semantic search across the whole knowledge base — powers the command palette."""
