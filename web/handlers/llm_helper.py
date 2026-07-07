@@ -184,7 +184,14 @@ def classify_fact_to_node(fact_text: str, candidates: list[dict]) -> dict:
 
     try:
         client = _get_client()
-        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "anthropic.claude-haiku-4-5-20251001")
+        # Node classification uses Sonnet, not Haiku, unlike generate_answer()
+        # above. Alex needs auto-filed facts to be right essentially every
+        # time — since a high-confidence result now gets written without a
+        # human ever seeing it first (see handle_raw_text's auto-file split),
+        # there's no safety net downstream to catch a wrong pick. Sonnet is
+        # slower and costs more per call than Haiku, but accuracy here was
+        # made an explicit, non-negotiable requirement — cost/latency lose.
+        model_id = os.getenv("CLAUDE_SONNET_MODEL", "anthropic.claude-sonnet-4-20250514")
 
         response = client.converse(
             modelId=model_id,

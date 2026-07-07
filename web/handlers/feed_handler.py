@@ -156,6 +156,145 @@ def _get_node_details(node_id: str) -> Optional[dict]:
     return None
 
 
+def _next_child_id(parent_id: str, all_nodes: list[dict]) -> str:
+    """Compute the next available sibling ID under a parent.
+
+    bp_architecture.json's IDs are plain dotted-decimal — a node's children
+    are exactly parent_id + ".N" for increasing N (e.g. BP.6's children are
+    BP.6.1, BP.6.2, BP.6.3...). This finds the highest existing sibling
+    number and returns the next one, so a newly created node never collides
+    with an existing ID.
+    """
+    prefix = f"{parent_id}."
+    max_n = 0
+    for node in all_nodes:
+        nid = node.get("node_id", "")
+        if not nid.startswith(prefix):
+            continue
+        remainder = nid[len(prefix):]
+        # Only count DIRECT children (remainder has no further dots) — a
+        # grandchild like BP.6.1.2 shouldn't influence BP.6's own next slot.
+        if "." in remainder:
+            continue
+        try:
+            n = int(remainder)
+        except ValueError:
+            continue
+        max_n = max(max_n, n)
+    return f"{parent_id}.{max_n + 1}"
+
+
+def _create_new_node(node_title: str, parent_id: str, verbatim_text: str = "") -> dict:
+    """Permanently add a new node to bp_architecture.json under a parent.
+
+    This used to just tag a fact with a placeholder node_id ("NEW_PENDING")
+    and Alex's name as a label — nothing was actually added to the
+    architecture, so the "new node" was invisible to every future
+    classification pass. Per explicit direction, this now writes a real
+    node with a real hierarchical ID, so later facts can match against it
+    too.
+
+    Most of the richer schema fields (proof_burden, evidence_requirement,
+    execution_mode, controller, etc.) can't be meaningfully inferred from a
+    one-line CEO-given name, so they're left null exactly like the fields
+    canonical nodes leave null when not applicable — this new node is
+    architecture_status "candidate" (the same status the canonical BP.1
+    itself carries until reviewed), not asserted as fully specified.
+
+    Args:
+        node_title: The name Alex gave the new node.
+        parent_id: The node_id this should be created under (e.g. "BP.6").
+        verbatim_text: The fact that triggered creation, used only to write
+            an honest, non-invented purpose/required_output description.
+
+    Returns:
+        Dict with node_id, node_title, level of the newly created node.
+        Falls back to a synthetic in-memory-only node (never written) if
+        the architecture file can't be read or written, so the caller can
+        still proceed without crashing — it just won't be classifiable
+        again later.
+    """
+    from pathlib import Path
+
+    arch_path = Path(__file__).parent.parent.parent / "ceo_data" / "bp_architecture.json"
+
+    try:
+        with open(arch_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        all_nodes = data.get("nodes", [])
+    except Exception as e:
+        logger.error("[FeedHandler] Could not read bp_architecture.json to create new node: %s", e)
+        return {"node_id": "NEW_PENDING", "node_title": node_title, "level": 0}
+
+    parent = next((n for n in all_nodes if n.get("node_id") == parent_id), None)
+    parent_level = parent.get("level", 1.0) if parent else 1.0
+    parent_type = parent.get("node_type", "domain") if parent else "domain"
+
+    new_id = _next_child_id(parent_id, all_nodes)
+    # Overwhelming majority pattern in the real file: domain -> section,
+    # anything deeper -> subsection. A handful of nodes use more specific
+    # types (decision_gate, component...) but those reflect a role only a
+    # human architect would assign, not something inferable from a title.
+    new_type = "section" if parent_type == "domain" else "subsection"
+
+    new_node = {
+        "node_id": new_id,
+        "parent_node": parent_id,
+        "level": parent_level + 1,
+        "node_type": new_type,
+        "atomic_status": "non_atomic",
+        "node_title": node_title,
+        "purpose": f"Captures CEO-submitted information about {node_title.lower()} — created because no existing node under {parent_id} covered this fact.",
+        "required_output": f"Structured facts related to {node_title.lower()}, as submitted by the CEO via Feed.",
+        "output_format": None,
+        "proof_burden": None,
+        "evidence_requirement": None,
+        "evidence_gaps_assumptions": None,
+        "linked_uncertainties": None,
+        "prohibited_claims_inference_patterns": None,
+        "dependencies": None,
+        "reopen_condition": None,
+        "decision_implication": None,
+        "execution_mode": None,
+        "human_review_type": None,
+        "executor": None,
+        "controller": None,
+        "architecture_status": "candidate",
+        "evidence_status": None,
+        "notes_limitations": (
+            "Created automatically via Feed when Alex named a new node for a fact that didn't "
+            "fit any existing node — not yet reviewed by an architecture pass."
+            + (f" Originating fact: \"{verbatim_text[:200]}\"" if verbatim_text else "")
+        ),
+        "source_data_refs": None,
+        "extracted_data": None,
+        "mapping_rationale": None,
+        "evidence_use_boundary": None,
+        "rag_confidence": None,
+        "review_notes": None,
+    }
+
+    all_nodes.append(new_node)
+    data["nodes"] = all_nodes
+
+    try:
+        with open(arch_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error("[FeedHandler] Could not write new node %s to bp_architecture.json: %s", new_id, e)
+        return {"node_id": "NEW_PENDING", "node_title": node_title, "level": 0}
+
+    # The in-memory embedding cache (_get_node_embeddings) was built before
+    # this node existed — invalidate it so the very next classification call
+    # picks the new node up instead of silently missing it until restart.
+    global _node_embedding_cache
+    _node_embedding_cache = None
+
+    logger.info("[FeedHandler] Created new node %s (%s) under %s", new_id, node_title, parent_id)
+
+    return {"node_id": new_id, "node_title": node_title, "level": new_node["level"]}
+
+
 # This map MUST mirror the real top-level domains defined in
 # bp_architecture.json (verified directly against that file — there are
 # exactly 11, BP.1-BP.11, no BP.12). The previous version of this map was a
@@ -570,15 +709,114 @@ def _handle_duplicate_confirm(response_text: str, session_id: str) -> dict:
     }
 
 
+# Confidence bar for auto-filing a fact without asking Alex first. Per
+# explicit direction, only the classifier's own "high" tier qualifies —
+# medium/low confidence and no-fit all still go through confirm/adjust/skip.
+# This is intentionally strict: once a fact auto-files, Alex never sees it
+# before it's written, so there's no human safety net left to catch a wrong
+# pick the way there is for anything routed through the review flow.
+AUTO_FILE_CONFIDENCE = "high"
+
+
+def _classify_one_fact(fact_text: str, source_format: str, inferred_status: str = "INFERRED") -> dict:
+    """Build a complete, classified fact_data dict for one atomic fact.
+
+    Shared by handle_raw_text (classifying a whole batch up front, to decide
+    what auto-files vs. what needs Alex's input) and _process_next_fact
+    (pulling the next already-classified fact off the review queue), so the
+    two never end up building fact_data in slightly different shapes.
+    """
+    content_classification = classify_content_type(fact_text)
+    content_type = content_classification["content_type"]
+    epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(content_type, inferred_status)
+    classification = classify_and_match_node(fact_text)
+
+    return {
+        "verbatim_text": fact_text,
+        "content_type": content_type,
+        "content_confidence": content_classification["confidence"],
+        "epistemic_status": epistemic_status,
+        "classification": classification,
+        "source_format": source_format,
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _is_strong_match(classification: dict) -> bool:
+    """True if this classification is confident enough to auto-file."""
+    return (
+        not classification.get("none_fit", True)
+        and bool(classification.get("node_id"))
+        and classification.get("confidence") == AUTO_FILE_CONFIDENCE
+    )
+
+
+def _format_auto_file_table(results: list[dict]) -> str:
+    """Format auto-filed facts as a markdown table Alex can see at a glance.
+
+    web/static/index.html loads marked.js and renders chat text through
+    marked.parse(text, {breaks: true}), which supports real markdown
+    tables — so this builds an actual `| Node | Status | Data |` table
+    rather than hand-aligned plain text. This is the "show in a table
+    that the raw data which matches to these nodes and i have
+    automatically updated to that node" piece of the request.
+
+    Stored facts get the table. Duplicates and errors get a short note
+    underneath instead of a row each, so a failure or a dupe skip is
+    still visible but doesn't clutter the main table with non-writes.
+
+    Args:
+        results: List of dicts with verbatim_text, node_id, node_title,
+            epistemic_status, status ("stored"/"duplicate"/"error").
+
+    Returns:
+        Markdown-formatted summary string.
+    """
+    stored = [r for r in results if r["status"] == "stored"]
+    duplicates = [r for r in results if r["status"] == "duplicate"]
+    errors = [r for r in results if r["status"] == "error"]
+
+    lines = []
+    if stored:
+        lines.append(f"**Auto-filed {len(stored)} fact(s) — high-confidence match, no review needed:**")
+        lines.append("")
+        lines.append("| Node | Status | Data |")
+        lines.append("|------|--------|------|")
+        for r in stored:
+            node = f"{r['node_id']} — {r['node_title']}" if r.get("node_id") else "Unmatched"
+            text = r["verbatim_text"].replace("|", "\\|").replace("\n", " ")
+            if len(text) > 120:
+                text = text[:117] + "..."
+            lines.append(f"| {node} | [{r['epistemic_status']}] | {text} |")
+
+    if duplicates:
+        lines.append("")
+        lines.append(f"_{len(duplicates)} fact(s) skipped — already in the knowledge base as a near-exact duplicate._")
+
+    if errors:
+        lines.append("")
+        lines.append(f"_{len(errors)} fact(s) failed to store — check logs, nothing was silently dropped._")
+
+    return "\n".join(lines)
+
+
 def handle_raw_text(
     text: str,
     session_id: Optional[str] = None,
     _skip_dupe_check: bool = False,
 ) -> dict:
-    """Process raw text: detect format, split, classify, match, present for approval.
+    """Process raw text: split into facts, classify all of them, auto-file
+    the strong matches immediately, and only ask Alex about the rest.
 
-    Processes ONE fact at a time. If multiple facts are extracted,
-    queues the first for approval and notes how many remain.
+    This replaces the old "ask about every single fact, one at a time"
+    flow. What Alex actually wants: raw data should get automatically
+    divided into the right node when the match is genuinely strong, with a
+    summary of what happened afterward — and only surface a decision to
+    Alex when a fact doesn't clearly belong anywhere (skip / adjust / name
+    a new node). Every auto-filed fact still shows up in the summary table
+    below and in Stored Data, so nothing happens invisibly — Alex just
+    isn't blocked confirming things the classifier is already confident
+    about.
 
     Args:
         text: Raw text from Alex.
@@ -586,7 +824,7 @@ def handle_raw_text(
         _skip_dupe_check: Internal flag to bypass duplicate detection on re-entry.
 
     Returns:
-        Dict with: action, fact_data, review_text, remaining_count.
+        Dict with: action, response_text, auto_filed_count, review_count.
     """
     if not _skip_dupe_check:
         try:
@@ -609,55 +847,67 @@ def handle_raw_text(
 
     try:
         fmt = detect_format(text)
-        facts = split_into_atomic_facts(text, fmt)
+        raw_facts = split_into_atomic_facts(text, fmt)
 
-        if not facts:
+        if not raw_facts:
             return {
                 "action": "no_facts",
                 "response_text": "No extractable facts found in that input. Try rephrasing or adding more detail.",
             }
 
-        first_fact = facts[0]
-        fact_text = first_fact["text"]
+        # Classify the whole batch up front — this is what decides auto-file
+        # vs. needs-review for every fact before anything is written.
+        classified = [
+            _classify_one_fact(f["text"], fmt, f.get("inferred_status", "INFERRED"))
+            for f in raw_facts
+        ]
 
-        content_classification = classify_content_type(fact_text)
-        content_type = content_classification["content_type"]
+        auto_batch = [f for f in classified if _is_strong_match(f["classification"])]
+        review_batch = [f for f in classified if not _is_strong_match(f["classification"])]
 
-        epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(
-            content_type, first_fact.get("inferred_status", "INFERRED")
-        )
+        auto_results = []
+        for fact_data in auto_batch:
+            classification = fact_data["classification"]
+            node_id = classification["node_id"]
+            node_title = classification.get("node_title", "")
+            result = _store_fact_now(
+                verbatim=fact_data["verbatim_text"],
+                content_type=fact_data["content_type"],
+                epistemic_status=fact_data["epistemic_status"],
+                node_id=node_id,
+                node_title=node_title,
+                session_id=session_id,
+                content_confidence=fact_data["content_confidence"],
+                node_confidence=classification.get("confidence"),
+            )
+            auto_results.append({
+                "verbatim_text": fact_data["verbatim_text"],
+                "node_id": node_id,
+                "node_title": node_title,
+                "epistemic_status": fact_data["epistemic_status"],
+                "status": result["status"],
+            })
 
-        # Every fact — high match or none at all — goes through the same
-        # single confirmation step below. Nothing is ever auto-stored
-        # without Alex seeing it first: an earlier version of this function
-        # silently wrote low-match facts straight to the knowledge base
-        # (tagged needs_review, but already committed), which is exactly
-        # backwards from what Alex asked for — every fact gets a chance to
-        # confirm or adjust before anything is written.
-        classification = classify_and_match_node(fact_text)
+        response_parts = []
+        if auto_results:
+            response_parts.append(_format_auto_file_table(auto_results))
 
-        fact_data = {
-            "verbatim_text": fact_text,
-            "content_type": content_type,
-            "content_confidence": content_classification["confidence"],
-            "epistemic_status": epistemic_status,
-            "classification": classification,
-            "source_format": fmt,
-            "submitted_at": datetime.now(timezone.utc).isoformat(),
-            "remaining_facts": [f["text"] for f in facts[1:]],
-        }
-
-        if session_id:
-            store_pending_fact(session_id, fact_data)
-            set_feed_state(session_id, "FEED_AWAITING_APPROVAL")
-
-        review_text = _format_review_block(fact_data, remaining=len(facts) - 1)
+        if review_batch:
+            first = review_batch[0]
+            first["remaining_facts"] = review_batch[1:]
+            if session_id:
+                store_pending_fact(session_id, first)
+                set_feed_state(session_id, "FEED_AWAITING_APPROVAL")
+            review_text = _format_review_block(first, remaining=len(review_batch) - 1)
+            response_parts.append(review_text)
+        elif session_id:
+            set_feed_state(session_id, None)
 
         return {
-            "action": "awaiting_approval",
-            "fact_data": fact_data,
-            "response_text": review_text,
-            "remaining_count": len(facts) - 1,
+            "action": "auto_filed_with_review" if review_batch else "auto_filed",
+            "response_text": "\n\n---\n\n".join(response_parts) if response_parts else "Nothing extractable was found in that input.",
+            "auto_filed_count": len(auto_results),
+            "review_count": len(review_batch),
         }
     except Exception as e:
         logger.error("[FeedHandler] Error in handle_raw_text: %s", e)
@@ -927,13 +1177,18 @@ def handle_new_node_name(response_text: str, session_id: str) -> dict:
         [], text=pending.get("verbatim_text", "")
     )
 
-    pending["proposed_node"] = {
-        "node_id": "NEW_PENDING",
-        "node_title": node_name,
-        "similarity": 0.0,
-        "level": 0,
-    }
-    pending["node_confidence"] = "new_node_requested"
+    # Actually creates the node in bp_architecture.json now (real ID, real
+    # parent, real level) — this used to just tag the fact with a
+    # NEW_PENDING placeholder and Alex's name, which meant the "new node"
+    # never existed anywhere future classification could find it.
+    new_node = _create_new_node(
+        node_title=node_name,
+        parent_id=suggested_parent.get("node_id", "BP.1"),
+        verbatim_text=pending.get("verbatim_text", ""),
+    )
+
+    pending["proposed_node"] = new_node
+    pending["node_confidence"] = "new_node_created"
     pending["new_node_flag"] = True
     pending["proposed_parent"] = suggested_parent
     store_pending_fact(session_id, pending)
@@ -941,8 +1196,69 @@ def handle_new_node_name(response_text: str, session_id: str) -> dict:
     return _execute_approval(pending, session_id)
 
 
+def _store_fact_now(
+    verbatim: str,
+    content_type: str,
+    epistemic_status: str,
+    node_id: Optional[str],
+    node_title: str,
+    session_id: str,
+    content_confidence: float = 0.5,
+    node_confidence: Optional[str] = None,
+    new_node_flag: bool = False,
+    proposed_parent: Optional[dict] = None,
+) -> dict:
+    """Write one fact to knowledge_base and run post-store hooks.
+
+    Shared by both storage paths in this file: the interactive
+    confirm/adjust flow (_execute_approval, one fact at a time, human
+    approved) and the auto-file path (handle_raw_text, high-confidence
+    facts written immediately with no human step). This function only
+    knows how to store — it doesn't touch pending-fact/session state or
+    decide what happens next; callers own that.
+
+    Returns:
+        Dict with status ("stored" | "duplicate" | "error"), chunk_id
+        (None for duplicate/error), and error (str, only on "error").
+    """
+    section = node_id.split(".")[1] if node_id and "." in node_id else None
+
+    try:
+        from services.rag_service import store
+
+        chunk_id = store(
+            content=verbatim,
+            source_type="ceo_doc",
+            section=section,
+            epistemic_status=epistemic_status,
+            topic_tags=[content_type, f"node:{node_id or 'unmatched'}"],
+            session_id=session_id,
+            confidence=content_confidence,
+            metadata={
+                "content_type": content_type,
+                "node_id": node_id,
+                "node_title": node_title,
+                "source": "feed_handler",
+                "approved_at": datetime.now(timezone.utc).isoformat(),
+                "node_confidence": node_confidence,
+                "new_node_flag": new_node_flag,
+                "proposed_parent": proposed_parent,
+            },
+        )
+
+        if chunk_id is None:
+            return {"status": "duplicate", "chunk_id": None}
+
+        _run_post_store_hooks(verbatim, chunk_id, epistemic_status, session_id)
+        return {"status": "stored", "chunk_id": chunk_id}
+
+    except Exception as e:
+        logger.error("[FeedHandler] Storage failed for node %s: %s", node_id, e)
+        return {"status": "error", "chunk_id": None, "error": str(e)}
+
+
 def _execute_approval(fact_data: dict, session_id: str) -> dict:
-    """Write approved fact to knowledge_base and run post-store hooks.
+    """Write an Alex-approved fact to knowledge_base and advance the queue.
 
     Args:
         fact_data: The full pending fact dict.
@@ -957,84 +1273,71 @@ def _execute_approval(fact_data: dict, session_id: str) -> dict:
     proposed_node = fact_data.get("proposed_node")
     node_id = proposed_node["node_id"] if proposed_node else None
     node_title = proposed_node["node_title"] if proposed_node else "Unmatched"
-    section = node_id.split(".")[1] if node_id and "." in node_id and node_id != "NEW_PENDING" else None
 
-    try:
-        from services.rag_service import store, retrieve
+    result = _store_fact_now(
+        verbatim=verbatim,
+        content_type=content_type,
+        epistemic_status=epistemic_status,
+        node_id=node_id,
+        node_title=node_title,
+        session_id=session_id,
+        content_confidence=fact_data.get("content_confidence", 0.5),
+        node_confidence=fact_data.get("node_confidence"),
+        new_node_flag=fact_data.get("new_node_flag", False),
+        proposed_parent=fact_data.get("proposed_parent"),
+    )
 
-        chunk_id = store(
-            content=verbatim,
-            source_type="ceo_doc",
-            section=section,
-            epistemic_status=epistemic_status,
-            topic_tags=[content_type, f"node:{node_id or 'unmatched'}"],
-            session_id=session_id,
-            confidence=fact_data.get("content_confidence", 0.5),
-            metadata={
-                "content_type": content_type,
-                "node_id": node_id,
-                "node_title": node_title,
-                "source": "feed_handler",
-                "approved_at": datetime.now(timezone.utc).isoformat(),
-                "node_confidence": fact_data.get("node_confidence"),
-                "new_node_flag": fact_data.get("new_node_flag", False),
-                "proposed_parent": fact_data.get("proposed_parent"),
-                "status": "pending_architecture_review" if fact_data.get("new_node_flag") else None,
-            },
-        )
-
-        if chunk_id is None:
-            clear_pending_fact(session_id)
-            set_feed_state(session_id, None)
-            return {
-                "action": "deduplicated",
-                "response_text": (
-                    f"This fact already exists in the knowledge base (duplicate detected). "
-                    f"Nothing new was stored."
-                ),
-            }
-
-        _run_post_store_hooks(verbatim, chunk_id, epistemic_status, session_id)
-
+    if result["status"] == "duplicate":
         clear_pending_fact(session_id)
-
-        remaining = fact_data.get("remaining_facts", [])
-        if remaining:
-            set_feed_state(session_id, None)
-            next_result = _process_next_fact(remaining, session_id)
-            confirmation = (
-                f"Stored [{epistemic_status}] → {node_id or 'Unmatched'} ({node_title})\n\n"
-                f"---\n\n"
-                f"{next_result['response_text']}"
-            )
-            return {
-                "action": "stored_with_next",
-                "response_text": confirmation,
-                "chunk_id": chunk_id,
-            }
-
         set_feed_state(session_id, None)
-        new_node_note = ""
-        if fact_data.get("new_node_flag"):
-            new_node_note = "\n(New node flagged for architecture review — not yet permanent.)"
-
         return {
-            "action": "stored",
+            "action": "deduplicated",
             "response_text": (
-                f"Stored [{epistemic_status}] → {node_id or 'Unmatched'} ({node_title})"
-                f"{new_node_note}"
+                f"This fact already exists in the knowledge base (duplicate detected). "
+                f"Nothing new was stored."
             ),
-            "chunk_id": chunk_id,
         }
 
-    except Exception as e:
-        logger.error("[FeedHandler] Storage failed: %s", e)
+    if result["status"] == "error":
         set_feed_state(session_id, None)
         clear_pending_fact(session_id)
         return {
             "action": "error",
-            "response_text": f"Storage failed: {e}. Your data was NOT stored. Please try again.",
+            "response_text": f"Storage failed: {result['error']}. Your data was NOT stored. Please try again.",
         }
+
+    chunk_id = result["chunk_id"]
+    clear_pending_fact(session_id)
+
+    remaining = fact_data.get("remaining_facts", [])
+    if remaining:
+        set_feed_state(session_id, None)
+        next_result = _process_next_fact(remaining, session_id)
+        confirmation = (
+            f"Stored [{epistemic_status}] → {node_id or 'Unmatched'} ({node_title})\n\n"
+            f"---\n\n"
+            f"{next_result['response_text']}"
+        )
+        return {
+            "action": "stored_with_next",
+            "response_text": confirmation,
+            "chunk_id": chunk_id,
+        }
+
+    set_feed_state(session_id, None)
+    new_node_note = ""
+    if fact_data.get("new_node_flag"):
+        parent_id = (fact_data.get("proposed_parent") or {}).get("node_id", "?")
+        new_node_note = f"\n(New node created under {parent_id} — now part of the architecture, classifiable for future facts too.)"
+
+    return {
+        "action": "stored",
+        "response_text": (
+            f"Stored [{epistemic_status}] → {node_id or 'Unmatched'} ({node_title})"
+            f"{new_node_note}"
+        ),
+        "chunk_id": chunk_id,
+    }
 
 
 def _run_post_store_hooks(
@@ -1414,11 +1717,22 @@ def bulk_store_facts(
     }
 
 
-def _process_next_fact(remaining_facts: list[str], session_id: str) -> dict:
-    """Process the next fact in the queue.
+def _process_next_fact(remaining_facts: list[dict], session_id: str) -> dict:
+    """Pop the next already-classified fact off the review queue.
+
+    remaining_facts entries are fact_data dicts built once, up front, by
+    _classify_one_fact() during handle_raw_text's batch classification pass
+    (the same pass that decides what auto-files vs. what needs review) —
+    this no longer re-classifies plain text here. It used to: the old
+    signature took list[str] and called classify_content_type() /
+    classify_and_match_node() again on each one, which both re-did work
+    already done upfront and broke the moment handle_raw_text started
+    passing pre-classified dicts instead of raw strings.
 
     Args:
-        remaining_facts: List of remaining fact texts.
+        remaining_facts: List of fact_data dicts (verbatim_text,
+            content_type, content_confidence, epistemic_status,
+            classification, source_format, submitted_at), in queue order.
         session_id: Session ID.
 
     Returns:
@@ -1430,28 +1744,13 @@ def _process_next_fact(remaining_facts: list[str], session_id: str) -> dict:
             "response_text": "All facts processed.",
         }
 
-    next_text = remaining_facts[0]
-    content_classification = classify_content_type(next_text)
-    content_type = content_classification["content_type"]
-    epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(content_type, "INFERRED")
+    next_fact = dict(remaining_facts[0])
+    next_fact["remaining_facts"] = remaining_facts[1:]
 
-    classification = classify_and_match_node(next_text)
-
-    fact_data = {
-        "verbatim_text": next_text,
-        "content_type": content_type,
-        "content_confidence": content_classification["confidence"],
-        "epistemic_status": epistemic_status,
-        "classification": classification,
-        "source_format": "queued",
-        "submitted_at": datetime.now(timezone.utc).isoformat(),
-        "remaining_facts": remaining_facts[1:],
-    }
-
-    store_pending_fact(session_id, fact_data)
+    store_pending_fact(session_id, next_fact)
     set_feed_state(session_id, "FEED_AWAITING_APPROVAL")
 
-    review_text = _format_review_block(fact_data, remaining=len(remaining_facts) - 1)
+    review_text = _format_review_block(next_fact, remaining=len(remaining_facts) - 1)
     return {
         "action": "awaiting_approval",
         "response_text": review_text,
