@@ -8,11 +8,25 @@ weak-section-only builds. Reports progress and surfaces blockers.
 import logging
 from typing import Optional
 
+from tools.trace_emitter import emit_trace
+
 logger = logging.getLogger(__name__)
 
 
+def _trace(session_id: Optional[str], step: str, detail: str, data: Optional[dict] = None) -> None:
+    """Emit a trace event only if we actually have a session to broadcast to."""
+    if session_id:
+        emit_trace(session_id, "Build", step, detail, data or {})
+
+
 def build_full_plan(session_id: Optional[str] = None) -> dict:
-    """Trigger the full pipeline via Mother Agent.
+    """Check readiness and queue the full pipeline via Mother Agent.
+
+    NOTE: this checks blockers and reports what WOULD be built — it does not
+    yet invoke the actual generation pipeline (Mother Agent isn't wired to
+    the web UI's Build workspace). The trace narration below reflects only
+    the real work happening today (blocker checks), not fabricated
+    per-section progress — this system doesn't fake activity that isn't real.
 
     Args:
         session_id: Current session identifier.
@@ -21,6 +35,7 @@ def build_full_plan(session_id: Optional[str] = None) -> dict:
         Dict with: status, message, blockers (if any).
     """
     try:
+        _trace(session_id, "checking_blockers", "Checking which sections are blocked by missing data...")
         blockers = get_build_blockers()
         if blockers:
             return {
@@ -32,10 +47,12 @@ def build_full_plan(session_id: Optional[str] = None) -> dict:
                 "blockers": blockers,
             }
 
+        sections = _get_all_sections()
+        _trace(session_id, "queued", f"{len(sections)} section(s) queued, no blockers found")
         return {
             "status": "started",
             "message": "Full plan build initiated. All sections will be generated.",
-            "sections_queued": _get_all_sections(),
+            "sections_queued": sections,
         }
     except Exception as e:
         logger.error("[BuildHandler] Error in build_full_plan: %s", e)
@@ -47,7 +64,7 @@ def build_full_plan(session_id: Optional[str] = None) -> dict:
 
 
 def build_section(section_id: str, session_id: Optional[str] = None) -> dict:
-    """Trigger a single section build.
+    """Check readiness for a single section build.
 
     Args:
         section_id: The BP section to build (e.g. "BP.9", "9").
@@ -57,9 +74,11 @@ def build_section(section_id: str, session_id: Optional[str] = None) -> dict:
         Dict with: status, message, section, blockers.
     """
     normalized = _normalize_section_id(section_id)
+    _trace(session_id, "checking_section_blockers", f"Checking whether {normalized} has unmet dependencies...")
     blockers = _get_section_blockers(normalized)
 
     if blockers:
+        _trace(session_id, "section_blocked", f"{normalized} blocked by: {', '.join(blockers)}")
         return {
             "status": "blocked",
             "message": f"Section {normalized} is blocked by: {', '.join(blockers)}",
@@ -67,6 +86,7 @@ def build_section(section_id: str, session_id: Optional[str] = None) -> dict:
             "blockers": blockers,
         }
 
+    _trace(session_id, "section_queued", f"{normalized} has no blockers, queued")
     return {
         "status": "started",
         "message": f"Building section {normalized}.",
@@ -83,6 +103,7 @@ def build_incremental(session_id: Optional[str] = None) -> dict:
     Returns:
         Dict with: status, sections_to_rebuild, reason.
     """
+    _trace(session_id, "scanning_new_data", "Scanning for sections with new data since the last build...")
     sections_with_new_data = _get_sections_with_new_data()
 
     if not sections_with_new_data:
@@ -92,6 +113,7 @@ def build_incremental(session_id: Optional[str] = None) -> dict:
             "sections_to_rebuild": [],
         }
 
+    _trace(session_id, "incremental_queued", f"{len(sections_with_new_data)} section(s) have new data")
     return {
         "status": "started",
         "message": f"Incremental rebuild of {len(sections_with_new_data)} section(s) with new data.",
@@ -109,6 +131,7 @@ def build_weak_sections(threshold: float = 40.0, session_id: Optional[str] = Non
     Returns:
         Dict with: status, weak_sections, threshold.
     """
+    _trace(session_id, "scanning_weak", f"Scanning for sections below {threshold}% confidence...")
     weak = _get_weak_sections(threshold)
 
     if not weak:
@@ -118,6 +141,7 @@ def build_weak_sections(threshold: float = 40.0, session_id: Optional[str] = Non
             "weak_sections": [],
         }
 
+    _trace(session_id, "weak_queued", f"{len(weak)} section(s) below threshold")
     return {
         "status": "started",
         "message": f"Rebuilding {len(weak)} section(s) below {threshold}% confidence.",
@@ -173,9 +197,14 @@ def format_build_response(result: dict) -> str:
         lines.append("")
         lines.append("Blockers:")
         for b in blockers[:5]:
-            section = b.get("section_id", "?")
-            blocked_by = ", ".join(b.get("blocked_by", []))
-            lines.append(f"  - {section} needs: {blocked_by}")
+            # build_full_plan's blockers are dicts ({section_id, blocked_by});
+            # build_section's are plain strings naming what's missing. Handle both.
+            if isinstance(b, dict):
+                section = b.get("section_id", result.get("section", "?"))
+                blocked_by = ", ".join(b.get("blocked_by", []))
+                lines.append(f"  - {section} needs: {blocked_by}")
+            else:
+                lines.append(f"  - {b}")
         lines.append("")
         lines.append("Switch to FEED and provide the missing data.")
         return "\n".join(lines)
