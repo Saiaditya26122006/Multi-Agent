@@ -1356,6 +1356,54 @@ async def get_knowledge_base(token: str = ""):
         raise HTTPException(status_code=500, detail="Failed to load knowledge base")
 
 
+# Supabase/PostgREST silently caps any single request at this many rows
+# (its default `max-rows` setting) no matter what limit/range is requested
+# in the client — discovered live when a 20000-row range() request for
+# node-order sorting came back with exactly 1000 rows out of ~4k that
+# actually exist. Pulling a large result set reliably means paging in
+# chunks of this size and looping until a short page comes back, since
+# there's no single-call way around the server-side cap.
+_SUPABASE_PAGE_CAP = 1000
+
+
+async def _fetch_all_knowledge_rows(epistemic_status: str = "", hard_cap: int = 50000) -> list[dict]:
+    """Page through knowledge_base past Supabase's per-request row cap.
+
+    Used anywhere the full (or near-full) table needs to be in memory at
+    once — node-order sorting and the xlsx export both need this, since
+    neither can be done with a single DB-level .order()/.range() call.
+    """
+    from services.rag_service import _get_supabase, TABLE_NAME
+
+    def _page(start: int, end: int):
+        supabase = _get_supabase()
+        q = (
+            supabase.table(TABLE_NAME)
+            .select(
+                "id, content, source_type, section, epistemic_status, "
+                "topic_tags, confidence, metadata, created_at, superseded_by"
+            )
+            .is_("superseded_by", "null")
+            .order("created_at", desc=True)
+        )
+        if epistemic_status:
+            q = q.eq("epistemic_status", epistemic_status)
+        q = q.range(start, end)
+        return q.execute()
+
+    all_rows: list[dict] = []
+    start = 0
+    while start < hard_cap:
+        end = start + _SUPABASE_PAGE_CAP - 1
+        result = await asyncio.to_thread(_page, start, end)
+        page = result.data or []
+        all_rows.extend(page)
+        if len(page) < _SUPABASE_PAGE_CAP:
+            break
+        start += _SUPABASE_PAGE_CAP
+    return all_rows
+
+
 @app.get("/api/knowledge/stored")
 async def get_stored_knowledge(
     token: str = "",
@@ -1363,6 +1411,7 @@ async def get_stored_knowledge(
     offset: int = 0,
     node_id: str = "",
     epistemic_status: str = "",
+    sort: str = "node",
 ) -> dict:
     """Return stored knowledge_base rows as a flat table — Alex's ask for
     visibility into exactly what got stored and under which node, without
@@ -1373,6 +1422,17 @@ async def get_stored_knowledge(
     stored_at. Supports pagination and optional filtering by node_id
     (exact) or epistemic_status, so the in-app table can page through the
     full knowledge base without pulling everything at once.
+
+    sort="node" (default) orders rows the same way Alex's source BP
+    architecture spreadsheet is laid out — BP.1, BP.1.1, BP.1.1.1, ...,
+    BP.1.2, BP.2, ... (depth-first, numeric per dotted segment). That's not
+    something Postgres/Supabase can do with a plain .order() on a text
+    column (lexicographic sort would wrongly put "BP.1.10" before "BP.1.2"),
+    so this pulls the full matching set (via _fetch_all_knowledge_rows,
+    which pages past Supabase's row cap) and sorts it in Python against
+    bp_architecture.json's own row order, which is already in that exact
+    sequence. sort="recent" keeps the original newest-first, single-page
+    DB-paginated behavior for anyone who wants that instead.
     """
     if token != WEB_AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -1380,27 +1440,34 @@ async def get_stored_knowledge(
     try:
         from services.rag_service import _get_supabase, TABLE_NAME
 
-        def _query():
-            supabase = _get_supabase()
-            q = (
-                supabase.table(TABLE_NAME)
-                .select(
-                    "id, content, source_type, section, epistemic_status, "
-                    "topic_tags, confidence, metadata, created_at, superseded_by",
-                    count="exact",
-                )
-                .is_("superseded_by", "null")
-                .order("created_at", desc=True)
-            )
-            if epistemic_status:
-                q = q.eq("epistemic_status", epistemic_status)
-            q = q.range(offset, offset + limit - 1)
-            return q.execute()
+        node_sort = sort != "recent"
 
-        result = await asyncio.to_thread(_query)
+        if node_sort:
+            raw_rows = await _fetch_all_knowledge_rows(epistemic_status)
+            result = None
+        else:
+            def _query():
+                supabase = _get_supabase()
+                q = (
+                    supabase.table(TABLE_NAME)
+                    .select(
+                        "id, content, source_type, section, epistemic_status, "
+                        "topic_tags, confidence, metadata, created_at, superseded_by",
+                        count="exact",
+                    )
+                    .is_("superseded_by", "null")
+                    .order("created_at", desc=True)
+                )
+                if epistemic_status:
+                    q = q.eq("epistemic_status", epistemic_status)
+                q = q.range(offset, offset + limit - 1)
+                return q.execute()
+
+            result = await asyncio.to_thread(_query)
+            raw_rows = result.data or []
 
         rows = []
-        for row in (result.data or []):
+        for row in raw_rows:
             meta = row.get("metadata") or {}
             row_node_id = meta.get("node_id") or row.get("section") or ""
             if node_id and row_node_id != node_id:
@@ -1419,11 +1486,29 @@ async def get_stored_knowledge(
                 "confidence": row.get("confidence"),
             })
 
+        if node_sort:
+            from web.handlers.feed_handler import _load_bp_architecture
+
+            order_index = {
+                n["node_id"]: i for i, n in enumerate(_load_bp_architecture())
+                if n.get("node_id")
+            }
+            # Facts with no node_id, or one that no longer matches any real
+            # node, sort after every real node instead of crashing or
+            # landing arbitrarily first. Python's sort is stable, so rows
+            # sharing a node_id keep their existing newest-first order.
+            rows.sort(key=lambda r: order_index.get(r["node_id"], len(order_index)))
+            total = len(rows)
+            rows = rows[offset:offset + limit]
+        else:
+            total = getattr(result, "count", None) or len(rows)
+
         return {
             "rows": rows,
-            "total": getattr(result, "count", None) or len(rows),
+            "total": total,
             "limit": limit,
             "offset": offset,
+            "sort": "node" if node_sort else "recent",
         }
     except Exception as e:
         logger.error(f"Error fetching stored knowledge table: {e}")
@@ -1433,28 +1518,30 @@ async def get_stored_knowledge(
 @app.get("/api/knowledge/stored/export")
 async def export_stored_knowledge(token: str = "") -> FileResponse:
     """Export the full stored-knowledge table as an .xlsx with the same
-    headings shown in the in-app table, for Alex to open outside the app."""
+    headings shown in the in-app table, for Alex to open outside the app.
+
+    Rows are ordered the same way the in-app table's default "BP order"
+    view is — matching Alex's source architecture spreadsheet's own row
+    order (BP.1, BP.1.1, BP.1.1.1, ..., BP.1.2, BP.2, ...) rather than
+    newest-first, so the export reads like the sheet he's used to."""
     if token != WEB_AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid token")
 
     try:
-        from services.rag_service import _get_supabase, TABLE_NAME
+        from web.handlers.feed_handler import _load_bp_architecture
 
-        def _query_all():
-            supabase = _get_supabase()
-            return (
-                supabase.table(TABLE_NAME)
-                .select(
-                    "id, content, source_type, section, epistemic_status, "
-                    "topic_tags, confidence, metadata, created_at, superseded_by"
-                )
-                .is_("superseded_by", "null")
-                .order("created_at", desc=True)
-                .limit(5000)
-                .execute()
+        export_rows = await _fetch_all_knowledge_rows()
+
+        order_index = {
+            n["node_id"]: i for i, n in enumerate(_load_bp_architecture())
+            if n.get("node_id")
+        }
+        export_rows.sort(
+            key=lambda row: order_index.get(
+                (row.get("metadata") or {}).get("node_id") or row.get("section") or "",
+                len(order_index),
             )
-
-        result = await asyncio.to_thread(_query_all)
+        )
 
         import openpyxl
         from openpyxl.styles import Font
@@ -1467,7 +1554,7 @@ async def export_stored_knowledge(token: str = "") -> FileResponse:
         for cell in ws[1]:
             cell.font = Font(bold=True)
 
-        for row in (result.data or []):
+        for row in export_rows:
             meta = row.get("metadata") or {}
             ws.append([
                 meta.get("node_id") or row.get("section") or "",

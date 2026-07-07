@@ -268,6 +268,34 @@
             font-size: 11px;
         }
 
+        /* "0%" alone was cryptic without hovering for the tooltip — this
+           spells out what the number means inline instead. The issues side
+           already self-labels via its own text ("N issues"). */
+        .topbar-pill-label {
+            font-size: 10.5px;
+            font-weight: 400;
+            opacity: 0.75;
+            margin-left: -2px;
+        }
+
+        .topbar-pill-sep {
+            opacity: 0.4;
+        }
+
+        /* Cold-start state (right after a server restart, before the first
+           /api/dashboard response lands) used to show raw placeholder text
+           ("--%", "-- issues") and a static half-filled ring, which read as
+           broken rather than loading. This pulses both until real data
+           arrives, then main.js removes the class. */
+        .is-loading {
+            animation: pill-pulse 1.4s ease-in-out infinite;
+        }
+
+        @keyframes pill-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
         /* LIVE ACTIVITY — pipeline trace indicator + slide-over drawer */
 
         .activity-trigger {
@@ -2224,16 +2252,17 @@
                         <i data-lucide="activity" style="width:16px;height:16px;"></i>
                         <span class="activity-trigger-dot"></span>
                     </button>
-                    <div class="health-ring" id="healthRing" title="Plan coverage">
+                    <div class="health-ring is-loading" id="healthRing" title="Plan coverage — loading...">
                         <svg viewBox="0 0 32 32">
                             <circle class="health-ring-bg" cx="16" cy="16" r="13"></circle>
                             <circle class="health-ring-fill" id="healthRingFill" cx="16" cy="16" r="13"></circle>
                         </svg>
                     </div>
-                    <div class="topbar-pill">
-                        <span class="mono" id="pillCoverage">--%</span>
-                        <span>|</span>
-                        <span id="pillIssues">-- issues</span>
+                    <div class="topbar-pill is-loading" id="topbarPill" title="Plan coverage and open issues">
+                        <span class="mono" id="pillCoverage">···</span>
+                        <span class="topbar-pill-label">coverage</span>
+                        <span class="topbar-pill-sep">|</span>
+                        <span id="pillIssues">loading</span>
                     </div>
                 </div>
             </header>
@@ -2552,6 +2581,11 @@
             let storedDataOffset = 0;
             let storedDataTotal = 0;
             let storedDataStatusFilter = '';
+            // Default to "node" — same row order as Alex's source BP
+            // architecture spreadsheet (BP.1, BP.1.1, BP.1.1.1, ..., BP.2,
+            // ...) instead of newest-stored-first, per his direct ask that
+            // this table read in the same order as the sheet.
+            let storedDataSortMode = 'node';
             let processLog = [];
             let processPhase = 'idle'; // 'idle' | 'processing' | 'review'
             let currentBatch = null;
@@ -3211,13 +3245,18 @@
                     fill.style.strokeDasharray = `${circumference.toFixed(2)}`;
                     fill.style.strokeDashoffset = `${offset.toFixed(2)}`;
                 }
-                if (ring) ring.title = `${Math.round(pct)}% plan coverage`;
+                if (ring) {
+                    ring.title = `${Math.round(pct)}% plan coverage`;
+                    ring.classList.remove('is-loading');
+                }
                 if (pillCoverage) pillCoverage.textContent = `${Math.round(pct)}%`;
+                document.getElementById('topbarPill')?.classList.remove('is-loading');
             }
 
             function updateIssuesPill(count) {
                 const el = document.getElementById('pillIssues');
                 if (el) el.textContent = `${count} issue${count === 1 ? '' : 's'}`;
+                document.getElementById('topbarPill')?.classList.remove('is-loading');
             }
 
             function refreshTrayBadges() {
@@ -3464,6 +3503,7 @@
                         token,
                         limit: STORED_DATA_PAGE_SIZE,
                         offset: storedDataOffset,
+                        sort: storedDataSortMode,
                     });
                     if (storedDataStatusFilter) params.set('epistemic_status', storedDataStatusFilter);
 
@@ -3489,6 +3529,10 @@
                             <option value="ASSUMPTION">Assumption</option>
                             <option value="CONTRADICTION">Contradiction</option>
                             <option value="MISSING">Missing</option>
+                        </select>
+                        <select class="stored-data-filter-select" id="storedDataSortSelect" title="Row order">
+                            <option value="node">BP order (sheet order)</option>
+                            <option value="recent">Most recent first</option>
                         </select>
                         <span class="stored-data-count">${storedDataTotal} stored fact${storedDataTotal === 1 ? '' : 's'}</span>
                     </div>
@@ -3524,6 +3568,16 @@
                     select.value = storedDataStatusFilter;
                     select.addEventListener('change', () => {
                         storedDataStatusFilter = select.value;
+                        storedDataOffset = 0;
+                        loadStoredData();
+                    });
+                }
+
+                const sortSelect = document.getElementById('storedDataSortSelect');
+                if (sortSelect) {
+                    sortSelect.value = storedDataSortMode;
+                    sortSelect.addEventListener('change', () => {
+                        storedDataSortMode = sortSelect.value;
                         storedDataOffset = 0;
                         loadStoredData();
                     });
