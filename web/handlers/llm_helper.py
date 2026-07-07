@@ -106,15 +106,17 @@ def _fallback_response(chunks: list) -> str:
     return "\n".join(lines)
 
 
-CLASSIFY_SYSTEM_PROMPT = """You are a classification engine for a business-plan knowledge architecture. You are given ONE fact/claim and a shortlist of candidate architecture nodes (each with an id, title, and purpose). Your only job is to pick the SINGLE most specific, most accurate node this fact belongs under — prefer the deepest/most specific node whose purpose genuinely matches the fact's content, not just a top-level domain.
+CLASSIFY_SYSTEM_PROMPT = """You are a classification engine for a business-plan knowledge architecture. You are given ONE fact/claim and a shortlist of candidate architecture nodes — each with an id, title, purpose, required output, and (where relevant) claims/inferences that node is explicitly PROHIBITED from making. Your only job is to pick the SINGLE most specific, most accurate node this fact belongs under — prefer the deepest/most specific node whose purpose genuinely matches the fact's content, not just a top-level domain.
+
+The "prohibited" line on a candidate is a hard negative signal: if storing this fact under a node would mean using it to support a claim that node is explicitly barred from making, that node is NOT a fit even if the title looks related — treat it the same as if the candidate weren't in the list at all.
 
 Respond with ONLY a JSON object, no markdown fences, no commentary, in exactly this shape:
 {"node_id": "<id from the candidate list, or null if none genuinely fit>", "confidence": "high" | "medium" | "low", "reasoning": "<one short sentence>", "none_fit": true | false}
 
 Rules:
 - Only choose a node_id that appears in the candidate list you were given. Never invent one.
-- If none of the candidates are a genuine fit, set "none_fit": true and "node_id": null — do not force a weak match.
-- "confidence" reflects how well the fact matches the purpose of the node you picked, not how well-written the fact is.
+- If none of the candidates are a genuine fit — including because every plausible match is ruled out by its prohibited-claims line — set "none_fit": true and "node_id": null. Do not force a weak or prohibited match.
+- "confidence" reflects how well the fact matches the purpose (and required output) of the node you picked, not how well-written the fact is.
 - Be decisive. Pick exactly one node, not a list."""
 
 
@@ -155,10 +157,25 @@ def classify_fact_to_node(fact_text: str, candidates: list[dict]) -> dict:
     # set to null (not just absent), so `.get(key, "")` alone doesn't catch
     # it — the default only kicks in when the key is missing. `or ""` guards
     # against a bare .lower()/slice crashing on None from one of those nodes.
-    candidate_block = "\n".join(
-        f"- {c['node_id']}: {c.get('node_title') or ''} — {(c.get('purpose') or '')[:200]}"
-        for c in candidates
-    )
+    #
+    # required_output and prohibited_claims are only present since the
+    # 2026-07 architecture re-export added the richer per-node schema —
+    # older cached candidates (or a future export that drops them again)
+    # simply won't have the keys, so .get(...) with no second arg is
+    # intentional here: missing is fine, it just renders as an empty line.
+    def _candidate_line(c: dict) -> str:
+        title = c.get("node_title") or ""
+        purpose = (c.get("purpose") or "")[:200]
+        required_output = (c.get("required_output") or "")[:150]
+        prohibited = (c.get("prohibited_claims") or "")[:150]
+        line = f"- {c['node_id']}: {title} — {purpose}"
+        if required_output:
+            line += f" | required_output: {required_output}"
+        if prohibited:
+            line += f" | prohibited: {prohibited}"
+        return line
+
+    candidate_block = "\n".join(_candidate_line(c) for c in candidates)
     user_message = (
         f"FACT TO CLASSIFY:\n\"{fact_text}\"\n\n"
         f"CANDIDATE NODES:\n{candidate_block}\n\n"

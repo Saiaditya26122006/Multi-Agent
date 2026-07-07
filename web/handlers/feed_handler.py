@@ -107,8 +107,22 @@ def classify_content_type(text: str) -> dict:
     }
 
 
+_VALID_NODE_ID = re.compile(r"^BP\.\d")
+
+
 def _load_bp_architecture() -> list[dict]:
-    """Load BP architecture nodes from the JSON file."""
+    """Load BP architecture nodes from the JSON file.
+
+    Defensively drops any entry whose node_id isn't a real "BP.<digit>..."
+    ID — a re-export from the source spreadsheet has previously included the
+    header/field-description row as if it were node data (node_id literally
+    read "Unique hierarchical ID; permanent once assigned"). That single bad
+    row doesn't collide with any real node, but it does get embedded and
+    shown to the LLM classifier as a genuine candidate, which is worse: it
+    silently pollutes classification instead of failing loudly. This filter
+    makes the loader resilient to that class of export bug regardless of
+    how it happens again in the future.
+    """
     from pathlib import Path
 
     arch_path = Path(__file__).parent.parent.parent / "ceo_data" / "bp_architecture.json"
@@ -119,7 +133,18 @@ def _load_bp_architecture() -> list[dict]:
     with open(arch_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    return data.get("nodes", [])
+    all_nodes = data.get("nodes", [])
+    valid_nodes = [n for n in all_nodes if _VALID_NODE_ID.match(str(n.get("node_id", "")))]
+
+    dropped = len(all_nodes) - len(valid_nodes)
+    if dropped:
+        logger.warning(
+            "[FeedHandler] Dropped %d entr%s from bp_architecture.json with no valid BP.x node_id "
+            "(likely a header/description row that leaked into the data during export)",
+            dropped, "y" if dropped == 1 else "ies",
+        )
+
+    return valid_nodes
 
 
 def _get_node_details(node_id: str) -> Optional[dict]:
@@ -253,6 +278,8 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
                     "similarity": round(chunk.similarity, 3),
                     "level": chunk.metadata.get("level", 0),
                     "purpose": (node_details.get("purpose") or "") if node_details else "",
+                    "required_output": (node_details.get("required_output") or "") if node_details else "",
+                    "prohibited_claims": (node_details.get("prohibited_claims_inference_patterns") or "") if node_details else "",
                     "parent_node": (node_details.get("parent_node") or "") if node_details else "",
                 })
             return results
@@ -290,6 +317,12 @@ def _get_node_embeddings() -> list[dict]:
         node_title = node.get("node_title") or ""
         purpose = node.get("purpose") or ""
         required_output = node.get("required_output") or ""
+        # prohibited_claims_inference_patterns is new in the richer
+        # bp_architecture.json schema (added 2026-07) — it states what a
+        # node must NOT be used to claim or infer, which is exactly the
+        # kind of negative-constraint signal that helps the LLM classifier
+        # disambiguate nodes that look similar on title/purpose alone.
+        prohibited = node.get("prohibited_claims_inference_patterns") or ""
         match_text = f"{node_title}. {purpose}. {required_output}"
         embedding = np.array(embed(match_text))
         cache.append({
@@ -297,6 +330,8 @@ def _get_node_embeddings() -> list[dict]:
             "node_title": node_title,
             "level": node.get("level", 0),
             "purpose": purpose,
+            "required_output": required_output,
+            "prohibited_claims": prohibited,
             "parent_node": node.get("parent_node") or "",
             "embedding": embedding,
         })
@@ -330,6 +365,8 @@ def _direct_node_match(text: str, top_k: int = 3) -> list[dict]:
             "similarity": round(similarity, 3),
             "level": node["level"],
             "purpose": node.get("purpose", ""),
+            "required_output": node.get("required_output", ""),
+            "prohibited_claims": node.get("prohibited_claims", ""),
             "parent_node": node.get("parent_node", ""),
         })
 
