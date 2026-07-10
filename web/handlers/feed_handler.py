@@ -463,7 +463,7 @@ def _get_node_embeddings() -> list[dict]:
         # disambiguate nodes that look similar on title/purpose alone.
         prohibited = node.get("prohibited_claims_inference_patterns") or ""
         match_text = f"{node_title}. {purpose}. {required_output}"
-        embedding = np.array(embed(match_text))
+        embedding = np.array(embed(match_text, input_type="search_document"))
         cache.append({
             "node_id": node.get("node_id", "unknown"),
             "node_title": node_title,
@@ -494,10 +494,12 @@ def _direct_node_match(text: str, top_k: int = 3) -> list[dict]:
 
     import numpy as np
     query_vec = np.array(embed(text))
+    query_norm = np.linalg.norm(query_vec)
 
     scored = []
     for node in node_embeddings:
-        similarity = float(np.dot(query_vec, node["embedding"]))
+        node_vec = node["embedding"]
+        similarity = float(np.dot(query_vec, node_vec) / (query_norm * np.linalg.norm(node_vec)))
         scored.append({
             "node_id": node["node_id"],
             "node_title": node["node_title"],
@@ -521,7 +523,7 @@ def _direct_node_match(text: str, top_k: int = 3) -> list[dict]:
 CLASSIFY_CANDIDATE_POOL = 15
 
 
-def classify_and_match_node(text: str) -> dict:
+def classify_and_match_node(text: str, session_id: Optional[str] = None) -> dict:
     """Classify a fact to exactly one BP architecture node, accurately.
 
     Two-stage: cheap local embedding similarity narrows ~745 nodes down to
@@ -535,6 +537,7 @@ def classify_and_match_node(text: str) -> dict:
 
     Args:
         text: The atomic fact/claim to classify.
+        session_id: Optional session for live confidence stream.
 
     Returns:
         Dict with: node_id, node_title, confidence ("high"/"medium"/"low"),
@@ -550,6 +553,15 @@ def classify_and_match_node(text: str) -> dict:
             "reasoning": "No architecture nodes available to match against.",
             "none_fit": True, "suggested_parent": parent,
         }
+
+    if session_id and candidates:
+        from tools.trace_emitter import emit_trace
+        top_nodes = [f"{c['node_id']} ({c.get('similarity', 0):.2f})" for c in candidates[:5]]
+        emit_trace(
+            session_id, "Classifier", "considering",
+            f"Considering: {', '.join(top_nodes)}...",
+            data={"candidates": [c["node_id"] for c in candidates[:5]], "phase": "embedding_shortlist"},
+        )
 
     try:
         from web.handlers.llm_helper import classify_fact_to_node
@@ -571,6 +583,21 @@ def classify_and_match_node(text: str) -> dict:
         node_details = _get_node_details(result["node_id"]) or {}
         result["purpose"] = node_details.get("purpose") or ""
         result["level"] = node_details.get("level", 0)
+
+    if session_id:
+        from tools.trace_emitter import emit_trace
+        if result.get("node_id"):
+            emit_trace(
+                session_id, "Classifier", "locked",
+                f"Locked → {result['node_id']} ({result.get('node_title', '')}) [{result.get('confidence', '?')}]",
+                data={"node_id": result["node_id"], "confidence": result.get("confidence"), "phase": "llm_decision"},
+            )
+        else:
+            emit_trace(
+                session_id, "Classifier", "no_match",
+                "No node matched — will ask Alex to place it.",
+                data={"phase": "no_match"},
+            )
 
     return result
 
@@ -718,7 +745,7 @@ def _handle_duplicate_confirm(response_text: str, session_id: str) -> dict:
 AUTO_FILE_CONFIDENCE = "high"
 
 
-def _classify_one_fact(fact_text: str, source_format: str, inferred_status: str = "INFERRED") -> dict:
+def _classify_one_fact(fact_text: str, source_format: str, inferred_status: str = "INFERRED", session_id: Optional[str] = None) -> dict:
     """Build a complete, classified fact_data dict for one atomic fact.
 
     Shared by handle_raw_text (classifying a whole batch up front, to decide
@@ -729,7 +756,7 @@ def _classify_one_fact(fact_text: str, source_format: str, inferred_status: str 
     content_classification = classify_content_type(fact_text)
     content_type = content_classification["content_type"]
     epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(content_type, inferred_status)
-    classification = classify_and_match_node(fact_text)
+    classification = classify_and_match_node(fact_text, session_id=session_id)
 
     return {
         "verbatim_text": fact_text,
@@ -858,7 +885,7 @@ def handle_raw_text(
         # Classify the whole batch up front — this is what decides auto-file
         # vs. needs-review for every fact before anything is written.
         classified = [
-            _classify_one_fact(f["text"], fmt, f.get("inferred_status", "INFERRED"))
+            _classify_one_fact(f["text"], fmt, f.get("inferred_status", "INFERRED"), session_id=session_id)
             for f in raw_facts
         ]
 
@@ -887,6 +914,12 @@ def handle_raw_text(
                 "epistemic_status": fact_data["epistemic_status"],
                 "status": result["status"],
             })
+
+        if auto_results and session_id:
+            stored_facts = [r for r in auto_results if r["status"] == "stored"]
+            if stored_facts:
+                from tools.trace_emitter import emit_classification
+                emit_classification(session_id, stored_facts)
 
         response_parts = []
         if auto_results:
@@ -1370,6 +1403,19 @@ def _run_post_store_hooks(
                     "[FeedHandler] Contradiction resolved: new chunk %s vs existing %s",
                     chunk_id,
                     chunk.id,
+                )
+                from tools.trace_emitter import emit_trace
+                emit_trace(
+                    session_id, "Contradiction", "detected",
+                    f"New fact conflicts with existing ({chunk.epistemic_status}): \"{chunk.content[:60]}\"",
+                    data={
+                        "type": "contradiction",
+                        "new_fact": content[:100],
+                        "old_fact": chunk.content[:100],
+                        "old_status": chunk.epistemic_status,
+                        "old_chunk_id": chunk.id,
+                        "resolution": "new_supersedes",
+                    },
                 )
                 break
 

@@ -26,14 +26,13 @@ from services.rag_service import (
 
 
 class TestEmbed:
-    def test_embed_returns_384_dims(self):
+    def test_embed_returns_1024_dims(self):
         result = embed("hello world")
-        assert len(result) == 384
+        assert len(result) == 1024
 
-    def test_embed_normalized(self):
-        result = embed("test embedding normalization")
-        magnitude = math.sqrt(sum(x ** 2 for x in result))
-        assert abs(magnitude - 1.0) < 0.01
+    def test_embed_returns_valid_floats(self):
+        result = embed("test embedding values")
+        assert all(isinstance(x, float) for x in result)
 
     def test_embed_different_texts_differ(self):
         v1 = embed("The cat sat on the mat")

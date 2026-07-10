@@ -6,12 +6,11 @@ All CEO data, conversations, decisions, and agent insights flow through here.
 """
 
 import hashlib
-import json
 import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -19,10 +18,9 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-_embedding_model = None
 _supabase_client = None
 
-EMBEDDING_DIM = 384
+EMBEDDING_DIM = 1024
 DEFAULT_TOP_K = 5
 DEFAULT_THRESHOLD = 0.3
 TABLE_NAME = "knowledge_base"
@@ -76,24 +74,6 @@ class Chunk:
     created_at: Optional[str] = None
 
 
-def _get_embedding_model():
-    """Lazy-load the sentence-transformers model (singleton)."""
-    global _embedding_model
-    if _embedding_model is None:
-        try:
-            from sentence_transformers import SentenceTransformer
-
-            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-            logger.info("[RAG] Loaded embedding model: all-MiniLM-L6-v2")
-        except ImportError:
-            logger.error(
-                "[RAG] sentence-transformers not installed. "
-                "Run: pip install sentence-transformers"
-            )
-            raise
-    return _embedding_model
-
-
 def _get_supabase():
     """Lazy-load the Supabase client (singleton)."""
     global _supabase_client
@@ -111,18 +91,19 @@ def _get_supabase():
     return _supabase_client
 
 
-def embed(text: str) -> list[float]:
-    """Convert text into a 384-dimensional embedding vector.
+def embed(text: str, input_type: str = "search_query") -> list[float]:
+    """Convert text into a 1024-dimensional embedding vector via Cohere Embed v3.
 
     Args:
         text: The text to embed.
+        input_type: "search_document" for indexing, "search_query" for retrieval.
 
     Returns:
-        List of 384 floats representing the embedding.
+        List of 1024 floats representing the embedding.
     """
-    model = _get_embedding_model()
-    embedding = model.encode(text, normalize_embeddings=True)
-    return embedding.tolist()
+    from services.embedding_service import embed as cohere_embed
+
+    return cohere_embed(text, input_type=input_type)
 
 
 def content_hash(content: str) -> str:
@@ -194,7 +175,7 @@ def store(
             logger.debug("[RAG] Deduplicated — content already exists: %s", existing.data[0]["id"])
             return None
 
-    embedding = embed(content)
+    embedding = embed(content, input_type="search_document")
 
     record = {
         "content": content,
@@ -252,7 +233,7 @@ def batch_store(chunks: list[dict]) -> list[str]:
             logger.warning("[RAG] Skipping invalid source_type: %s", source_type)
             continue
 
-        embedding = embed(content)
+        embedding = embed(content, input_type="search_document")
         c_hash = content_hash(content)
 
         record = {

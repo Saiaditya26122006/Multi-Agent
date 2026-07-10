@@ -14,7 +14,7 @@
 | Agent framework   | SPADE (spade.agent)           |
 | LLM               | Claude (Bedrock) — Sonnet/Haiku |
 | Canonical DB      | Supabase / Postgres           |
-| RAG / Knowledge   | Supabase pgvector + sentence-transformers (all-MiniLM-L6-v2) |
+| RAG / Knowledge   | Supabase pgvector + Amazon Titan Embed v2 (1024-dim, via Bedrock) |
 | Session memory    | Redis (Upstash)               |
 | Simulation        | SimPy (Monte Carlo)           |
 | MVP UI            | Streamlit                     |
@@ -152,4 +152,4 @@ pytest tests/test_rag_service.py tests/test_ingestion.py tests/test_conversation
 - Summary agent `executive_summary` field has min_length=200 — fallback text must meet this
 - Bedrock `invoke_model` API uses positional kwargs — not the `converse` API
 - RAG retrieval latency is ~400ms (remote Supabase) — acceptable but monitor under load
-- Embedding model (all-MiniLM-L6-v2) gives cosine ~0.35-0.45 for related-but-different-wording texts — threshold set to 0.4 for balance
+- Embedding model (Amazon Titan Embed v2) outputs 1024-dim normalized vectors — threshold set to 0.4, expect better discrimination than the old MiniLM

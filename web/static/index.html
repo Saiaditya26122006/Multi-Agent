@@ -21,59 +21,59 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg-main: #F8F6F1;
+            --bg-main: #F8FAFC;
             --bg-surface: #FFFFFF;
-            --border: #E2DDD6;
-            --border-active: #1B4FD8;
-            --accent: #1B4FD8;
-            --accent-rgb: 27, 79, 216;
-            --accent-soft: rgba(27, 79, 216, 0.07);
-            --accent-medium: rgba(27, 79, 216, 0.14);
-            --text-primary: #1A1A1A;
-            --text-secondary: #6B6B6B;
-            --text-tertiary: #9A9388;
-            --success: #1A7A4A;
-            --success-soft: rgba(26, 122, 74, 0.09);
-            --warning: #9A6B00;
-            --warning-soft: rgba(154, 107, 0, 0.09);
-            --danger: #C0392B;
-            --danger-soft: rgba(192, 57, 43, 0.09);
-            --info: #1B4FD8;
+            --border: #E2E8F0;
+            --border-active: #6D28D9;
+            --accent: #6D28D9;
+            --accent-rgb: 109, 40, 217;
+            --accent-soft: rgba(109, 40, 217, 0.06);
+            --accent-medium: rgba(109, 40, 217, 0.12);
+            --text-primary: #0F172A;
+            --text-secondary: #475569;
+            --text-tertiary: #94A3B8;
+            --success: #059669;
+            --success-soft: rgba(5, 150, 105, 0.08);
+            --warning: #D97706;
+            --warning-soft: rgba(217, 119, 6, 0.08);
+            --danger: #DC2626;
+            --danger-soft: rgba(220, 38, 38, 0.08);
+            --info: #6D28D9;
             --topbar-height: 56px;
             --input-height: 64px;
             --chat-max-width: 720px;
             --radius-sm: 6px;
             --radius-md: 12px;
             --radius-lg: 16px;
-            --shadow-sm: 0 1px 2px rgba(26,26,26,0.05);
-            --shadow-md: 0 4px 16px rgba(26,26,26,0.07);
-            --shadow-lg: 0 12px 32px rgba(26,26,26,0.10);
+            --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03);
+            --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+            --shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.04);
             --transition-fast: 150ms ease;
             --transition-normal: 200ms ease;
         }
 
         [data-theme="dark"] {
-            --bg-main: #14161A;
-            --bg-surface: #1B1E23;
-            --border: #2C2F36;
-            --border-active: #4E7BFF;
-            --accent: #4E7BFF;
-            --accent-rgb: 78, 123, 255;
-            --accent-soft: rgba(78, 123, 255, 0.12);
-            --accent-medium: rgba(78, 123, 255, 0.24);
-            --text-primary: #F0EFEA;
-            --text-secondary: #A8ACB4;
-            --text-tertiary: #6E7280;
-            --success: #3FBE79;
-            --success-soft: rgba(63, 190, 121, 0.13);
-            --warning: #E0A93B;
-            --warning-soft: rgba(224, 169, 59, 0.13);
-            --danger: #E0605A;
-            --danger-soft: rgba(224, 96, 90, 0.13);
-            --info: #4E7BFF;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.24);
-            --shadow-md: 0 4px 16px rgba(0,0,0,0.32);
-            --shadow-lg: 0 12px 32px rgba(0,0,0,0.4);
+            --bg-main: #0F0F14;
+            --bg-surface: #1A1A22;
+            --border: #2A2A35;
+            --border-active: #A78BFA;
+            --accent: #A78BFA;
+            --accent-rgb: 167, 139, 250;
+            --accent-soft: rgba(167, 139, 250, 0.10);
+            --accent-medium: rgba(167, 139, 250, 0.20);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-tertiary: #64748B;
+            --success: #34D399;
+            --success-soft: rgba(52, 211, 153, 0.12);
+            --warning: #FBBF24;
+            --warning-soft: rgba(251, 191, 36, 0.12);
+            --danger: #F87171;
+            --danger-soft: rgba(248, 113, 113, 0.12);
+            --info: #A78BFA;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
         }
 
         html {
@@ -280,6 +280,254 @@
 
         .topbar-pill-sep {
             opacity: 0.4;
+        }
+
+        .classification-badge {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: var(--success-soft);
+            border: 1px solid var(--success);
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--success);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .classification-badge:hover {
+            background: var(--success);
+            color: white;
+        }
+
+        .classification-badge-icon {
+            width: 13px;
+            height: 13px;
+        }
+
+        @keyframes badgePop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        .classification-badge-pop {
+            animation: badgePop 0.3s ease;
+        }
+
+        /* Confidence stream — radar lock animation in process panel */
+        .confidence-stream {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--accent-soft);
+            border: 1px solid var(--accent-medium);
+            border-radius: var(--radius-sm);
+            margin: 6px 0;
+            font-size: 12px;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+            animation: radarSweep 0.6s ease;
+        }
+
+        .confidence-locked {
+            background: var(--success-soft);
+            border-color: var(--success);
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        @keyframes radarSweep {
+            from { opacity: 0; transform: translateX(-8px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Contradiction ripple — flashes from the health ring */
+        @keyframes contradictionRipple {
+            0% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.4); }
+            70% { box-shadow: 0 0 0 12px rgba(192, 57, 43, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0); }
+        }
+
+        .contradiction-ripple {
+            animation: contradictionRipple 0.8s ease-out;
+        }
+
+        .contradiction-card {
+            background: var(--danger-soft);
+            border: 1px solid var(--danger);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            margin: 8px 0;
+            font-size: 12.5px;
+            color: var(--danger);
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .contradiction-card-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        /* Agent thought bubbles — italic, conversational */
+        .thought-bubble {
+            font-style: italic;
+            color: var(--text-secondary);
+            font-size: 12.5px;
+            padding: 4px 0;
+        }
+
+        .thought-bubble-agent {
+            font-style: normal;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        /* Digest card on welcome */
+        .digest-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 16px 20px;
+            margin-top: 12px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .digest-card-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .digest-card-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .digest-card-row-icon {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+        }
+
+        .digest-card-row-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Assumption lifecycle strip — thin ambient bar below topbar */
+        .assumption-strip {
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            padding: 0 24px;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            font-size: 11.5px;
+            color: var(--text-tertiary);
+            flex-shrink: 0;
+            transition: all var(--transition-fast);
+        }
+
+        .assumption-strip-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .assumption-strip-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+
+        .assumption-strip-sep {
+            color: var(--border);
+            font-size: 14px;
+        }
+
+        .assumption-strip-active .assumption-strip-value { color: var(--accent); }
+        .assumption-strip-validated .assumption-strip-value { color: var(--success); }
+        .assumption-strip-killed .assumption-strip-value { color: var(--danger); }
+        .assumption-strip-aging .assumption-strip-value { color: var(--warning); }
+
+        /* Export preview cards in process panel */
+        .export-preview-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 12px;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin: 4px 0;
+            animation: radarSweep 0.4s ease;
+        }
+
+        .export-preview-card-section {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10.5px;
+            font-weight: 700;
+            color: var(--accent);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .export-preview-card-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .export-preview-card-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .export-preview-card-snippet {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .export-preview-badge {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 2px 5px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .export-preview-badge-strong {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+
+        .export-preview-badge-empty {
+            background: var(--warning-soft);
+            color: var(--warning);
         }
 
         /* Cold-start state (right after a server restart, before the first
@@ -738,8 +986,8 @@
         }
 
         .message-user .message-avatar {
-            background: #EDE7DC;
-            color: var(--text-secondary);
+            background: var(--accent-soft);
+            color: var(--accent);
         }
 
         .message-body {
@@ -2252,6 +2500,10 @@
                         <i data-lucide="activity" style="width:16px;height:16px;"></i>
                         <span class="activity-trigger-dot"></span>
                     </button>
+                    <div class="classification-badge" id="classificationBadge" title="Facts classified this session" style="display:none;">
+                        <i data-lucide="check-circle" class="classification-badge-icon"></i>
+                        <span id="classificationCount">0</span> filed
+                    </div>
                     <div class="health-ring is-loading" id="healthRing" title="Plan coverage — loading...">
                         <svg viewBox="0 0 32 32">
                             <circle class="health-ring-bg" cx="16" cy="16" r="13"></circle>
@@ -2266,6 +2518,30 @@
                     </div>
                 </div>
             </header>
+
+            <!-- ASSUMPTION LIFECYCLE STRIP -->
+            <div class="assumption-strip" id="assumptionStrip" style="display:none;">
+                <div class="assumption-strip-item assumption-strip-active">
+                    <span>ASSUMPTIONS:</span>
+                    <span class="assumption-strip-value" id="assumptionActive">-</span>
+                    <span>active</span>
+                </div>
+                <span class="assumption-strip-sep">→</span>
+                <div class="assumption-strip-item assumption-strip-validated">
+                    <span class="assumption-strip-value" id="assumptionValidated">-</span>
+                    <span>validated today</span>
+                </div>
+                <span class="assumption-strip-sep">→</span>
+                <div class="assumption-strip-item assumption-strip-killed">
+                    <span class="assumption-strip-value" id="assumptionKilled">-</span>
+                    <span>killed</span>
+                </div>
+                <span class="assumption-strip-sep">→</span>
+                <div class="assumption-strip-item assumption-strip-aging">
+                    <span class="assumption-strip-value" id="assumptionAging">-</span>
+                    <span>aging (&gt;30d)</span>
+                </div>
+            </div>
 
             <!-- MESSAGES -->
             <div class="messages-area" id="messagesArea">
@@ -2593,6 +2869,8 @@
             let commandSearchDebounce = null;
             let activeCommandList = [];
             let commandSelectedIndex = 0;
+            let classificationCount = 0;
+            let classificationLog = [];
 
             // --- Initialize Lucide Icons ---
             document.addEventListener('DOMContentLoaded', () => {
@@ -2687,6 +2965,9 @@
                 activityTrigger.addEventListener('click', openActivityDrawer);
                 activityBackdrop.addEventListener('click', closeActivityDrawer);
                 activityCloseBtn.addEventListener('click', closeActivityDrawer);
+
+                // Classification badge opens activity drawer
+                document.getElementById('classificationBadge').addEventListener('click', openActivityDrawer);
 
                 // Process panel
                 processTrigger.addEventListener('click', toggleProcessPanel);
@@ -2823,6 +3104,11 @@
                     pendingDownload = { filename: data.data.filename };
                 }
 
+                // Contradiction ripple — flash the health ring red
+                if (data.data && data.data.type === 'contradiction') {
+                    handleContradictionEvent(data);
+                }
+
                 // A batch review is already up — don't blow it away with
                 // trailing trace events (e.g. storage_complete arrives
                 // right after bulk-approve resolves).
@@ -2830,6 +3116,107 @@
 
                 processPhase = 'processing';
                 renderProcessLog();
+            }
+
+            function handleContradictionEvent(data) {
+                refreshAssumptionStrip();
+                const ring = document.getElementById('healthRing');
+                if (ring) {
+                    ring.classList.remove('contradiction-ripple');
+                    void ring.offsetWidth;
+                    ring.classList.add('contradiction-ripple');
+                    setTimeout(() => ring.classList.remove('contradiction-ripple'), 1000);
+                }
+
+                const oldFact = (data.data.old_fact || '').slice(0, 60);
+                const newFact = (data.data.new_fact || '').slice(0, 60);
+                showToast(`Contradiction detected: new data overrides "${oldFact}..."`, 'warning');
+
+                // Add contradiction card to activity drawer
+                if (activityEmptyState) activityEmptyState.remove();
+                const html = `
+                    <div class="trace-entry">
+                        <span class="trace-agent-tag mono" style="background:var(--danger-soft);color:var(--danger);border-color:var(--danger);">CONFLICT</span>
+                        <div class="trace-entry-body">
+                            <div class="contradiction-card">
+                                <i data-lucide="alert-triangle" class="contradiction-card-icon"></i>
+                                <div>
+                                    <div><strong>New:</strong> "${escapeHtml(newFact)}..."</div>
+                                    <div style="margin-top:3px;"><strong>Conflicts with:</strong> "${escapeHtml(oldFact)}..." [${escapeHtml(data.data.old_status || '?')}]</div>
+                                    <div style="margin-top:3px;font-size:11px;opacity:0.7;">Auto-resolved: new supersedes old.</div>
+                                </div>
+                            </div>
+                            <div class="trace-entry-time">${formatTime(new Date(data.timestamp || Date.now()))}</div>
+                        </div>
+                    </div>
+                `;
+                activityDrawerBody.insertAdjacentHTML('afterbegin', html);
+                lucide.createIcons();
+            }
+
+            // --- Classification events (auto-filed facts) ---
+            function handleClassificationEvent(data) {
+                const facts = data.facts || [];
+                if (!facts.length) return;
+                refreshAssumptionStrip();
+
+                // 1. Increment topbar badge
+                classificationCount += facts.length;
+                const badge = document.getElementById('classificationBadge');
+                const countEl = document.getElementById('classificationCount');
+                if (badge && countEl) {
+                    countEl.textContent = classificationCount;
+                    badge.style.display = 'flex';
+                    badge.classList.remove('classification-badge-pop');
+                    void badge.offsetWidth;
+                    badge.classList.add('classification-badge-pop');
+                }
+
+                // 2. Toast for each fact (max 3 to avoid spam)
+                const toastFacts = facts.slice(0, 3);
+                toastFacts.forEach(f => {
+                    const node = f.node_id || 'unknown';
+                    const title = f.node_title || '';
+                    const text = (f.verbatim_text || '').slice(0, 60);
+                    showToast(`Filed to ${node} (${title}): "${text}..."`, 'success');
+                });
+                if (facts.length > 3) {
+                    showToast(`+ ${facts.length - 3} more fact(s) auto-filed`, 'success');
+                }
+
+                // 3. Add to activity drawer (Recent Classifications section)
+                facts.forEach(f => {
+                    classificationLog.unshift({
+                        node_id: f.node_id || '?',
+                        node_title: f.node_title || '',
+                        text: (f.verbatim_text || '').slice(0, 100),
+                        status: f.epistemic_status || 'INFERRED',
+                        timestamp: data.timestamp || new Date().toISOString(),
+                    });
+                });
+                if (classificationLog.length > 100) classificationLog.length = 100;
+
+                // Inject into activity drawer
+                if (activityEmptyState) activityEmptyState.remove();
+                facts.forEach(f => {
+                    const html = `
+                        <div class="trace-entry">
+                            <span class="trace-agent-tag mono" style="background:var(--success-soft);color:var(--success);border-color:var(--success);">FILED</span>
+                            <div class="trace-entry-body">
+                                <div class="trace-entry-detail"><strong>${escapeHtml(f.node_id || '?')}</strong> — ${escapeHtml((f.verbatim_text || '').slice(0, 80))}</div>
+                                <div class="trace-entry-time">${escapeHtml(f.node_title || '')} · ${formatTime(new Date(data.timestamp || Date.now()))}</div>
+                            </div>
+                        </div>
+                    `;
+                    activityDrawerBody.insertAdjacentHTML('afterbegin', html);
+                });
+
+                // Pulse the activity indicator
+                activityTrigger.classList.add('live');
+                clearTimeout(liveIndicatorTimeout);
+                liveIndicatorTimeout = setTimeout(() => {
+                    activityTrigger.classList.remove('live');
+                }, 4000);
             }
 
             // Renders processLog as a connected, animated timeline. Rebuilds
@@ -2842,6 +3229,68 @@
 
             function renderProcessStepHtml(entry, isActive, animateIn) {
                 const cls = isActive ? 'process-step-active' : 'process-step-done';
+                const step = entry.step || '';
+                const data = entry.data || {};
+
+                // Confidence stream — radar-style candidate consideration
+                if (step === 'considering' || step === 'locked' || step === 'no_match') {
+                    const streamCls = step === 'locked' ? 'confidence-stream confidence-locked' : 'confidence-stream';
+                    const icon = step === 'locked' ? '✓' : step === 'no_match' ? '✗' : '◎';
+                    return `
+                        <div class="${streamCls}${animateIn ? ' process-step-new' : ''}">
+                            <span>${icon}</span>
+                            <span>${escapeHtml(entry.detail || '')}</span>
+                        </div>
+                    `;
+                }
+
+                // Agent thought bubbles — italic, conversational
+                if (step === 'thinking') {
+                    return `
+                        <div class="process-step ${cls}${animateIn ? ' process-step-new' : ''}">
+                            <div class="process-step-rail"><span class="process-step-dot"></span></div>
+                            <div class="process-step-body">
+                                <div class="thought-bubble">
+                                    <span class="thought-bubble-agent">${escapeHtml(entry.agent || '?')}:</span>
+                                    "${escapeHtml(entry.detail || '')}"
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Export preview — section-by-section assembly
+                if (data.type === 'export_preview') {
+                    const badgeCls = data.has_data ? 'export-preview-badge-strong' : 'export-preview-badge-empty';
+                    const badgeText = data.has_data ? 'DATA' : 'EMPTY';
+                    const snippet = data.preview || '';
+                    return `
+                        <div class="export-preview-card${animateIn ? ' process-step-new' : ''}">
+                            <span class="export-preview-card-section">${escapeHtml(data.section_id || '')}</span>
+                            <div class="export-preview-card-body">
+                                <div class="export-preview-card-title">${escapeHtml(data.title || '')}</div>
+                                <div class="export-preview-card-snippet">${escapeHtml(snippet)}</div>
+                            </div>
+                            <span class="export-preview-badge ${badgeCls}">${badgeText}</span>
+                        </div>
+                    `;
+                }
+
+                // Contradiction inline card
+                if (data.type === 'contradiction') {
+                    return `
+                        <div class="process-step ${cls}${animateIn ? ' process-step-new' : ''}">
+                            <div class="process-step-rail"><span class="process-step-dot" style="background:var(--danger);"></span></div>
+                            <div class="process-step-body">
+                                <div class="contradiction-card">
+                                    <i data-lucide="alert-triangle" class="contradiction-card-icon"></i>
+                                    <div>${escapeHtml(entry.detail || 'Contradiction detected')}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 return `
                     <div class="process-step ${cls}${animateIn ? ' process-step-new' : ''}">
                         <div class="process-step-rail"><span class="process-step-dot"></span></div>
@@ -3336,6 +3785,25 @@
             // — this used to be a hardcoded string in the HTML ("Your Opportunity
             // section needs 3 assumptions validated...") that could never reflect
             // actual plan state.
+            function refreshAssumptionStrip() {
+                if (!token) return;
+                fetch(`/api/assumptions/lifecycle?token=${token}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        const strip = document.getElementById('assumptionStrip');
+                        if (!strip) return;
+                        const total = data.active + data.validated_today + data.killed_today + data.aging_30d;
+                        if (total === 0) return;
+                        strip.style.display = 'flex';
+                        document.getElementById('assumptionActive').textContent = data.active;
+                        document.getElementById('assumptionValidated').textContent = data.validated_today;
+                        document.getElementById('assumptionKilled').textContent = data.killed_today;
+                        document.getElementById('assumptionAging').textContent = data.aging_30d;
+                    })
+                    .catch(err => console.error('Assumption lifecycle error:', err));
+            }
+
             function refreshRecommendation() {
                 if (!token) return;
                 const el = document.getElementById('recommendationText');
@@ -3683,6 +4151,7 @@
                     fetchMenu();
                     refreshTrayBadges();
                     refreshRecommendation();
+                    refreshAssumptionStrip();
                 });
             }
 
@@ -3737,6 +4206,9 @@
 
             function handleWsMessage(data) {
                 if (data.role === 'user') {
+                    return;
+                } else if (data.role === 'classification') {
+                    handleClassificationEvent(data);
                     return;
                 } else if (data.type === 'workspace_update') {
                     // Another client (or a Telegram-side switch) changed the
@@ -4101,6 +4573,7 @@
                         <div class="message-avatar">EO</div>
                         <div class="message-body">
                             <div class="message-bubble" id="welcomeBubble">Loading your plan status...</div>
+                            <div id="digestContainer"></div>
                         </div>
                     </div>
                 `;
@@ -4109,29 +4582,58 @@
                 bindActionButtons();
                 scrollToBottom();
 
-                // Don't depend on the global `token` var — this function runs
-                // BEFORE initConnection() (which is what actually sets it) in
-                // the DOMContentLoaded sequence, so `token` is still null here.
-                // Resolve it directly the same way getTokenFromUrl() does.
                 const welcomeToken = getTokenFromUrl();
-                fetch(`/api/dashboard?token=${welcomeToken}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .then(data => {
-                        const bubble = document.getElementById('welcomeBubble');
-                        if (!bubble) return;
+
+                Promise.allSettled([
+                    fetch(`/api/dashboard?token=${welcomeToken}`).then(r => r.ok ? r.json() : null),
+                    fetch(`/api/digest?token=${welcomeToken}&since_minutes=120`).then(r => r.ok ? r.json() : null),
+                ]).then(([dashRes, digestRes]) => {
+                    const bubble = document.getElementById('welcomeBubble');
+                    const data = dashRes.status === 'fulfilled' ? dashRes.value : null;
+
+                    if (bubble) {
                         if (!data) {
                             bubble.textContent = 'Welcome back, Alex. What would you like to work on?';
-                            return;
+                        } else {
+                            const coverage = Math.round(data.coverage_pct || 0);
+                            const issues = data.contradiction_count || 0;
+                            bubble.textContent = `Welcome back, Alex. Your plan is at ${coverage}% coverage with ${issues} open issue${issues === 1 ? '' : 's'}. What would you like to work on?`;
                         }
-                        const coverage = Math.round(data.coverage_pct || 0);
-                        const issues = data.contradiction_count || 0;
-                        bubble.textContent = `Welcome back, Alex. Your plan is at ${coverage}% coverage with ${issues} open issue${issues === 1 ? '' : 's'}. What would you like to work on?`;
-                    })
-                    .catch(err => {
-                        console.error('Dashboard welcome fetch error:', err);
-                        const bubble = document.getElementById('welcomeBubble');
-                        if (bubble) bubble.textContent = 'Welcome back, Alex. What would you like to work on?';
-                    });
+                    }
+
+                    const digest = digestRes.status === 'fulfilled' ? digestRes.value : null;
+                    const container = document.getElementById('digestContainer');
+                    if (digest && container) {
+                        const total = (digest.facts_filed?.count || 0) + digest.contradictions_detected + digest.assumptions_killed + digest.facts_validated;
+                        if (total > 0) {
+                            const hours = Math.round((digest.since_minutes || 120) / 60);
+                            let rows = '';
+                            if (digest.facts_filed?.count) {
+                                rows += `<div class="digest-card-row"><i data-lucide="plus-circle" class="digest-card-row-icon" style="color:var(--success);"></i><span class="digest-card-row-value">${digest.facts_filed.count}</span> fact(s) filed</div>`;
+                            }
+                            if (digest.facts_validated) {
+                                rows += `<div class="digest-card-row"><i data-lucide="check-circle" class="digest-card-row-icon" style="color:var(--success);"></i><span class="digest-card-row-value">${digest.facts_validated}</span> assumption(s) validated</div>`;
+                            }
+                            if (digest.assumptions_killed) {
+                                rows += `<div class="digest-card-row"><i data-lucide="x-circle" class="digest-card-row-icon" style="color:var(--danger);"></i><span class="digest-card-row-value">${digest.assumptions_killed}</span> assumption(s) killed</div>`;
+                            }
+                            if (digest.contradictions_detected) {
+                                rows += `<div class="digest-card-row"><i data-lucide="alert-triangle" class="digest-card-row-icon" style="color:var(--warning);"></i><span class="digest-card-row-value">${digest.contradictions_detected}</span> contradiction(s) detected</div>`;
+                            }
+                            container.innerHTML = `
+                                <div class="digest-card">
+                                    <div class="digest-card-title">
+                                        <i data-lucide="clock" style="width:14px;height:14px;color:var(--accent);"></i>
+                                        What changed (last ${hours}h)
+                                    </div>
+                                    ${rows}
+                                </div>
+                            `;
+                            lucide.createIcons();
+                            scrollToBottom();
+                        }
+                    }
+                });
             }
 
         })();

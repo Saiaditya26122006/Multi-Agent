@@ -763,6 +763,146 @@ async def get_recommendation(token: str = ""):
         raise HTTPException(status_code=500, detail="Failed to compute recommendation")
 
 
+@app.get("/api/digest")
+async def get_session_digest(token: str = "", since_minutes: int = 120):
+    """Return a 'What Changed' digest of recent activity.
+
+    Shows facts filed, assumptions validated/killed, contradictions
+    detected, and coverage change since the given time window.
+    """
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from datetime import timedelta
+        from services.rag_service import retrieve, _get_supabase
+
+        cutoff = (datetime.utcnow() - timedelta(minutes=since_minutes)).isoformat()
+        supabase = _get_supabase()
+
+        facts_filed = (
+            supabase.table("knowledge_base")
+            .select("id, content, source_type, section, metadata", count="exact")
+            .gte("created_at", cutoff)
+            .in_("source_type", ["ceo_doc", "conversation", "decision"])
+            .order("created_at", desc=True)
+            .limit(10)
+            .execute()
+        )
+
+        contradictions = (
+            supabase.table("knowledge_base")
+            .select("id, content", count="exact")
+            .gte("created_at", cutoff)
+            .eq("source_type", "contradiction_resolution")
+            .execute()
+        )
+
+        killed = (
+            supabase.table("knowledge_base")
+            .select("id, content", count="exact")
+            .gte("created_at", cutoff)
+            .eq("source_type", "negative_knowledge")
+            .execute()
+        )
+
+        validated = (
+            supabase.table("knowledge_base")
+            .select("id, content", count="exact")
+            .gte("created_at", cutoff)
+            .eq("epistemic_status", "CONFIRMED")
+            .in_("source_type", ["ceo_doc", "decision"])
+            .execute()
+        )
+
+        return {
+            "since_minutes": since_minutes,
+            "facts_filed": {
+                "count": facts_filed.count or len(facts_filed.data or []),
+                "recent": [
+                    {
+                        "content": r["content"][:100],
+                        "node_id": (r.get("metadata") or {}).get("node_id"),
+                    }
+                    for r in (facts_filed.data or [])[:5]
+                ],
+            },
+            "contradictions_detected": contradictions.count or len(contradictions.data or []),
+            "assumptions_killed": killed.count or len(killed.data or []),
+            "facts_validated": validated.count or len(validated.data or []),
+        }
+    except Exception as e:
+        logger.error(f"Error computing digest: {e}")
+        return {
+            "since_minutes": since_minutes,
+            "facts_filed": {"count": 0, "recent": []},
+            "contradictions_detected": 0,
+            "assumptions_killed": 0,
+            "facts_validated": 0,
+        }
+
+
+@app.get("/api/assumptions/lifecycle")
+async def get_assumption_lifecycle(token: str = ""):
+    """Return assumption lifecycle stats for the ambient tracker.
+
+    Shows: active, validated today, killed today, aging (>30d untested).
+    """
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from services.rag_service import _get_supabase
+        from datetime import timedelta
+
+        supabase = _get_supabase()
+        today_start = (datetime.utcnow().replace(hour=0, minute=0, second=0)).isoformat()
+        thirty_days_ago = (datetime.utcnow() - timedelta(days=30)).isoformat()
+
+        active = (
+            supabase.table("knowledge_base")
+            .select("id", count="exact")
+            .eq("epistemic_status", "ASSUMPTION")
+            .is_("superseded_by", "null")
+            .execute()
+        )
+
+        validated_today = (
+            supabase.table("knowledge_base")
+            .select("id", count="exact")
+            .eq("epistemic_status", "CONFIRMED")
+            .gte("created_at", today_start)
+            .execute()
+        )
+
+        killed_today = (
+            supabase.table("knowledge_base")
+            .select("id", count="exact")
+            .eq("source_type", "negative_knowledge")
+            .gte("created_at", today_start)
+            .execute()
+        )
+
+        aging = (
+            supabase.table("knowledge_base")
+            .select("id", count="exact")
+            .eq("epistemic_status", "ASSUMPTION")
+            .is_("superseded_by", "null")
+            .lte("created_at", thirty_days_ago)
+            .execute()
+        )
+
+        return {
+            "active": active.count or 0,
+            "validated_today": validated_today.count or 0,
+            "killed_today": killed_today.count or 0,
+            "aging_30d": aging.count or 0,
+        }
+    except Exception as e:
+        logger.error(f"Error computing assumption lifecycle: {e}")
+        return {"active": 0, "validated_today": 0, "killed_today": 0, "aging_30d": 0}
+
+
 @app.get("/api/menu")
 async def get_menu(token: str = ""):
     """Return the main menu with live badges and stats."""

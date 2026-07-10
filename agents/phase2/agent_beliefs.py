@@ -15,9 +15,6 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# P1-1: Lazy-load embedding model (only when first needed)
-_embedding_model: Optional[Any] = None
-
 # Source authority hierarchy — higher index = higher authority
 SOURCE_AUTHORITY: dict[str, int] = {
     "own_analysis": 0,
@@ -27,26 +24,8 @@ SOURCE_AUTHORITY: dict[str, int] = {
 }
 
 
-def _get_embedding_model() -> Any:
-    """P1-1: Lazy-load sentence transformer model for semantic embeddings."""
-    global _embedding_model
-    if _embedding_model is None:
-        try:
-            from sentence_transformers import SentenceTransformer
-            # Use lightweight all-MiniLM-L6-v2 model (23MB, fast inference)
-            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-            logger.info("[Beliefs] Loaded embedding model: all-MiniLM-L6-v2")
-        except ImportError:
-            logger.warning(
-                "[Beliefs] sentence-transformers not installed — "
-                "falling back to keyword-based contradiction detection"
-            )
-            _embedding_model = None
-    return _embedding_model
-
-
 def _compute_semantic_similarity(text1: str, text2: str) -> float:
-    """P1-1: Compute cosine similarity between two texts using embeddings.
+    """P1-1: Compute cosine similarity between two texts using Cohere Embed v3.
 
     Returns:
         float between 0.0 and 1.0, where:
@@ -55,26 +34,18 @@ def _compute_semantic_similarity(text1: str, text2: str) -> float:
         - 0.3-0.7 = somewhat related
         - 0.0-0.3 = unrelated or contradictory
 
-    Returns -1.0 if embedding model unavailable (triggers fallback).
+    Returns -1.0 if embedding service unavailable (triggers fallback).
     """
-    model = _get_embedding_model()
-    if model is None:
-        return -1.0  # Signal to use fallback
-
     try:
-        from sklearn.metrics.pairwise import cosine_similarity
+        from services.embedding_service import embed_batch
         import numpy as np
 
-        # Generate embeddings
-        embeddings = model.encode([text1, text2])
+        embeddings = embed_batch([text1, text2], input_type="classification")
+        vec1 = np.array(embeddings[0])
+        vec2 = np.array(embeddings[1])
 
-        # Compute cosine similarity
-        similarity = cosine_similarity(
-            embeddings[0].reshape(1, -1),
-            embeddings[1].reshape(1, -1)
-        )[0][0]
-
-        return float(similarity)
+        similarity = float(np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2)))
+        return similarity
     except Exception as e:
         logger.error("[Beliefs] Failed to compute semantic similarity: %s", e)
         return -1.0

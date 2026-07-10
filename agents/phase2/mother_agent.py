@@ -694,7 +694,20 @@ class MotherAgent(Agent):
             .update({"status": "running", "started_at": datetime.utcnow().isoformat()}) \
             .eq("id", task_id).execute()
 
-        emit_trace(trace_key, trace_agent, "processing", f"Working on section {section}", {"task_id": task_id})
+        thought_messages = {
+            "opportunity_analyst": "Analyzing market opportunity and TAM with Alex's constraints...",
+            "environment_research": "Researching competitive landscape and market forces...",
+            "organisation_designer": "Designing org structure based on Alex's team size...",
+            "swot_synthesizer": "Cross-referencing strengths/weaknesses across all sections...",
+            "marketing_strategy": "Building go-to-market strategy from ICP and channels...",
+            "operations": "Mapping operational workflow and resource requirements...",
+            "financial_modelling": "Running Monte Carlo simulations on revenue model...",
+            "launch_contingency": "Identifying launch risks and building contingency plans...",
+            "summary_agent": "Synthesizing executive summary from all section outputs...",
+        }
+        agent_key = agent_name.replace("Agent", "").replace(" ", "_").lower() if agent_name else ""
+        thought = thought_messages.get(agent_key, f"Working on section {section}...")
+        emit_trace(trace_key, trace_agent, "thinking", thought, {"task_id": task_id, "section": section})
 
         # Send request to child agent
         await send_acl(

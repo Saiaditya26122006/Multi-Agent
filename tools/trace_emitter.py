@@ -114,6 +114,44 @@ async def _safe_broadcast(manager, session_key: str, message: dict) -> None:
         pass
 
 
+def emit_classification(
+    session_key: str,
+    facts: list[dict],
+) -> None:
+    """Broadcast a classification event when facts are auto-filed to nodes.
+
+    The frontend uses this to show toast notifications, increment the
+    topbar counter, and add entries to the Activity drawer.
+
+    Args:
+        session_key: The session/connection key.
+        facts: List of dicts with: node_id, node_title, verbatim_text,
+               epistemic_status, confidence.
+    """
+    if not facts:
+        return
+
+    try:
+        from web.server import manager
+
+        message = {
+            "role": "classification",
+            "facts": facts,
+            "count": len(facts),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        loop = _get_event_loop()
+        if loop and loop.is_running():
+            loop.create_task(_safe_broadcast(manager, session_key, message))
+        elif _main_loop is not None and _main_loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                _safe_broadcast(manager, session_key, message), _main_loop
+            )
+    except Exception:
+        pass
+
+
 def _get_event_loop():
     """Get the running event loop or None."""
     try:

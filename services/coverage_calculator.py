@@ -133,12 +133,6 @@ def get_plan_coverage() -> dict:
                     # whether ANY chunk survives (`if chunks:` below), not
                     # how many.
                     top_k=8,
-                    # 0.4 matches this project's documented embedding
-                    # calibration (see CLAUDE.md: all-MiniLM-L6-v2 gives
-                    # ~0.35-0.45 for related-but-differently-worded text).
-                    # This was 0.5 before, which is above that ceiling and
-                    # silently guaranteed near-zero matches regardless of
-                    # how much real data existed — coverage always read 0%.
                     threshold=0.4,
                 )
                 if chunks:

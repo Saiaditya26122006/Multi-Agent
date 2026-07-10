@@ -23,7 +23,7 @@ def _trace(session_id: Optional[str], step: str, detail: str, data: Optional[dic
 
 
 def export_full_plan(session_id: Optional[str] = None) -> dict:
-    """Generate full DOCX business plan.
+    """Generate full DOCX business plan with live section-by-section preview.
 
     Args:
         session_id: Current session ID.
@@ -35,10 +35,15 @@ def export_full_plan(session_id: Optional[str] = None) -> dict:
     readiness = get_export_readiness(session_id=session_id)
 
     try:
-        from evaluation.export_docx import generate_business_plan_docx
+        from evaluation.export_docx import export_to_docx
+        from services.rag_service import retrieve, _get_supabase
 
         _trace(session_id, "generating_docx", "Compiling sections into a DOCX document...")
-        file_path = generate_business_plan_docx()
+
+        _emit_section_previews(session_id)
+
+        results_path = str(OUTPUTS_DIR / "latest_results.json")
+        file_path = export_to_docx(results_path)
         filename = Path(file_path).name
 
         _trace(
@@ -58,6 +63,48 @@ def export_full_plan(session_id: Optional[str] = None) -> dict:
     except Exception as e:
         logger.error("[ExportHandler] Error exporting full plan: %s", e)
         return {"success": False, "error": str(e), "format": "full_plan"}
+
+
+def _emit_section_previews(session_id: Optional[str]) -> None:
+    """Emit live export preview traces as sections are assembled."""
+    if not session_id:
+        return
+
+    try:
+        from services.node_indexer import get_all_sections
+        from services.rag_service import retrieve
+
+        sections = get_all_sections()
+        for s in sections:
+            section_id = s.get("section_id", "")
+            title = s.get("title", section_id)
+
+            chunks = retrieve(
+                query=f"business plan {title}",
+                section=s.get("section_num"),
+                source_types=["ceo_doc", "agent_insight", "decision"],
+                top_k=1,
+                threshold=0.3,
+            )
+
+            has_data = bool(chunks)
+            confidence = "strong" if has_data else "empty"
+            preview = chunks[0].content[:80] if has_data else "No data yet"
+
+            emit_trace(
+                session_id, "Export", "section_preview",
+                f"Assembling {section_id}: {title}",
+                data={
+                    "type": "export_preview",
+                    "section_id": section_id,
+                    "title": title,
+                    "confidence": confidence,
+                    "preview": preview,
+                    "has_data": has_data,
+                },
+            )
+    except Exception as e:
+        logger.warning("[ExportHandler] Section preview emission failed: %s", e)
 
 
 def export_executive_summary(session_id: Optional[str] = None) -> dict:
