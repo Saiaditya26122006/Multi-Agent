@@ -120,7 +120,7 @@ Rules:
 - Be decisive. Pick exactly one node, not a list."""
 
 
-def classify_fact_to_node(fact_text: str, candidates: list[dict]) -> dict:
+def classify_fact_to_node(fact_text: str, candidates: list[dict], document_context: str = None) -> dict:
     """Ask Claude to pick the single best architecture node for one fact.
 
     This replaces raw embedding-similarity ranking as the final call: the
@@ -137,6 +137,9 @@ def classify_fact_to_node(fact_text: str, candidates: list[dict]) -> dict:
             _direct_node_match), each with node_id, node_title, purpose.
             Keep this list small (~10-20) — it's the entire prompt context,
             not the full architecture.
+        document_context: Optional 1-2 sentence summary of the larger
+            document this fact was extracted from. Helps disambiguate facts
+            that are ambiguous in isolation.
 
     Returns:
         Dict with: node_id (str or None), node_title (str), confidence
@@ -176,7 +179,13 @@ def classify_fact_to_node(fact_text: str, candidates: list[dict]) -> dict:
         return line
 
     candidate_block = "\n".join(_candidate_line(c) for c in candidates)
+
+    context_block = ""
+    if document_context:
+        context_block = f"DOCUMENT CONTEXT (this fact was extracted from a larger text about):\n{document_context}\n\n"
+
     user_message = (
+        f"{context_block}"
         f"FACT TO CLASSIFY:\n\"{fact_text}\"\n\n"
         f"CANDIDATE NODES:\n{candidate_block}\n\n"
         "Return the JSON object now."

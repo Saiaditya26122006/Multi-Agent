@@ -523,21 +523,161 @@ def _direct_node_match(text: str, top_k: int = 3) -> list[dict]:
 CLASSIFY_CANDIDATE_POOL = 15
 
 
-def classify_and_match_node(text: str, session_id: Optional[str] = None) -> dict:
+def _detect_likely_domains(text: str) -> list[str]:
+    """Detect which level-1 BP domains a fact likely belongs to.
+
+    Returns up to 2 domain IDs (e.g. ["BP.10", "BP.2"]) based on keyword
+    match strength. Used by classify_and_match_node to forcibly include
+    all nodes from the likely domain(s) in the candidate list — this ensures
+    the correct node is present even when embedding similarity misses it
+    (the root cause of BP.1.2.1 / BP.10.3.2 style misclassifications).
+
+    Cap at 2 domains to keep the candidate list bounded (~120-180 nodes max
+    including the embedding shortlist, which is within Sonnet's effective
+    reasoning window for this kind of task).
+    """
+    text_lower = text.lower()
+    scores: dict[str, int] = {}
+    for node_id, keywords in LEVEL1_KEYWORDS.items():
+        score = sum(1 for kw in keywords if kw in text_lower)
+        if score > 0:
+            scores[node_id] = score
+
+    if not scores:
+        return []
+
+    sorted_domains = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    top_score = sorted_domains[0][1]
+
+    if top_score >= 2:
+        # Strong signal — take the top scorer plus any runner-up within 1 point
+        result = [sorted_domains[0][0]]
+        if len(sorted_domains) > 1 and sorted_domains[1][1] >= top_score - 1:
+            result.append(sorted_domains[1][0])
+        return result
+
+    # Weak signal (all at score=1) — take top 2 by dict order. The document
+    # context (Approach C) is what disambiguates in this case, not domain
+    # expansion alone.
+    return [d[0] for d in sorted_domains[:2]]
+
+
+def _detect_likely_domains_broad(text: str) -> list[str]:
+    """Like _detect_likely_domains but more inclusive — returns all domains
+    with any keyword hit, sorted by score descending, up to 3.
+
+    Used for document-context detection where we want to cast a wide net:
+    the context "PMF options analysis for product-market fit" should return
+    BP.10, BP.4, and BP.1 even though they all score similarly low.
+    """
+    text_lower = text.lower()
+    scores: dict[str, int] = {}
+    for node_id, keywords in LEVEL1_KEYWORDS.items():
+        score = sum(1 for kw in keywords if kw in text_lower)
+        if score > 0:
+            scores[node_id] = score
+
+    if not scores:
+        return []
+
+    sorted_domains = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    return [d[0] for d in sorted_domains[:3]]
+
+
+def _get_domain_nodes(domain_id: str) -> list[dict]:
+    """Get all architecture nodes under a level-1 domain (e.g. "BP.10").
+
+    Returns them in the same dict format as _direct_node_match results,
+    with similarity set to 0.0 (they weren't embedding-matched, they're
+    domain-injected).
+    """
+    prefix = f"{domain_id}."
+    nodes = _load_bp_architecture()
+    results = []
+    for node in nodes:
+        nid = node.get("node_id", "")
+        if nid == domain_id or nid.startswith(prefix):
+            results.append({
+                "node_id": nid,
+                "node_title": node.get("node_title") or "",
+                "similarity": 0.0,
+                "level": node.get("level", 0),
+                "purpose": node.get("purpose") or "",
+                "required_output": node.get("required_output") or "",
+                "prohibited_claims": node.get("prohibited_claims_inference_patterns") or "",
+                "parent_node": node.get("parent_node") or "",
+            })
+    return results
+
+
+def _fact_violates_prohibition(fact_text: str, prohibited_claims: str) -> bool:
+    """Check if a fact semantically overlaps with a node's prohibited claims.
+
+    Uses keyword extraction from the prohibition text and checks if the fact
+    contains multiple prohibited terms (or their stem-prefixes). A single
+    word overlap isn't enough — we need at least 2 distinct prohibition
+    terms present to trigger, reducing false positives.
+
+    Args:
+        fact_text: The fact being classified.
+        prohibited_claims: The node's prohibited_claims_inference_patterns field.
+
+    Returns:
+        True if the fact likely violates the node's prohibitions.
+    """
+    prohibition_lower = prohibited_claims.lower()
+    fact_lower = fact_text.lower()
+
+    stopwords = {
+        "must", "not", "the", "and", "from", "that", "this", "with", "for",
+        "are", "was", "been", "have", "has", "had", "will", "would", "could",
+        "should", "may", "might", "can", "based", "alone", "without", "any",
+        "all", "its", "their", "into", "over", "upon", "about", "between",
+        "through", "during", "before", "after", "above", "below", "each",
+        "every", "both", "few", "more", "most", "other", "some", "such",
+        "than", "too", "very", "just", "also", "only", "own", "same",
+        "does", "did", "doing", "claim", "claims", "infer", "evidence",
+    }
+
+    prohibition_terms = set()
+    words = re.findall(r"[a-z]+", prohibition_lower)
+    for w in words:
+        if w not in stopwords and len(w) > 3:
+            prohibition_terms.add(w)
+
+    if not prohibition_terms:
+        return False
+
+    # Check for each prohibition term using stem-prefix matching:
+    # "improvement" matches "improve", "improving", "improved" etc.
+    # Use first 5 chars as prefix for words >= 6 chars, exact match otherwise.
+    hits = 0
+    for term in prohibition_terms:
+        if term in fact_lower:
+            hits += 1
+        elif len(term) >= 6:
+            prefix = term[:5]
+            if re.search(r"\b" + re.escape(prefix) + r"[a-z]*\b", fact_lower):
+                hits += 1
+
+    return hits >= 2
+
+
+def classify_and_match_node(text: str, session_id: Optional[str] = None, document_context: Optional[str] = None) -> dict:
     """Classify a fact to exactly one BP architecture node, accurately.
 
-    Two-stage: cheap local embedding similarity narrows ~745 nodes down to
-    a shortlist (CLASSIFY_CANDIDATE_POOL), then an LLM (Bedrock, via
-    web.handlers.llm_helper.classify_fact_to_node) reasons over that
-    shortlist's actual purpose/required_output text to pick the single
-    best, most specific node. Raw embedding cosine similarity alone was
-    the root cause of the accuracy gap Alex saw versus a manual ChatGPT
-    pass on the same data — a small sentence-transformer embedding just
-    isn't discriminating enough across ~745 fine-grained nodes on its own.
+    Three-stage:
+    1. Cheap local embedding similarity narrows ~745 nodes to a shortlist
+    2. Domain-aware expansion injects all nodes from the detected domain(s)
+       so the correct node is always present even with mediocre embedding scores
+    3. An LLM reasons over the merged shortlist to pick one specific node
 
     Args:
         text: The atomic fact/claim to classify.
         session_id: Optional session for live confidence stream.
+        document_context: Optional 1-2 sentence summary of the larger document
+            this fact was extracted from. Passed to the LLM to disambiguate
+            facts that are ambiguous in isolation (Approach C).
 
     Returns:
         Dict with: node_id, node_title, confidence ("high"/"medium"/"low"),
@@ -545,6 +685,31 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None) -> dict
         when none_fit is True — where a brand-new node would go).
     """
     candidates = match_bp_node(text, top_k=CLASSIFY_CANDIDATE_POOL)
+
+    # --- Approach B: Domain-aware candidate expansion ---
+    # Detect the likely level-1 domain(s) and inject all their child nodes
+    # into the candidate list. This ensures the correct deep node is always
+    # present even when embedding similarity ranks it outside the top-15.
+    # Use both the fact text AND document context for domain detection —
+    # an individual fact like "Job: Improve manuscript quality" may not
+    # match BP.10 (PMF), but the document context "PMF options analysis"
+    # will. Merge all unique domains from both, cap at 3.
+    likely_domains = _detect_likely_domains(text)
+    if document_context:
+        context_domains = _detect_likely_domains_broad(document_context)
+        for d in context_domains:
+            if d not in likely_domains:
+                likely_domains.append(d)
+        likely_domains = likely_domains[:3]
+
+    if likely_domains:
+        existing_ids = {c["node_id"] for c in candidates}
+        for domain in likely_domains:
+            domain_nodes = _get_domain_nodes(domain)
+            for dn in domain_nodes:
+                if dn["node_id"] not in existing_ids:
+                    candidates.append(dn)
+                    existing_ids.add(dn["node_id"])
 
     if not candidates:
         parent = _get_suggested_parent([], text=text)
@@ -555,7 +720,6 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None) -> dict
         }
 
     if session_id and candidates:
-        from tools.trace_emitter import emit_trace
         top_nodes = [f"{c['node_id']} ({c.get('similarity', 0):.2f})" for c in candidates[:5]]
         emit_trace(
             session_id, "Classifier", "considering",
@@ -566,7 +730,7 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None) -> dict
     try:
         from web.handlers.llm_helper import classify_fact_to_node
 
-        result = classify_fact_to_node(text, candidates)
+        result = classify_fact_to_node(text, candidates, document_context=document_context)
     except Exception as e:
         logger.error("[FeedHandler] LLM classification failed, using top embedding candidate: %s", e)
         top = candidates[0]
@@ -584,8 +748,25 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None) -> dict
         result["purpose"] = node_details.get("purpose") or ""
         result["level"] = node_details.get("level", 0)
 
+        # --- Approach A: Programmatic prohibition gate ---
+        # After the LLM picks a node, check if storing this fact would
+        # violate the node's prohibited_claims. If the fact text overlaps
+        # significantly with what the node explicitly bars, demote confidence
+        # to "low" so it goes to human review instead of auto-filing.
+        if result.get("confidence") == "high":
+            prohibited = node_details.get("prohibited_claims_inference_patterns") or ""
+            if prohibited and _fact_violates_prohibition(text, prohibited):
+                result["confidence"] = "low"
+                result["reasoning"] = (
+                    f"Demoted: fact overlaps with node's prohibited claims "
+                    f"({result['node_id']}). Needs human review."
+                )
+                logger.info(
+                    "[FeedHandler] Prohibition gate triggered: fact demoted from high -> low for %s",
+                    result["node_id"],
+                )
+
     if session_id:
-        from tools.trace_emitter import emit_trace
         if result.get("node_id"):
             emit_trace(
                 session_id, "Classifier", "locked",
@@ -745,7 +926,13 @@ def _handle_duplicate_confirm(response_text: str, session_id: str) -> dict:
 AUTO_FILE_CONFIDENCE = "high"
 
 
-def _classify_one_fact(fact_text: str, source_format: str, inferred_status: str = "INFERRED", session_id: Optional[str] = None) -> dict:
+def _classify_one_fact(
+    fact_text: str,
+    source_format: str,
+    inferred_status: str = "INFERRED",
+    session_id: Optional[str] = None,
+    document_context: Optional[str] = None,
+) -> dict:
     """Build a complete, classified fact_data dict for one atomic fact.
 
     Shared by handle_raw_text (classifying a whole batch up front, to decide
@@ -756,7 +943,7 @@ def _classify_one_fact(fact_text: str, source_format: str, inferred_status: str 
     content_classification = classify_content_type(fact_text)
     content_type = content_classification["content_type"]
     epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(content_type, inferred_status)
-    classification = classify_and_match_node(fact_text, session_id=session_id)
+    classification = classify_and_match_node(fact_text, session_id=session_id, document_context=document_context)
 
     return {
         "verbatim_text": fact_text,
@@ -827,6 +1014,61 @@ def _format_auto_file_table(results: list[dict]) -> str:
     return "\n".join(lines)
 
 
+# Threshold: only generate a document context summary when the input is long
+# enough that individual facts are likely ambiguous in isolation. A 2-sentence
+# input where facts are already self-contained doesn't need it.
+_CONTEXT_MIN_LENGTH = 300
+
+
+def _generate_document_context(text: str) -> Optional[str]:
+    """Generate a 1-2 sentence summary of a longer input for classification context.
+
+    When a large block of text is split into atomic facts, individual sentences
+    lose the context of what the whole document is about — "Job: Improve
+    manuscript quality" means something very different in a PMF analysis vs.
+    a product feature spec. This summary is passed alongside each fact to the
+    LLM classifier so it can disambiguate.
+
+    Uses Haiku for speed/cost — this is a one-shot summary, not a reasoning task.
+
+    Returns:
+        A 1-2 sentence context string, or None if the input is too short to
+        need context or if the LLM call fails.
+    """
+    if len(text) < _CONTEXT_MIN_LENGTH:
+        return None
+
+    try:
+        import boto3
+        import os
+
+        client = boto3.client(
+            "bedrock-runtime",
+            region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
+        )
+        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "anthropic.claude-haiku-4-5-20251001")
+
+        response = client.converse(
+            modelId=model_id,
+            system=[{"text": (
+                "Summarize the topic and purpose of this text in exactly 1-2 sentences. "
+                "Focus on WHAT the document is analyzing (e.g. 'PMF options for a SaaS product', "
+                "'competitor positioning analysis', 'pricing model evaluation'). "
+                "Do NOT summarize the content itself — just name the topic and analytical frame."
+            )}],
+            messages=[{"role": "user", "content": [{"text": text[:2000]}]}],
+            inferenceConfig={"maxTokens": 80},
+        )
+
+        summary = response["output"]["message"]["content"][0]["text"].strip()
+        logger.debug("[FeedHandler] Document context generated: %s", summary[:100])
+        return summary
+
+    except Exception as e:
+        logger.debug("[FeedHandler] Document context generation failed (non-fatal): %s", e)
+        return None
+
+
 def handle_raw_text(
     text: str,
     session_id: Optional[str] = None,
@@ -873,6 +1115,9 @@ def handle_raw_text(
             logger.debug("[FeedHandler] Duplicate check failed (non-fatal): %s", e)
 
     try:
+        if session_id:
+            emit_trace(session_id, "Feed", "splitting", "Splitting input into atomic facts...")
+
         fmt = detect_format(text)
         raw_facts = split_into_atomic_facts(text, fmt)
 
@@ -882,15 +1127,50 @@ def handle_raw_text(
                 "response_text": "No extractable facts found in that input. Try rephrasing or adding more detail.",
             }
 
+        # --- Approach C: Generate document context for disambiguation ---
+        # One cheap Haiku call summarizes the topic of the whole input. This
+        # context travels with every fact to the classifier so ambiguous
+        # sentences like "Job: Improve manuscript quality" are understood in
+        # their original frame (PMF analysis, not writing-assistance).
+        document_context = None
+        if len(raw_facts) > 1:
+            if session_id:
+                emit_trace(session_id, "Feed", "summarizing", "Understanding document context...")
+            document_context = _generate_document_context(text)
+
+        if session_id:
+            emit_trace(
+                session_id, "Feed", "classifying",
+                f"Classifying {len(raw_facts)} fact(s) against architecture...",
+                {"fact_count": len(raw_facts)},
+            )
+
         # Classify the whole batch up front — this is what decides auto-file
         # vs. needs-review for every fact before anything is written.
-        classified = [
-            _classify_one_fact(f["text"], fmt, f.get("inferred_status", "INFERRED"), session_id=session_id)
-            for f in raw_facts
-        ]
+        classified = []
+        for i, f in enumerate(raw_facts):
+            classified.append(
+                _classify_one_fact(
+                    f["text"], fmt, f.get("inferred_status", "INFERRED"),
+                    session_id=session_id, document_context=document_context,
+                )
+            )
+            if session_id and len(raw_facts) > 3 and (i + 1) % max(1, len(raw_facts) // 4) == 0:
+                emit_trace(
+                    session_id, "Feed", "classifying_progress",
+                    f"Classified {i + 1}/{len(raw_facts)} facts...",
+                    {"done": i + 1, "total": len(raw_facts)},
+                )
 
         auto_batch = [f for f in classified if _is_strong_match(f["classification"])]
         review_batch = [f for f in classified if not _is_strong_match(f["classification"])]
+
+        if session_id and auto_batch:
+            emit_trace(
+                session_id, "Feed", "auto_filing",
+                f"Auto-filing {len(auto_batch)} high-confidence match(es)...",
+                {"auto": len(auto_batch), "review": len(review_batch)},
+            )
 
         auto_results = []
         for fact_data in auto_batch:
@@ -1404,7 +1684,6 @@ def _run_post_store_hooks(
                     chunk_id,
                     chunk.id,
                 )
-                from tools.trace_emitter import emit_trace
                 emit_trace(
                     session_id, "Contradiction", "detected",
                     f"New fact conflicts with existing ({chunk.epistemic_status}): \"{chunk.content[:60]}\"",
