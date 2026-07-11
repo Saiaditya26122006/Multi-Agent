@@ -120,7 +120,12 @@ Rules:
 - Be decisive. Pick exactly one node, not a list."""
 
 
-def classify_fact_to_node(fact_text: str, candidates: list[dict], document_context: str = None) -> dict:
+def classify_fact_to_node(
+    fact_text: str,
+    candidates: list[dict],
+    document_context: str = None,
+    use_fast_model: bool = False,
+) -> dict:
     """Ask Claude to pick the single best architecture node for one fact.
 
     This replaces raw embedding-similarity ranking as the final call: the
@@ -140,6 +145,10 @@ def classify_fact_to_node(fact_text: str, candidates: list[dict], document_conte
         document_context: Optional 1-2 sentence summary of the larger
             document this fact was extracted from. Helps disambiguate facts
             that are ambiguous in isolation.
+        use_fast_model: If True, use Haiku instead of Sonnet for speed.
+            Used for batch classification where the prohibition gate and
+            human review queue catch any errors. Sonnet is still used for
+            single-fact classification where latency is less critical.
 
     Returns:
         Dict with: node_id (str or None), node_title (str), confidence
@@ -193,14 +202,10 @@ def classify_fact_to_node(fact_text: str, candidates: list[dict], document_conte
 
     try:
         client = _get_client()
-        # Node classification uses Sonnet, not Haiku, unlike generate_answer()
-        # above. Alex needs auto-filed facts to be right essentially every
-        # time — since a high-confidence result now gets written without a
-        # human ever seeing it first (see handle_raw_text's auto-file split),
-        # there's no safety net downstream to catch a wrong pick. Sonnet is
-        # slower and costs more per call than Haiku, but accuracy here was
-        # made an explicit, non-negotiable requirement — cost/latency lose.
-        model_id = os.getenv("CLAUDE_SONNET_MODEL", "anthropic.claude-sonnet-4-20250514")
+        if use_fast_model:
+            model_id = os.getenv("CLAUDE_HAIKU_MODEL", "anthropic.claude-haiku-4-5-20251001")
+        else:
+            model_id = os.getenv("CLAUDE_SONNET_MODEL", "anthropic.claude-sonnet-4-20250514")
 
         response = client.converse(
             modelId=model_id,

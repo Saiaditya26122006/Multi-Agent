@@ -584,30 +584,69 @@ def _detect_likely_domains_broad(text: str) -> list[str]:
     return [d[0] for d in sorted_domains[:3]]
 
 
-def _get_domain_nodes(domain_id: str) -> list[dict]:
-    """Get all architecture nodes under a level-1 domain (e.g. "BP.10").
+def _get_domain_nodes_ranked(
+    text: str, domains: list[str], exclude_ids: set, max_inject: int = 15
+) -> list[dict]:
+    """Get the top-N most relevant nodes from given domains by embedding similarity.
 
-    Returns them in the same dict format as _direct_node_match results,
-    with similarity set to 0.0 (they weren't embedding-matched, they're
-    domain-injected).
+    Instead of injecting all 60-90 nodes from a domain (which blows up the
+    LLM prompt to 200+ candidates and makes classification take 5-10 minutes),
+    this computes embedding similarity against the cached node embeddings and
+    only injects the best matches. The embedding shortlist already contributes
+    15 candidates; this adds up to max_inject more from the domain(s), keeping
+    the total candidate list at ~30 — well within Sonnet's sweet spot.
+
+    Args:
+        text: The fact text to match against.
+        domains: List of domain IDs (e.g. ["BP.10", "BP.2"]).
+        exclude_ids: Node IDs already in the candidate list (skip these).
+        max_inject: Maximum number of domain nodes to inject.
+
+    Returns:
+        List of node dicts (same shape as _direct_node_match output),
+        sorted by similarity descending.
     """
-    prefix = f"{domain_id}."
-    nodes = _load_bp_architecture()
-    results = []
-    for node in nodes:
-        nid = node.get("node_id", "")
-        if nid == domain_id or nid.startswith(prefix):
-            results.append({
-                "node_id": nid,
-                "node_title": node.get("node_title") or "",
-                "similarity": 0.0,
-                "level": node.get("level", 0),
-                "purpose": node.get("purpose") or "",
-                "required_output": node.get("required_output") or "",
-                "prohibited_claims": node.get("prohibited_claims_inference_patterns") or "",
-                "parent_node": node.get("parent_node") or "",
-            })
-    return results
+    node_embeddings = _get_node_embeddings()
+    if not node_embeddings:
+        return []
+
+    # Build the set of domain prefixes to filter
+    prefixes = tuple(f"{d}." for d in domains)
+    domain_set = set(domains)
+
+    # Filter to nodes in the target domains that aren't already candidates
+    domain_nodes = [
+        n for n in node_embeddings
+        if (n["node_id"] in domain_set or n["node_id"].startswith(prefixes))
+        and n["node_id"] not in exclude_ids
+    ]
+
+    if not domain_nodes:
+        return []
+
+    import numpy as np
+    from services.rag_service import embed
+
+    query_vec = np.array(embed(text))
+    query_norm = np.linalg.norm(query_vec)
+
+    scored = []
+    for node in domain_nodes:
+        node_vec = node["embedding"]
+        similarity = float(np.dot(query_vec, node_vec) / (query_norm * np.linalg.norm(node_vec)))
+        scored.append({
+            "node_id": node["node_id"],
+            "node_title": node["node_title"],
+            "similarity": round(similarity, 3),
+            "level": node.get("level", 0),
+            "purpose": node.get("purpose", ""),
+            "required_output": node.get("required_output", ""),
+            "prohibited_claims": node.get("prohibited_claims", ""),
+            "parent_node": node.get("parent_node", ""),
+        })
+
+    scored.sort(key=lambda x: x["similarity"], reverse=True)
+    return scored[:max_inject]
 
 
 def _fact_violates_prohibition(fact_text: str, prohibited_claims: str) -> bool:
@@ -663,7 +702,7 @@ def _fact_violates_prohibition(fact_text: str, prohibited_claims: str) -> bool:
     return hits >= 2
 
 
-def classify_and_match_node(text: str, session_id: Optional[str] = None, document_context: Optional[str] = None) -> dict:
+def classify_and_match_node(text: str, session_id: Optional[str] = None, document_context: Optional[str] = None, use_fast_model: bool = False) -> dict:
     """Classify a fact to exactly one BP architecture node, accurately.
 
     Three-stage:
@@ -704,12 +743,12 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
 
     if likely_domains:
         existing_ids = {c["node_id"] for c in candidates}
-        for domain in likely_domains:
-            domain_nodes = _get_domain_nodes(domain)
-            for dn in domain_nodes:
-                if dn["node_id"] not in existing_ids:
-                    candidates.append(dn)
-                    existing_ids.add(dn["node_id"])
+        # Instead of injecting ALL domain nodes (60-90 per domain), only
+        # inject the top-scoring ones by quick embedding comparison. This
+        # keeps the candidate list bounded at ~30 total while still ensuring
+        # the correct deep node from the right domain is present.
+        domain_additions = _get_domain_nodes_ranked(text, likely_domains, existing_ids, max_inject=15)
+        candidates.extend(domain_additions)
 
     if not candidates:
         parent = _get_suggested_parent([], text=text)
@@ -730,7 +769,7 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
     try:
         from web.handlers.llm_helper import classify_fact_to_node
 
-        result = classify_fact_to_node(text, candidates, document_context=document_context)
+        result = classify_fact_to_node(text, candidates, document_context=document_context, use_fast_model=use_fast_model)
     except Exception as e:
         logger.error("[FeedHandler] LLM classification failed, using top embedding candidate: %s", e)
         top = candidates[0]
@@ -932,6 +971,7 @@ def _classify_one_fact(
     inferred_status: str = "INFERRED",
     session_id: Optional[str] = None,
     document_context: Optional[str] = None,
+    use_fast_model: bool = False,
 ) -> dict:
     """Build a complete, classified fact_data dict for one atomic fact.
 
@@ -943,7 +983,9 @@ def _classify_one_fact(
     content_classification = classify_content_type(fact_text)
     content_type = content_classification["content_type"]
     epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(content_type, inferred_status)
-    classification = classify_and_match_node(fact_text, session_id=session_id, document_context=document_context)
+    classification = classify_and_match_node(
+        fact_text, session_id=session_id, document_context=document_context, use_fast_model=use_fast_model
+    )
 
     return {
         "verbatim_text": fact_text,
@@ -1147,12 +1189,19 @@ def handle_raw_text(
 
         # Classify the whole batch up front — this is what decides auto-file
         # vs. needs-review for every fact before anything is written.
+        # Use Haiku for batches >3 facts — it's 10x faster per call. With
+        # document context (Approach C) and the prohibition gate (Approach A)
+        # as safety nets, Haiku's accuracy is sufficient for the initial pass;
+        # anything uncertain still goes to human review. Single facts (or very
+        # small batches) use Sonnet for maximum accuracy.
+        use_fast = len(raw_facts) > 3
         classified = []
         for i, f in enumerate(raw_facts):
             classified.append(
                 _classify_one_fact(
                     f["text"], fmt, f.get("inferred_status", "INFERRED"),
                     session_id=session_id, document_context=document_context,
+                    use_fast_model=use_fast,
                 )
             )
             if session_id and len(raw_facts) > 3 and (i + 1) % max(1, len(raw_facts) // 4) == 0:
