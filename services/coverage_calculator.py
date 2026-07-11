@@ -92,10 +92,54 @@ def get_sections() -> dict[str, dict]:
     return result
 
 
+def _get_filled_node_ids() -> set[str]:
+    """Query knowledge_base for all distinct node_ids that have stored data.
+
+    Single Supabase query instead of 745 individual retrieve() calls.
+    Returns a set of node_id strings (e.g. {"BP.1.1.1", "BP.10.3.2"}).
+    """
+    try:
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        supabase = _get_supabase()
+        # Fetch all rows' metadata->node_id in one query. The knowledge_base
+        # table stores node_id in the metadata JSONB column. We only need
+        # that one field, and we need distinct values.
+        response = (
+            supabase.table(TABLE_NAME)
+            .select("metadata")
+            .not_.is_("metadata", "null")
+            .limit(5000)
+            .execute()
+        )
+
+        filled = set()
+        for row in response.data or []:
+            meta = row.get("metadata")
+            if isinstance(meta, dict):
+                node_id = meta.get("node_id")
+                if node_id:
+                    filled.add(node_id)
+            elif isinstance(meta, str):
+                try:
+                    meta_dict = json.loads(meta)
+                    node_id = meta_dict.get("node_id")
+                    if node_id:
+                        filled.add(node_id)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+        return filled
+    except Exception as e:
+        logger.error("[CoverageCalc] Error querying filled nodes: %s", e)
+        return set()
+
+
 def get_plan_coverage() -> dict:
     """Calculate overall plan coverage metrics.
 
-    Queries the RAG knowledge base to determine how many nodes have data mapped.
+    Uses a single Supabase query to find which nodes have data, then
+    computes per-section coverage by cross-referencing with the architecture.
 
     Returns:
         Dict with: total_nodes, filled_nodes, coverage_pct, per_section breakdown.
@@ -106,38 +150,17 @@ def get_plan_coverage() -> dict:
     sections = _get_sections_from_nodes(nodes)
 
     try:
-        from services.rag_service import retrieve
+        filled_node_ids = _get_filled_node_ids()
 
-        filled_nodes = set()
         per_section = {}
+        total_filled = 0
 
         for section_id, section_nodes in sorted(sections.items()):
-            section_filled = 0
-            for node in section_nodes:
-                node_id = node.get("node_id", "")
-                chunks = retrieve(
-                    query=node.get("node_title", node_id),
-                    source_types=["ceo_doc", "conversation", "decision", "correction"],
-                    section=section_id.replace("BP.", ""),
-                    # retrieve() fetches top_k * 3 raw candidates from the
-                    # vector search, THEN applies the section/source_type
-                    # filters in Python (rag_service.py's retrieve() —
-                    # section isn't pushed into the SQL RPC call). With
-                    # top_k=1 that's only 3 raw candidates per query, which
-                    # is nowhere near enough for a section-specific match to
-                    # survive the post-hoc filter out of ~1000 facts
-                    # spanning many sections — this alone was enough to
-                    # keep coverage at 0% regardless of the threshold value.
-                    # top_k=8 gives the section filter a real pool (24 raw
-                    # candidates) to search within; we still only care
-                    # whether ANY chunk survives (`if chunks:` below), not
-                    # how many.
-                    top_k=8,
-                    threshold=0.4,
-                )
-                if chunks:
-                    filled_nodes.add(node_id)
-                    section_filled += 1
+            section_filled = sum(
+                1 for n in section_nodes
+                if n.get("node_id", "") in filled_node_ids
+            )
+            total_filled += section_filled
 
             per_section[section_id] = {
                 "section_id": section_id,
@@ -152,11 +175,11 @@ def get_plan_coverage() -> dict:
                 ),
             }
 
-        overall_pct = round((len(filled_nodes) / total_nodes * 100) if total_nodes else 0, 1)
+        overall_pct = round((total_filled / total_nodes * 100) if total_nodes else 0, 1)
 
         return {
             "total_nodes": total_nodes,
-            "filled_nodes": len(filled_nodes),
+            "filled_nodes": total_filled,
             "coverage_pct": overall_pct,
             "per_section": per_section,
         }
