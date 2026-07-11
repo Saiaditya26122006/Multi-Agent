@@ -616,8 +616,16 @@ async def post_message(req: SendMessageRequest):
     current_ws = routed["workspace"]
 
     if current_ws != Workspace.AUTO:
+        await manager.broadcast(
+            session_key,
+            {"role": "status", "text": "Processing...", "timestamp": datetime.utcnow().isoformat()},
+        )
         response_text = await asyncio.to_thread(
             _handle_workspace_message, current_ws, req.text.strip(), session_key
+        )
+        await manager.broadcast(
+            session_key,
+            {"role": "status", "text": "", "timestamp": datetime.utcnow().isoformat()},
         )
         if not response_text:
             response_text = "Received — nothing to show for that input."
