@@ -75,7 +75,7 @@ def generate_answer(question: str, chunks: list, system_prompt: str = "") -> str
 
     try:
         client = _get_client()
-        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "anthropic.claude-haiku-4-5-20251001")
+        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 
         response = client.converse(
             modelId=model_id,
@@ -203,9 +203,9 @@ def classify_fact_to_node(
     try:
         client = _get_client()
         if use_fast_model:
-            model_id = os.getenv("CLAUDE_HAIKU_MODEL", "anthropic.claude-haiku-4-5-20251001")
+            model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
         else:
-            model_id = os.getenv("CLAUDE_SONNET_MODEL", "anthropic.claude-sonnet-4-20250514")
+            model_id = os.getenv("CLAUDE_SONNET_MODEL", "us.anthropic.claude-sonnet-4-6")
 
         response = client.converse(
             modelId=model_id,

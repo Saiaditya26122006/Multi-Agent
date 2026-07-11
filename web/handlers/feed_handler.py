@@ -382,8 +382,12 @@ def _get_suggested_parent(candidates: list[dict], text: str = "") -> dict:
 def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
     """Find the best-matching BP architecture node(s) for a fact.
 
-    Uses semantic similarity against node titles and purposes.
-    Falls back to direct embedding comparison against the architecture JSON.
+    Uses RAG semantic similarity against embedded architecture nodes.
+    Returns whatever RAG finds (may be fewer than top_k or even empty) —
+    the domain-aware expansion in classify_and_match_node fills the gaps.
+
+    Never falls back to _direct_node_match (which builds a 745-node
+    embedding cache on first call, taking 2-3 minutes).
 
     Args:
         text: The fact text to match.
@@ -399,12 +403,12 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
             query=text,
             source_types=["ceo_doc"],
             top_k=top_k,
-            threshold=0.35,
+            threshold=0.3,
             metadata_filter={"layer": "bp_architecture"},
         )
 
+        results = []
         if chunks:
-            results = []
             for chunk in chunks[:top_k]:
                 node_id = chunk.metadata.get("node_id", chunk.section or "unknown")
                 node_title = chunk.metadata.get("node_title") or ""
@@ -421,11 +425,10 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
                     "prohibited_claims": (node_details.get("prohibited_claims_inference_patterns") or "") if node_details else "",
                     "parent_node": (node_details.get("parent_node") or "") if node_details else "",
                 })
-            return results
+        return results
     except Exception as e:
-        logger.debug("[FeedHandler] RAG node retrieval failed, using direct match: %s", e)
-
-    return _direct_node_match(text, top_k)
+        logger.debug("[FeedHandler] RAG node retrieval failed: %s", e)
+        return []
 
 
 _node_embedding_cache: Optional[list[dict]] = None
@@ -587,14 +590,13 @@ def _detect_likely_domains_broad(text: str) -> list[str]:
 def _get_domain_nodes_ranked(
     text: str, domains: list[str], exclude_ids: set, max_inject: int = 15
 ) -> list[dict]:
-    """Get the top-N most relevant nodes from given domains by embedding similarity.
+    """Get the most relevant nodes from given domains using keyword scoring.
 
-    Instead of injecting all 60-90 nodes from a domain (which blows up the
-    LLM prompt to 200+ candidates and makes classification take 5-10 minutes),
-    this computes embedding similarity against the cached node embeddings and
-    only injects the best matches. The embedding shortlist already contributes
-    15 candidates; this adds up to max_inject more from the domain(s), keeping
-    the total candidate list at ~30 — well within Sonnet's sweet spot.
+    Instead of using embedding similarity (which requires a 745-node embedding
+    cache that takes 2-3 min to build on first call), this uses cheap keyword
+    overlap scoring between the fact text and each node's title+purpose. The
+    LLM classifier does the real disambiguation — this just ensures the right
+    nodes are in the candidate list.
 
     Args:
         text: The fact text to match against.
@@ -603,46 +605,42 @@ def _get_domain_nodes_ranked(
         max_inject: Maximum number of domain nodes to inject.
 
     Returns:
-        List of node dicts (same shape as _direct_node_match output),
-        sorted by similarity descending.
+        List of node dicts sorted by keyword relevance descending.
     """
-    node_embeddings = _get_node_embeddings()
-    if not node_embeddings:
+    nodes = _load_bp_architecture()
+    if not nodes:
         return []
 
-    # Build the set of domain prefixes to filter
     prefixes = tuple(f"{d}." for d in domains)
     domain_set = set(domains)
-
-    # Filter to nodes in the target domains that aren't already candidates
-    domain_nodes = [
-        n for n in node_embeddings
-        if (n["node_id"] in domain_set or n["node_id"].startswith(prefixes))
-        and n["node_id"] not in exclude_ids
-    ]
-
-    if not domain_nodes:
-        return []
-
-    import numpy as np
-    from services.rag_service import embed
-
-    query_vec = np.array(embed(text))
-    query_norm = np.linalg.norm(query_vec)
+    text_lower = text.lower()
+    text_words = set(re.findall(r"[a-z]{4,}", text_lower))
 
     scored = []
-    for node in domain_nodes:
-        node_vec = node["embedding"]
-        similarity = float(np.dot(query_vec, node_vec) / (query_norm * np.linalg.norm(node_vec)))
+    for node in nodes:
+        nid = node.get("node_id", "")
+        if not (nid in domain_set or nid.startswith(prefixes)):
+            continue
+        if nid in exclude_ids:
+            continue
+
+        node_title = node.get("node_title") or ""
+        purpose = node.get("purpose") or ""
+        required_output = node.get("required_output") or ""
+        node_text = f"{node_title} {purpose} {required_output}".lower()
+        node_words = set(re.findall(r"[a-z]{4,}", node_text))
+
+        overlap = len(text_words & node_words)
+
         scored.append({
-            "node_id": node["node_id"],
-            "node_title": node["node_title"],
-            "similarity": round(similarity, 3),
+            "node_id": nid,
+            "node_title": node_title,
+            "similarity": round(overlap * 0.1, 3),
             "level": node.get("level", 0),
-            "purpose": node.get("purpose", ""),
-            "required_output": node.get("required_output", ""),
-            "prohibited_claims": node.get("prohibited_claims", ""),
-            "parent_node": node.get("parent_node", ""),
+            "purpose": purpose[:200],
+            "required_output": required_output[:150],
+            "prohibited_claims": (node.get("prohibited_claims_inference_patterns") or "")[:150],
+            "parent_node": node.get("parent_node") or "",
         })
 
     scored.sort(key=lambda x: x["similarity"], reverse=True)
@@ -1081,14 +1079,11 @@ def _generate_document_context(text: str) -> Optional[str]:
         return None
 
     try:
-        import boto3
+        from web.handlers.llm_helper import _get_client
         import os
 
-        client = boto3.client(
-            "bedrock-runtime",
-            region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
-        )
-        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "anthropic.claude-haiku-4-5-20251001")
+        client = _get_client()
+        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 
         response = client.converse(
             modelId=model_id,
