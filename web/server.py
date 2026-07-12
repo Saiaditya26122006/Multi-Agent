@@ -108,6 +108,16 @@ def _handle_workspace_message(workspace: Workspace, text: str, session_id: str) 
 
     Returns response text, or empty string if not handled.
     """
+    # ── System-awareness check (uniform across ALL workspaces) ────────────
+    from web.handlers.system_awareness import is_system_question, answer_system_question
+
+    if is_system_question(text):
+        try:
+            return answer_system_question(text, session_id=session_id)
+        except Exception as e:
+            logger.error("[SystemAwareness] Handler crashed: %s", e)
+            # Fall through to normal workspace dispatch on failure
+
     text_lower = text.strip().lower()
 
     if workspace == Workspace.INSPECT:
