@@ -1526,19 +1526,18 @@ def handle_approval_response(response_text: str, session_id: str) -> dict:
                 [], text=pending.get("verbatim_text", "")
             )
 
-            # Handle no_domain_match: ask Alex to specify a parent manually
-            # since we can't guess one without force-fitting
+            # Handle no_domain_match: offer to create a new top-level domain
             if suggested_parent.get("no_domain_match"):
-                set_feed_state(session_id, "FEED_AWAITING_PARENT_SELECTION")
+                set_feed_state(session_id, "FEED_AWAITING_NEW_DOMAIN_NAME")
                 pending["suggested_parent"] = suggested_parent
                 store_pending_fact(session_id, pending)
                 return {
-                    "action": "awaiting_parent_selection",
+                    "action": "awaiting_new_domain_name",
                     "response_text": (
                         "This content doesn't fit any existing domain (BP.1–BP.11).\n"
-                        "If you want to create a new node anyway, type the parent node ID "
-                        "(e.g. BP.7 for legal/compliance, or BP.11 for investor/finance).\n"
-                        "Or type [skip] to discard."
+                        "To create a new top-level domain, type its name "
+                        "(e.g. \"Corporate and Legal Structure\").\n"
+                        "Or type [skip] to discard this fact."
                     ),
                 }
 
@@ -1694,6 +1693,189 @@ def handle_parent_selection(response_text: str, session_id: str) -> dict:
             "What should it be called?"
         ),
     }
+
+
+def _get_next_domain_id() -> str:
+    """Find the next available top-level domain ID.
+
+    BP.12 is reserved for the risk/uncertainty register (referenced in
+    linked_uncertainties fields across the architecture). Scans existing
+    top-level nodes and returns the next integer after the highest found,
+    skipping BP.12 if it hasn't been created yet.
+    """
+    from pathlib import Path
+
+    arch_path = Path(__file__).parent.parent.parent / "ceo_data" / "bp_architecture.json"
+    try:
+        with open(arch_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        all_nodes = data.get("nodes", [])
+    except Exception:
+        return "BP.13"
+
+    existing_nums = set()
+    for node in all_nodes:
+        nid = node.get("node_id", "")
+        if nid.startswith("BP.") and nid.count(".") == 1:
+            try:
+                num = int(nid.split(".")[1])
+                existing_nums.add(num)
+            except ValueError:
+                pass
+
+    # BP.12 is reserved even if not yet created
+    existing_nums.add(12)
+
+    next_num = max(existing_nums) + 1 if existing_nums else 13
+    return f"BP.{next_num}"
+
+
+def _create_new_domain(domain_name: str, verbatim_text: str = "") -> dict:
+    """Create a new top-level domain node in bp_architecture.json.
+
+    This is the real domain-creation function: assigns a permanent ID,
+    writes a level-1 "domain" type node, and persists it so future
+    classification passes can match facts against it.
+
+    Args:
+        domain_name: The name Alex gave the domain (e.g. "Corporate and Legal Structure").
+        verbatim_text: The fact that triggered creation (for provenance).
+
+    Returns:
+        Dict with node_id, node_title, level of the newly created domain.
+    """
+    from pathlib import Path
+
+    arch_path = Path(__file__).parent.parent.parent / "ceo_data" / "bp_architecture.json"
+
+    try:
+        with open(arch_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        all_nodes = data.get("nodes", [])
+    except Exception as e:
+        logger.error("[FeedHandler] Could not read bp_architecture.json to create domain: %s", e)
+        return {"node_id": "NEW_PENDING", "node_title": domain_name, "level": 1}
+
+    new_id = _get_next_domain_id()
+
+    new_node = {
+        "node_id": new_id,
+        "parent_node": None,
+        "level": 1.0,
+        "node_type": "domain",
+        "atomic_status": "non_atomic",
+        "node_title": domain_name,
+        "purpose": f"Top-level domain covering {domain_name.lower()}. Created because existing domains (BP.1–BP.11) did not cover this subject matter.",
+        "required_output": f"Structured facts, decisions, and constraints related to {domain_name.lower()}.",
+        "output_format": None,
+        "proof_burden": None,
+        "evidence_requirement": None,
+        "evidence_gaps_assumptions": None,
+        "linked_uncertainties": None,
+        "prohibited_claims_inference_patterns": None,
+        "dependencies": None,
+        "reopen_condition": None,
+        "decision_implication": None,
+        "execution_mode": None,
+        "human_review_type": None,
+        "executor": None,
+        "controller": None,
+        "architecture_status": "candidate",
+        "evidence_status": None,
+        "notes_limitations": (
+            f"Created automatically via Feed when content didn't fit any existing domain. "
+            f"Not yet reviewed by an architecture pass."
+            + (f" Originating fact: \"{verbatim_text[:200]}\"" if verbatim_text else "")
+        ),
+        "source_data_refs": None,
+        "extracted_data": None,
+        "mapping_rationale": None,
+        "evidence_use_boundary": None,
+        "rag_confidence": None,
+        "review_notes": None,
+    }
+
+    all_nodes.append(new_node)
+    data["nodes"] = all_nodes
+
+    try:
+        with open(arch_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logger.error("[FeedHandler] Could not write new domain %s: %s", new_id, e)
+        return {"node_id": "NEW_PENDING", "node_title": domain_name, "level": 1}
+
+    # Update the in-memory keyword map and titles so immediate re-classification sees it
+    LEVEL1_KEYWORDS[new_id] = [w.lower() for w in domain_name.split() if len(w) > 3]
+    LEVEL1_TITLES[new_id] = domain_name
+
+    # Invalidate embedding cache
+    global _node_embedding_cache
+    _node_embedding_cache = None
+
+    logger.info("[FeedHandler] Created new domain %s (%s)", new_id, domain_name)
+    return {"node_id": new_id, "node_title": domain_name, "level": 1}
+
+
+def handle_new_domain_name(response_text: str, session_id: str) -> dict:
+    """Handle Alex's new domain name after choosing [1] on a no_domain_match review.
+
+    Creates a real top-level domain in bp_architecture.json, then stores
+    the pending fact under it.
+
+    Args:
+        response_text: The domain name Alex typed.
+        session_id: Current session ID.
+
+    Returns:
+        Dict with action and response_text.
+    """
+    pending = get_pending_fact(session_id)
+    if not pending:
+        set_feed_state(session_id, None)
+        return {
+            "action": "no_pending",
+            "response_text": "No pending fact found. Please re-submit.",
+        }
+
+    text_lower = response_text.strip().lower()
+    if text_lower in SKIP_WORDS:
+        clear_pending_fact(session_id)
+        remaining = pending.get("remaining_facts", [])
+        if remaining:
+            set_feed_state(session_id, None)
+            return _process_next_fact(remaining, session_id)
+        set_feed_state(session_id, None)
+        return {"action": "skipped", "response_text": "Fact skipped. Nothing was stored."}
+
+    domain_name = response_text.strip()
+    if len(domain_name) < 3:
+        return {
+            "action": "invalid_name",
+            "response_text": "Domain name too short. Please provide a descriptive title (3+ characters).",
+        }
+
+    new_domain = _create_new_domain(
+        domain_name=domain_name,
+        verbatim_text=pending.get("verbatim_text", ""),
+    )
+
+    if new_domain["node_id"] == "NEW_PENDING":
+        set_feed_state(session_id, None)
+        clear_pending_fact(session_id)
+        return {
+            "action": "error",
+            "response_text": "Failed to create domain. Please try again.",
+        }
+
+    # Store the fact under the newly created domain
+    pending["proposed_node"] = new_domain
+    pending["node_confidence"] = "new_domain_created"
+    pending["new_node_flag"] = True
+    pending["proposed_parent"] = {"node_id": new_domain["node_id"], "node_title": new_domain["node_title"]}
+    store_pending_fact(session_id, pending)
+
+    return _execute_approval(pending, session_id)
 
 
 def handle_new_node_name(response_text: str, session_id: str) -> dict:
@@ -2387,7 +2569,7 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
         suggested_parent = fact_data.get("suggested_parent", {})
         no_domain = suggested_parent.get("no_domain_match", False)
         if no_domain:
-            lines.append("  [1] Create new top-level domain (manual review needed)")
+            lines.append("  [1] Create new top-level domain — type a name to create it")
         else:
             lines.append(f"  [1] Create new node under {suggested_parent.get('node_id', '?')}")
     else:
@@ -2535,6 +2717,10 @@ def handle_feed_message(text: str, session_id: str) -> str:
         if state == "FEED_AWAITING_PARENT_SELECTION":
             result = handle_parent_selection(text, session_id)
             return result.get("response_text") or "Processing parent selection..."
+
+        if state == "FEED_AWAITING_NEW_DOMAIN_NAME":
+            result = handle_new_domain_name(text, session_id)
+            return result.get("response_text") or "Processing new domain..."
 
         if looks_like_question(text):
             result = handle_feed_question(text, session_id)
