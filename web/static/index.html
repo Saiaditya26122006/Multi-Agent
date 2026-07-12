@@ -680,6 +680,18 @@
             flex-shrink: 0;
         }
 
+        .trace-entry--validation {
+            border-left: 3px solid var(--success);
+            padding-left: 10px;
+            margin-left: -3px;
+        }
+
+        .trace-entry--validation .trace-agent-tag {
+            background: var(--success-soft);
+            color: var(--success);
+            border-color: var(--success);
+        }
+
         .trace-entry-body {
             flex: 1;
             min-width: 0;
@@ -1352,6 +1364,53 @@
             animation: typingStatusFade 0.3s ease-in;
         }
 
+        .typing-status--validation {
+            color: var(--success);
+            font-weight: 500;
+        }
+
+        .typing-step-progress {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            font-family: 'JetBrains Mono', monospace;
+            animation: typingStatusFade 0.3s ease-in;
+        }
+
+        .typing-step-progress-bar {
+            display: flex;
+            gap: 3px;
+        }
+
+        .typing-step-pip {
+            width: 16px;
+            height: 3px;
+            border-radius: 2px;
+            background: var(--border);
+            transition: background 0.3s ease;
+        }
+
+        .typing-step-pip--done {
+            background: var(--accent);
+        }
+
+        .typing-step-pip--active {
+            background: var(--accent);
+            animation: pipPulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes pipPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .typing-step-label {
+            white-space: nowrap;
+        }
+
         @keyframes typingBounce {
             0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
             30% { transform: translateY(-4px); opacity: 1; }
@@ -2013,6 +2072,50 @@
         .process-step-body {
             flex: 1;
             min-width: 0;
+        }
+
+        /* Validation trace variant — green left rail instead of accent */
+        .process-step--validation .process-step-dot {
+            background: var(--success);
+        }
+
+        .process-step--validation.process-step-active .process-step-dot {
+            background: var(--success);
+            animation: dotGlowGreen 1.6s ease-in-out infinite;
+        }
+
+        @keyframes dotGlowGreen {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.35); transform: scale(1); }
+            50% { box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.12); transform: scale(1.15); }
+        }
+
+        .process-step--validation .process-step-agent {
+            color: var(--success);
+        }
+
+        /* Quality gate badge — inline pass/fail indicator */
+        .quality-gate-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .quality-gate-badge--pass {
+            background: var(--success-soft);
+            color: var(--success);
+        }
+
+        .quality-gate-badge--fail {
+            background: var(--warning-soft);
+            color: var(--warning);
         }
 
         .process-step-agent {
@@ -3065,11 +3168,24 @@
                     activityEmptyState.remove();
                 }
 
+                const isValidation = data.step === 'validating' || data.step === 'validated';
+                const entryClass = isValidation ? 'trace-entry trace-entry--validation' : 'trace-entry';
+
+                // Quality gate badge for validation results
+                let badgeHtml = '';
+                if (data.data && (data.step === 'validated' || data.step === 'validating')) {
+                    if (data.data.passed === true) {
+                        badgeHtml = '<span class="quality-gate-badge quality-gate-badge--pass">&#10003; Valid</span>';
+                    } else if (data.data.passed === false) {
+                        badgeHtml = '<span class="quality-gate-badge quality-gate-badge--fail">&#9888; Needs review</span>';
+                    }
+                }
+
                 const html = `
-                    <div class="trace-entry">
+                    <div class="${entryClass}">
                         <span class="trace-agent-tag mono">${escapeHtml(data.agent || '?')}</span>
                         <div class="trace-entry-body">
-                            <div class="trace-entry-detail">${escapeHtml(data.detail || data.step || '')}</div>
+                            <div class="trace-entry-detail">${escapeHtml(data.detail || data.step || '')}${badgeHtml}</div>
                             <div class="trace-entry-time">${formatTime(new Date(data.timestamp || Date.now()))}</div>
                         </div>
                     </div>
@@ -3320,12 +3436,23 @@
                     `;
                 }
 
+                // Validation step — distinct green accent + quality gate badge
+                const isValidation = step === 'validating' || step === 'validated';
+                const validationCls = isValidation ? ' process-step--validation' : '';
+
+                let qualityBadge = '';
+                if (isValidation && data.passed === true) {
+                    qualityBadge = '<span class="quality-gate-badge quality-gate-badge--pass">&#10003; Valid</span>';
+                } else if (isValidation && data.passed === false) {
+                    qualityBadge = '<span class="quality-gate-badge quality-gate-badge--fail">&#9888; Needs review</span>';
+                }
+
                 return `
-                    <div class="process-step ${cls}${animateIn ? ' process-step-new' : ''}">
+                    <div class="process-step ${cls}${validationCls}${animateIn ? ' process-step-new' : ''}">
                         <div class="process-step-rail"><span class="process-step-dot"></span></div>
                         <div class="process-step-body">
                             <span class="process-step-agent mono">${escapeHtml(entry.agent || '?')}</span>
-                            <div class="process-step-detail">${escapeHtml(entry.detail || entry.step || '')}</div>
+                            <div class="process-step-detail">${escapeHtml(entry.detail || entry.step || '')}${qualityBadge}</div>
                         </div>
                     </div>
                 `;
@@ -4250,9 +4377,13 @@
                     handleProcessTraceEvent(data);
                     // Drive the typing indicator with live trace detail
                     if (data.detail && document.getElementById('typingMsg')) {
-                        updateTypingStatus(data.detail);
+                        updateTypingStatus(data.detail, data);
                     } else if (data.detail && !document.getElementById('typingMsg')) {
                         showTypingIndicator(data.detail);
+                        // If first trace is a classification stage, show progress immediately
+                        if (data.step && getStageIndex(data.step) >= 0) {
+                            updateTypingStatus(data.detail, data);
+                        }
                     }
                 } else if (data.role === 'status') {
                     if (data.text) {
@@ -4452,6 +4583,44 @@
             }
 
             // --- Typing Indicator ---
+
+            // Classification pipeline stages (in order) for the step progress bar
+            const CLASSIFICATION_STAGES = [
+                { step: 'splitting', label: 'Splitting' },
+                { step: 'summarizing', label: 'Summarizing' },
+                { step: 'classifying', label: 'Classifying' },
+                { step: 'validating', label: 'Validating' },
+                { step: 'auto_filing', label: 'Filing' },
+            ];
+            let currentClassificationStep = null;
+
+            function getStageIndex(step) {
+                // classifying_progress counts as part of classifying
+                const normalized = step === 'classifying_progress' ? 'classifying' : step;
+                return CLASSIFICATION_STAGES.findIndex(s => s.step === normalized);
+            }
+
+            function renderStepProgress(step) {
+                const idx = getStageIndex(step);
+                if (idx < 0) return '';
+
+                const pips = CLASSIFICATION_STAGES.map((s, i) => {
+                    let cls = 'typing-step-pip';
+                    if (i < idx) cls += ' typing-step-pip--done';
+                    else if (i === idx) cls += ' typing-step-pip--active';
+                    return `<div class="${cls}"></div>`;
+                }).join('');
+
+                const label = `Step ${idx + 1}/${CLASSIFICATION_STAGES.length}: ${CLASSIFICATION_STAGES[idx].label}`;
+
+                return `
+                    <div class="typing-step-progress" id="typingStepProgress">
+                        <div class="typing-step-progress-bar">${pips}</div>
+                        <span class="typing-step-label">${label}</span>
+                    </div>
+                `;
+            }
+
             function showTypingIndicator(statusText) {
                 removeTypingIndicator();
                 const status = statusText || 'Thinking...';
@@ -4467,6 +4636,7 @@
                                         <div class="typing-dot"></div>
                                     </div>
                                     <div class="typing-status" id="typingStatus">${escapeHtml(status)}</div>
+                                    <div id="typingStepProgressContainer"></div>
                                 </div>
                             </div>
                         </div>
@@ -4476,20 +4646,40 @@
                 scrollToBottom();
             }
 
-            function updateTypingStatus(statusText) {
+            function updateTypingStatus(statusText, traceData) {
                 const el = document.getElementById('typingStatus');
                 if (el) {
                     el.textContent = statusText;
+                    // Apply validation accent if this is a validating step
+                    if (traceData && (traceData.step === 'validating' || traceData.step === 'validated')) {
+                        el.classList.add('typing-status--validation');
+                    } else {
+                        el.classList.remove('typing-status--validation');
+                    }
                     el.style.animation = 'none';
                     el.offsetHeight; // force reflow
                     el.style.animation = '';
                 }
+
+                // Update step progress bar if this is a classification pipeline step
+                if (traceData && traceData.step) {
+                    const stageIdx = getStageIndex(traceData.step);
+                    if (stageIdx >= 0) {
+                        currentClassificationStep = traceData.step;
+                        const container = document.getElementById('typingStepProgressContainer');
+                        if (container) {
+                            container.innerHTML = renderStepProgress(traceData.step);
+                        }
+                    }
+                }
+
                 scrollToBottom();
             }
 
             function removeTypingIndicator() {
                 const el = document.getElementById('typingMsg');
                 if (el) el.remove();
+                currentClassificationStep = null;
             }
 
             // --- Workspace ---

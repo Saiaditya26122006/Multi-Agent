@@ -647,57 +647,50 @@ def _get_domain_nodes_ranked(
     return scored[:max_inject]
 
 
-def _fact_violates_prohibition(fact_text: str, prohibited_claims: str) -> bool:
-    """Check if a fact semantically overlaps with a node's prohibited claims.
+_REQUIRED_OUTPUT_STOPWORDS = frozenset({
+    "must", "should", "will", "would", "could", "that", "this", "with",
+    "from", "which", "have", "been", "their", "these", "those", "about",
+    "into", "over", "each", "every", "both", "more", "most", "other",
+    "some", "such", "than", "also", "only", "does", "based", "under",
+    "between", "through", "during", "before", "after", "include",
+    "including", "across", "within", "where", "what", "when", "they",
+    "them", "there", "then", "here", "just", "very", "well", "like",
+    "still", "even", "however", "provides", "required", "output",
+    "format", "structured", "list", "data", "information", "related",
+})
 
-    Uses keyword extraction from the prohibition text and checks if the fact
-    contains multiple prohibited terms (or their stem-prefixes). A single
-    word overlap isn't enough — we need at least 2 distinct prohibition
-    terms present to trigger, reducing false positives.
+
+def _required_output_precheck(fact_text: str, required_output: str) -> bool:
+    """Fast programmatic check: does the fact share ANY key nouns with required_output?
+
+    Extracts 4+ char words (excluding stopwords) from the node's required_output
+    and checks for overlap with the fact text. If ZERO overlap, the fact almost
+    certainly does not belong under this node — skip the expensive LLM validation.
 
     Args:
         fact_text: The fact being classified.
-        prohibited_claims: The node's prohibited_claims_inference_patterns field.
+        required_output: The node's required_output field.
 
     Returns:
-        True if the fact likely violates the node's prohibitions.
+        True if there is at least one meaningful word overlap (fact MAY fit).
+        False if zero overlap (fact almost certainly does NOT fit).
     """
-    prohibition_lower = prohibited_claims.lower()
+    if not required_output:
+        return True  # No required_output to check against — permissive
+
+    ro_lower = required_output.lower()
     fact_lower = fact_text.lower()
 
-    stopwords = {
-        "must", "not", "the", "and", "from", "that", "this", "with", "for",
-        "are", "was", "been", "have", "has", "had", "will", "would", "could",
-        "should", "may", "might", "can", "based", "alone", "without", "any",
-        "all", "its", "their", "into", "over", "upon", "about", "between",
-        "through", "during", "before", "after", "above", "below", "each",
-        "every", "both", "few", "more", "most", "other", "some", "such",
-        "than", "too", "very", "just", "also", "only", "own", "same",
-        "does", "did", "doing", "claim", "claims", "infer", "evidence",
-    }
+    ro_words = set(re.findall(r"[a-z]{4,}", ro_lower))
+    ro_nouns = ro_words - _REQUIRED_OUTPUT_STOPWORDS
 
-    prohibition_terms = set()
-    words = re.findall(r"[a-z]+", prohibition_lower)
-    for w in words:
-        if w not in stopwords and len(w) > 3:
-            prohibition_terms.add(w)
+    if not ro_nouns:
+        return True  # Only stopwords — cannot meaningfully filter
 
-    if not prohibition_terms:
-        return False
+    fact_words = set(re.findall(r"[a-z]{4,}", fact_lower))
 
-    # Check for each prohibition term using stem-prefix matching:
-    # "improvement" matches "improve", "improving", "improved" etc.
-    # Use first 5 chars as prefix for words >= 6 chars, exact match otherwise.
-    hits = 0
-    for term in prohibition_terms:
-        if term in fact_lower:
-            hits += 1
-        elif len(term) >= 6:
-            prefix = term[:5]
-            if re.search(r"\b" + re.escape(prefix) + r"[a-z]*\b", fact_lower):
-                hits += 1
-
-    return hits >= 2
+    overlap = ro_nouns & fact_words
+    return len(overlap) > 0
 
 
 def classify_and_match_node(text: str, session_id: Optional[str] = None, document_context: Optional[str] = None, use_fast_model: bool = False) -> dict:
@@ -785,22 +778,125 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
         result["purpose"] = node_details.get("purpose") or ""
         result["level"] = node_details.get("level", 0)
 
-        # --- Approach A: Programmatic prohibition gate ---
-        # After the LLM picks a node, check if storing this fact would
-        # violate the node's prohibited_claims. If the fact text overlaps
-        # significantly with what the node explicitly bars, demote confidence
-        # to "low" so it goes to human review instead of auto-filing.
+        # --- Hybrid validation (replaces old keyword-stem prohibition gate) ---
+        # For high-confidence matches, run a two-stage check:
+        # Stage 1: Fast required_output pre-check (no API call)
+        # Stage 2: LLM-based semantic validation (one Haiku call)
         if result.get("confidence") == "high":
-            prohibited = node_details.get("prohibited_claims_inference_patterns") or ""
-            if prohibited and _fact_violates_prohibition(text, prohibited):
-                result["confidence"] = "low"
+            required_output = node_details.get("required_output") or ""
+            precheck_passed = _required_output_precheck(text, required_output)
+
+            if not precheck_passed:
+                # Zero keyword overlap with required_output — immediate demote,
+                # no need to spend a Haiku call validating what's clearly wrong
+                result["confidence"] = "medium"
                 result["reasoning"] = (
-                    f"Demoted: fact overlaps with node's prohibited claims "
+                    f"Demoted: fact has no keyword overlap with node's required_output "
                     f"({result['node_id']}). Needs human review."
                 )
                 logger.info(
-                    "[FeedHandler] Prohibition gate triggered: fact demoted from high -> low for %s",
+                    "[FeedHandler] Required-output precheck failed: demoted high -> medium for %s",
                     result["node_id"],
+                )
+            else:
+                # Pre-check passed — run the LLM validation for semantic accuracy
+                if session_id:
+                    emit_trace(
+                        session_id, "Classifier", "validating",
+                        f"Validating placement against node constraints...",
+                        data={"node_id": result["node_id"], "phase": "validation"},
+                    )
+                try:
+                    from web.handlers.llm_helper import validate_classification
+
+                    validation = validate_classification(text, node_details)
+
+                    if validation["prohibition_violated"] and not validation["required_output_match"]:
+                        # BOTH checks failed — this is definitively wrong
+                        result["node_id"] = None
+                        result["node_title"] = ""
+                        result["confidence"] = "low"
+                        result["none_fit"] = True
+                        result["reasoning"] = (
+                            f"Validation rejected: prohibition violated AND required_output mismatch. "
+                            f"{validation['reasoning']}"
+                        )
+                        result["suggested_parent"] = _get_suggested_parent(candidates, text=text)
+                        if session_id:
+                            emit_trace(
+                                session_id, "Classifier", "validated",
+                                f"Validation failed — prohibition violated and output mismatch",
+                                data={"passed": False, "phase": "validation"},
+                            )
+                        logger.info(
+                            "[FeedHandler] Validation double-reject: forced none_fit for fact"
+                        )
+                    elif validation["prohibition_violated"]:
+                        result["confidence"] = "low"
+                        result["reasoning"] = (
+                            f"Demoted: fact violates node's prohibition "
+                            f"({result['node_id']}). {validation['reasoning']}"
+                        )
+                        if session_id:
+                            emit_trace(
+                                session_id, "Classifier", "validated",
+                                f"Validation failed — prohibition violated ({result['node_id']})",
+                                data={"node_id": result["node_id"], "passed": False, "phase": "validation"},
+                            )
+                        logger.info(
+                            "[FeedHandler] Prohibition validated: demoted high -> low for %s",
+                            result["node_id"],
+                        )
+                    elif not validation["required_output_match"]:
+                        result["confidence"] = "medium"
+                        result["reasoning"] = (
+                            f"Demoted: fact doesn't produce node's required_output "
+                            f"({result['node_id']}). {validation['reasoning']}"
+                        )
+                        if session_id:
+                            emit_trace(
+                                session_id, "Classifier", "validated",
+                                f"Validation partial — required output mismatch ({result['node_id']})",
+                                data={"node_id": result["node_id"], "passed": False, "phase": "validation"},
+                            )
+                        logger.info(
+                            "[FeedHandler] Required-output mismatch: demoted high -> medium for %s",
+                            result["node_id"],
+                        )
+                    else:
+                        # Validation passed — mark so the UI can distinguish
+                        # "verified via LLM" from "direct high-confidence match"
+                        result["validated"] = True
+                        if session_id:
+                            emit_trace(
+                                session_id, "Classifier", "validated",
+                                f"Validated ✓ — placement confirmed for {result['node_id']}",
+                                data={"node_id": result["node_id"], "passed": True, "phase": "validation"},
+                            )
+                except Exception as e:
+                    logger.error(
+                        "[FeedHandler] LLM validation failed (keeping original classification): %s", e
+                    )
+
+        # --- Strict none_fit enforcement ---
+        # If the LLM returned medium/low confidence AND the required_output
+        # pre-check found zero overlap, force none_fit. The fact genuinely
+        # doesn't belong to any candidate.
+        if (
+            not result.get("none_fit")
+            and result.get("node_id")
+            and result.get("confidence") in ("medium", "low")
+        ):
+            r_output = (node_details.get("required_output") or "")
+            if r_output and not _required_output_precheck(text, r_output):
+                result["node_id"] = None
+                result["node_title"] = ""
+                result["none_fit"] = True
+                result["confidence"] = "low"
+                result["reasoning"] = "Content is outside the scope of candidates provided."
+                result["suggested_parent"] = _get_suggested_parent(candidates, text=text)
+                logger.info(
+                    "[FeedHandler] Strict none_fit enforced: medium/low confidence + zero required_output overlap"
                 )
 
     if session_id:
@@ -1034,14 +1130,22 @@ def _format_auto_file_table(results: list[dict]) -> str:
     if stored:
         lines.append(f"**Auto-filed {len(stored)} fact(s) — high-confidence match, no review needed:**")
         lines.append("")
-        lines.append("| Node | Status | Data |")
-        lines.append("|------|--------|------|")
+        lines.append("| Node | Status | Confidence | Data |")
+        lines.append("|------|--------|------------|------|")
         for r in stored:
             node = f"{r['node_id']} — {r['node_title']}" if r.get("node_id") else "Unmatched"
             text = r["verbatim_text"].replace("|", "\\|").replace("\n", " ")
             if len(text) > 120:
                 text = text[:117] + "..."
-            lines.append(f"| {node} | [{r['epistemic_status']}] | {text} |")
+            # Confidence indicator: validated items show verified checkmark,
+            # direct high-confidence matches show plain high indicator
+            if r.get("validated"):
+                conf_indicator = "✓ verified"
+            elif r.get("confidence") == "high":
+                conf_indicator = "high"
+            else:
+                conf_indicator = r.get("confidence", "?")
+            lines.append(f"| {node} | [{r['epistemic_status']}] | {conf_indicator} | {text} |")
 
     if duplicates:
         lines.append("")
@@ -1237,6 +1341,8 @@ def handle_raw_text(
                 "node_title": node_title,
                 "epistemic_status": fact_data["epistemic_status"],
                 "status": result["status"],
+                "confidence": classification.get("confidence", "high"),
+                "validated": classification.get("validated", False),
             })
 
         if auto_results and session_id:
