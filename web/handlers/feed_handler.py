@@ -351,32 +351,96 @@ LEVEL1_TITLES: dict[str, str] = {
 
 
 def _get_suggested_parent(candidates: list[dict], text: str = "") -> dict:
-    """Determine the best level-1 parent using keyword matching against text.
+    """Determine the best level-1 parent, or flag "no domain match."
+
+    Uses an LLM call to verify the content's subject matter actually matches
+    the scope of a domain — not just keyword overlap. If no domain genuinely
+    fits (e.g., legal entity structure, jurisdiction, cap table, incorporation),
+    returns a special "no_domain_match" result so the UI can show "flag for
+    manual domain-creation review" instead of force-fitting under a wrong parent.
 
     Args:
         candidates: Node match candidates (unused, kept for call-site compat).
-        text: The fact text to match keywords against.
+        text: The fact text to match against domain scopes.
 
     Returns:
-        Dict with node_id and node_title of the best level-1 parent.
+        Dict with node_id and node_title of the best level-1 parent,
+        OR node_id=None and no_domain_match=True when nothing fits.
     """
-    if text:
-        text_lower = text.lower()
-        scores: dict[str, int] = {}
-        for node_id, keywords in LEVEL1_KEYWORDS.items():
-            score = sum(1 for kw in keywords if kw in text_lower)
-            if score > 0:
-                scores[node_id] = score
-        if scores:
-            best = max(scores, key=scores.get)
-            return {"node_id": best, "node_title": LEVEL1_TITLES.get(best, best)}
+    if not text:
+        return {"node_id": None, "node_title": "", "no_domain_match": True}
 
-    # No keyword hit at all — fall back to BP.1 (Product, Workflow, and
-    # Scope Definition), the most general-purpose real domain, rather than
-    # a made-up title. (Previously this fell back to "BP.6 — Evidence and
-    # Validation", a title that doesn't belong to BP.6 in the real
-    # architecture — see the comment above LEVEL1_KEYWORDS.)
-    return {"node_id": "BP.1", "node_title": LEVEL1_TITLES["BP.1"]}
+    # Build a compact domain description for the LLM
+    domain_descriptions = "\n".join(
+        f"- {nid}: {title}"
+        for nid, title in sorted(LEVEL1_TITLES.items())
+    )
+
+    try:
+        from web.handlers.llm_helper import _get_client
+        import os
+
+        client = _get_client()
+        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+
+        system_prompt = (
+            "You are a strict domain classifier. Given a fact and a list of business plan domains, "
+            "determine which domain this fact GENUINELY belongs to based on the domain's PRIMARY subject — "
+            "not keyword overlap or tangential mentions.\n\n"
+            "CRITICAL RULES:\n"
+            "- The CORE SUBJECT of the fact determines the domain, not incidental mentions. "
+            "A fact about incorporation structure that MENTIONS fundraising is about "
+            "legal/corporate structure, NOT investor narrative.\n"
+            "- Legal entity structure, incorporation, jurisdiction, corporate formation, "
+            "and where-to-incorporate decisions do NOT belong under any existing domain. "
+            "These are corporate governance topics outside BP.1–BP.11 scope.\n"
+            "- 'Geographic Scope' (in BP.1) means product geographic targeting, NOT physical "
+            "location of the company's legal entity.\n"
+            "- 'Compliance' (BP.7) means PRODUCT data/privacy/regulatory compliance, NOT "
+            "business entity legal choices.\n"
+            "- 'Investor Narrative' (BP.11) means pitch deck and fundraise strategy, NOT "
+            "corporate entity decisions that happen to affect future fundraising.\n"
+            "- If the fact's PRIMARY subject does not genuinely fall within ANY domain's "
+            "stated scope, return domain_id=null. Prefer null over force-fitting.\n\n"
+            "Respond with ONLY a JSON object:\n"
+            '{"domain_id": "<BP.X or null>", "reasoning": "<one sentence>"}'
+        )
+
+        user_message = (
+            f"FACT: \"{text[:500]}\"\n\n"
+            f"AVAILABLE DOMAINS:\n{domain_descriptions}\n\n"
+            "Which domain does this fact GENUINELY belong to? Return the JSON."
+        )
+
+        response = client.converse(
+            modelId=model_id,
+            system=[{"text": system_prompt}],
+            messages=[{"role": "user", "content": [{"text": user_message}]}],
+            inferenceConfig={"maxTokens": 100},
+        )
+
+        raw = response["output"]["message"]["content"][0]["text"].strip()
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+
+        import json as _json
+        data = _json.loads(raw)
+        domain_id = data.get("domain_id")
+
+        if domain_id and domain_id in LEVEL1_TITLES:
+            return {"node_id": domain_id, "node_title": LEVEL1_TITLES[domain_id]}
+
+        # LLM said null or invalid domain → no genuine match
+        logger.info(
+            "[FeedHandler] Parent suggestion: no domain match for fact. Reason: %s",
+            data.get("reasoning", "unknown"),
+        )
+        return {"node_id": None, "node_title": "", "no_domain_match": True}
+
+    except Exception as e:
+        logger.error("[FeedHandler] Parent suggestion LLM call failed: %s", e)
+        # On failure, return no_domain_match rather than guessing
+        return {"node_id": None, "node_title": "", "no_domain_match": True}
 
 
 def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
@@ -1106,10 +1170,13 @@ def _format_auto_file_table(results: list[dict]) -> str:
 
     web/static/index.html loads marked.js and renders chat text through
     marked.parse(text, {breaks: true}), which supports real markdown
-    tables — so this builds an actual `| Node | Status | Data |` table
+    tables — so this builds a `| Node | Status | Confidence | Data |` table
     rather than hand-aligned plain text. This is the "show in a table
     that the raw data which matches to these nodes and i have
     automatically updated to that node" piece of the request.
+
+    The Confidence column distinguishes items that passed LLM validation
+    (showing "verified") from direct high-confidence matches (showing "high").
 
     Stored facts get the table. Duplicates and errors get a short note
     underneath instead of a row each, so a failure or a dupe skip is
@@ -1117,7 +1184,8 @@ def _format_auto_file_table(results: list[dict]) -> str:
 
     Args:
         results: List of dicts with verbatim_text, node_id, node_title,
-            epistemic_status, status ("stored"/"duplicate"/"error").
+            epistemic_status, status ("stored"/"duplicate"/"error"),
+            confidence ("high"/"medium"/"low"), validated (bool).
 
     Returns:
         Markdown-formatted summary string.
@@ -1457,6 +1525,23 @@ def handle_approval_response(response_text: str, session_id: str) -> dict:
             suggested_parent = classification.get("suggested_parent") or _get_suggested_parent(
                 [], text=pending.get("verbatim_text", "")
             )
+
+            # Handle no_domain_match: ask Alex to specify a parent manually
+            # since we can't guess one without force-fitting
+            if suggested_parent.get("no_domain_match"):
+                set_feed_state(session_id, "FEED_AWAITING_PARENT_SELECTION")
+                pending["suggested_parent"] = suggested_parent
+                store_pending_fact(session_id, pending)
+                return {
+                    "action": "awaiting_parent_selection",
+                    "response_text": (
+                        "This content doesn't fit any existing domain (BP.1–BP.11).\n"
+                        "If you want to create a new node anyway, type the parent node ID "
+                        "(e.g. BP.7 for legal/compliance, or BP.11 for investor/finance).\n"
+                        "Or type [skip] to discard."
+                    ),
+                }
+
             set_feed_state(session_id, "FEED_AWAITING_NEW_NODE_NAME")
             pending["suggested_parent"] = suggested_parent
             store_pending_fact(session_id, pending)
@@ -2266,9 +2351,17 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
             [], text=verbatim
         )
         fact_data["suggested_parent"] = suggested_parent
-        lines.append("  No existing node is a strong fit for this fact.")
-        lines.append("")
-        lines.append(f"  Suggested parent: {suggested_parent['node_id']} — {suggested_parent['node_title']}")
+        no_domain = suggested_parent.get("no_domain_match", False)
+
+        if no_domain:
+            lines.append("  No existing domain covers this content.")
+            lines.append("")
+            lines.append("  This fact is outside the scope of BP.1–BP.11 entirely.")
+            lines.append("  (e.g., legal entity structure, jurisdiction, incorporation)")
+        else:
+            lines.append("  No existing node is a strong fit for this fact.")
+            lines.append("")
+            lines.append(f"  Suggested parent: {suggested_parent['node_id']} — {suggested_parent['node_title']}")
         reasoning = classification.get("reasoning")
         if reasoning:
             lines.append(f"  ({reasoning})")
@@ -2292,7 +2385,11 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
 
     if none_fit:
         suggested_parent = fact_data.get("suggested_parent", {})
-        lines.append(f"  [1] Create new node under {suggested_parent.get('node_id', '?')}")
+        no_domain = suggested_parent.get("no_domain_match", False)
+        if no_domain:
+            lines.append("  [1] Create new top-level domain (manual review needed)")
+        else:
+            lines.append(f"  [1] Create new node under {suggested_parent.get('node_id', '?')}")
     else:
         lines.append("  [1] Confirm — store here")
     lines.append("  [2] Adjust — pick a different node")
