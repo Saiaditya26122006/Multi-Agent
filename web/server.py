@@ -620,13 +620,24 @@ async def post_message(req: SendMessageRequest):
             session_key,
             {"role": "status", "text": "Processing...", "timestamp": datetime.utcnow().isoformat()},
         )
-        response_text = await asyncio.to_thread(
-            _handle_workspace_message, current_ws, req.text.strip(), session_key
-        )
-        await manager.broadcast(
-            session_key,
-            {"role": "status", "text": "", "timestamp": datetime.utcnow().isoformat()},
-        )
+        try:
+            response_text = await asyncio.wait_for(
+                asyncio.to_thread(
+                    _handle_workspace_message, current_ws, req.text.strip(), session_key
+                ),
+                timeout=120.0,
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"[Workspace:{current_ws.value}] Handler timed out after 120s")
+            response_text = "That took too long. Please try again or simplify your request."
+        except Exception as e:
+            logger.error(f"[Workspace:{current_ws.value}] Handler crashed: {e}", exc_info=True)
+            response_text = "Something went wrong processing that. Please try again."
+        finally:
+            await manager.broadcast(
+                session_key,
+                {"role": "status", "text": "", "timestamp": datetime.utcnow().isoformat()},
+            )
         if not response_text:
             response_text = "Received — nothing to show for that input."
         await manager.broadcast(
