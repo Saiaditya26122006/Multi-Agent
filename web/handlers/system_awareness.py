@@ -4,6 +4,8 @@ System Awareness Q&A module.
 Answers natural questions about the system's own state, history, and activity
 (as opposed to business plan content questions). Queries live data sources and
 synthesizes natural answers via Haiku.
+
+Data source priority: Supabase (live DB) > local JSON (fallback only).
 """
 
 import json
@@ -31,6 +33,7 @@ _SYSTEM_PATTERNS = [
     r"\bwhat (nodes?|domains?) exist\b",
     r"\barchitecture structure\b",
     r"\bhow many (nodes?|domains?)\b",
+    r"\blates\w* (node|domain)\b",
     # Classification/filing
     r"\bwhat was filed\b",
     r"\bwhat got classified\b",
@@ -68,17 +71,11 @@ _CONTENT_RE = [re.compile(p, re.IGNORECASE) for p in _CONTENT_PATTERNS]
 
 
 def is_system_question(text: str) -> bool:
-    """Detect whether the user is asking about the system itself.
-
-    Returns True for questions about nodes added, filing history, system
-    activity, errors, freshness — but NOT for business-plan content questions.
-    """
-    # Check negative patterns first — if it looks like a content question, bail
+    """Detect whether the user is asking about the system itself."""
     for pattern in _CONTENT_RE:
         if pattern.search(text):
             return False
 
-    # Check positive patterns
     for pattern in _SYSTEM_RE:
         if pattern.search(text):
             return True
@@ -86,26 +83,97 @@ def is_system_question(text: str) -> bool:
     return False
 
 
-def classify_system_intent(text: str) -> str:
-    """Classify the system question into one of four categories.
+# ─── LLM-based intent classification ─────────────────────────────────────────
 
-    Returns one of:
-      - "architecture_changes" — about nodes/domains added/modified
-      - "classification_history" — what was filed where, rejected, pending
-      - "system_activity" — counts, processing stats, errors
-      - "data_freshness" — when sections were updated, what's stale/new
+_INTENT_SYSTEM_PROMPT = """You are an intent classifier for EpistemicOS system questions.
+Classify the user's question into EXACTLY ONE category and extract the time window.
+
+Categories:
+- architecture_changes: about nodes/domains added, modified, created, how many exist, structure
+- classification_history: what was filed where, rejected, pending, auto-filed
+- system_activity: processing counts, errors, failures, what happened
+- data_freshness: when sections were last updated, what's stale, what's new in a section
+
+Also extract these parameters:
+- time_window: how far back the user is asking about. Use minutes as the unit.
+  "today" = 1440, "yesterday" = 2880, "this week" = 10080, "last hour" = 60
+  If no time specified, use 10080 (7 days).
+- specific_node: if the user mentions a specific node ID (like BP.13, BP.1.2), extract it. Otherwise null.
+
+Respond with ONLY valid JSON, no markdown:
+{"intent": "<category>", "time_window_minutes": <int>, "specific_node": <string or null>}"""
+
+
+def classify_system_intent_llm(text: str) -> dict:
+    """Use Haiku to classify intent + extract temporal/node parameters.
+
+    Returns dict with: intent, time_window_minutes, specific_node.
+    Falls back to keyword-based classification on LLM failure.
     """
+    try:
+        from web.handlers.llm_helper import _get_client
+
+        client = _get_client()
+        model_id = os.getenv(
+            "CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        )
+
+        response = client.converse(
+            modelId=model_id,
+            system=[{"text": _INTENT_SYSTEM_PROMPT}],
+            messages=[{"role": "user", "content": [{"text": text}]}],
+            inferenceConfig={"maxTokens": 100},
+        )
+
+        raw = response["output"]["message"]["content"][0]["text"].strip()
+        # Strip markdown fences if present
+        if raw.startswith("```"):
+            raw = re.sub(r"^```\w*\n?", "", raw)
+            raw = re.sub(r"\n?```$", "", raw)
+
+        result = json.loads(raw)
+        valid_intents = {
+            "architecture_changes",
+            "classification_history",
+            "system_activity",
+            "data_freshness",
+        }
+        if result.get("intent") not in valid_intents:
+            result["intent"] = _classify_system_intent_keywords(text)
+
+        result.setdefault("time_window_minutes", 10080)
+        result.setdefault("specific_node", None)
+
+        logger.info(
+            "[SystemAwareness] LLM intent: %s, time=%dm, node=%s",
+            result["intent"],
+            result["time_window_minutes"],
+            result.get("specific_node"),
+        )
+        return result
+
+    except Exception as e:
+        logger.warning(
+            "[SystemAwareness] LLM intent classification failed, using keywords: %s", e
+        )
+        return {
+            "intent": _classify_system_intent_keywords(text),
+            "time_window_minutes": _extract_time_window_fallback(text),
+            "specific_node": _extract_node_id_fallback(text),
+        }
+
+
+def _classify_system_intent_keywords(text: str) -> str:
+    """Keyword-based fallback for intent classification."""
     text_lower = text.lower()
 
-    # Architecture patterns
     arch_keywords = [
         "node", "domain", "created", "added", "architecture",
-        "structure", "how many node", "how many domain", "exist",
+        "structure", "how many node", "how many domain", "exist", "latest",
     ]
     if any(kw in text_lower for kw in arch_keywords):
         return "architecture_changes"
 
-    # Classification/filing patterns
     classify_keywords = [
         "filed", "classified", "auto-filed", "autofiled",
         "rejected", "pending", "classification",
@@ -113,7 +181,6 @@ def classify_system_intent(text: str) -> str:
     if any(kw in text_lower for kw in classify_keywords):
         return "classification_history"
 
-    # Freshness patterns
     fresh_keywords = [
         "stale", "freshness", "updated", "new in",
         "last updated", "outdated", "old data",
@@ -121,72 +188,236 @@ def classify_system_intent(text: str) -> str:
     if any(kw in text_lower for kw in fresh_keywords):
         return "data_freshness"
 
-    # Default to system activity (errors, counts, general "what happened")
     return "system_activity"
 
 
-def query_architecture_changes() -> dict:
-    """Query bp_architecture.json for recently created/candidate nodes.
+def _extract_time_window_fallback(text: str) -> int:
+    """Extract time window from text using regex patterns."""
+    text_lower = text.lower()
+
+    if "today" in text_lower:
+        return 1440
+    if "yesterday" in text_lower:
+        return 2880
+    if "this week" in text_lower or "past week" in text_lower:
+        return 10080
+    if "last hour" in text_lower or "past hour" in text_lower:
+        return 60
+    if "last 24" in text_lower:
+        return 1440
+
+    # Match "last N hours/days/minutes"
+    match = re.search(r"last (\d+)\s*(hour|day|minute|min|hr)", text_lower)
+    if match:
+        num = int(match.group(1))
+        unit = match.group(2)
+        if unit.startswith("hour") or unit.startswith("hr"):
+            return num * 60
+        elif unit.startswith("day"):
+            return num * 1440
+        elif unit.startswith("min"):
+            return num
+
+    return 10080  # Default: 7 days
+
+
+def _extract_node_id_fallback(text: str) -> Optional[str]:
+    """Extract a node ID (BP.X.Y.Z) from text if mentioned."""
+    match = re.search(r"BP\.\d+(?:\.\d+)*", text, re.IGNORECASE)
+    if match:
+        return match.group(0).upper()
+    return None
+
+
+# Keep the old name as a compat shim
+def classify_system_intent(text: str) -> str:
+    """Legacy keyword-based classifier (used by tests)."""
+    return _classify_system_intent_keywords(text)
+
+
+# ─── Data queries (Supabase-first) ───────────────────────────────────────────
+
+def query_architecture_changes(
+    time_window_minutes: int = 10080,
+    specific_node: Optional[str] = None,
+) -> dict:
+    """Query Supabase (primary) + local JSON (fallback) for node/architecture data.
+
+    Supabase is the source of truth for:
+    - Which nodes have data stored
+    - When nodes were last updated
+    - Fact counts per node
+    - Most recently active nodes
+
+    Local JSON provides:
+    - Architecture metadata (type, level, parent, purpose)
+    - Candidate status
+
+    Args:
+        time_window_minutes: How far back to look for recent activity.
+        specific_node: If set, focus results on this node ID.
 
     Returns:
-        Dict with: candidate_nodes (list), auto_created_nodes (list),
-        total_nodes (int), total_candidates (int).
+        Dict with: recent_nodes, node_details, total_nodes_in_db,
+        total_nodes_in_architecture.
     """
+    # ── Primary: Supabase query ──
+    db_data = _query_nodes_from_db(time_window_minutes, specific_node)
+
+    # ── Secondary: local JSON for metadata enrichment ──
+    arch_metadata = _get_architecture_metadata(specific_node)
+
+    # Merge: enrich DB nodes with arch metadata
+    for node in db_data.get("recent_nodes", []):
+        nid = node.get("node_id", "")
+        if nid in arch_metadata:
+            meta = arch_metadata[nid]
+            node["node_type"] = meta.get("node_type", "")
+            node["level"] = meta.get("level", "")
+            node["architecture_status"] = meta.get("architecture_status", "")
+            node["parent_node"] = meta.get("parent_node", "")
+
+    return {
+        "recent_nodes": db_data["recent_nodes"],
+        "total_nodes_in_db": db_data["total_distinct_nodes"],
+        "total_facts_in_window": db_data["total_facts_in_window"],
+        "total_nodes_in_architecture": arch_metadata.get("_total_count", 0),
+        "time_window_minutes": time_window_minutes,
+        "specific_node_query": specific_node,
+    }
+
+
+def _query_nodes_from_db(
+    time_window_minutes: int = 10080,
+    specific_node: Optional[str] = None,
+) -> dict:
+    """Query Supabase knowledge_base for node activity."""
+    try:
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        supabase = _get_supabase()
+        cutoff = (
+            datetime.utcnow() - timedelta(minutes=time_window_minutes)
+        ).isoformat()
+
+        # Get facts in the time window
+        query = (
+            supabase.table(TABLE_NAME)
+            .select("content, section, metadata, created_at, source_type")
+            .gte("created_at", cutoff)
+            .is_("superseded_by", "null")
+            .order("created_at", desc=True)
+            .limit(1000)
+        )
+
+        if specific_node:
+            query = query.eq("metadata->>node_id", specific_node)
+
+        result = query.execute()
+        rows = result.data or []
+
+        # Aggregate per node
+        node_map: dict = {}
+        for row in rows:
+            meta = row.get("metadata") or {}
+            node_id = meta.get("node_id") or ""
+            if not node_id:
+                continue
+
+            if node_id not in node_map:
+                node_map[node_id] = {
+                    "node_id": node_id,
+                    "node_title": meta.get("node_title") or "",
+                    "fact_count": 0,
+                    "latest_fact_at": row.get("created_at") or "",
+                    "earliest_fact_at": row.get("created_at") or "",
+                    "sample_content": (row.get("content") or "")[:120],
+                    "source_type": row.get("source_type") or "",
+                }
+            node_map[node_id]["fact_count"] += 1
+            node_map[node_id]["earliest_fact_at"] = row.get("created_at") or ""
+
+        # Sort by latest_fact_at descending (most recently active first)
+        recent_nodes = sorted(
+            node_map.values(),
+            key=lambda x: x.get("latest_fact_at", ""),
+            reverse=True,
+        )[:30]
+
+        # Get total distinct node count (quick estimate)
+        all_query = (
+            supabase.table(TABLE_NAME)
+            .select("metadata")
+            .not_.is_("metadata->>node_id", "null")
+            .is_("superseded_by", "null")
+            .limit(5000)
+            .execute()
+        )
+        all_node_ids = set()
+        for r in all_query.data or []:
+            nid = (r.get("metadata") or {}).get("node_id")
+            if nid:
+                all_node_ids.add(nid)
+
+        return {
+            "recent_nodes": recent_nodes,
+            "total_distinct_nodes": len(all_node_ids),
+            "total_facts_in_window": len(rows),
+        }
+
+    except Exception as e:
+        logger.error("[SystemAwareness] _query_nodes_from_db failed: %s", e)
+        return {
+            "recent_nodes": [],
+            "total_distinct_nodes": 0,
+            "total_facts_in_window": 0,
+        }
+
+
+def _get_architecture_metadata(
+    specific_node: Optional[str] = None,
+) -> dict:
+    """Load architecture metadata from local JSON. Returns {node_id: metadata}."""
     arch_path = Path(__file__).parent.parent.parent / "ceo_data" / "bp_architecture.json"
 
     try:
         with open(arch_path, "r", encoding="utf-8") as f:
             data = json.load(f)
     except Exception as e:
-        logger.error("[SystemAwareness] Failed to read bp_architecture.json: %s", e)
-        return {
-            "candidate_nodes": [],
-            "auto_created_nodes": [],
-            "total_nodes": 0,
-            "total_candidates": 0,
-        }
+        logger.warning("[SystemAwareness] Could not load bp_architecture.json: %s", e)
+        return {"_total_count": 0}
 
     nodes = data.get("nodes", [])
-    # Skip the header/schema row (first entry has no real node_id like "BP.X")
     real_nodes = [
-        n for n in nodes
-        if n.get("node_id") and n["node_id"].startswith("BP.")
+        n for n in nodes if n.get("node_id") and n["node_id"].startswith("BP.")
     ]
 
-    candidate_nodes = []
-    auto_created_nodes = []
+    result: dict = {"_total_count": len(real_nodes)}
 
     for n in real_nodes:
-        if n.get("architecture_status") == "candidate":
-            candidate_nodes.append({
-                "node_id": n["node_id"],
-                "node_title": n.get("node_title") or "",
-                "parent_node": n.get("parent_node") or "",
-                "notes_limitations": (n.get("notes_limitations") or "")[:200],
-            })
+        nid = n["node_id"]
+        if specific_node and nid != specific_node:
+            continue
+        result[nid] = {
+            "node_type": n.get("node_type") or "",
+            "level": n.get("level") or "",
+            "architecture_status": n.get("architecture_status") or "",
+            "parent_node": n.get("parent_node") or "",
+            "node_title": n.get("node_title") or "",
+        }
 
-        notes = n.get("notes_limitations") or ""
-        if "Created automatically via Feed" in notes:
-            auto_created_nodes.append({
-                "node_id": n["node_id"],
-                "node_title": n.get("node_title") or "",
-                "created_context": notes[:200],
-                "parent_node": n.get("parent_node") or "",
-            })
-
-    return {
-        "candidate_nodes": candidate_nodes,
-        "auto_created_nodes": auto_created_nodes,
-        "total_nodes": len(real_nodes),
-        "total_candidates": len(candidate_nodes),
-    }
+    return result
 
 
-def query_classification_history(since_minutes: int = 1440) -> dict:
+def query_classification_history(
+    since_minutes: int = 1440,
+    specific_node: Optional[str] = None,
+) -> dict:
     """Query Supabase knowledge_base for recently filed facts.
 
     Args:
         since_minutes: Time window in minutes (default: 24 hours).
+        specific_node: If set, only show filings under this node.
 
     Returns:
         Dict with: total_filed, auto_filed_count, review_count,
@@ -198,21 +429,22 @@ def query_classification_history(since_minutes: int = 1440) -> dict:
         supabase = _get_supabase()
         cutoff = (datetime.utcnow() - timedelta(minutes=since_minutes)).isoformat()
 
-        # Get all facts filed in the window
-        result = (
+        query = (
             supabase.table(TABLE_NAME)
             .select("id, content, source_type, section, metadata, created_at")
             .gte("created_at", cutoff)
             .is_("superseded_by", "null")
             .order("created_at", desc=True)
             .limit(500)
-            .execute()
         )
 
+        if specific_node:
+            query = query.eq("metadata->>node_id", specific_node)
+
+        result = query.execute()
         rows = result.data or []
         total_filed = len(rows)
 
-        # Breakdown by node
         per_node: dict = {}
         auto_filed_count = 0
         new_nodes_created = []
@@ -223,20 +455,23 @@ def query_classification_history(since_minutes: int = 1440) -> dict:
             node_title = meta.get("node_title") or ""
 
             if node_id not in per_node:
-                per_node[node_id] = {"node_id": node_id, "node_title": node_title, "count": 0}
+                per_node[node_id] = {
+                    "node_id": node_id,
+                    "node_title": node_title,
+                    "count": 0,
+                }
             per_node[node_id]["count"] += 1
 
-            # Detect auto-filed vs review
             confidence = meta.get("node_confidence") or meta.get("confidence") or ""
             if confidence in ("high",):
                 auto_filed_count += 1
 
-            # Detect new node creations
             if confidence in ("new_node_created", "new_domain_created"):
                 new_nodes_created.append({
                     "node_id": node_id,
                     "node_title": node_title,
                     "content_preview": (row.get("content") or "")[:100],
+                    "created_at": row.get("created_at") or "",
                 })
 
         review_count = total_filed - auto_filed_count
@@ -263,11 +498,15 @@ def query_classification_history(since_minutes: int = 1440) -> dict:
         }
 
 
-def query_system_activity(since_minutes: int = 1440) -> dict:
+def query_system_activity(
+    since_minutes: int = 1440,
+    specific_node: Optional[str] = None,
+) -> dict:
     """Query Supabase events_logs for recent system activity.
 
     Args:
         since_minutes: Time window in minutes (default: 24 hours).
+        specific_node: Unused for activity, kept for interface consistency.
 
     Returns:
         Dict with: total_events, classifications, errors, auto_files,
@@ -307,7 +546,6 @@ def query_system_activity(since_minutes: int = 1440) -> dict:
             if "review" in action or "manual" in action:
                 manual_reviews += 1
 
-        # Get recent errors with more detail
         error_result = (
             supabase.table("events_logs")
             .select("id, agent_id, action, input_ref, created_at")
@@ -350,21 +588,26 @@ def query_system_activity(since_minutes: int = 1440) -> dict:
         }
 
 
-def query_data_freshness(section_id: Optional[str] = None) -> dict:
+def query_data_freshness(
+    section_id: Optional[str] = None,
+    specific_node: Optional[str] = None,
+) -> dict:
     """Query knowledge_base for data freshness per section.
 
     Args:
-        section_id: Optional specific section to query. If None, returns all.
+        section_id: Optional specific section to query (legacy param).
+        specific_node: If set, focus on this node's freshness.
 
     Returns:
         Dict with: sections (list of dicts), empty_sections, stale_sections.
     """
+    target_node = specific_node or section_id
+
     try:
         from services.rag_service import _get_supabase, TABLE_NAME
 
         supabase = _get_supabase()
 
-        # Get the most recent created_at per section
         query = (
             supabase.table(TABLE_NAME)
             .select("section, metadata, created_at")
@@ -373,13 +616,12 @@ def query_data_freshness(section_id: Optional[str] = None) -> dict:
             .limit(5000)
         )
 
-        if section_id:
-            query = query.eq("section", section_id)
+        if target_node:
+            query = query.eq("metadata->>node_id", target_node)
 
         result = query.execute()
         rows = result.data or []
 
-        # Group by section
         section_data: dict = {}
         for row in rows:
             meta = row.get("metadata") or {}
@@ -396,7 +638,6 @@ def query_data_freshness(section_id: Optional[str] = None) -> dict:
                 }
             section_data[sec]["fact_count"] += 1
 
-        # Mark stale (>30 days since last update)
         stale_threshold = (datetime.utcnow() - timedelta(days=30)).isoformat()
         stale_sections = []
         empty_sections = []
@@ -407,20 +648,25 @@ def query_data_freshness(section_id: Optional[str] = None) -> dict:
                 sec_info["is_stale"] = True
                 stale_sections.append(sec_info["section_id"])
 
-        # Check for top-level BP sections that have no data
-        arch_path = Path(__file__).parent.parent.parent / "ceo_data" / "bp_architecture.json"
+        # Check for top-level BP sections that have no data (from local JSON)
+        arch_path = (
+            Path(__file__).parent.parent.parent / "ceo_data" / "bp_architecture.json"
+        )
         try:
             with open(arch_path, "r", encoding="utf-8") as f:
                 arch_data = json.load(f)
             top_sections = [
-                n["node_id"] for n in arch_data.get("nodes", [])
+                n["node_id"]
+                for n in arch_data.get("nodes", [])
                 if n.get("node_id", "").startswith("BP.") and n.get("level") == 1.0
             ]
             for sec in top_sections:
                 if sec not in section_data:
                     empty_sections.append(sec)
         except Exception as e:
-            logger.warning("[SystemAwareness] Could not load architecture for empty section check: %s", e)
+            logger.warning(
+                "[SystemAwareness] Could not load architecture for empty check: %s", e
+            )
 
         sections_list = sorted(
             section_data.values(),
@@ -444,67 +690,77 @@ def query_data_freshness(section_id: Optional[str] = None) -> dict:
         }
 
 
+# ─── Main entry point ────────────────────────────────────────────────────────
+
 def answer_system_question(text: str, session_id: Optional[str] = None) -> str:
     """Answer a system-awareness question by querying live data and synthesizing via Haiku.
 
-    Args:
-        text: The user's question.
-        session_id: Optional session ID for trace emission.
-
-    Returns:
-        Natural-language answer string.
+    Uses LLM-based intent classification with temporal parsing for accurate routing.
     """
     from tools.trace_emitter import emit_trace
 
     if session_id:
         emit_trace(session_id, "System", "querying", "Looking up system state...")
 
-    intent = classify_system_intent(text)
-    logger.info("[SystemAwareness] Intent classified as '%s' for: %s", intent, text[:80])
+    # Step 1: LLM-based intent + time window + node extraction
+    classification = classify_system_intent_llm(text)
+    intent = classification["intent"]
+    time_window = classification["time_window_minutes"]
+    specific_node = classification.get("specific_node")
 
-    # Query the appropriate data source
+    logger.info(
+        "[SystemAwareness] Classified: intent=%s, window=%dm, node=%s for: %s",
+        intent, time_window, specific_node, text[:80],
+    )
+
+    # Step 2: Query the appropriate data source with extracted parameters
     if intent == "architecture_changes":
-        raw_data = query_architecture_changes()
+        raw_data = query_architecture_changes(time_window, specific_node)
     elif intent == "classification_history":
-        raw_data = query_classification_history()
+        raw_data = query_classification_history(time_window, specific_node)
     elif intent == "data_freshness":
-        raw_data = query_data_freshness()
+        raw_data = query_data_freshness(specific_node=specific_node)
     else:
-        raw_data = query_system_activity()
+        raw_data = query_system_activity(time_window, specific_node)
 
     if session_id:
         emit_trace(session_id, "System", "answering", "Synthesizing answer...")
 
-    # Synthesize via Haiku
+    # Step 3: Synthesize via Haiku
     return _synthesize_answer(text, intent, raw_data)
 
 
 def _synthesize_answer(question: str, intent: str, data: dict) -> str:
-    """Call Haiku to produce a natural answer from raw query results.
-
-    Falls back to a formatted summary if the LLM call fails.
-    """
+    """Call Haiku to produce a natural answer from raw query results."""
     system_prompt = (
         "You are the EpistemicOS system assistant. Answer the user's question "
         "about system state based ONLY on the data provided. Be concise (2-5 "
-        "sentences). Use specific numbers and node IDs when available. Never "
-        "invent data not in the context."
+        "sentences). Use specific numbers, node IDs, and timestamps when available. "
+        "Never invent data not in the context.\n\n"
+        "IMPORTANT:\n"
+        "- Data is sorted most-recent-first (by latest_fact_at or created_at).\n"
+        "- When the user asks about 'latest', 'newest', or 'most recent', the FIRST "
+        "entry in 'recent_nodes' is the answer.\n"
+        "- Always include the node_title and created/updated timestamp.\n"
+        "- If fact_count is available, mention how many facts are stored under that node."
     )
 
-    # Serialize data to a compact representation for the prompt
-    data_str = json.dumps(data, indent=2, default=str)[:3000]
+    # Serialize compactly, recent data first
+    data_str = json.dumps(data, separators=(",", ":"), default=str)[:8000]
 
     user_message = (
         f"SYSTEM DATA ({intent}):\n{data_str}\n\n"
         f"USER QUESTION: {question}\n\n"
-        "Answer concisely based on the data above."
+        "Answer based on the data above. The first entry in lists is the most recent."
     )
 
     try:
         from web.handlers.llm_helper import _get_client
 
         client = _get_client()
-        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+        model_id = os.getenv(
+            "CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        )
 
         response = client.converse(
             modelId=model_id,
@@ -529,14 +785,15 @@ def _synthesize_answer(question: str, intent: str, data: dict) -> str:
 def _fallback_answer(intent: str, data: dict) -> str:
     """Produce a readable fallback answer when the LLM call fails."""
     if intent == "architecture_changes":
-        total = data.get("total_nodes", 0)
-        candidates = data.get("total_candidates", 0)
-        auto = len(data.get("auto_created_nodes", []))
-        parts = [f"The architecture has {total} nodes total."]
-        if candidates:
-            parts.append(f"{candidates} are candidates (newly created).")
-        if auto:
-            parts.append(f"{auto} were auto-created via Feed.")
+        total_db = data.get("total_nodes_in_db", 0)
+        recent = data.get("recent_nodes", [])
+        parts = [f"The system has {total_db} nodes with stored data."]
+        if recent:
+            top = recent[0]
+            parts.append(
+                f"Most recently active: {top['node_id']} \"{top.get('node_title', '')}\" "
+                f"({top.get('fact_count', 0)} facts, last updated {top.get('latest_fact_at', 'unknown')})."
+            )
         return " ".join(parts)
 
     elif intent == "classification_history":
