@@ -1868,3 +1868,214 @@ async def add_knowledge_fact(req: AddFactRequest):
     except Exception as e:
         logger.error(f"Error adding fact: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to add fact: {str(e)}")
+
+
+# ─── Stored Data Mutations ──────────────────────────────────────────────────
+
+
+class StoredDataUpdateRequest(BaseModel):
+    """Payload for PATCH /api/knowledge/stored/{id}."""
+
+    token: str
+    content: Optional[str] = None
+    epistemic_status: Optional[str] = None
+    node_id: Optional[str] = None
+
+
+class StoredDataBulkRequest(BaseModel):
+    """Payload for POST /api/knowledge/stored/bulk-action."""
+
+    token: str
+    ids: list[str]
+    action: str  # "update_status" | "delete"
+    value: Optional[str] = None  # new status for update_status
+
+
+@app.patch("/api/knowledge/stored/{row_id}")
+async def update_stored_row(row_id: str, req: StoredDataUpdateRequest):
+    """Inline edit a single knowledge_base row."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        updates = {}
+        if req.content is not None:
+            updates["content"] = req.content.strip()
+        if req.epistemic_status is not None:
+            valid = ["CONFIRMED", "ASSUMPTION", "CONTRADICTION", "MISSING", "KILLED"]
+            if req.epistemic_status not in valid:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid status. Must be one of: {valid}",
+                )
+            updates["epistemic_status"] = req.epistemic_status
+        if req.node_id is not None:
+            meta_update = True
+        else:
+            meta_update = False
+
+        if not updates and not meta_update:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        def _do_update():
+            supabase = _get_supabase()
+            if meta_update:
+                current = (
+                    supabase.table(TABLE_NAME)
+                    .select("metadata")
+                    .eq("id", row_id)
+                    .single()
+                    .execute()
+                )
+                meta = current.data.get("metadata") or {}
+                meta["node_id"] = req.node_id
+                updates["metadata"] = meta
+
+            result = (
+                supabase.table(TABLE_NAME)
+                .update(updates)
+                .eq("id", row_id)
+                .execute()
+            )
+            return result.data
+
+        data = await asyncio.to_thread(_do_update)
+        if not data:
+            raise HTTPException(status_code=404, detail="Row not found")
+
+        logger.info("[StoredData] Updated row %s: %s", row_id, list(updates.keys()))
+        return {"success": True, "updated": list(updates.keys())}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("[StoredData] Update error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/knowledge/stored/bulk-action")
+async def bulk_action_stored(req: StoredDataBulkRequest):
+    """Bulk update status or delete multiple knowledge_base rows."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    if not req.ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+
+    if len(req.ids) > 100:
+        raise HTTPException(status_code=400, detail="Max 100 rows per batch")
+
+    try:
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        def _do_bulk():
+            supabase = _get_supabase()
+            if req.action == "update_status":
+                valid = ["CONFIRMED", "ASSUMPTION", "CONTRADICTION", "MISSING", "KILLED"]
+                if req.value not in valid:
+                    raise ValueError(f"Invalid status: {req.value}")
+                result = (
+                    supabase.table(TABLE_NAME)
+                    .update({"epistemic_status": req.value})
+                    .in_("id", req.ids)
+                    .execute()
+                )
+                return len(result.data) if result.data else 0
+            elif req.action == "delete":
+                result = (
+                    supabase.table(TABLE_NAME)
+                    .delete()
+                    .in_("id", req.ids)
+                    .execute()
+                )
+                return len(result.data) if result.data else 0
+            else:
+                raise ValueError(f"Unknown action: {req.action}")
+
+        count = await asyncio.to_thread(_do_bulk)
+        logger.info(
+            "[StoredData] Bulk %s on %d rows (affected: %d)",
+            req.action, len(req.ids), count,
+        )
+        return {"success": True, "action": req.action, "affected": count}
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("[StoredData] Bulk action error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── Side Panel APIs ────────────────────────────────────────────────────────
+
+
+@app.get("/api/panel/node/{node_id:path}")
+async def get_node_detail(node_id: str, token: str = ""):
+    """Return full detail for a node: metadata, children, all facts stored under it."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from services.rag_service import _get_supabase, TABLE_NAME
+        from web.handlers.feed_handler import _load_bp_architecture
+
+        arch = _load_bp_architecture()
+        node_info = next((n for n in arch if n.get("node_id") == node_id), None)
+
+        children = [
+            {"node_id": n["node_id"], "name": n.get("name", "")}
+            for n in arch
+            if n.get("parent_id") == node_id
+        ]
+
+        def _fetch_facts():
+            supabase = _get_supabase()
+            result = (
+                supabase.table(TABLE_NAME)
+                .select(
+                    "id, content, epistemic_status, confidence, "
+                    "source_type, metadata, created_at"
+                )
+                .is_("superseded_by", "null")
+                .order("created_at", desc=True)
+                .limit(50)
+                .execute()
+            )
+            facts = []
+            for row in result.data or []:
+                meta = row.get("metadata") or {}
+                if meta.get("node_id") == node_id or row.get("section") == node_id:
+                    facts.append({
+                        "id": row["id"],
+                        "content": row["content"],
+                        "epistemic_status": row.get("epistemic_status", ""),
+                        "confidence": row.get("confidence"),
+                        "source_type": row.get("source_type", ""),
+                        "created_at": row.get("created_at", ""),
+                    })
+            return facts
+
+        facts = await asyncio.to_thread(_fetch_facts)
+
+        status_breakdown = {}
+        for f in facts:
+            s = f["epistemic_status"] or "UNKNOWN"
+            status_breakdown[s] = status_breakdown.get(s, 0) + 1
+
+        return {
+            "node_id": node_id,
+            "name": node_info.get("name", "") if node_info else "",
+            "parent_id": node_info.get("parent_id", "") if node_info else "",
+            "depth": node_info.get("depth", 0) if node_info else 0,
+            "children": children,
+            "facts": facts,
+            "total_facts": len(facts),
+            "status_breakdown": status_breakdown,
+            "last_updated": facts[0]["created_at"] if facts else None,
+        }
+
+    except Exception as e:
+        logger.error("[Panel] Node detail error for %s: %s", node_id, e)
+        raise HTTPException(status_code=500, detail=str(e))

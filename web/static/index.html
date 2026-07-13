@@ -925,6 +925,260 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
+        /* ─── Stored Data: Confidence Bar ─── */
+        .stored-data-confidence {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .stored-data-confidence-bar {
+            width: 40px;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .stored-data-confidence-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.2s;
+        }
+        .stored-data-confidence-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--text-tertiary);
+        }
+
+        /* ─── Stored Data: Bulk Select ─── */
+        .stored-data-select-all {
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .stored-data-row-check {
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .stored-data-bulk-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--accent-soft);
+            border: 1px solid var(--accent-medium);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+        .stored-data-bulk-bar .bulk-count {
+            font-weight: 600;
+            color: var(--accent);
+        }
+        .stored-data-bulk-btn {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .stored-data-bulk-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .stored-data-bulk-btn.bulk-delete { color: var(--danger); }
+        .stored-data-bulk-btn.bulk-delete:hover { border-color: var(--danger); background: var(--danger-soft, rgba(239,68,68,0.08)); }
+
+        /* ─── Stored Data: Inline Edit ─── */
+        .stored-data-edit-btn {
+            opacity: 0;
+            transition: opacity 0.15s;
+            border: none;
+            background: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            padding: 2px;
+        }
+        table.stored-data-table tr:hover .stored-data-edit-btn { opacity: 1; }
+        .stored-data-edit-btn:hover { color: var(--accent); }
+        .stored-data-inline-input {
+            font-size: 12px;
+            font-family: inherit;
+            color: var(--text-primary);
+            background: var(--bg-main);
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            padding: 4px 6px;
+            width: 100%;
+            resize: vertical;
+            min-height: 28px;
+        }
+        .stored-data-inline-actions {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+        }
+        .stored-data-inline-save, .stored-data-inline-cancel {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+        }
+        .stored-data-inline-save { background: var(--accent); color: white; border-color: var(--accent); }
+        .stored-data-inline-cancel { background: var(--bg-surface); color: var(--text-secondary); }
+
+        /* ─── Side Panel (Artifact-style) ─── */
+        .side-panel-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 1100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .side-panel-backdrop.active { opacity: 1; pointer-events: auto; }
+
+        .side-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: min(560px, 90vw);
+            background: var(--bg-surface);
+            border-left: 1px solid var(--border);
+            z-index: 1101;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .side-panel.active { transform: translateX(0); }
+
+        .side-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .side-panel-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .side-panel-subtitle {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+        }
+        .side-panel-close {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--bg-surface);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+        .side-panel-close:hover { border-color: var(--accent); color: var(--accent); }
+
+        .side-panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        /* Panel: Node Detail */
+        .panel-node-meta {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 6px 14px;
+            font-size: 12px;
+            margin-bottom: 16px;
+        }
+        .panel-node-meta dt { color: var(--text-tertiary); font-weight: 500; }
+        .panel-node-meta dd { color: var(--text-primary); margin: 0; }
+
+        .panel-node-children {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+        .panel-node-child-chip {
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .panel-node-child-chip:hover { border-color: var(--accent); }
+
+        .panel-status-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .panel-status-item {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 12px;
+        }
+        .panel-status-item.st-confirmed { color: var(--success); background: var(--success-soft); }
+        .panel-status-item.st-assumption { color: var(--warning); background: var(--warning-soft); }
+        .panel-status-item.st-contradiction { color: var(--danger); background: var(--danger-soft); }
+        .panel-status-item.st-missing, .panel-status-item.st-unknown { color: var(--text-tertiary); background: var(--border); }
+        .panel-status-item.st-killed { color: var(--danger); background: var(--danger-soft); }
+
+        .panel-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-tertiary);
+            margin: 16px 0 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .panel-fact-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            background: var(--bg-main);
+            margin-bottom: 6px;
+            font-size: 12.5px;
+            line-height: 1.5;
+            color: var(--text-primary);
+            border-left: 3px solid var(--border);
+        }
+        .panel-fact-item.fact-confirmed { border-left-color: var(--success); }
+        .panel-fact-item.fact-assumption { border-left-color: var(--warning); }
+        .panel-fact-item.fact-contradiction { border-left-color: var(--danger); }
+
+        .panel-fact-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 6px;
+            font-size: 10.5px;
+            color: var(--text-tertiary);
+        }
+
         .confirm-chunk-btn {
             font-size: 11px;
             font-weight: 600;
@@ -3081,6 +3335,22 @@
         </div>
     </div>
 
+    <!-- SIDE PANEL (Artifact-style) -->
+    <div class="side-panel-backdrop" id="sidePanelBackdrop"></div>
+    <div class="side-panel" id="sidePanel">
+        <div class="side-panel-header">
+            <div>
+                <div class="side-panel-title" id="sidePanelTitle">Detail</div>
+                <div class="side-panel-subtitle" id="sidePanelSubtitle"></div>
+            </div>
+            <button class="side-panel-close" id="sidePanelClose" title="Close panel">
+                <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </button>
+        </div>
+        <div class="side-panel-body" id="sidePanelBody">
+        </div>
+    </div>
+
     <!-- COMMAND PALETTE -->
     <div class="command-backdrop" id="commandBackdrop"></div>
     <div class="command-palette" id="commandPalette">
@@ -3152,6 +3422,12 @@
             const storedDataPrevBtn = document.getElementById('storedDataPrevBtn');
             const storedDataNextBtn = document.getElementById('storedDataNextBtn');
             const storedDataPageInfo = document.getElementById('storedDataPageInfo');
+            const sidePanel = document.getElementById('sidePanel');
+            const sidePanelBackdrop = document.getElementById('sidePanelBackdrop');
+            const sidePanelClose = document.getElementById('sidePanelClose');
+            const sidePanelTitle = document.getElementById('sidePanelTitle');
+            const sidePanelSubtitle = document.getElementById('sidePanelSubtitle');
+            const sidePanelBody = document.getElementById('sidePanelBody');
             const processTrigger = document.getElementById('processTrigger');
             const processPanel = document.getElementById('processPanel');
             const processPanelCloseBtn = document.getElementById('processPanelCloseBtn');
@@ -3172,6 +3448,7 @@
             let storedDataOffset = 0;
             let storedDataTotal = 0;
             let storedDataStatusFilter = '';
+            let storedDataSelectedIds = new Set();
             // Default to "node" — same row order as Alex's source BP
             // architecture spreadsheet (BP.1, BP.1.1, BP.1.1.1, ..., BP.2,
             // ...) instead of newest-stored-first, per his direct ask that
@@ -3322,6 +3599,7 @@
                         return;
                     }
                     if (e.key === 'Escape') {
+                        if (sidePanel.classList.contains('active')) { closeSidePanel(); return; }
                         if (commandPalette.classList.contains('active')) { closeCommandPalette(); return; }
                         if (plusTray.classList.contains('active')) { closeTray(); return; }
                         if (activityDrawer.classList.contains('active')) { closeActivityDrawer(); return; }
@@ -4318,6 +4596,7 @@
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     const data = await res.json();
                     renderStoredData(data);
+                    lucide.createIcons();
                 } catch (err) {
                     console.error('Stored data load error:', err);
                     storedDataBody.innerHTML = '<div class="activity-drawer-empty">Could not load stored data — try reopening this panel.</div>';
@@ -4327,6 +4606,7 @@
             function renderStoredData(data) {
                 const rows = data.rows || [];
                 storedDataTotal = data.total || 0;
+                storedDataSelectedIds.clear();
 
                 const toolbar = `
                     <div class="stored-data-toolbar">
@@ -4336,12 +4616,20 @@
                             <option value="ASSUMPTION">Assumption</option>
                             <option value="CONTRADICTION">Contradiction</option>
                             <option value="MISSING">Missing</option>
+                            <option value="KILLED">Killed</option>
                         </select>
                         <select class="stored-data-filter-select" id="storedDataSortSelect" title="Row order">
                             <option value="node">BP order (sheet order)</option>
                             <option value="recent">Most recent first</option>
                         </select>
                         <span class="stored-data-count">${storedDataTotal} stored fact${storedDataTotal === 1 ? '' : 's'}</span>
+                    </div>
+                    <div class="stored-data-bulk-bar" id="storedDataBulkBar" style="display:none;">
+                        <span class="bulk-count" id="storedDataBulkCount">0</span> selected
+                        <button class="stored-data-bulk-btn" id="bulkConfirmBtn">✅ Confirm</button>
+                        <button class="stored-data-bulk-btn" id="bulkAssumeBtn">⚠️ Assumption</button>
+                        <button class="stored-data-bulk-btn" id="bulkKillBtn">❌ Kill</button>
+                        <button class="stored-data-bulk-btn bulk-delete" id="bulkDeleteBtn">🗑 Delete</button>
                     </div>
                 `;
 
@@ -4353,13 +4641,14 @@
                             <table class="stored-data-table">
                                 <thead>
                                     <tr>
+                                        <th><input type="checkbox" class="stored-data-select-all" id="storedDataSelectAll"></th>
                                         <th>Node ID</th>
-                                        <th>Node Title</th>
-                                        <th>Type</th>
                                         <th>Status</th>
+                                        <th>Confidence</th>
                                         <th>Content</th>
                                         <th>Source</th>
                                         <th>Stored At</th>
+                                        <th></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -4370,6 +4659,7 @@
                     `;
                 }
 
+                // Bind filters
                 const select = document.getElementById('storedDataStatusSelect');
                 if (select) {
                     select.value = storedDataStatusFilter;
@@ -4379,7 +4669,6 @@
                         loadStoredData();
                     });
                 }
-
                 const sortSelect = document.getElementById('storedDataSortSelect');
                 if (sortSelect) {
                     sortSelect.value = storedDataSortMode;
@@ -4390,6 +4679,41 @@
                     });
                 }
 
+                // Bind select-all checkbox
+                const selectAll = document.getElementById('storedDataSelectAll');
+                if (selectAll) {
+                    selectAll.addEventListener('change', () => {
+                        const checks = storedDataBody.querySelectorAll('.stored-data-row-check');
+                        checks.forEach(c => { c.checked = selectAll.checked; });
+                        storedDataSelectedIds.clear();
+                        if (selectAll.checked) rows.forEach(r => storedDataSelectedIds.add(r.id));
+                        updateBulkBar();
+                    });
+                }
+
+                // Bind row checkboxes
+                storedDataBody.querySelectorAll('.stored-data-row-check').forEach(c => {
+                    c.addEventListener('change', () => {
+                        if (c.checked) storedDataSelectedIds.add(c.dataset.id);
+                        else storedDataSelectedIds.delete(c.dataset.id);
+                        updateBulkBar();
+                    });
+                });
+
+                // Bind bulk action buttons
+                bindBulkActions();
+
+                // Bind node ID clicks → side panel
+                storedDataBody.querySelectorAll('.stored-data-node-id[data-node]').forEach(el => {
+                    el.addEventListener('click', () => openNodePanel(el.dataset.node));
+                });
+
+                // Bind inline edit buttons
+                storedDataBody.querySelectorAll('.stored-data-edit-btn').forEach(btn => {
+                    btn.addEventListener('click', () => startInlineEdit(btn.dataset.id, btn.closest('tr')));
+                });
+
+                // Pagination
                 const start = storedDataTotal === 0 ? 0 : storedDataOffset + 1;
                 const end = Math.min(storedDataOffset + STORED_DATA_PAGE_SIZE, storedDataTotal);
                 storedDataPageInfo.textContent = `${start}–${end} of ${storedDataTotal}`;
@@ -4401,17 +4725,230 @@
             function renderStoredDataRow(row) {
                 const status = (row.epistemic_status || 'unknown').toLowerCase();
                 const nodeId = row.node_id ? escapeHtml(row.node_id) : '<span style="color:var(--text-tertiary)">—</span>';
+                const confidence = row.confidence != null ? row.confidence : null;
+                const confBar = confidence != null ? renderConfidenceBar(confidence) : '<span style="color:var(--text-tertiary)">—</span>';
+                const nodeClick = row.node_id ? `data-node="${escapeHtml(row.node_id)}"` : '';
                 return `
-                    <tr>
-                        <td class="stored-data-node-id">${nodeId}</td>
-                        <td>${escapeHtml(row.node_title || '—')}</td>
-                        <td>${escapeHtml(row.content_type || '—')}</td>
+                    <tr data-row-id="${escapeHtml(row.id)}">
+                        <td><input type="checkbox" class="stored-data-row-check" data-id="${escapeHtml(row.id)}"></td>
+                        <td class="stored-data-node-id" ${nodeClick} style="${row.node_id ? 'cursor:pointer;' : ''}">${nodeId}${row.node_title ? '<br><span style="font-family:inherit;font-size:10.5px;color:var(--text-secondary);font-weight:400;">' + escapeHtml(row.node_title) + '</span>' : ''}</td>
                         <td><span class="stored-data-status-pill status-${status}">${escapeHtml((row.epistemic_status || 'UNKNOWN'))}</span></td>
-                        <td class="stored-data-content-cell">${escapeHtml((row.content || '').slice(0, 200))}</td>
+                        <td>${confBar}</td>
+                        <td class="stored-data-content-cell" data-full="${escapeHtml(row.content || '')}">${escapeHtml((row.content || '').slice(0, 180))}${(row.content || '').length > 180 ? '…' : ''}</td>
                         <td>${escapeHtml(row.source || '—')}</td>
                         <td class="stored-data-timestamp">${row.stored_at ? formatTime(new Date(row.stored_at)) : '—'}</td>
+                        <td><button class="stored-data-edit-btn" data-id="${escapeHtml(row.id)}" title="Edit"><i data-lucide="pencil" style="width:12px;height:12px;"></i></button></td>
                     </tr>
                 `;
+            }
+
+            function renderConfidenceBar(value) {
+                const pct = Math.round(value * 100);
+                let color = 'var(--success)';
+                if (pct < 40) color = 'var(--danger)';
+                else if (pct < 70) color = 'var(--warning)';
+                return `
+                    <div class="stored-data-confidence">
+                        <div class="stored-data-confidence-bar">
+                            <div class="stored-data-confidence-fill" style="width:${pct}%;background:${color};"></div>
+                        </div>
+                        <span class="stored-data-confidence-text">${pct}%</span>
+                    </div>
+                `;
+            }
+
+            function updateBulkBar() {
+                const bar = document.getElementById('storedDataBulkBar');
+                const count = document.getElementById('storedDataBulkCount');
+                if (!bar) return;
+                if (storedDataSelectedIds.size > 0) {
+                    bar.style.display = 'flex';
+                    count.textContent = storedDataSelectedIds.size;
+                } else {
+                    bar.style.display = 'none';
+                }
+            }
+
+            function bindBulkActions() {
+                const actions = [
+                    ['bulkConfirmBtn', 'update_status', 'CONFIRMED'],
+                    ['bulkAssumeBtn', 'update_status', 'ASSUMPTION'],
+                    ['bulkKillBtn', 'update_status', 'KILLED'],
+                    ['bulkDeleteBtn', 'delete', null],
+                ];
+                actions.forEach(([id, action, value]) => {
+                    const btn = document.getElementById(id);
+                    if (!btn) return;
+                    btn.addEventListener('click', async () => {
+                        if (storedDataSelectedIds.size === 0) return;
+                        if (action === 'delete' && !confirm(`Delete ${storedDataSelectedIds.size} row(s)? This cannot be undone.`)) return;
+                        try {
+                            const res = await fetch('/api/knowledge/stored/bulk-action', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    token,
+                                    ids: [...storedDataSelectedIds],
+                                    action,
+                                    value,
+                                }),
+                            });
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                            const data = await res.json();
+                            showToast(`${data.affected} row(s) ${action === 'delete' ? 'deleted' : 'updated'}`);
+                            storedDataSelectedIds.clear();
+                            loadStoredData();
+                        } catch (err) {
+                            showToast('Bulk action failed — try again', 'error');
+                        }
+                    });
+                });
+            }
+
+            function startInlineEdit(rowId, tr) {
+                if (!tr) return;
+                const contentCell = tr.querySelector('.stored-data-content-cell');
+                const statusCell = tr.querySelector('.stored-data-status-pill');
+                if (!contentCell) return;
+
+                const fullContent = contentCell.dataset.full || contentCell.textContent;
+                const currentStatus = statusCell ? statusCell.textContent.trim() : '';
+
+                contentCell.innerHTML = `
+                    <textarea class="stored-data-inline-input" id="inlineEdit_${rowId}">${escapeHtml(fullContent)}</textarea>
+                    <div style="margin-top:6px;">
+                        <select class="stored-data-filter-select" id="inlineStatus_${rowId}">
+                            <option value="">— keep status —</option>
+                            <option value="CONFIRMED" ${currentStatus === 'CONFIRMED' ? 'selected' : ''}>CONFIRMED</option>
+                            <option value="ASSUMPTION" ${currentStatus === 'ASSUMPTION' ? 'selected' : ''}>ASSUMPTION</option>
+                            <option value="CONTRADICTION" ${currentStatus === 'CONTRADICTION' ? 'selected' : ''}>CONTRADICTION</option>
+                            <option value="MISSING" ${currentStatus === 'MISSING' ? 'selected' : ''}>MISSING</option>
+                            <option value="KILLED" ${currentStatus === 'KILLED' ? 'selected' : ''}>KILLED</option>
+                        </select>
+                    </div>
+                    <div class="stored-data-inline-actions">
+                        <button class="stored-data-inline-save" id="inlineSave_${rowId}">Save</button>
+                        <button class="stored-data-inline-cancel" id="inlineCancel_${rowId}">Cancel</button>
+                    </div>
+                `;
+
+                document.getElementById(`inlineSave_${rowId}`).addEventListener('click', async () => {
+                    const newContent = document.getElementById(`inlineEdit_${rowId}`).value.trim();
+                    const newStatus = document.getElementById(`inlineStatus_${rowId}`).value;
+                    const payload = { token };
+                    if (newContent !== fullContent) payload.content = newContent;
+                    if (newStatus) payload.epistemic_status = newStatus;
+                    if (!payload.content && !payload.epistemic_status) { loadStoredData(); return; }
+                    try {
+                        const res = await fetch(`/api/knowledge/stored/${rowId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                        });
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        showToast('Saved');
+                        loadStoredData();
+                    } catch (err) {
+                        showToast('Save failed', 'error');
+                    }
+                });
+
+                document.getElementById(`inlineCancel_${rowId}`).addEventListener('click', () => loadStoredData());
+            }
+
+            // ─── Side Panel ─────────────────────────────────────────────
+
+            function openSidePanel(title, subtitle, html) {
+                sidePanelTitle.textContent = title;
+                sidePanelSubtitle.textContent = subtitle || '';
+                sidePanelBody.innerHTML = html;
+                sidePanel.classList.add('active');
+                sidePanelBackdrop.classList.add('active');
+                lucide.createIcons();
+            }
+
+            function closeSidePanel() {
+                sidePanel.classList.remove('active');
+                sidePanelBackdrop.classList.remove('active');
+            }
+
+            sidePanelClose.addEventListener('click', closeSidePanel);
+            sidePanelBackdrop.addEventListener('click', closeSidePanel);
+
+            async function openNodePanel(nodeId) {
+                openSidePanel(nodeId, 'Loading...', '<div class="activity-drawer-empty">Loading node details...</div>');
+                try {
+                    const res = await fetch(`/api/panel/node/${encodeURIComponent(nodeId)}?token=${token}`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const node = await res.json();
+                    renderNodePanel(node);
+                } catch (err) {
+                    sidePanelBody.innerHTML = '<div class="activity-drawer-empty">Failed to load node details.</div>';
+                }
+            }
+
+            function renderNodePanel(node) {
+                sidePanelTitle.textContent = node.node_id;
+                sidePanelSubtitle.textContent = node.name || 'Untitled node';
+
+                let html = '';
+
+                // Meta grid
+                html += `<dl class="panel-node-meta">
+                    <dt>Node ID</dt><dd><strong>${escapeHtml(node.node_id)}</strong></dd>
+                    <dt>Name</dt><dd>${escapeHtml(node.name || '—')}</dd>
+                    <dt>Parent</dt><dd>${node.parent_id ? `<span class="panel-node-child-chip" data-node="${escapeHtml(node.parent_id)}">${escapeHtml(node.parent_id)}</span>` : '— (root)'}</dd>
+                    <dt>Depth</dt><dd>${node.depth}</dd>
+                    <dt>Total Facts</dt><dd><strong>${node.total_facts}</strong></dd>
+                    <dt>Last Updated</dt><dd>${node.last_updated ? formatTime(new Date(node.last_updated)) : '—'}</dd>
+                </dl>`;
+
+                // Status breakdown
+                if (Object.keys(node.status_breakdown).length > 0) {
+                    html += '<div class="panel-status-bar">';
+                    for (const [s, count] of Object.entries(node.status_breakdown)) {
+                        const cls = 'st-' + s.toLowerCase();
+                        html += `<span class="panel-status-item ${cls}">${count} ${s}</span>`;
+                    }
+                    html += '</div>';
+                }
+
+                // Children
+                if (node.children && node.children.length > 0) {
+                    html += '<div class="panel-section-title">Children</div><div class="panel-node-children">';
+                    for (const c of node.children) {
+                        html += `<span class="panel-node-child-chip" data-node="${escapeHtml(c.node_id)}">${escapeHtml(c.node_id)}${c.name ? ' — ' + escapeHtml(c.name.slice(0, 30)) : ''}</span>`;
+                    }
+                    html += '</div>';
+                }
+
+                // Facts
+                if (node.facts && node.facts.length > 0) {
+                    html += `<div class="panel-section-title">Facts (${node.facts.length})</div>`;
+                    for (const f of node.facts) {
+                        const st = (f.epistemic_status || '').toLowerCase();
+                        html += `
+                            <div class="panel-fact-item fact-${st}">
+                                ${escapeHtml(f.content)}
+                                <div class="panel-fact-meta">
+                                    <span class="stored-data-status-pill status-${st}">${escapeHtml(f.epistemic_status || 'UNKNOWN')}</span>
+                                    <span>${escapeHtml(f.source_type || '')}</span>
+                                    <span>${f.created_at ? formatTime(new Date(f.created_at)) : ''}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    html += '<div class="panel-section-title">Facts</div><div class="activity-drawer-empty" style="padding:12px;">No facts stored under this node yet.</div>';
+                }
+
+                sidePanelBody.innerHTML = html;
+                lucide.createIcons();
+
+                // Bind child chip clicks for navigation within panel
+                sidePanelBody.querySelectorAll('.panel-node-child-chip[data-node]').forEach(chip => {
+                    chip.addEventListener('click', () => openNodePanel(chip.dataset.node));
+                });
             }
 
             // --- Attachment (preview chip; actual upload happens in uploadAttachment()) ---
@@ -4770,8 +5307,9 @@
                     const sourceItems = sources.filter(s => s.node_id || s.content_preview).map(s => {
                         const simBadge = s.similarity ? `<span class="answer-card-source-sim">${Math.round(s.similarity * 100)}%</span>` : '';
                         const preview = s.content_preview ? `<div class="answer-card-source-preview">${escapeHtml(s.content_preview.slice(0, 120))}${s.content_preview.length > 120 ? '...' : ''}</div>` : '';
+                        const nodeClick = s.node_id ? `data-panel-node="${escapeHtml(s.node_id)}" style="cursor:pointer;"` : '';
                         return `
-                            <div class="answer-card-source-item">
+                            <div class="answer-card-source-item" ${nodeClick}>
                                 <div class="answer-card-source-header">
                                     <span class="answer-card-source-node">${escapeHtml(s.node_id || '')}</span>
                                     <span class="answer-card-source-title">${escapeHtml(s.node_title || '')}</span>
@@ -4793,6 +5331,14 @@
                 const suggestionHtml = confidence === 'insufficient'
                     ? `<div class="answer-card-suggestion">You can add relevant information via the Feed workspace.</div>`
                     : '';
+
+                // Defer binding source clicks to side panel
+                setTimeout(() => {
+                    document.querySelectorAll('[data-panel-node]:not([data-panel-bound])').forEach(el => {
+                        el.setAttribute('data-panel-bound', 'true');
+                        el.addEventListener('click', () => openNodePanel(el.dataset.panelNode));
+                    });
+                }, 50);
 
                 return `
                     <div class="answer-card">
