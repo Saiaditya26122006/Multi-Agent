@@ -576,7 +576,7 @@ def synthesize_answer(
             closest = results[:3]
             partial_parts = ["**Closest matches found** (low relevance):\n"]
             for r in closest:
-                node_label = f"_{r.node_id}_" if r.node_id else ""
+                node_label = f"**`{r.node_id}`**" if r.node_id else ""
                 partial_parts.append(
                     f"- {node_label} {r.content[:100]}... "
                     f"({int((r.similarity or 0) * 100)}% match)"
@@ -592,23 +592,31 @@ def synthesize_answer(
             total_results=len(results),
         )
 
-    # Build context for Sonnet
+    # Build rich context for Sonnet — structured per-source blocks
     context_parts = []
     for i, r in enumerate(results[:12], 1):
-        node_label = f"[{r.node_id}]" if r.node_id else ""
-        title_label = f"({r.node_title})" if r.node_title else ""
-        status_label = f"[{r.epistemic_status}]" if r.epistemic_status else ""
-        date_label = f"— {r.created_at[:10]}" if r.created_at and len(r.created_at) >= 10 else ""
-        context_parts.append(
-            f"{i}. {node_label} {title_label} {status_label} {date_label}\n   {r.content}"
-        )
+        lines = [f"--- Source {i} ---"]
+        if r.node_id:
+            lines.append(f"  Node: {r.node_id}")
+        if r.node_title:
+            lines.append(f"  Title: {r.node_title}")
+        if r.epistemic_status:
+            lines.append(f"  Status: {r.epistemic_status}")
+        if r.created_at and len(r.created_at) >= 10:
+            lines.append(f"  Date: {r.created_at[:10]}")
+        if r.similarity:
+            lines.append(f"  Relevance: {int(r.similarity * 100)}%")
+        lines.append(f"  Content: {r.content}")
+        context_parts.append("\n".join(lines))
 
     context_str = "\n\n".join(context_parts)
 
     user_message = (
-        f"CONTEXT (retrieved from knowledge base):\n{context_str}\n\n"
+        f"CONTEXT (retrieved from knowledge base):\n\n{context_str}\n\n"
+        f"---\n\n"
         f"QUESTION: {question}\n\n"
-        f"Answer the question based on the context above."
+        f"Answer the question using the context above. "
+        f"Choose the best output format (table, list, tree, key-value) for the data type."
     )
 
     try:
@@ -621,7 +629,7 @@ def synthesize_answer(
             modelId=model_id,
             system=[{"text": SYNTHESIS_PROMPT}],
             messages=[{"role": "user", "content": [{"text": user_message}]}],
-            inferenceConfig={"maxTokens": 600},
+            inferenceConfig={"maxTokens": 1024},
         )
 
         answer_text = response["output"]["message"]["content"][0]["text"]
@@ -633,12 +641,13 @@ def synthesize_answer(
 
     except Exception as e:
         logger.error("[AnswerEngine] Sonnet synthesis failed: %s", e)
-        # Fallback: format raw results
+        # Fallback: structured raw results
         parts = []
         for r in results[:5]:
-            node = f"**{r.node_id}**" if r.node_id else ""
-            parts.append(f"- {node} {r.content[:200]}")
-        answer_text = "Here's what I found:\n\n" + "\n".join(parts)
+            node = f"**`{r.node_id}`**" if r.node_id else ""
+            title = f" — {r.node_title}" if r.node_title else ""
+            parts.append(f"- {node}{title}: {r.content[:200]}")
+        answer_text = "📌 **Relevant data found:**\n\n" + "\n".join(parts)
 
     return AnswerResponse(
         answer=answer_text,

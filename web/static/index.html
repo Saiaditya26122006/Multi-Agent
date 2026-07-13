@@ -1170,8 +1170,69 @@
         .answer-card-body p { margin-bottom: 8px; }
         .answer-card-body p:last-child { margin-bottom: 0; }
         .answer-card-body ul, .answer-card-body ol { padding-left: 20px; margin-bottom: 8px; }
+        .answer-card-body li { margin-bottom: 4px; }
         .answer-card-body strong { font-weight: 600; }
         .answer-card-body code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--accent-soft); padding: 2px 5px; border-radius: 3px; }
+
+        .answer-card-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        .answer-card-body thead th {
+            background: var(--accent-soft);
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+        }
+        .answer-card-body tbody td {
+            padding: 7px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+        .answer-card-body tbody tr:last-child td { border-bottom: none; }
+        .answer-card-body tbody tr:hover { background: var(--accent-soft); }
+
+        .answer-card-body pre {
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            margin: 10px 0;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+        .answer-card-body pre code {
+            background: none;
+            padding: 0;
+            font-size: inherit;
+        }
+
+        .answer-card-body blockquote {
+            border-left: 3px solid var(--accent);
+            padding: 8px 14px;
+            margin: 10px 0;
+            background: var(--accent-soft);
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .answer-card-body h4, .answer-card-body h5 {
+            font-size: 13px;
+            font-weight: 600;
+            margin: 12px 0 6px;
+            color: var(--text-primary);
+        }
 
         .answer-card-sources {
             border-top: 1px solid var(--border);
