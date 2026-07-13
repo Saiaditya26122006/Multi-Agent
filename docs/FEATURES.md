@@ -437,7 +437,11 @@ All Agents ← rag_service.py ← Semantic Retrieval (cosine similarity)
    - If ambiguous or confidence <0.7, shows picker
    - Alex selects correct node
 
-**Accuracy:** 22% on structured docs (as of June 2026) — improvements planned in Phase 3
+**Accuracy:** Was 22% (July 11, 2026), fixed with hybrid classifier (July 12, 2026). Current system uses:
+- Two-stage validation (keyword precheck + LLM semantic check)
+- Adversarial prompt (explicitly avoids prohibited claims)
+- Strict none_fit rejection (no auto-file if uncertain)
+- New accuracy metrics pending (Phase 3 benchmark)
 
 ### Duplicate Detection
 **How It Works:**
