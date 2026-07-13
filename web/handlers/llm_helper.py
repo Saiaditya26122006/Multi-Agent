@@ -106,7 +106,60 @@ def _fallback_response(chunks: list) -> str:
     return "\n".join(lines)
 
 
-CLASSIFY_SYSTEM_PROMPT = """You are a classification engine for a business-plan knowledge architecture. You are given ONE fact/claim and a shortlist of candidate architecture nodes — each with an id, title, purpose, required output, and (where relevant) claims/inferences that node is explicitly PROHIBITED from making. Your only job is to pick the SINGLE most specific, most accurate node this fact belongs under — prefer the deepest/most specific node whose purpose genuinely matches the fact's content, not just a top-level domain.
+DOMAIN_CLASSIFY_SYSTEM_PROMPT = """You are a business-plan domain classifier. You are given ONE fact/claim and a list of top-level business plan domains (BP.1, BP.2, etc.). Your job is to pick 1-3 domains that this fact most likely belongs under.
+
+Each domain has a title and purpose. Pick based on WHAT the fact is fundamentally about, not keyword matching.
+
+## Critical Pattern Recognition
+
+**Jobs-To-Be-Done (JTBD) in PMF context:**
+- "Job: Improve X quality" → BP.2 (PMF/Demand) or BP.10 (PMF Evidence), NOT BP.1 (Product) or BP.6 (Business Model)
+- "Outcome: X evaluated" in PMF doc → BP.2 (Demand) or BP.10 (Evidence)
+- Why: JTBD statements in PMF analysis are evidence of DEMAND, not product features
+
+**Urgency/Need statements:**
+- "Institution needs/wants/requires X" → BP.2 (Urgency/Demand)
+- "Institution concludes: We need X" → BP.2 (Urgency Hypothesis)
+- NOT BP.1 (Workflow) — don't confuse workflow description with urgency signal
+
+**PMF Definitions/Evidence:**
+- "PMF is/is not..." → BP.10 (PMF Evidence)
+- "PMF exists when..." → BP.10 (PMF Evidence Framework)
+- Any fact about what counts/doesn't count as PMF → BP.10
+
+**Workflow/Product:**
+- "The product does X" → BP.1 (Product Definition)
+- "Workflow: step 1, step 2" → BP.1 (Workflow Served)
+- Only use BP.1 for internal product/workflow DEFINITIONS, not demand signals
+
+Response format (JSON only, no markdown):
+{"domains": ["BP.X", "BP.Y"], "reasoning": "one sentence why"}
+
+Rules:
+- Return 1-3 domain IDs from the list provided, in order of relevance
+- If uncertain between domains, include both (max 3 total)
+- Be decisive — empty list is not allowed
+- When document context mentions "PMF analysis", strongly prefer BP.2 and BP.10 over BP.1 and BP.6"""
+
+CLASSIFY_SYSTEM_PROMPT = """You are a classification engine for a business-plan knowledge architecture. You are given ONE fact/claim and a shortlist of candidate architecture nodes — each with an id, title, purpose, required output, and (where relevant) claims/inferences that node is explicitly PROHIBITED from making.
+
+Your job is to pick the SINGLE most accurate node this fact belongs under.
+
+## CRITICAL: Specificity vs Generality
+
+**For GENERAL statements** (hypotheses, definitions, frameworks, high-level descriptions):
+- Prefer PARENT nodes (BP.2.3, BP.10.3.1) over CHILD nodes (BP.2.3.4, BP.10.3.1.2)
+- Example: "Institution needs quality tools" → BP.2.3 (Urgency Hypothesis), NOT BP.2.3.4 (specific trigger)
+- Example: "PMF means market pull" → BP.10.3.1 (Framework), NOT BP.10.3.1.3 (specific metric)
+
+**For SPECIFIC data** (individual metrics, specific workflow steps, concrete constraints):
+- Prefer CHILD nodes that match the specific data type
+- Example: "Q4 revenue: $1.2M" → BP.9.5.1 (specific revenue data), NOT BP.9 (general financials)
+- Example: "Step 3: Manager approval" → BP.1.3.2.3 (specific step), NOT BP.1.3 (general workflow)
+
+## Rule of thumb:
+If the fact is a high-level statement or hypothesis, prefer the parent node.
+If the fact is specific, measurable data, prefer the detailed child node.
 
 ## CRITICAL: Prohibition Check (do this FIRST for every candidate)
 
@@ -142,6 +195,80 @@ Respond with ONLY a JSON object, no markdown fences, no commentary, in exactly t
 - "confidence" reflects how well the fact PRODUCES or INFORMS the required_output of the node you picked, not just keyword similarity.
 - A title/keyword match alone is NEVER sufficient for "high" confidence — the fact must genuinely contribute to the node's required_output AND not violate any prohibition.
 - Be decisive. Pick exactly one node, not a list."""
+
+
+def classify_fact_to_domain(
+    fact_text: str,
+    domains: list[dict],
+    document_context: str = None,
+) -> list[str]:
+    """Stage 1: Pick 1-3 top-level domains (BP.1, BP.2, etc.) for a fact.
+
+    This narrows the search space from ~745 nodes to 1-3 domains before
+    Stage 2 picks the specific node. Mirrors how Alex's Claude Desktop
+    achieved 9/9 accuracy by reasoning at the domain level first.
+
+    Args:
+        fact_text: The atomic fact/claim to classify.
+        domains: List of level-1 domain dicts with node_id, node_title, purpose.
+        document_context: Optional document summary for disambiguation.
+
+    Returns:
+        List of 1-3 domain IDs (e.g., ["BP.2", "BP.10"]) in relevance order.
+        Falls back to ["BP.1"] if LLM fails or returns empty/invalid.
+    """
+    if not domains:
+        return ["BP.1"]  # Fallback
+
+    domain_block = "\n".join(
+        f"- {d['node_id']}: {d.get('node_title','')} — {(d.get('purpose') or '')[:200]}"
+        for d in domains
+    )
+
+    context_block = ""
+    if document_context:
+        context_block = f"DOCUMENT CONTEXT:\n{document_context}\n\n"
+
+    user_message = (
+        f"{context_block}"
+        f"FACT TO CLASSIFY:\n\"{fact_text}\"\n\n"
+        f"DOMAINS:\n{domain_block}\n\n"
+        "Return the JSON object now."
+    )
+
+    try:
+        client = _get_client()
+        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+
+        response = client.converse(
+            modelId=model_id,
+            system=[{"text": DOMAIN_CLASSIFY_SYSTEM_PROMPT}],
+            messages=[{"role": "user", "content": [{"text": user_message}]}],
+            inferenceConfig={"maxTokens": 150},
+        )
+
+        raw = response["output"]["message"]["content"][0]["text"].strip()
+        # Strip markdown code blocks if present
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
+        raw = re.sub(r"```\s*$", "", raw, flags=re.MULTILINE)
+
+        parsed = json.loads(raw)
+        domain_ids = parsed.get("domains", [])
+
+        # Validate: must be list of 1-3 BP.X strings
+        valid_domain_pattern = re.compile(r"^BP\.\d+$")
+        domain_ids = [d for d in domain_ids if valid_domain_pattern.match(str(d))][:3]
+
+        if not domain_ids:
+            logger.warning("[LLMHelper] Domain classification returned empty, using BP.1 fallback")
+            return ["BP.1"]
+
+        logger.info("[LLMHelper] Fact classified to domains: %s", domain_ids)
+        return domain_ids
+
+    except Exception as e:
+        logger.error("[LLMHelper] Domain classification failed: %s", e)
+        return ["BP.1"]
 
 
 def classify_fact_to_node(
@@ -201,14 +328,15 @@ def classify_fact_to_node(
     # intentional here: missing is fine, it just renders as an empty line.
     def _candidate_line(c: dict) -> str:
         title = c.get("node_title") or ""
-        purpose = (c.get("purpose") or "")[:200]
+        purpose = (c.get("purpose") or "")[:250]
         required_output = (c.get("required_output") or "")[:150]
         prohibited = (c.get("prohibited_claims") or "")[:150]
-        line = f"- {c['node_id']}: {title} — {purpose}"
+        # Fix #5: Make purpose more prominent by putting it on its own line
+        line = f"- {c['node_id']}: {title}\n  PURPOSE: {purpose}"
         if required_output:
-            line += f" | required_output: {required_output}"
+            line += f"\n  Output: {required_output}"
         if prohibited:
-            line += f" | prohibited: {prohibited}"
+            line += f"\n  Prohibited: {prohibited}"
         return line
 
     candidate_block = "\n".join(_candidate_line(c) for c in candidates)
@@ -217,12 +345,223 @@ def classify_fact_to_node(
     if document_context:
         context_block = f"DOCUMENT CONTEXT (this fact was extracted from a larger text about):\n{document_context}\n\n"
 
+    # Build few-shot examples as message history
+    # CRITICAL: These examples must NOT overlap with test/validation sets
+    # Focus on teaching patterns, not memorizing specific cases
+    few_shot_examples = [
+        # Pattern 1: PMF prohibition vs definition
+        {
+            "user": (
+                "DOCUMENT CONTEXT: PMF framework documentation\n\n"
+                "FACT TO CLASSIFY:\n\"Satisfaction surveys are not valid PMF evidence\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.10.3.1: PMF Evidence Framework\n  PURPOSE: Define overall framework for PMF assessment\n"
+                "- BP.10.3.8: Prohibited PMF Inferences\n  PURPOSE: Define conclusions that PMF evidence must never support\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.10.3.8", "confidence": "high", "reasoning": "Statement about what is NOT valid PMF evidence belongs in prohibited inferences", "none_fit": false}',
+        },
+        # Pattern 2: JTBD statement vs JTBD framework
+        {
+            "user": (
+                "DOCUMENT CONTEXT: User research findings\n\n"
+                "FACT TO CLASSIFY:\n\"Researcher needs to verify data accuracy efficiently\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.2.1.1: Problem Statement\n  PURPOSE: State the governed problem claim\n"
+                "- BP.6.1.3: JTBD Framework\n  PURPOSE: Define the jobs-to-be-done framework governing how user jobs are identified\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.2.1.1", "confidence": "high", "reasoning": "Actual user need statement is a problem statement - BP.6.1.3 defines JTBD methodology not data", "none_fit": false}',
+        },
+        # Pattern 3: Urgency signal vs workflow description
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Customer discovery interview\n\n"
+                "FACT TO CLASSIFY:\n\"Professor stated this is a critical priority for the department\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.1.3: Workflow Served\n  PURPOSE: Defines the workflow the product supports\n"
+                "- BP.2.3: Urgency and Priority Hypothesis\n  PURPOSE: Defines whether the problem is urgent or time-sensitive\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.2.3", "confidence": "high", "reasoning": "Critical/priority/urgent statements indicate urgency hypothesis not workflow", "none_fit": false}',
+        },
+        # Pattern 4: Business model revenue vs pricing strategy
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Business plan financials\n\n"
+                "FACT TO CLASSIFY:\n\"Revenue streams: subscription fees and implementation services\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.5.1: Revenue Model\n  PURPOSE: Define how the business generates revenue\n"
+                "- BP.9.2.1: Pricing Structure\n  PURPOSE: Define pricing tiers and amounts\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.5.1", "confidence": "high", "reasoning": "Revenue streams definition is business model not pricing structure", "none_fit": false}',
+        },
+        # Pattern 5: Risk vs assumption
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Risk assessment document\n\n"
+                "FACT TO CLASSIFY:\n\"Risk: Market may not be willing to pay premium pricing\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.12.1: Identified Risks\n  PURPOSE: Document known risks to business success\n"
+                "- BP.12.2: Key Assumptions\n  PURPOSE: Document unvalidated assumptions\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.12.1", "confidence": "high", "reasoning": "Explicitly labeled as risk with potential negative outcome", "none_fit": false}',
+        },
+        # Pattern 6: Workflow description vs workflow step detail
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Product specification\n\n"
+                "FACT TO CLASSIFY:\n\"System supports multi-stage review and approval process\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.1.3: Workflow Served\n  PURPOSE: Defines the workflow the product supports\n"
+                "- BP.1.3.2: Workflow Steps\n  PURPOSE: Define individual steps in the workflow\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.1.3", "confidence": "high", "reasoning": "High-level workflow description goes in parent node not detailed steps", "none_fit": false}',
+        },
+        # Pattern 7: Urgency with "emphasized", "priority", "pressure" keywords
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Stakeholder interview notes\n\n"
+                "FACT TO CLASSIFY:\n\"Director emphasized this must be addressed immediately\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.2.1.1: Problem Statement\n  PURPOSE: State the governed problem claim\n"
+                "- BP.2.3: Urgency and Priority Hypothesis\n  PURPOSE: Defines whether the problem is urgent or time-sensitive\n"
+                "- BP.2.3.3: Timing Triggers\n  PURPOSE: Identify events that create timing windows\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.2.3", "confidence": "high", "reasoning": "Emphasized/immediately/must indicates urgency hypothesis not just problem statement", "none_fit": false}',
+        },
+        # Pattern 8: "considers priority" urgency signal
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Executive meeting summary\n\n"
+                "FACT TO CLASSIFY:\n\"Management views quality improvement as top strategic priority\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.2.1.1: Problem Statement\n  PURPOSE: State the governed problem claim\n"
+                "- BP.2.3: Urgency and Priority Hypothesis\n  PURPOSE: Defines whether the problem is urgent or time-sensitive\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.2.3", "confidence": "high", "reasoning": "Strategic priority/top priority signals urgency hypothesis", "none_fit": false}',
+        },
+        # Pattern 9: "faces pressure" urgency signal
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Market analysis\n\n"
+                "FACT TO CLASSIFY:\n\"Organization under regulatory pressure to improve compliance\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.2.1.1: Problem Statement\n  PURPOSE: State the governed problem claim\n"
+                "- BP.2.3: Urgency and Priority Hypothesis\n  PURPOSE: Defines whether the problem is urgent or time-sensitive\n"
+                "- BP.7.3: Compliance Requirements\n  PURPOSE: Define regulatory compliance needs\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.2.3", "confidence": "high", "reasoning": "Under pressure/urgency/regulatory pressure indicates time-sensitive urgency", "none_fit": false}',
+        },
+        # Pattern 10: User job in research context (NOT methodology framework)
+        {
+            "user": (
+                "DOCUMENT CONTEXT: User research\n\n"
+                "FACT TO CLASSIFY:\n\"Scientist needs to ensure experiment reproducibility\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.2.1.1: Problem Statement\n  PURPOSE: State the governed problem claim\n"
+                "- BP.6.1.3: JTBD Framework\n  PURPOSE: Define jobs-to-be-done framework methodology\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.2.1.1", "confidence": "high", "reasoning": "Actual user need is a problem statement - BP.6.1.3 is for defining JTBD methodology not storing user jobs", "none_fit": false}',
+        },
+        # Pattern 11: Product feature vs product definition
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Product requirements\n\n"
+                "FACT TO CLASSIFY:\n\"Feature: Real-time grammar and style checking\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.1.1.4: Core Function\n  PURPOSE: Define the product's core diagnostic function\n"
+                "- BP.1.2.4: Feature Scope\n  PURPOSE: Define what features are in/out of scope\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.1.1.4", "confidence": "high", "reasoning": "Core function definition not scope boundary - describes what product does", "none_fit": false}',
+        },
+        # Pattern 12: Product output vs product definition
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Product specification\n\n"
+                "FACT TO CLASSIFY:\n\"Output: Detailed quality report with scores and recommendations\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.1.1.5: Product Definition Details\n  PURPOSE: Additional product definition details\n"
+                "- BP.1.8.5: Output Object Specification\n  PURPOSE: Define the diagnostic output object\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.1.8.5", "confidence": "high", "reasoning": "Diagnostic output specification belongs in output object node not general product definition", "none_fit": false}',
+        },
+        # Pattern 13: Target market vs customer segment
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Go-to-market plan\n\n"
+                "FACT TO CLASSIFY:\n\"Primary market: Enterprise software companies in USA\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.3.1: Target Market Definition\n  PURPOSE: Define the target market\n"
+                "- BP.4.1.1: Customer Profile Details\n  PURPOSE: Detailed customer profile\n"
+                "- BP.4.1.5: Geographic Scope\n  PURPOSE: Geographic market scope\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.3.1", "confidence": "high", "reasoning": "High-level target market definition not detailed customer profile", "none_fit": false}',
+        },
+        # Pattern 14: Assumption vs problem statement
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Business plan assumptions\n\n"
+                "FACT TO CLASSIFY:\n\"Assumption: Customers willing to switch from current tools\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.2.1.6: Problem Validation Evidence\n  PURPOSE: Evidence for problem validation\n"
+                "- BP.12.2: Key Assumptions\n  PURPOSE: Document unvalidated business assumptions\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.12.2", "confidence": "high", "reasoning": "Explicitly labeled as assumption - unvalidated hypothesis belongs in assumptions not evidence", "none_fit": false}',
+        },
+        # Pattern 15: PMF metric evidence vs PMF definition
+        {
+            "user": (
+                "DOCUMENT CONTEXT: PMF metrics\n\n"
+                "FACT TO CLASSIFY:\n\"PMF indicator: 50% month-over-month organic user growth\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.10.1.8: PMF Evidence Data\n  PURPOSE: Store actual PMF evidence and metrics\n"
+                "- BP.10.3.1: PMF Evidence Framework\n  PURPOSE: Define the framework for assessing PMF\n"
+                "- BP.10.3.3: PMF Stage Assessment\n  PURPOSE: Assess which PMF stage we're in\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.10.1.8", "confidence": "high", "reasoning": "Specific metric data belongs in evidence data not framework definition or stage assessment", "none_fit": false}',
+        },
+        # Pattern 16: Risk statement with "risk:" label
+        {
+            "user": (
+                "DOCUMENT CONTEXT: Risk analysis\n\n"
+                "FACT TO CLASSIFY:\n\"Risk: Competitors may launch similar features before us\"\n\n"
+                "CANDIDATE NODES:\n"
+                "- BP.8.6.1: Competitive Response Scenarios\n  PURPOSE: Define how competitors might respond\n"
+                "- BP.8.7.1: Market Positioning Risks\n  PURPOSE: Risks related to market positioning\n"
+                "- BP.12.1: Identified Risks\n  PURPOSE: Document all known business risks\n"
+                "Return the JSON object now."
+            ),
+            "assistant": '{"node_id": "BP.12.1", "confidence": "high", "reasoning": "Explicitly labeled risk statement belongs in identified risks registry not competitive analysis", "none_fit": false}',
+        },
+    ]
+
+    # Build message history with few-shot examples
+    messages = []
+    for example in few_shot_examples:
+        messages.append({"role": "user", "content": [{"text": example["user"]}]})
+        messages.append({"role": "assistant", "content": [{"text": example["assistant"]}]})
+
+    # Add the actual classification request
     user_message = (
         f"{context_block}"
         f"FACT TO CLASSIFY:\n\"{fact_text}\"\n\n"
         f"CANDIDATE NODES:\n{candidate_block}\n\n"
         "Return the JSON object now."
     )
+    messages.append({"role": "user", "content": [{"text": user_message}]})
 
     try:
         client = _get_client()
@@ -234,7 +573,7 @@ def classify_fact_to_node(
         response = client.converse(
             modelId=model_id,
             system=[{"text": CLASSIFY_SYSTEM_PROMPT}],
-            messages=[{"role": "user", "content": [{"text": user_message}]}],
+            messages=messages,
             inferenceConfig={"maxTokens": 300},
         )
 
@@ -322,6 +661,12 @@ def validate_classification(fact_text: str, node_details: dict) -> dict:
     Makes ONE Haiku call to verify the LLM classifier's pick is semantically
     correct — catches cases where keyword similarity fooled the initial pass.
 
+    SPECIAL HANDLING: For definitional nodes (Framework, Definition, Register,
+    Prohibited, Hypothesis), uses a different validation question: "Does this
+    fact DEFINE, EXEMPLIFY, or BELONG TO the concept?" instead of "Does it
+    PRODUCE the output?". This is because definitional nodes store the
+    definitions themselves, not data that produces definitions.
+
     Args:
         fact_text: The fact being classified.
         node_details: Dict with at least 'required_output' and
@@ -335,6 +680,8 @@ def validate_classification(fact_text: str, node_details: dict) -> dict:
     """
     required_output = (node_details.get("required_output") or "")[:300]
     prohibited_claims = (node_details.get("prohibited_claims_inference_patterns") or "")[:300]
+    node_title = (node_details.get("node_title") or "").lower()
+    node_purpose = (node_details.get("purpose") or "")[:200]
 
     if not required_output and not prohibited_claims:
         return {
@@ -343,12 +690,39 @@ def validate_classification(fact_text: str, node_details: dict) -> dict:
             "reasoning": "No required_output or prohibited_claims to validate against.",
         }
 
-    user_message = (
-        f"FACT: \"{fact_text}\"\n\n"
-        f"NODE REQUIRED OUTPUT: \"{required_output}\"\n\n"
-        f"NODE PROHIBITED CLAIMS: \"{prohibited_claims}\"\n\n"
-        "Return the JSON now."
-    )
+    # Check if this is a definitional/governance node
+    DEFINITIONAL_PATTERNS = [
+        "definition", "framework", "register", "hypothesis", "prohibited",
+        "inference", "evidence framework", "assumption", "boundary",
+    ]
+    is_definitional = any(pattern in node_title for pattern in DEFINITIONAL_PATTERNS)
+
+    if is_definitional:
+        # Use different validation question for definitional nodes
+        user_message = (
+            f"FACT: \"{fact_text}\"\n\n"
+            f"NODE: {node_details.get('node_id')} - {node_details.get('node_title')}\n"
+            f"NODE PURPOSE: {node_purpose}\n"
+            f"NODE TYPE: Definitional/Governance (stores definitions, frameworks, or prohibitions)\n\n"
+            f"NODE PROHIBITED CLAIMS: \"{prohibited_claims}\"\n\n"
+            "SPECIAL INSTRUCTION: This is a DEFINITIONAL node. It stores definitions, "
+            "frameworks, or prohibited patterns — NOT data that produces those definitions. "
+            "The fact itself IS the definition/example/prohibition.\n\n"
+            "Question 1 (required_output_match): Does this fact DEFINE, EXEMPLIFY, STATE, "
+            "or BELONG TO the node's concept/purpose? Examples:\n"
+            "- For 'PMF Evidence Framework' node: 'PMF exists when...' IS a definition → YES\n"
+            "- For 'Prohibited PMF Inferences' node: 'PMF is not...' IS a prohibition → YES\n"
+            "- For 'Hypothesis' node: 'We assume X' IS a hypothesis → YES\n\n"
+            "Return the JSON now."
+        )
+    else:
+        # Standard validation for data nodes
+        user_message = (
+            f"FACT: \"{fact_text}\"\n\n"
+            f"NODE REQUIRED OUTPUT: \"{required_output}\"\n\n"
+            f"NODE PROHIBITED CLAIMS: \"{prohibited_claims}\"\n\n"
+            "Return the JSON now."
+        )
 
     try:
         client = _get_client()

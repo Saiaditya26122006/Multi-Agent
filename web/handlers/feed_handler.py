@@ -156,6 +156,43 @@ def _get_node_details(node_id: str) -> Optional[dict]:
     return None
 
 
+def _get_level1_domains() -> list[dict]:
+    """Get all level-1 domains (BP.1, BP.2, etc.) from the architecture."""
+    nodes = _load_bp_architecture()
+    domains = [
+        n for n in nodes
+        if n.get("node_id", "").count(".") == 1
+        and n["node_id"].startswith("BP.")
+        and n.get("level") == 1.0
+    ]
+    return domains
+
+
+def _get_all_children(parent_id: str) -> list[dict]:
+    """Get all descendants (children, grandchildren, etc.) of a node.
+
+    IMPORTANT: Also includes the parent node itself in the results.
+    This ensures that when classifying to BP.2 domain, BP.2 itself
+    is a candidate, not just BP.2.1, BP.2.2, etc.
+    """
+    nodes = _load_bp_architecture()
+    children = []
+    prefix = f"{parent_id}."
+
+    # Include the parent node itself
+    for n in nodes:
+        if n.get("node_id") == parent_id:
+            children.append(n)
+            break
+
+    # Include all descendants
+    for n in nodes:
+        nid = n.get("node_id", "")
+        if nid.startswith(prefix):
+            children.append(n)
+    return children
+
+
 def _next_child_id(parent_id: str, all_nodes: list[dict]) -> str:
     """Compute the next available sibling ID under a parent.
 
@@ -724,16 +761,22 @@ _REQUIRED_OUTPUT_STOPWORDS = frozenset({
 })
 
 
-def _required_output_precheck(fact_text: str, required_output: str) -> bool:
+def _required_output_precheck(fact_text: str, required_output: str, node_details: dict = None) -> bool:
     """Fast programmatic check: does the fact share ANY key nouns with required_output?
 
     Extracts 4+ char words (excluding stopwords) from the node's required_output
     and checks for overlap with the fact text. If ZERO overlap, the fact almost
     certainly does not belong under this node — skip the expensive LLM validation.
 
+    EXCEPTION: For definitional/governance nodes (Framework, Definition, Register,
+    Hypothesis, Prohibited patterns), skip this check entirely. These nodes store
+    the definitions themselves, not data that produces the definitions, so keyword
+    overlap with required_output is not a reliable signal.
+
     Args:
         fact_text: The fact being classified.
         required_output: The node's required_output field.
+        node_details: Optional full node dict for checking node_type/title.
 
     Returns:
         True if there is at least one meaningful word overlap (fact MAY fit).
@@ -741,6 +784,25 @@ def _required_output_precheck(fact_text: str, required_output: str) -> bool:
     """
     if not required_output:
         return True  # No required_output to check against — permissive
+
+    # Check if this is a definitional/governance node type
+    # These nodes store definitions, not data, so keyword overlap is unreliable
+    if node_details:
+        node_title = (node_details.get("node_title") or "").lower()
+        node_type = (node_details.get("node_type") or "").lower()
+
+        DEFINITIONAL_PATTERNS = [
+            "definition", "framework", "register", "hypothesis", "prohibited",
+            "inference", "evidence framework", "assumption", "boundary",
+        ]
+
+        for pattern in DEFINITIONAL_PATTERNS:
+            if pattern in node_title or pattern in node_type:
+                logger.debug(
+                    "[FeedHandler] Skipping precheck for definitional node: %s",
+                    node_details.get("node_id")
+                )
+                return True  # Skip precheck for definitional nodes
 
     ro_lower = required_output.lower()
     fact_lower = fact_text.lower()
@@ -755,6 +817,81 @@ def _required_output_precheck(fact_text: str, required_output: str) -> bool:
 
     overlap = ro_nouns & fact_words
     return len(overlap) > 0
+
+
+def _check_prohibition_violation(fact_text: str, node_id: str) -> tuple[bool, str]:
+    """Programmatically check if fact violates node's prohibited_claims.
+
+    This is a HARD gate that runs after LLM classification. The LLM is told
+    to respect prohibitions, but sometimes picks prohibited nodes anyway with
+    "high" confidence. This function enforces the rule programmatically.
+
+    Args:
+        fact_text: The fact being classified.
+        node_id: The node_id the LLM picked.
+
+    Returns:
+        (violated: bool, reason: str) — True if the fact violates a prohibition,
+        with a human-readable reason. False if no violation detected.
+    """
+    node = _get_node_details(node_id)
+    if not node:
+        return False, ""
+
+    prohibited_claims = node.get("prohibited_claims_inference_patterns") or ""
+    if not prohibited_claims:
+        return False, ""  # No prohibitions to check
+
+    fact_lower = fact_text.lower()
+
+    # Define prohibition patterns and their semantic keywords
+    # These are common patterns from Alex's BP architecture
+    PROHIBITION_PATTERNS = [
+        {
+            "keywords": ["manuscript", "writing", "improve", "quality", "submission"],
+            "pattern": "manuscript.*improv|writing.*assist|improve.*manuscript",
+            "description": "manuscript improvement/writing assistance",
+        },
+        {
+            "keywords": ["adopt", "need", "want", "systematic", "workflow", "require"],
+            "pattern": "adopt|need.*systematic|want.*workflow|requir.*assessment",
+            "description": "inferring adoption/urgency from workflow existence",
+        },
+        {
+            "keywords": ["like", "satisfaction", "positive", "feedback", "enjoy"],
+            "pattern": "researcher.*like|user.*satisfaction|positive.*feedback",
+            "description": "satisfaction/liking as PMF signal",
+        },
+        {
+            "keywords": ["email", "dean", "single", "anecdote", "one"],
+            "pattern": "one.*email|single.*dean|anecdot",
+            "description": "anecdotal evidence as PMF proof",
+        },
+    ]
+
+    prohibited_lower = prohibited_claims.lower()
+
+    # Check each prohibition pattern
+    for pattern_def in PROHIBITION_PATTERNS:
+        # First check if this prohibition is mentioned in the node's prohibited_claims
+        pattern_matched = False
+        for keyword in pattern_def["keywords"]:
+            if keyword in prohibited_lower:
+                pattern_matched = True
+                break
+
+        if not pattern_matched:
+            continue  # This prohibition doesn't apply to this node
+
+        # Now check if the fact asserts something matching this prohibition
+        if re.search(pattern_def["pattern"], fact_lower, re.IGNORECASE):
+            reason = (
+                f"Fact asserts '{pattern_def['description']}' which node {node_id} "
+                f"explicitly prohibits: '{prohibited_claims[:100]}...'"
+            )
+            return True, reason
+
+    return False, ""
 
 
 def classify_and_match_node(text: str, session_id: Optional[str] = None, document_context: Optional[str] = None, use_fast_model: bool = False) -> dict:
@@ -778,32 +915,81 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
         reasoning, none_fit (bool), suggested_parent (dict, only populated
         when none_fit is True — where a brand-new node would go).
     """
-    candidates = match_bp_node(text, top_k=CLASSIFY_CANDIDATE_POOL)
-
-    # --- Approach B: Domain-aware candidate expansion ---
-    # Detect the likely level-1 domain(s) and inject all their child nodes
-    # into the candidate list. This ensures the correct deep node is always
-    # present even when embedding similarity ranks it outside the top-15.
-    # Use both the fact text AND document context for domain detection —
-    # an individual fact like "Job: Improve manuscript quality" may not
-    # match BP.10 (PMF), but the document context "PMF options analysis"
-    # will. Merge all unique domains from both, cap at 3.
-    likely_domains = _detect_likely_domains(text)
     if document_context:
-        context_domains = _detect_likely_domains_broad(document_context)
-        for d in context_domains:
-            if d not in likely_domains:
-                likely_domains.append(d)
-        likely_domains = likely_domains[:3]
+        logger.debug(
+            "[FeedHandler] Classifying with document context: fact='%s...', context='%s...'",
+            text[:60], document_context[:80]
+        )
+    else:
+        logger.debug(
+            "[FeedHandler] Classifying WITHOUT document context: fact='%s...'",
+            text[:60]
+        )
 
-    if likely_domains:
-        existing_ids = {c["node_id"] for c in candidates}
-        # Instead of injecting ALL domain nodes (60-90 per domain), only
-        # inject the top-scoring ones by quick embedding comparison. This
-        # keeps the candidate list bounded at ~30 total while still ensuring
-        # the correct deep node from the right domain is present.
-        domain_additions = _get_domain_nodes_ranked(text, likely_domains, existing_ids, max_inject=15)
-        candidates.extend(domain_additions)
+    # --- Pre-routing: Force correct domains for explicitly labeled facts ---
+    # Facts with clear prefixes like "Risk:", "Assumption:", "Constraint:"
+    # get misrouted by the domain classifier. Force the correct domains.
+    text_lower = text.lower().strip()
+    forced_domains = None
+
+    if text_lower.startswith("risk:") or text_lower.startswith("main risk:"):
+        forced_domains = ["BP.12", "BP.8"]
+    elif text_lower.startswith("assumption:") or text_lower.startswith("key assumption:"):
+        forced_domains = ["BP.12", "BP.2"]
+    elif text_lower.startswith("constraint:") or text_lower.startswith("limitation:"):
+        forced_domains = ["BP.7", "BP.1"]
+    elif text_lower.startswith("revenue") or text_lower.startswith("pricing"):
+        forced_domains = ["BP.9", "BP.5"]
+    elif text_lower.startswith("target market") or text_lower.startswith("target customer"):
+        forced_domains = ["BP.3", "BP.4"]
+
+    # --- Two-Stage Classification (Task #4) ---
+    # Stage 1: Use LLM to pick 1-3 level-1 domains (BP.1, BP.2, etc.)
+    #          This mirrors how Alex's Claude Desktop got 9/9 — domain first, then node.
+    # Stage 2: Build candidate pool from those domains + embedding top-k, then LLM picks specific node.
+
+    # Stage 1: Domain classification
+    from web.handlers.llm_helper import classify_fact_to_domain
+
+    level1_domains = _get_level1_domains()
+
+    if forced_domains:
+        selected_domain_ids = forced_domains
+        logger.info(
+            "[FeedHandler] Pre-routed fact to domains %s based on prefix keyword",
+            forced_domains
+        )
+    else:
+        selected_domain_ids = classify_fact_to_domain(text, level1_domains, document_context=document_context)
+
+    if session_id and selected_domain_ids:
+        emit_trace(
+            session_id, "Classifier", "domain_selected",
+            f"Domain(s): {', '.join(selected_domain_ids)}",
+            data={"domains": selected_domain_ids, "phase": "domain_classification"},
+        )
+
+    # Stage 2: Build candidate pool from selected domains
+    # Get all nodes from the selected domains
+    domain_candidates = []
+    for domain_id in selected_domain_ids:
+        domain_children = _get_all_children(domain_id)
+        domain_candidates.extend(domain_children)
+
+    # Also include top embedding matches to catch edge cases
+    embedding_candidates = match_bp_node(text, top_k=CLASSIFY_CANDIDATE_POOL)
+
+    # Merge and deduplicate
+    seen_ids = set()
+    candidates = []
+    for c in domain_candidates + embedding_candidates:
+        cid = c.get("node_id")
+        if cid and cid not in seen_ids:
+            seen_ids.add(cid)
+            candidates.append(c)
+
+    # Sort by similarity if available, otherwise keep domain order
+    candidates.sort(key=lambda x: x.get("similarity", 0.0), reverse=True)
 
     if not candidates:
         parent = _get_suggested_parent([], text=text)
@@ -842,13 +1028,40 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
         result["purpose"] = node_details.get("purpose") or ""
         result["level"] = node_details.get("level", 0)
 
+        # Track original confidence before any demotions for Fix #2
+        original_confidence = result.get("confidence")
+
+        # --- MANDATORY: Hard prohibition gate (runs for ALL classifications) ---
+        # Check if the fact violates the node's prohibited_claims before accepting
+        # the LLM's classification. This catches cases where the LLM ignores
+        # prohibitions and picks a node with "high" confidence anyway.
+        violation_detected, violation_reason = _check_prohibition_violation(text, result["node_id"])
+
+        if violation_detected:
+            # Hard reject: set none_fit=True and clear the node_id
+            result["node_id"] = None
+            result["node_title"] = ""
+            result["confidence"] = "low"
+            result["none_fit"] = True
+            result["reasoning"] = f"REJECTED: {violation_reason}"
+            result["suggested_parent"] = _get_suggested_parent(candidates, text=text)
+            if session_id:
+                emit_trace(
+                    session_id, "Classifier", "rejected",
+                    f"Prohibition violation detected — rejecting classification",
+                    data={"reason": violation_reason, "phase": "prohibition_gate"},
+                )
+            logger.info(
+                "[FeedHandler] Prohibition gate REJECTED classification: %s",
+                violation_reason,
+            )
         # --- Hybrid validation (replaces old keyword-stem prohibition gate) ---
         # For high-confidence matches, run a two-stage check:
         # Stage 1: Fast required_output pre-check (no API call)
         # Stage 2: LLM-based semantic validation (one Haiku call)
-        if result.get("confidence") == "high":
+        elif result.get("confidence") == "high":
             required_output = node_details.get("required_output") or ""
-            precheck_passed = _required_output_precheck(text, required_output)
+            precheck_passed = _required_output_precheck(text, required_output, node_details)
 
             if not precheck_passed:
                 # Zero keyword overlap with required_output — immediate demote,
@@ -946,13 +1159,31 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
         # If the LLM returned medium/low confidence AND the required_output
         # pre-check found zero overlap, force none_fit. The fact genuinely
         # doesn't belong to any candidate.
+        #
+        # FIX #2: Skip this check if the node was originally "high" confidence
+        # but got demoted to "medium" by validation.
+        #
+        # FIX #7 (Iteration 3): Also skip for definitional/urgency nodes (BP.2.3, BP.10, BP.12)
+        # where natural language descriptions don't match required_output keywords
+        node_id_str = result.get("node_id") or ""
+        is_urgency_or_definition = (
+            node_id_str.startswith("BP.2.3") or  # Urgency
+            node_id_str.startswith("BP.2.1") or  # Problem statements
+            node_id_str.startswith("BP.7") or  # Compliance/constraints
+            node_id_str.startswith("BP.8") or  # Competitive/market
+            node_id_str.startswith("BP.10") or  # PMF definitions
+            node_id_str.startswith("BP.12")  # Risks/assumptions
+        )
+
         if (
             not result.get("none_fit")
             and result.get("node_id")
             and result.get("confidence") in ("medium", "low")
+            and original_confidence != "high"  # Skip if demoted from high
+            and not is_urgency_or_definition  # Skip for urgency/definition nodes
         ):
             r_output = (node_details.get("required_output") or "")
-            if r_output and not _required_output_precheck(text, r_output):
+            if r_output and not _required_output_precheck(text, r_output, node_details):
                 result["node_id"] = None
                 result["node_title"] = ""
                 result["none_fit"] = True
@@ -961,6 +1192,11 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
                 result["suggested_parent"] = _get_suggested_parent(candidates, text=text)
                 logger.info(
                     "[FeedHandler] Strict none_fit enforced: medium/low confidence + zero required_output overlap"
+                )
+            else:
+                logger.debug(
+                    "[FeedHandler] Skipping strict none_fit: originally high confidence (demoted to %s)",
+                    result.get("confidence")
                 )
 
     if session_id:
@@ -2851,8 +3087,48 @@ def _split_table(text: str) -> list[dict]:
 
 
 def _split_paragraph(text: str) -> list[dict]:
-    """Split paragraph text into sentences as atomic facts."""
-    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    """Split paragraph text into sentences as atomic facts.
+
+    Preserves semantic blocks (JTBD, Outcome+Metric, PMF definitions) to
+    avoid context loss. Individual facts within these blocks will carry
+    their full semantic context rather than being isolated sentences.
+    """
+    text = text.strip()
+
+    # Define semantic block patterns that should NOT be split
+    SEMANTIC_BLOCK_PATTERNS = [
+        # JTBD blocks: "Job: ... Outcome: ... Metric: ..."
+        r"Job:\s*[^.]+?(?:Outcome:\s*[^.]+?)?(?:Metric:\s*[^.]+?)?(?=\n\n|Job:|$)",
+        # Outcome+Metric pairs
+        r"Outcome:\s*[^.]+?Metric:\s*[^.]+?(?=\n\n|Outcome:|Job:|$)",
+        # PMF definition statements (keep "PMF is/is not: ... when ..." together)
+        r"PMF\s+is(?:\s+not)?:\s*[^.]+?when\s+[^.]+?(?=\n\n|PMF\s+is|$)",
+        # Evidence statements (keep "Evidence: ... shows/indicates ..." together)
+        r"Evidence:\s*[^.]+?(?:shows|indicates|suggests)\s+[^.]+?(?=\n\n|Evidence:|$)",
+        # Prohibition statements (keep "We do not/cannot ... because ..." together)
+        r"We\s+(?:do not|cannot|don't)\s+[^.]+?because\s+[^.]+?(?=\n\n|We\s+(?:do not|cannot)|$)",
+    ]
+
+    # First, extract semantic blocks
+    semantic_blocks = []
+    remaining_text = text
+
+    for pattern in SEMANTIC_BLOCK_PATTERNS:
+        for match in re.finditer(pattern, remaining_text, re.IGNORECASE | re.DOTALL):
+            block_text = match.group(0).strip()
+            if len(block_text) > 10:
+                semantic_blocks.append({
+                    "text": block_text,
+                    "inferred_status": _infer_epistemic_status(block_text),
+                    "source_format": "paragraph_semantic_block",
+                    "start": match.start(),
+                    "end": match.end(),
+                })
+        # Remove matched blocks from remaining text
+        remaining_text = re.sub(pattern, "", remaining_text, flags=re.IGNORECASE | re.DOTALL)
+
+    # Now split remaining text into sentences
+    sentences = re.split(r"(?<=[.!?])\s+", remaining_text.strip())
     facts = []
 
     for sent in sentences:
@@ -2863,6 +3139,12 @@ def _split_paragraph(text: str) -> list[dict]:
                 "inferred_status": _infer_epistemic_status(sent),
                 "source_format": "paragraph",
             })
+
+    # Merge semantic blocks back in, remove start/end markers
+    for block in semantic_blocks:
+        del block["start"]
+        del block["end"]
+        facts.append(block)
 
     return facts
 
