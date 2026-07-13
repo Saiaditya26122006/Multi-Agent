@@ -86,7 +86,7 @@ def is_system_question(text: str) -> bool:
 # ─── LLM-based intent classification ─────────────────────────────────────────
 
 _INTENT_SYSTEM_PROMPT = """You are an intent classifier for EpistemicOS system questions.
-Classify the user's question into EXACTLY ONE category and extract the time window.
+Classify the user's question into EXACTLY ONE category and extract parameters.
 
 Categories:
 - architecture_changes: about nodes/domains added, modified, created, how many exist, structure
@@ -99,9 +99,13 @@ Also extract these parameters:
   "today" = 1440, "yesterday" = 2880, "this week" = 10080, "last hour" = 60
   If no time specified, use 10080 (7 days).
 - specific_node: if the user mentions a specific node ID (like BP.13, BP.1.2), extract it. Otherwise null.
+- node_usage: how the node is used in the question. IMPORTANT distinction:
+  - "filter": user wants info ABOUT that specific node ("tell me about BP.13", "when was BP.13 updated", "how many facts in BP.13")
+  - "reference": user mentions the node as a reference point but wants broader data ("what was added before BP.13", "what nodes came after BP.1", "besides BP.13 what else")
+  - null: if no node is mentioned
 
 Respond with ONLY valid JSON, no markdown:
-{"intent": "<category>", "time_window_minutes": <int>, "specific_node": <string or null>}"""
+{"intent": "<category>", "time_window_minutes": <int>, "specific_node": <string or null>, "node_usage": <"filter"|"reference"|null>}"""
 
 
 def classify_system_intent_llm(text: str) -> dict:
@@ -143,12 +147,14 @@ def classify_system_intent_llm(text: str) -> dict:
 
         result.setdefault("time_window_minutes", 10080)
         result.setdefault("specific_node", None)
+        result.setdefault("node_usage", None)
 
         logger.info(
-            "[SystemAwareness] LLM intent: %s, time=%dm, node=%s",
+            "[SystemAwareness] LLM intent: %s, time=%dm, node=%s (usage=%s)",
             result["intent"],
             result["time_window_minutes"],
             result.get("specific_node"),
+            result.get("node_usage"),
         )
         return result
 
@@ -160,6 +166,7 @@ def classify_system_intent_llm(text: str) -> dict:
             "intent": _classify_system_intent_keywords(text),
             "time_window_minutes": _extract_time_window_fallback(text),
             "specific_node": _extract_node_id_fallback(text),
+            "node_usage": _infer_node_usage_fallback(text),
         }
 
 
@@ -227,6 +234,20 @@ def _extract_node_id_fallback(text: str) -> Optional[str]:
     if match:
         return match.group(0).upper()
     return None
+
+
+def _infer_node_usage_fallback(text: str) -> Optional[str]:
+    """Infer whether a mentioned node is a filter or reference point."""
+    text_lower = text.lower()
+    if not re.search(r"bp\.\d+", text_lower):
+        return None
+    reference_indicators = [
+        "before", "after", "besides", "other than", "except",
+        "prior to", "since", "following", "next to",
+    ]
+    if any(kw in text_lower for kw in reference_indicators):
+        return "reference"
+    return "filter"
 
 
 # Keep the old name as a compat shim
@@ -707,21 +728,27 @@ def answer_system_question(text: str, session_id: Optional[str] = None) -> str:
     intent = classification["intent"]
     time_window = classification["time_window_minutes"]
     specific_node = classification.get("specific_node")
+    node_usage = classification.get("node_usage")
+
+    # Only use node as a DB filter when the user wants info ABOUT that node.
+    # When node is a reference point ("before BP.13"), we need ALL data so the
+    # LLM can locate the node in context and answer relative questions.
+    filter_node = specific_node if node_usage == "filter" else None
 
     logger.info(
-        "[SystemAwareness] Classified: intent=%s, window=%dm, node=%s for: %s",
-        intent, time_window, specific_node, text[:80],
+        "[SystemAwareness] Classified: intent=%s, window=%dm, node=%s (usage=%s) for: %s",
+        intent, time_window, specific_node, node_usage, text[:80],
     )
 
     # Step 2: Query the appropriate data source with extracted parameters
     if intent == "architecture_changes":
-        raw_data = query_architecture_changes(time_window, specific_node)
+        raw_data = query_architecture_changes(time_window, filter_node)
     elif intent == "classification_history":
-        raw_data = query_classification_history(time_window, specific_node)
+        raw_data = query_classification_history(time_window, filter_node)
     elif intent == "data_freshness":
-        raw_data = query_data_freshness(specific_node=specific_node)
+        raw_data = query_data_freshness(specific_node=filter_node)
     else:
-        raw_data = query_system_activity(time_window, specific_node)
+        raw_data = query_system_activity(time_window, filter_node)
 
     if session_id:
         emit_trace(session_id, "System", "answering", "Synthesizing answer...")
