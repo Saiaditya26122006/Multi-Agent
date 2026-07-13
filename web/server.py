@@ -103,19 +103,21 @@ def set_pipeline_handler(handler):
     _pipeline_handler = handler
 
 
-def _handle_workspace_message(workspace: Workspace, text: str, session_id: str) -> str:
+def _handle_workspace_message(workspace: Workspace, text: str, session_id: str):
     """Dispatch a message to the active workspace handler.
 
-    Returns response text, or empty string if not handled.
+    Returns response text (str) or AnswerResponse object, or empty string.
     """
-    # ── System-awareness check (uniform across ALL workspaces) ────────────
-    from web.handlers.system_awareness import is_system_question, answer_system_question
+    # ── Answer Engine: handles ANY question across all workspaces ──────────
+    from web.handlers.answer_engine import is_question, answer_question
 
-    if is_system_question(text):
+    if is_question(text):
         try:
-            return answer_system_question(text, session_id=session_id)
+            response = answer_question(text, session_id=session_id)
+            if response:
+                return response
         except Exception as e:
-            logger.error("[SystemAwareness] Handler crashed: %s", e)
+            logger.error("[AnswerEngine] Handler crashed: %s", e)
             # Fall through to normal workspace dispatch on failure
 
     text_lower = text.strip().lower()
@@ -650,16 +652,39 @@ async def post_message(req: SendMessageRequest):
             )
         if not response_text:
             response_text = "Received — nothing to show for that input."
-        await manager.broadcast(
-            session_key,
-            {
-                "role": "assistant",
-                "text": response_text,
-                "timestamp": datetime.utcnow().isoformat(),
-                "channel": "system",
-                "workspace": current_ws.value,
-            },
-        )
+
+        # Check if the response is a structured AnswerResponse (from answer_engine)
+        from web.handlers.answer_engine import AnswerResponse
+        if isinstance(response_text, AnswerResponse):
+            await manager.broadcast(
+                session_key,
+                {
+                    "role": "assistant",
+                    "text": response_text.answer,
+                    "metadata": {
+                        "rich_type": "answer_card",
+                        "answer": response_text.answer,
+                        "confidence": response_text.confidence,
+                        "sources": response_text.sources,
+                        "search_ops": response_text.search_ops_run,
+                        "total_results": response_text.total_results,
+                    },
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "channel": "system",
+                    "workspace": current_ws.value,
+                },
+            )
+        else:
+            await manager.broadcast(
+                session_key,
+                {
+                    "role": "assistant",
+                    "text": response_text,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "channel": "system",
+                    "workspace": current_ws.value,
+                },
+            )
         return {"status": "workspace_handled", "session_key": session_key, "workspace": current_ws.value}
 
     from web.handlers.auto_handler import classify_intent, handle_auto_message, format_auto_response

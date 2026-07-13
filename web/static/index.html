@@ -1133,6 +1133,128 @@
             gap: 8px;
         }
 
+        /* ANSWER CARD */
+
+        .answer-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            max-width: 100%;
+        }
+
+        .answer-card-confidence {
+            padding: 8px 16px;
+            border-left: 4px solid var(--text-tertiary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .answer-card-confidence.confidence-high { border-left-color: var(--success); color: var(--success); }
+        .answer-card-confidence.confidence-medium { border-left-color: var(--warning); color: var(--warning); }
+        .answer-card-confidence.confidence-low { border-left-color: var(--danger); color: var(--danger); }
+        .answer-card-confidence.confidence-insufficient { border-left-color: var(--text-tertiary); color: var(--text-tertiary); }
+
+        .answer-card-body {
+            padding: 16px;
+            font-size: 14px;
+            line-height: 1.7;
+            color: var(--text-primary);
+        }
+
+        .answer-card-body p { margin-bottom: 8px; }
+        .answer-card-body p:last-child { margin-bottom: 0; }
+        .answer-card-body ul, .answer-card-body ol { padding-left: 20px; margin-bottom: 8px; }
+        .answer-card-body strong { font-weight: 600; }
+        .answer-card-body code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--accent-soft); padding: 2px 5px; border-radius: 3px; }
+
+        .answer-card-sources {
+            border-top: 1px solid var(--border);
+            padding: 0;
+        }
+
+        .answer-card-sources summary {
+            padding: 10px 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+        }
+
+        .answer-card-sources summary::before {
+            content: "▸ ";
+        }
+
+        .answer-card-sources[open] summary::before {
+            content: "▾ ";
+        }
+
+        .answer-card-sources-list {
+            padding: 0 16px 12px;
+        }
+
+        .answer-card-source-item {
+            padding: 8px 10px;
+            border-radius: var(--radius-sm);
+            background: var(--accent-soft);
+            margin-bottom: 6px;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .answer-card-source-item:last-child { margin-bottom: 0; }
+
+        .answer-card-source-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .answer-card-source-node {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--accent);
+            font-size: 11px;
+        }
+
+        .answer-card-source-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .answer-card-source-sim {
+            margin-left: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--text-tertiary);
+            background: var(--bg-main);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .answer-card-source-preview {
+            color: var(--text-secondary);
+            font-size: 11px;
+            line-height: 1.4;
+            margin-top: 2px;
+        }
+
+        .answer-card-suggestion {
+            padding: 10px 16px;
+            border-top: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--text-tertiary);
+            font-style: italic;
+        }
+
         /* PILL BUTTONS */
 
         .pill-btn {
@@ -4489,6 +4611,7 @@
                     case 'heatmap': return renderHeatmap(metadata);
                     case 'fact_list': return renderFactList(metadata);
                     case 'decision': return renderDecision(metadata);
+                    case 'answer_card': return renderAnswerCard(metadata);
                     default: return `<div class="message-bubble">${metadata.text || ''}</div>`;
                 }
             }
@@ -4565,6 +4688,59 @@
                                 <button class="decision-btn decision-btn-kill action-btn" data-action="Kill">Kill</button>
                             </div>
                         </div>
+                    </div>
+                `;
+            }
+
+            function renderAnswerCard(meta) {
+                const confidence = meta.confidence || 'medium';
+                const confidenceLabels = {
+                    high: 'High confidence',
+                    medium: 'Medium confidence',
+                    low: 'Low confidence',
+                    insufficient: 'Insufficient data'
+                };
+
+                const answerHtml = marked.parse(meta.answer || '');
+
+                let sourcesHtml = '';
+                const sources = meta.sources || [];
+                if (sources.length > 0) {
+                    const sourceItems = sources.filter(s => s.node_id || s.content_preview).map(s => {
+                        const simBadge = s.similarity ? `<span class="answer-card-source-sim">${Math.round(s.similarity * 100)}%</span>` : '';
+                        const preview = s.content_preview ? `<div class="answer-card-source-preview">${escapeHtml(s.content_preview.slice(0, 120))}${s.content_preview.length > 120 ? '...' : ''}</div>` : '';
+                        return `
+                            <div class="answer-card-source-item">
+                                <div class="answer-card-source-header">
+                                    <span class="answer-card-source-node">${escapeHtml(s.node_id || '')}</span>
+                                    <span class="answer-card-source-title">${escapeHtml(s.node_title || '')}</span>
+                                    ${simBadge}
+                                </div>
+                                ${preview}
+                            </div>
+                        `;
+                    }).join('');
+
+                    sourcesHtml = `
+                        <details class="answer-card-sources">
+                            <summary>${sources.length} source${sources.length !== 1 ? 's' : ''} used</summary>
+                            <div class="answer-card-sources-list">${sourceItems}</div>
+                        </details>
+                    `;
+                }
+
+                const suggestionHtml = confidence === 'insufficient'
+                    ? `<div class="answer-card-suggestion">You can add relevant information via the Feed workspace.</div>`
+                    : '';
+
+                return `
+                    <div class="answer-card">
+                        <div class="answer-card-confidence confidence-${confidence}">
+                            ${confidenceLabels[confidence] || confidence}
+                        </div>
+                        <div class="answer-card-body">${answerHtml}</div>
+                        ${sourcesHtml}
+                        ${suggestionHtml}
                     </div>
                 `;
             }
