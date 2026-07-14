@@ -9,6 +9,7 @@ import logging
 from typing import Optional
 
 from tools.trace_emitter import emit_trace
+from services.pipeline_orchestrator import get_orchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -20,20 +21,58 @@ def _trace(session_id: Optional[str], step: str, detail: str, data: Optional[dic
 
 
 def build_full_plan(session_id: Optional[str] = None) -> dict:
-    """Check readiness and queue the full pipeline via Mother Agent.
-
-    NOTE: this checks blockers and reports what WOULD be built — it does not
-    yet invoke the actual generation pipeline (Mother Agent isn't wired to
-    the web UI's Build workspace). The trace narration below reflects only
-    the real work happening today (blocker checks), not fabricated
-    per-section progress — this system doesn't fake activity that isn't real.
+    """Trigger the full pipeline via Pipeline Orchestrator.
 
     Args:
         session_id: Current session identifier.
 
     Returns:
-        Dict with: status, message, blockers (if any).
+        Dict with: status, run_id, message
     """
+    try:
+        _trace(session_id, "checking_blockers", "Checking which sections are blocked by missing data...")
+        blockers = get_build_blockers()
+        if blockers:
+            return {
+                "status": "blocked",
+                "message": (
+                    f"Cannot build full plan — {len(blockers)} section(s) have unmet dependencies. "
+                    "Feed the missing data first."
+                ),
+                "blockers": blockers,
+            }
+
+        # Trigger pipeline via orchestrator
+        orchestrator = get_orchestrator()
+        result = orchestrator.start_build(
+            session_id=session_id,
+            instruction="Build the full business plan",
+            scope="all"
+        )
+
+        if "error" in result:
+            return {
+                "status": "error",
+                "message": result["error"]
+            }
+
+        return {
+            "status": "started",
+            "run_id": result["run_id"],
+            "message": "Pipeline started — watch the Activity Drawer for real-time progress"
+        }
+
+    except Exception as e:
+        logger.exception("[BuildHandler] build_full_plan failed")
+        return {
+            "status": "error",
+            "message": f"Failed to start pipeline: {str(e)}"
+        }
+
+
+# Keep the old function for reference
+def _old_build_full_plan_stub(session_id: Optional[str] = None) -> dict:
+    """OLD STUB — kept for reference during migration."""
     try:
         _trace(session_id, "checking_blockers", "Checking which sections are blocked by missing data...")
         blockers = get_build_blockers()
@@ -64,14 +103,14 @@ def build_full_plan(session_id: Optional[str] = None) -> dict:
 
 
 def build_section(section_id: str, session_id: Optional[str] = None) -> dict:
-    """Check readiness for a single section build.
+    """Trigger a single section build via Pipeline Orchestrator.
 
     Args:
         section_id: The BP section to build (e.g. "BP.9", "9").
         session_id: Current session identifier.
 
     Returns:
-        Dict with: status, message, section, blockers.
+        Dict with: status, message, section, run_id, blockers.
     """
     normalized = _normalize_section_id(section_id)
     _trace(session_id, "checking_section_blockers", f"Checking whether {normalized} has unmet dependencies...")
@@ -86,11 +125,26 @@ def build_section(section_id: str, session_id: Optional[str] = None) -> dict:
             "blockers": blockers,
         }
 
-    _trace(session_id, "section_queued", f"{normalized} has no blockers, queued")
+    # Trigger single-section pipeline
+    orchestrator = get_orchestrator()
+    result = orchestrator.start_build(
+        session_id=session_id,
+        instruction=f"Build section {normalized}",
+        scope=normalized
+    )
+
+    if "error" in result:
+        return {
+            "status": "error",
+            "message": result["error"],
+            "section": normalized,
+        }
+
     return {
         "status": "started",
-        "message": f"Building section {normalized}.",
+        "message": f"Building section {normalized} — watch Activity Drawer for progress",
         "section": normalized,
+        "run_id": result["run_id"],
     }
 
 
@@ -150,18 +204,40 @@ def build_weak_sections(threshold: float = 40.0, session_id: Optional[str] = Non
     }
 
 
-def get_build_status() -> dict:
-    """Get the current pipeline build status.
+def get_build_status(session_id: Optional[str] = None) -> dict:
+    """Get the current pipeline build status from orchestrator.
+
+    Args:
+        session_id: Current session identifier.
 
     Returns:
-        Dict with: running (bool), progress, current_agent, sections_complete.
+        Dict with: running (bool), status, progress, current_group, run_id.
     """
+    if not session_id:
+        return {
+            "running": False,
+            "status": "idle",
+            "progress": 0,
+        }
+
+    orchestrator = get_orchestrator()
+    status = orchestrator.get_status(session_id)
+
+    is_running = status.get("status") in ("building", "waiting_for_alex")
+    current_group = status.get("current_group", 0)
+
+    # Estimate progress based on group (4 groups total)
+    progress = 0
+    if current_group > 0:
+        progress = int((current_group / 4) * 100)
+
     return {
-        "running": False,
-        "progress": 0,
-        "current_agent": None,
-        "sections_complete": [],
-        "sections_pending": [],
+        "running": is_running,
+        "status": status.get("status", "idle"),
+        "progress": progress,
+        "current_group": current_group,
+        "run_id": status.get("run_id"),
+        "started_at": status.get("started_at"),
     }
 
 

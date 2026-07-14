@@ -15,45 +15,37 @@ WORKSPACE_TTL = 86400  # 24 hours
 
 
 class Workspace(str, Enum):
-    """Available workspace modes."""
+    """Available workspace modes (simplified to 3 core workspaces)."""
 
     FEED = "feed"
     BUILD = "build"
-    INSPECT = "inspect"
-    CHALLENGE = "challenge"
-    VALIDATE = "validate"
-    EXPORT = "export"
     AUTO = "auto"
 
 
 WORKSPACE_LABELS = {
     Workspace.FEED: "Feed Data",
     Workspace.BUILD: "Build Plan",
-    Workspace.INSPECT: "Inspect",
-    Workspace.CHALLENGE: "Challenge",
-    Workspace.VALIDATE: "Validate",
-    Workspace.EXPORT: "Export",
-    Workspace.AUTO: "Just Chat",
+    Workspace.AUTO: "Auto & Ask",
 }
 
 WORKSPACE_DESCRIPTIONS = {
-    Workspace.FEED: "Give me new information",
-    Workspace.BUILD: "Generate business plan sections",
-    Workspace.INSPECT: "See what's strong, weak, missing",
-    Workspace.CHALLENGE: "Stress test my assumptions",
-    Workspace.VALIDATE: "Confirm or kill assumptions",
-    Workspace.EXPORT: "Get DOCX / investor / pitch deck",
-    Workspace.AUTO: "Ask anything (AUTO mode)",
+    Workspace.FEED: "Give me new information → auto-classifies into business plan",
+    Workspace.BUILD: "Generate and refine business plan sections (autonomous quality loop)",
+    Workspace.AUTO: "Inspect coverage, challenge assumptions, export plan, ask anything",
 }
 
 WORKSPACE_BY_NUMBER = {
     "1": Workspace.FEED,
     "2": Workspace.BUILD,
-    "3": Workspace.INSPECT,
-    "4": Workspace.CHALLENGE,
-    "5": Workspace.VALIDATE,
-    "6": Workspace.EXPORT,
-    "7": Workspace.AUTO,
+    "3": Workspace.AUTO,
+}
+
+# Legacy workspace mappings (for backward compatibility)
+LEGACY_WORKSPACES = {
+    "inspect": Workspace.AUTO,
+    "challenge": Workspace.AUTO,
+    "validate": Workspace.AUTO,
+    "export": Workspace.AUTO,
 }
 
 META_COMMANDS = {"back", "menu", "home", "/menu", "/back", "/home"}

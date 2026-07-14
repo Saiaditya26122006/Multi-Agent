@@ -1889,6 +1889,39 @@
             border: 1px solid var(--accent-medium);
         }
 
+        .pipeline-status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            background: var(--warning-soft);
+            color: var(--warning);
+            border: 1px solid rgba(217, 119, 6, 0.3);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .pipeline-status-indicator.complete {
+            background: var(--success-soft);
+            color: var(--success);
+            border-color: rgba(5, 150, 105, 0.3);
+            animation: none;
+        }
+
+        .pipeline-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
         /* QUICK-PROMPT SUGGESTION CHIPS */
 
         .suggestion-chips {
@@ -3207,41 +3240,17 @@
                 <i data-lucide="hammer" class="tray-tile-icon"></i>
                 <div class="tray-tile-info">
                     <div class="tray-tile-name">Build</div>
-                    <div class="tray-tile-badge" id="badgeBuild">Checking...</div>
+                    <div class="tray-tile-badge" id="badgeBuild">Generate sections</div>
                 </div>
                 <div class="tray-tile-status" style="background:var(--warning)"></div>
             </div>
             <div class="tray-tile" data-workspace="3">
-                <i data-lucide="search" class="tray-tile-icon"></i>
+                <i data-lucide="sparkles" class="tray-tile-icon"></i>
                 <div class="tray-tile-info">
-                    <div class="tray-tile-name">Inspect</div>
-                    <div class="tray-tile-badge" id="badgeInspect">Checking...</div>
+                    <div class="tray-tile-name">Auto & Ask</div>
+                    <div class="tray-tile-badge" id="badgeAuto">Inspect, challenge, export</div>
                 </div>
-                <div class="tray-tile-status" style="background:var(--danger)"></div>
-            </div>
-            <div class="tray-tile" data-workspace="4">
-                <i data-lucide="shield" class="tray-tile-icon"></i>
-                <div class="tray-tile-info">
-                    <div class="tray-tile-name">Challenge</div>
-                    <div class="tray-tile-badge" id="badgeChallenge">Checking...</div>
-                </div>
-                <div class="tray-tile-status" style="background:var(--warning)"></div>
-            </div>
-            <div class="tray-tile" data-workspace="5">
-                <i data-lucide="check-circle" class="tray-tile-icon"></i>
-                <div class="tray-tile-info">
-                    <div class="tray-tile-name">Validate</div>
-                    <div class="tray-tile-badge" id="badgeValidate">Checking...</div>
-                </div>
-                <div class="tray-tile-status" style="background:var(--text-tertiary)"></div>
-            </div>
-            <div class="tray-tile" data-workspace="6">
-                <i data-lucide="download" class="tray-tile-icon"></i>
-                <div class="tray-tile-info">
-                    <div class="tray-tile-name">Export</div>
-                    <div class="tray-tile-badge" id="badgeExport">Checking...</div>
-                </div>
-                <div class="tray-tile-status" style="background:var(--text-tertiary)"></div>
+                <div class="tray-tile-status" style="background:var(--accent)"></div>
             </div>
             <div class="tray-tile" data-action="epistemic">
                 <i data-lucide="scale" class="tray-tile-icon"></i>
@@ -4178,13 +4187,9 @@
             function getStaticCommands() {
                 const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
                 return [
-                    { icon: 'rss', title: 'Switch to Feed', sub: 'Give me new information', action: () => switchWorkspace(1) },
-                    { icon: 'hammer', title: 'Switch to Build', sub: 'Generate business plan sections', action: () => switchWorkspace(2) },
-                    { icon: 'search', title: 'Switch to Inspect', sub: "See what's strong, weak, missing", action: () => switchWorkspace(3) },
-                    { icon: 'shield', title: 'Switch to Challenge', sub: 'Stress test my assumptions', action: () => switchWorkspace(4) },
-                    { icon: 'check-circle', title: 'Switch to Validate', sub: 'Confirm or kill assumptions', action: () => switchWorkspace(5) },
-                    { icon: 'download', title: 'Switch to Export', sub: 'Get DOCX / investor / pitch deck', action: () => switchWorkspace(6) },
-                    { icon: 'message-circle', title: 'Switch to Auto', sub: 'Ask anything, no workspace', action: () => switchWorkspace(7) },
+                    { icon: 'rss', title: 'Switch to Feed', sub: 'Give me new information → auto-classifies', action: () => switchWorkspace(1) },
+                    { icon: 'hammer', title: 'Switch to Build', sub: 'Generate plan sections autonomously with AI quality loop', action: () => switchWorkspace(2) },
+                    { icon: 'sparkles', title: 'Switch to Auto & Ask', sub: 'Inspect coverage, challenge assumptions, export, or ask anything', action: () => switchWorkspace(3) },
                     { icon: 'workflow', title: 'Open Process panel', sub: "See what's happening right now, live", action: () => openProcessPanel() },
                     { icon: 'activity', title: 'Open Live Activity', sub: 'Full pipeline trace history', action: () => openActivityDrawer() },
                     { icon: 'scale', title: 'Open Epistemic Log', sub: 'Killed ideas, reviews, staleness', action: () => openEpistemicDrawer() },
@@ -5467,29 +5472,28 @@
 
             // --- Workspace ---
             function switchWorkspace(input, sendMsg = true) {
+                // Simplified: 3 workspaces only (Feed, Build, Auto & Ask)
                 const workspacesByNum = {
-                    0: { id: 'auto', name: 'Auto', icon: 'zap' },
-                    1: { id: 'feed', name: 'Feed', icon: 'rss' },
-                    2: { id: 'build', name: 'Build', icon: 'hammer' },
-                    3: { id: 'inspect', name: 'Inspect', icon: 'search' },
-                    4: { id: 'challenge', name: 'Challenge', icon: 'shield' },
-                    5: { id: 'validate', name: 'Validate', icon: 'check-circle' },
-                    6: { id: 'export', name: 'Export', icon: 'download' }
+                    1: { id: 'feed', name: 'Feed', icon: 'rss', server_num: '1' },
+                    2: { id: 'build', name: 'Build', icon: 'hammer', server_num: '2' },
+                    3: { id: 'auto', name: 'Auto & Ask', icon: 'sparkles', server_num: '3' }
                 };
                 const workspacesById = {};
-                Object.values(workspacesByNum).forEach((w, i) => { workspacesById[w.id] = {...w, num: i}; });
+                Object.entries(workspacesByNum).forEach(([numStr, w]) => {
+                    workspacesById[w.id] = {...w, num: parseInt(numStr)};
+                });
 
                 let ws_info;
                 let num;
                 if (typeof input === 'number') {
-                    ws_info = workspacesByNum[input] || workspacesByNum[0];
+                    ws_info = workspacesByNum[input] || workspacesByNum[1];
                     num = input;
                 } else if (typeof input === 'string' && workspacesById[input]) {
                     ws_info = workspacesById[input];
                     num = ws_info.num;
                 } else {
-                    ws_info = workspacesByNum[0];
-                    num = 0;
+                    ws_info = workspacesByNum[1];
+                    num = 1;
                 }
 
                 currentWorkspace = ws_info.name;
@@ -5505,14 +5509,33 @@
                         ${ws_info.name}
                     </span>
                 `;
+
+                // Show pipeline status in Build workspace
+                if (num === 2 && sessionId) {
+                    fetch(`/api/build-status?token=${token}&session_id=${sessionId}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.running || data.status !== 'idle') {
+                                const statusText = data.current_group ? `Group ${data.current_group}/4` : 'Initializing...';
+                                const statusHTML = `
+                                    <span class="pipeline-status-indicator">
+                                        <div class="pipeline-status-dot"></div>
+                                        ${statusText}
+                                    </span>
+                                `;
+                                inputContext.innerHTML += statusHTML;
+                            }
+                        })
+                        .catch(() => {}); // Silently fail if endpoint not available
+                }
+
                 lucide.createIcons();
 
                 if (sendMsg && token) {
-                    const serverNum = num === 0 ? '7' : String(num);
                     fetch('/api/messages', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: serverNum, token })
+                        body: JSON.stringify({ text: ws_info.server_num, token })
                     }).catch(err => console.error('Workspace switch error:', err));
                 }
             }

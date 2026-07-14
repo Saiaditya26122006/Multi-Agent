@@ -43,8 +43,8 @@ WORKSPACE_MAP = {
     "new_data": "feed",
     "correction": "feed",
     "command": "build",
-    "question": "inspect",
-    "feedback": "validate",
+    "question": "auto",  # Changed from "inspect" → "auto" (consolidated workspace)
+    "feedback": "auto",  # Changed from "validate" → "auto"
     "decision": None,
 }
 

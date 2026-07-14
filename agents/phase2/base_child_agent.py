@@ -294,6 +294,9 @@ class BaseChildAgent(Agent, ABC):
         if rag_context:
             learning_context += f"\n\nCEO DATA & PRIOR KNOWLEDGE (from RAG):\n{rag_context}"
 
+        # RAG GROUNDING (Task 4c): Store evidence for later verification
+        rag_evidence = self._store_rag_evidence(rag_context)
+
         input_data = self._build_ie_input_data(input_package)
 
         parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(
@@ -339,6 +342,47 @@ class BaseChildAgent(Agent, ABC):
             if result.get("confidence_score") == "high":
                 result["confidence_score"] = "medium"
                 result["_confidence_reason"] = "Self-audit found potential contradictions"
+
+        # RAG GROUNDING (Task 4c): Verify claims against evidence + tag ASSUMPTION
+        grounding_score, ungrounded_claims = await self._verify_rag_grounding(result, rag_evidence)
+        result["_grounding_score"] = grounding_score
+        result["_grounding_metadata"] = {
+            "total_claims_checked": len(await self._extract_factual_claims(result)),
+            "ungrounded_claims": ungrounded_claims[:5],
+            "threshold": 0.6,
+        }
+
+        # Tag ungrounded claims as ASSUMPTION
+        if ungrounded_claims:
+            result["_tagged_assumptions"] = ungrounded_claims
+            if result.get("confidence_score") in ("high", "medium"):
+                result["confidence_score"] = "medium"
+                result["_confidence_reason"] = f"{len(ungrounded_claims)} claim(s) lack RAG evidence"
+
+        # Auto-revise if <50% grounded (Task 4c: Revision Trigger)
+        if grounding_score < 0.5 and not revision_required:
+            logger.warning(
+                "[%s] Low grounding score (%.1f%%) — triggering automatic revision",
+                self.AGENT_NAME, grounding_score * 100
+            )
+            # Create revision feedback
+            revision_feedback = (
+                f"Your output has insufficient grounding in the evidence provided. "
+                f"Only {grounding_score*100:.0f}% of claims are supported by RAG data. "
+                f"Ungrounded claims: {', '.join(ungrounded_claims[:3])}\n\n"
+                f"Please revise: Ground EVERY claim in the CEO data/evidence provided, "
+                f"or explicitly mark it as ASSUMPTION if you cannot ground it."
+            )
+
+            # Trigger revision by updating session with revision_required flag
+            try:
+                self.db.table("sessions").update({
+                    "revision_required": True,
+                    "revision_feedback": revision_feedback,
+                }).eq("id", session_id).execute()
+                logger.info("[%s] Revision triggered for low grounding", self.AGENT_NAME)
+            except Exception as e:
+                logger.error("[%s] Failed to trigger revision: %s", self.AGENT_NAME, e)
 
         self.redis.client.set(f"task_output:{task_id}", json.dumps(result, default=str), ex=3600)
 
@@ -429,6 +473,102 @@ class BaseChildAgent(Agent, ABC):
         except Exception:
             return ""
 
+    # ── RAG Grounding (Task 4a: Storage & Claim Extraction) ──────────────────
+
+    def _store_rag_evidence(self, rag_context: str) -> list[dict]:
+        """Store RAG-retrieved evidence chunks for later verification."""
+        if not rag_context:
+            return []
+
+        try:
+            from services.rag_service import retrieve
+            query = f"{self.AGENT_ROLE} section {self.SECTION_NUMBER}"
+            chunks = retrieve(
+                query,
+                section=self.SECTION_NUMBER,
+                top_k=10,
+                threshold=0.35,
+            )
+            # Convert Chunk objects to dicts for storage
+            evidence = []
+            for chunk in chunks:
+                evidence.append({
+                    "id": chunk.id,
+                    "content": chunk.content,
+                    "source_type": chunk.source_type,
+                    "similarity": chunk.similarity,
+                    "epistemic_status": chunk.epistemic_status,
+                })
+            self._rag_evidence = evidence
+            logger.debug(
+                "[%s] Stored %d RAG evidence chunks for grounding verification",
+                self.AGENT_NAME, len(evidence)
+            )
+            return evidence
+        except Exception as e:
+            logger.warning("[%s] Failed to store RAG evidence: %s", self.AGENT_NAME, e)
+            self._rag_evidence = []
+            return []
+
+    async def _extract_factual_claims(self, output: dict) -> list[str]:
+        """Extract all factual claims from agent output via LLM call."""
+        try:
+            output_str = json.dumps(output, default=str)[:2000]
+
+            prompt = f"""Extract ONLY factual/quantitative claims from this output.
+Return a JSON list of claims (max 10). Format:
+{{"claims": ["claim 1", "claim 2", ...]}}
+
+Output to analyze:
+{output_str}"""
+
+            response = await self._call_bedrock_simple(
+                model_id=os.getenv("CLAUDE_HAIKU_MODEL", "claude-haiku-4-5-20251001"),
+                system_prompt="You are a claims extractor. Find only verifiable factual statements.",
+                user_prompt=prompt,
+                max_tokens=400,
+            )
+
+            result = json.loads(response)
+            claims = result.get("claims", [])
+            logger.debug("[%s] Extracted %d factual claims", self.AGENT_NAME, len(claims))
+            return claims[:10]
+        except Exception as e:
+            logger.warning("[%s] Failed to extract claims: %s", self.AGENT_NAME, e)
+            return []
+
+    async def _call_bedrock_simple(
+        self,
+        model_id: str,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 500,
+    ) -> str:
+        """Simple Bedrock call without full agent machinery."""
+        try:
+            client = boto3.client(
+                "bedrock-runtime",
+                region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
+                config=BotoConfig(retries={"max_attempts": 2}, read_timeout=30),
+            )
+
+            response = client.invoke_model(
+                modelId=model_id,
+                messages=[
+                    {"role": "user", "content": user_prompt}
+                ],
+                system=system_prompt,
+                max_tokens=max_tokens,
+                temperature=0,
+            )
+
+            response_body = json.loads(response["body"].read())
+            text = response_body["content"][0]["text"]
+            return text
+        except Exception as e:
+            logger.error("[%s] Bedrock call failed: %s", self.AGENT_NAME, e)
+            return "{}"
+
     # ── Cross-section consistency ────────────────────────────────────────────
 
     def _pre_check_consistency(self, cross_context: dict) -> list[str]:
@@ -449,6 +589,90 @@ class BaseChildAgent(Agent, ABC):
                         f"{json.dumps(data[key], default=str)[:200]}"
                     )
         return constraints[:10]
+
+    async def _verify_rag_grounding(
+        self,
+        output: dict,
+        rag_evidence: list[dict],
+    ) -> tuple[float, list[str]]:
+        """Verify claims are grounded in RAG evidence. Return (grounding_score, ungrounded_claims)."""
+        if not rag_evidence:
+            return 0.0, []
+
+        try:
+            # Extract claims from output
+            claims = await self._extract_factual_claims(output)
+            if not claims:
+                return 1.0, []
+
+            # Check each claim against evidence
+            ungrounded = []
+            for claim in claims:
+                is_grounded = await self._check_claim_grounding(claim, rag_evidence)
+                if not is_grounded:
+                    ungrounded.append(claim)
+
+            grounding_score = (len(claims) - len(ungrounded)) / len(claims)
+            logger.info(
+                "[%s] Grounding check: %d/%d claims grounded (%.1f%%)",
+                self.AGENT_NAME, len(claims) - len(ungrounded), len(claims),
+                grounding_score * 100
+            )
+            return grounding_score, ungrounded
+        except Exception as e:
+            logger.error("[%s] Grounding verification failed: %s", self.AGENT_NAME, e)
+            return 1.0, []
+
+    async def _check_claim_grounding(self, claim: str, rag_evidence: list[dict]) -> bool:
+        """Check if a single claim is supported by RAG evidence via semantic similarity."""
+        if not rag_evidence:
+            return False
+
+        try:
+            from services.rag_service import embed
+
+            # Embed the claim
+            claim_embedding = embed(claim, input_type="search_query")
+
+            # Check similarity against evidence chunks
+            best_similarity = 0.0
+            for evidence in rag_evidence:
+                content = evidence.get("content", "")
+                if not content:
+                    continue
+
+                # Simple cosine similarity (dot product of normalized vectors)
+                evidence_embedding = embed(content, input_type="search_document")
+                similarity = self._cosine_similarity(claim_embedding, evidence_embedding)
+
+                if similarity > best_similarity:
+                    best_similarity = similarity
+
+            # Threshold: 0.6 means 60% similarity required for grounding
+            is_grounded = best_similarity >= 0.6
+            logger.debug(
+                "[%s] Claim grounding: '%s...' → similarity=%.2f (grounded=%s)",
+                self.AGENT_NAME, claim[:50], best_similarity, is_grounded
+            )
+            return is_grounded
+        except Exception as e:
+            logger.warning("[%s] Claim grounding check failed: %s", self.AGENT_NAME, e)
+            return False
+
+    @staticmethod
+    def _cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
+        """Compute cosine similarity between two vectors."""
+        if not vec_a or not vec_b or len(vec_a) != len(vec_b):
+            return 0.0
+
+        dot_product = sum(a * b for a, b in zip(vec_a, vec_b))
+        mag_a = sum(x ** 2 for x in vec_a) ** 0.5
+        mag_b = sum(x ** 2 for x in vec_b) ** 0.5
+
+        if mag_a == 0 or mag_b == 0:
+            return 0.0
+
+        return dot_product / (mag_a * mag_b)
 
     def _post_audit_consistency(self, output: dict, cross_context: dict) -> list[str]:
         """After producing, check for contradictions with prior sections."""

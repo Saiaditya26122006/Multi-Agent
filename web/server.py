@@ -108,6 +108,24 @@ def _handle_workspace_message(workspace: Workspace, text: str, session_id: str):
 
     Returns response text (str) or AnswerResponse object, or empty string.
     """
+    # ── Pipeline interaction check: if Build is active, route to orchestrator ──
+    if workspace == Workspace.BUILD:
+        from services.pipeline_orchestrator import get_orchestrator
+        orchestrator = get_orchestrator()
+        status = orchestrator.get_status(session_id)
+
+        # If pipeline is waiting for Alex, this message is his response
+        if status.get("status") == "waiting_for_alex":
+            try:
+                import asyncio
+                result = asyncio.run(orchestrator.handle_alex_response(session_id, text))
+                if result.get("status") == "response_received":
+                    return ""  # Pipeline will send its own next message
+                logger.warning("[Server] Pipeline response failed: %s", result)
+            except Exception as e:
+                logger.error("[Server] Pipeline interaction error: %s", e)
+                return f"Error processing your response: {str(e)}"
+
     # ── Answer Engine: handles ANY question across all workspaces ──────────
     from web.handlers.answer_engine import is_question, answer_question
 
@@ -122,18 +140,114 @@ def _handle_workspace_message(workspace: Workspace, text: str, session_id: str):
 
     text_lower = text.strip().lower()
 
-    if workspace == Workspace.INSPECT:
-        return _dispatch_inspect(text_lower, text, session_id)
-    elif workspace == Workspace.BUILD:
+    if workspace == Workspace.BUILD:
         return _dispatch_build(text_lower, text, session_id)
     elif workspace == Workspace.FEED:
         return _dispatch_feed(text_lower, text, session_id)
-    elif workspace == Workspace.CHALLENGE:
-        return _dispatch_challenge(text_lower, text, session_id)
-    elif workspace == Workspace.VALIDATE:
-        return _dispatch_validate(text_lower, text, session_id)
-    elif workspace == Workspace.EXPORT:
-        return _dispatch_export(text_lower, text, session_id)
+    elif workspace == Workspace.AUTO:
+        # Auto & Ask consolidates Inspect, Challenge, Validate, Export
+        return _dispatch_auto(text_lower, text, session_id)
+
+    return ""
+
+
+def _dispatch_auto(text_lower: str, text: str, session_id: str) -> str:
+    """
+    Auto & Ask workspace — consolidates Inspect, Challenge, Validate, Export.
+
+    Detects intent and routes to the appropriate handler.
+    """
+    from web.handlers.inspect_handler import (
+        get_coverage_heatmap,
+        get_confidence_breakdown,
+        get_contradictions_list,
+        get_stale_data_report,
+        get_dependency_view,
+        format_inspect_response,
+    )
+    from web.handlers.challenge_handler import challenge_full_plan
+    from web.handlers.export_handler import export_full_plan
+
+    # Command menu
+    if text_lower in ("?", "help", "menu"):
+        return (
+            "**Auto & Ask Mode** — System awareness & operations\n\n"
+            "**Inspect (coverage, confidence, contradictions):**\n"
+            "• Type 'a' → Coverage heatmap\n"
+            "• Type 'b' → Confidence breakdown\n"
+            "• Type 'c' → Contradictions\n"
+            "• Type 'd' → Stale data report\n"
+            "• Type 'e' → Dependencies\n\n"
+            "**Validate & Challenge:**\n"
+            "• Type 'challenge' → Stress-test entire plan\n"
+            "• Type 'validate' → Check core assumptions\n\n"
+            "**Export:**\n"
+            "• Type 'export' → Export plan to DOCX/PDF\n\n"
+            "**Or just ask any question about your plan.**\n"
+        )
+
+    # Inspect commands
+    commands = {
+        "a": ("heatmap", lambda: get_coverage_heatmap(session_id=session_id)),
+        "b": ("confidence", lambda: get_confidence_breakdown(session_id=session_id)),
+        "c": ("contradictions", lambda: get_contradictions_list(session_id=session_id)),
+        "d": ("stale", lambda: get_stale_data_report(session_id=session_id)),
+        "e": ("dependencies", lambda: get_dependency_view(session_id=session_id)),
+    }
+
+    if text_lower in commands:
+        query_type, fn = commands[text_lower]
+        try:
+            data = fn()
+            return format_inspect_response(data, query_type)
+        except Exception as e:
+            logger.error("[Auto] Error handling '%s': %s", text_lower, e)
+            return f"Error: {e}"
+
+    # Challenge/Validate
+    if text_lower in ("challenge", "stress"):
+        try:
+            result = challenge_full_plan(session_id=session_id)
+            return result.get("message", "Challenge complete")
+        except Exception as e:
+            logger.error("[Auto] Challenge failed: %s", e)
+            return f"Error challenging plan: {e}"
+
+    if text_lower in ("validate", "confirm"):
+        return "Validate flow — work in progress. For now, type 'challenge' to stress-test."
+
+    # Export
+    if text_lower in ("export", "download", "docx", "pdf"):
+        try:
+            result = export_full_plan(session_id=session_id)
+            return result.get("message", "Export complete")
+        except Exception as e:
+            logger.error("[Auto] Export failed: %s", e)
+            return f"Error exporting: {e}"
+
+    # Pipeline status
+    if any(word in text_lower for word in ("status", "progress", "running", "building")):
+        from services.pipeline_orchestrator import get_orchestrator
+        orchestrator = get_orchestrator()
+        status = orchestrator.get_status(session_id)
+        if status.get("status") == "idle":
+            return "No build in progress. Type 'Build' workspace to start a new build."
+        else:
+            return (
+                f"Pipeline Status: {status.get('status')}\n"
+                f"Group: {status.get('current_group', '?')}/4\n"
+                f"Run ID: {status.get('run_id', '?')}\n"
+            )
+
+    # Default: free-form question (answered by Answer Engine upstream)
+    from tools.question_gate import looks_like_question
+
+    if looks_like_question(text):
+        # Answer Engine already handled this upstream, fall back to generic response
+        return (
+            "That's a great question! Use the Inspect commands (a-e) to explore your plan, "
+            "or ask specific questions about sections, assumptions, or metrics."
+        )
 
     return ""
 
@@ -955,6 +1069,28 @@ async def get_assumption_lifecycle(token: str = ""):
     except Exception as e:
         logger.error(f"Error computing assumption lifecycle: {e}")
         return {"active": 0, "validated_today": 0, "killed_today": 0, "aging_30d": 0}
+
+
+@app.get("/api/build-status")
+async def get_build_status(token: str = "", session_id: Optional[str] = None):
+    """Get the current pipeline build status."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    try:
+        from services.pipeline_orchestrator import get_orchestrator
+        from web.handlers.build_handler import get_build_status as handler_get_build_status
+
+        session_key = request.headers.get('X-Session-ID', session_id or '')
+        if not session_key:
+            return {"running": False, "status": "idle"}
+
+        orchestrator = get_orchestrator()
+        status = orchestrator.get_status(session_key)
+        return status
+    except Exception as e:
+        logger.error(f"Error getting build status: {e}")
+        return {"running": False, "status": "idle", "error": str(e)}
 
 
 @app.get("/api/menu")
