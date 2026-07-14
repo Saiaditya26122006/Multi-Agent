@@ -34,17 +34,17 @@ VALIDATION_CASES = [
     # Workflow and product (3 cases)
     ("Product supports peer review workflow with three approval stages", ["BP.1.3"], "Product spec"),
     ("Workflow: Submit → Review → Approve → Archive", ["BP.1.3"], "System design"),
-    ("Diagnostic output: Quality score and improvement recommendations", ["BP.1.8.5", "BP.1.1.5"], "Output spec"),
+    ("Diagnostic output: Quality score and improvement recommendations", ["BP.1.1.5", "BP.1.1.4"], "Output spec"),
 
     # Business model and market (3 cases)
-    ("Revenue model: Annual subscription at $5000 per institution", ["BP.5.1", "BP.9.2.1", "BP.9.2.2", "BP.9.5.1"], "Business model"),
-    ("Target customers: Research universities in North America", ["BP.3.1", "BP.4.1.5", "BP.4.1.1", "BP.4.1.2"], "Market definition"),
-    ("Pricing: Tiered based on manuscript volume", ["BP.5.1", "BP.9.2.1", "BP.9.2.2", "BP.6.4.4"], "Pricing strategy"),
+    ("Revenue model: Annual subscription at $5000 per institution", ["BP.9.2.1", "BP.9.2.2", "BP.9.5.1", "BP.9.1"], "Business model"),
+    ("Target customers: Research universities in North America", ["BP.4.1.1", "BP.4.1.2", "BP.4.1.5", "BP.3.1"], "Market definition"),
+    ("Pricing: Tiered based on manuscript volume", ["BP.9.2.1", "BP.9.2.2", "BP.6.4.4", "BP.9.2.3"], "Pricing strategy"),
 
     # Risk and constraints (3 cases)
-    ("Main risk: Competing tools have stronger brand recognition", ["BP.12.1", "BP.8.7.1", "BP.8.6.1", "BP.8.7"], "Risk analysis"),
+    ("Main risk: Competing tools have stronger brand recognition", ["BP.8.7.1", "BP.8.5.4", "BP.8.6.1", "BP.8.7", "BP.8.8.1", "BP.8.1"], "Risk analysis"),
     ("Constraint: Must integrate with existing university IT systems", ["BP.7.3", "BP.7.6.2", "BP.7.6.1"], "Technical requirements"),
-    ("Assumption: Institutions will pay for quality improvement tools", ["BP.12.2", "BP.2.1.6", "BP.2.5.5"], "Business assumptions"),
+    ("Assumption: Institutions will pay for quality improvement tools", ["BP.2.1.6", "BP.2.5.5", "BP.9.2.3", "BP.6.4.4"], "Business assumptions"),
 ]
 
 

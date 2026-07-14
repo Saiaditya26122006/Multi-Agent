@@ -351,16 +351,23 @@ def _chunk_bp_architecture(data: dict, section: str, topics: list[str]) -> list[
             content_parts.append(f"Purpose: {node['purpose']}")
         if node.get("required_output"):
             content_parts.append(f"Required output: {node['required_output']}")
-        if node.get("prohibited_claims"):
-            content_parts.append(f"PROHIBITED: {node['prohibited_claims']}")
+        prohibited = node.get("prohibited_claims_inference_patterns") or node.get("prohibited_claims")
+        if prohibited:
+            content_parts.append(f"PROHIBITED: {prohibited}")
 
         content = "; ".join(content_parts)
         chunks.append({
             "content": content,
             "source_type": "ceo_doc",
-            "section": section,
+            "section": node.get("node_id", section),
             "epistemic_status": "CONFIRMED",
             "topic_tags": topics + [node.get("node_id", "")],
+            "metadata": {
+                "layer": "bp_architecture",
+                "node_id": node.get("node_id", ""),
+                "node_title": node.get("node_title", ""),
+                "level": node.get("level", 0),
+            },
         })
 
     return chunks

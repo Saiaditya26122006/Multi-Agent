@@ -238,7 +238,9 @@ def classify_fact_to_domain(
 
     try:
         client = _get_client()
-        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+        # Sonnet for domain classification — this is the most critical step.
+        # Wrong domain = correct node never in candidate pool = guaranteed miss.
+        model_id = os.getenv("CLAUDE_SONNET_MODEL", "us.anthropic.claude-sonnet-4-6")
 
         response = client.converse(
             modelId=model_id,
@@ -420,131 +422,6 @@ def classify_fact_to_node(
                 "Return the JSON object now."
             ),
             "assistant": '{"node_id": "BP.1.3", "confidence": "high", "reasoning": "High-level workflow description goes in parent node not detailed steps", "none_fit": false}',
-        },
-        # Pattern 7: Urgency with "emphasized", "priority", "pressure" keywords
-        {
-            "user": (
-                "DOCUMENT CONTEXT: Stakeholder interview notes\n\n"
-                "FACT TO CLASSIFY:\n\"Director emphasized this must be addressed immediately\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.2.1.1: Problem Statement\n  PURPOSE: State the governed problem claim\n"
-                "- BP.2.3: Urgency and Priority Hypothesis\n  PURPOSE: Defines whether the problem is urgent or time-sensitive\n"
-                "- BP.2.3.3: Timing Triggers\n  PURPOSE: Identify events that create timing windows\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.2.3", "confidence": "high", "reasoning": "Emphasized/immediately/must indicates urgency hypothesis not just problem statement", "none_fit": false}',
-        },
-        # Pattern 8: "considers priority" urgency signal
-        {
-            "user": (
-                "DOCUMENT CONTEXT: Executive meeting summary\n\n"
-                "FACT TO CLASSIFY:\n\"Management views quality improvement as top strategic priority\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.2.1.1: Problem Statement\n  PURPOSE: State the governed problem claim\n"
-                "- BP.2.3: Urgency and Priority Hypothesis\n  PURPOSE: Defines whether the problem is urgent or time-sensitive\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.2.3", "confidence": "high", "reasoning": "Strategic priority/top priority signals urgency hypothesis", "none_fit": false}',
-        },
-        # Pattern 9: "faces pressure" urgency signal
-        {
-            "user": (
-                "DOCUMENT CONTEXT: Market analysis\n\n"
-                "FACT TO CLASSIFY:\n\"Organization under regulatory pressure to improve compliance\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.2.1.1: Problem Statement\n  PURPOSE: State the governed problem claim\n"
-                "- BP.2.3: Urgency and Priority Hypothesis\n  PURPOSE: Defines whether the problem is urgent or time-sensitive\n"
-                "- BP.7.3: Compliance Requirements\n  PURPOSE: Define regulatory compliance needs\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.2.3", "confidence": "high", "reasoning": "Under pressure/urgency/regulatory pressure indicates time-sensitive urgency", "none_fit": false}',
-        },
-        # Pattern 10: User job in research context (NOT methodology framework)
-        {
-            "user": (
-                "DOCUMENT CONTEXT: User research\n\n"
-                "FACT TO CLASSIFY:\n\"Scientist needs to ensure experiment reproducibility\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.2.1.1: Problem Statement\n  PURPOSE: State the governed problem claim\n"
-                "- BP.6.1.3: JTBD Framework\n  PURPOSE: Define jobs-to-be-done framework methodology\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.2.1.1", "confidence": "high", "reasoning": "Actual user need is a problem statement - BP.6.1.3 is for defining JTBD methodology not storing user jobs", "none_fit": false}',
-        },
-        # Pattern 11: Product feature vs product definition
-        {
-            "user": (
-                "DOCUMENT CONTEXT: Product requirements\n\n"
-                "FACT TO CLASSIFY:\n\"Feature: Real-time grammar and style checking\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.1.1.4: Core Function\n  PURPOSE: Define the product's core diagnostic function\n"
-                "- BP.1.2.4: Feature Scope\n  PURPOSE: Define what features are in/out of scope\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.1.1.4", "confidence": "high", "reasoning": "Core function definition not scope boundary - describes what product does", "none_fit": false}',
-        },
-        # Pattern 12: Product output vs product definition
-        {
-            "user": (
-                "DOCUMENT CONTEXT: Product specification\n\n"
-                "FACT TO CLASSIFY:\n\"Output: Detailed quality report with scores and recommendations\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.1.1.5: Product Definition Details\n  PURPOSE: Additional product definition details\n"
-                "- BP.1.8.5: Output Object Specification\n  PURPOSE: Define the diagnostic output object\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.1.8.5", "confidence": "high", "reasoning": "Diagnostic output specification belongs in output object node not general product definition", "none_fit": false}',
-        },
-        # Pattern 13: Target market vs customer segment
-        {
-            "user": (
-                "DOCUMENT CONTEXT: Go-to-market plan\n\n"
-                "FACT TO CLASSIFY:\n\"Primary market: Enterprise software companies in USA\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.3.1: Target Market Definition\n  PURPOSE: Define the target market\n"
-                "- BP.4.1.1: Customer Profile Details\n  PURPOSE: Detailed customer profile\n"
-                "- BP.4.1.5: Geographic Scope\n  PURPOSE: Geographic market scope\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.3.1", "confidence": "high", "reasoning": "High-level target market definition not detailed customer profile", "none_fit": false}',
-        },
-        # Pattern 14: Assumption vs problem statement
-        {
-            "user": (
-                "DOCUMENT CONTEXT: Business plan assumptions\n\n"
-                "FACT TO CLASSIFY:\n\"Assumption: Customers willing to switch from current tools\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.2.1.6: Problem Validation Evidence\n  PURPOSE: Evidence for problem validation\n"
-                "- BP.12.2: Key Assumptions\n  PURPOSE: Document unvalidated business assumptions\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.12.2", "confidence": "high", "reasoning": "Explicitly labeled as assumption - unvalidated hypothesis belongs in assumptions not evidence", "none_fit": false}',
-        },
-        # Pattern 15: PMF metric evidence vs PMF definition
-        {
-            "user": (
-                "DOCUMENT CONTEXT: PMF metrics\n\n"
-                "FACT TO CLASSIFY:\n\"PMF indicator: 50% month-over-month organic user growth\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.10.1.8: PMF Evidence Data\n  PURPOSE: Store actual PMF evidence and metrics\n"
-                "- BP.10.3.1: PMF Evidence Framework\n  PURPOSE: Define the framework for assessing PMF\n"
-                "- BP.10.3.3: PMF Stage Assessment\n  PURPOSE: Assess which PMF stage we're in\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.10.1.8", "confidence": "high", "reasoning": "Specific metric data belongs in evidence data not framework definition or stage assessment", "none_fit": false}',
-        },
-        # Pattern 16: Risk statement with "risk:" label
-        {
-            "user": (
-                "DOCUMENT CONTEXT: Risk analysis\n\n"
-                "FACT TO CLASSIFY:\n\"Risk: Competitors may launch similar features before us\"\n\n"
-                "CANDIDATE NODES:\n"
-                "- BP.8.6.1: Competitive Response Scenarios\n  PURPOSE: Define how competitors might respond\n"
-                "- BP.8.7.1: Market Positioning Risks\n  PURPOSE: Risks related to market positioning\n"
-                "- BP.12.1: Identified Risks\n  PURPOSE: Document all known business risks\n"
-                "Return the JSON object now."
-            ),
-            "assistant": '{"node_id": "BP.12.1", "confidence": "high", "reasoning": "Explicitly labeled risk statement belongs in identified risks registry not competitive analysis", "none_fit": false}',
         },
     ]
 

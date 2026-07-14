@@ -761,6 +761,14 @@ _REQUIRED_OUTPUT_STOPWORDS = frozenset({
 })
 
 
+def _pseudo_stem(word: str) -> str:
+    """Cheap suffix stripping for keyword overlap — not a real stemmer."""
+    for suffix in ("ation", "tion", "sion", "ment", "ness", "ence", "ance", "ity", "ing", "ive", "ous", "ful", "less", "able", "ible", "ally", "ily", "ised", "ized", "ist", "est", "ise", "ize", "ify", "ate", "ed", "er", "ly", "al"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            return word[:-len(suffix)]
+    return word
+
+
 def _required_output_precheck(fact_text: str, required_output: str, node_details: dict = None) -> bool:
     """Fast programmatic check: does the fact share ANY key nouns with required_output?
 
@@ -815,8 +823,14 @@ def _required_output_precheck(fact_text: str, required_output: str, node_details
 
     fact_words = set(re.findall(r"[a-z]{4,}", fact_lower))
 
-    overlap = ro_nouns & fact_words
-    return len(overlap) > 0
+    # Direct word overlap
+    if ro_nouns & fact_words:
+        return True
+
+    # Stem-based overlap (catches urgent/urgency, assume/assumption, etc.)
+    ro_stems = {_pseudo_stem(w) for w in ro_nouns}
+    fact_stems = {_pseudo_stem(w) for w in fact_words}
+    return len(ro_stems & fact_stems) > 0
 
 
 def _check_prohibition_violation(fact_text: str, node_id: str) -> tuple[bool, str]:
@@ -933,15 +947,15 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
     forced_domains = None
 
     if text_lower.startswith("risk:") or text_lower.startswith("main risk:"):
-        forced_domains = ["BP.12", "BP.8"]
+        forced_domains = ["BP.8", "BP.9"]
     elif text_lower.startswith("assumption:") or text_lower.startswith("key assumption:"):
-        forced_domains = ["BP.12", "BP.2"]
+        forced_domains = ["BP.2", "BP.10"]
     elif text_lower.startswith("constraint:") or text_lower.startswith("limitation:"):
         forced_domains = ["BP.7", "BP.1"]
     elif text_lower.startswith("revenue") or text_lower.startswith("pricing"):
         forced_domains = ["BP.9", "BP.5"]
     elif text_lower.startswith("target market") or text_lower.startswith("target customer"):
-        forced_domains = ["BP.3", "BP.4"]
+        forced_domains = ["BP.4", "BP.3"]
 
     # --- Two-Stage Classification (Task #4) ---
     # Stage 1: Use LLM to pick 1-3 level-1 domains (BP.1, BP.2, etc.)
@@ -969,29 +983,38 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
             data={"domains": selected_domain_ids, "phase": "domain_classification"},
         )
 
-    # Stage 2: Build candidate pool from selected domains
-    # Get all nodes from the selected domains
-    domain_candidates = []
-    for domain_id in selected_domain_ids:
-        domain_children = _get_all_children(domain_id)
-        domain_candidates.extend(domain_children)
+    # Stage 2: Hierarchical classification — section then leaf.
+    # Instead of throwing 30+ flat nodes at the LLM, narrow progressively:
+    #   Step A: Pick the best level-2 section(s) from selected domains (~5-10 candidates)
+    #   Step B: Pick the specific leaf node from that section's children (~5-10 candidates)
+    # This makes each LLM call a focused 5-10 way choice instead of a noisy 30-way one.
 
-    # Also include top embedding matches to catch edge cases
+    from web.handlers.llm_helper import classify_fact_to_node
+
+    all_nodes = _load_bp_architecture()
+
+    # Step A: Get level-2 sections from selected domains
+    section_candidates = []
+    for domain_id in selected_domain_ids:
+        prefix = f"{domain_id}."
+        for n in all_nodes:
+            nid = n.get("node_id", "")
+            if nid.startswith(prefix) and nid.count(".") == 2:
+                section_candidates.append({
+                    "node_id": nid,
+                    "node_title": n.get("node_title") or "",
+                    "similarity": 0.0,
+                    "level": n.get("level", 2),
+                    "purpose": (n.get("purpose") or "")[:250],
+                    "required_output": (n.get("required_output") or "")[:150],
+                    "prohibited_claims": (n.get("prohibited_claims_inference_patterns") or "")[:150],
+                    "parent_node": n.get("parent_node") or "",
+                })
+
+    # Also include embedding top-k as a safety net for cross-domain edge cases
     embedding_candidates = match_bp_node(text, top_k=CLASSIFY_CANDIDATE_POOL)
 
-    # Merge and deduplicate
-    seen_ids = set()
-    candidates = []
-    for c in domain_candidates + embedding_candidates:
-        cid = c.get("node_id")
-        if cid and cid not in seen_ids:
-            seen_ids.add(cid)
-            candidates.append(c)
-
-    # Sort by similarity if available, otherwise keep domain order
-    candidates.sort(key=lambda x: x.get("similarity", 0.0), reverse=True)
-
-    if not candidates:
+    if not section_candidates and not embedding_candidates:
         parent = _get_suggested_parent([], text=text)
         return {
             "node_id": None, "node_title": "", "confidence": "low",
@@ -999,30 +1022,116 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
             "none_fit": True, "suggested_parent": parent,
         }
 
-    if session_id and candidates:
-        top_nodes = [f"{c['node_id']} ({c.get('similarity', 0):.2f})" for c in candidates[:5]]
+    if session_id and section_candidates:
+        sect_names = [f"{c['node_id']}" for c in section_candidates[:5]]
         emit_trace(
             session_id, "Classifier", "considering",
-            f"Considering: {', '.join(top_nodes)}...",
-            data={"candidates": [c["node_id"] for c in candidates[:5]], "phase": "embedding_shortlist"},
+            f"Sections: {', '.join(sect_names)}...",
+            data={"candidates": sect_names, "phase": "section_selection"},
         )
 
-    try:
-        from web.handlers.llm_helper import classify_fact_to_node
+    # Pick the best section (or the embedding candidate if it's clearly better)
+    # Merge sections + embedding candidates for the first LLM call
+    step_a_candidates = []
+    seen_ids = set()
+    for c in section_candidates:
+        if c["node_id"] not in seen_ids:
+            seen_ids.add(c["node_id"])
+            step_a_candidates.append(c)
+    for c in embedding_candidates:
+        if c.get("node_id") and c["node_id"] not in seen_ids:
+            seen_ids.add(c["node_id"])
+            step_a_candidates.append(c)
 
-        result = classify_fact_to_node(text, candidates, document_context=document_context, use_fast_model=use_fast_model)
+    # Cap at 20 for Step A
+    step_a_candidates = step_a_candidates[:20]
+
+    try:
+        step_a_result = classify_fact_to_node(
+            text, step_a_candidates, document_context=document_context,
+            use_fast_model=use_fast_model,
+        )
     except Exception as e:
-        logger.error("[FeedHandler] LLM classification failed, using top embedding candidate: %s", e)
-        top = candidates[0]
-        result = {
-            "node_id": top["node_id"], "node_title": top.get("node_title", ""),
-            "confidence": "low",
-            "reasoning": "LLM classification unavailable — used top embedding match.",
-            "none_fit": False,
-        }
+        logger.error("[FeedHandler] Step A classification failed: %s", e)
+        if embedding_candidates:
+            top = embedding_candidates[0]
+            result = {
+                "node_id": top["node_id"], "node_title": top.get("node_title", ""),
+                "confidence": "low",
+                "reasoning": "LLM classification unavailable — used top embedding match.",
+                "none_fit": False,
+            }
+        else:
+            result = {
+                "node_id": None, "node_title": "", "confidence": "low",
+                "reasoning": "Classification failed.", "none_fit": True,
+                "suggested_parent": _get_suggested_parent([], text=text),
+            }
+        step_a_result = result
+
+    # Step B: If Step A picked a section (non-leaf), drill into its children
+    picked_id = step_a_result.get("node_id")
+    result = step_a_result
+
+    if picked_id and not step_a_result.get("none_fit"):
+        # Check if this node has children (i.e., it's a section not a leaf)
+        child_prefix = f"{picked_id}."
+        children = [
+            {
+                "node_id": n.get("node_id"),
+                "node_title": n.get("node_title") or "",
+                "similarity": 0.0,
+                "level": n.get("level", 0),
+                "purpose": (n.get("purpose") or "")[:250],
+                "required_output": (n.get("required_output") or "")[:150],
+                "prohibited_claims": (n.get("prohibited_claims_inference_patterns") or "")[:150],
+                "parent_node": n.get("parent_node") or "",
+            }
+            for n in all_nodes
+            if n.get("node_id", "").startswith(child_prefix)
+            and n.get("node_id", "").count(".") == picked_id.count(".") + 1
+        ]
+
+        if children:
+            # Include the parent itself as an option (fact might be general enough
+            # to stay at the section level)
+            parent_node_data = next(
+                (c for c in step_a_candidates if c.get("node_id") == picked_id), None
+            )
+            step_b_candidates = []
+            if parent_node_data:
+                step_b_candidates.append(parent_node_data)
+            step_b_candidates.extend(children)
+
+            if session_id:
+                child_names = [c["node_id"] for c in children[:5]]
+                emit_trace(
+                    session_id, "Classifier", "narrowing",
+                    f"Narrowing within {picked_id}: {', '.join(child_names)}...",
+                    data={"parent": picked_id, "children": child_names, "phase": "leaf_selection"},
+                )
+
+            try:
+                step_b_result = classify_fact_to_node(
+                    text, step_b_candidates, document_context=document_context,
+                    use_fast_model=use_fast_model,
+                )
+                if step_b_result.get("none_fit") or not step_b_result.get("node_id"):
+                    # Step B couldn't find a fitting child — keep the section-level
+                    # result from Step A (the fact belongs at the parent level)
+                    logger.info(
+                        "[FeedHandler] Step B returned none_fit — keeping Step A result (%s)",
+                        picked_id,
+                    )
+                    result = step_a_result
+                else:
+                    result = step_b_result
+            except Exception as e:
+                logger.error("[FeedHandler] Step B classification failed, using Step A result: %s", e)
+                result = step_a_result
 
     if result.get("none_fit") or not result.get("node_id"):
-        result["suggested_parent"] = _get_suggested_parent(candidates, text=text)
+        result["suggested_parent"] = _get_suggested_parent(step_a_candidates, text=text)
     else:
         node_details = _get_node_details(result["node_id"]) or {}
         result["purpose"] = node_details.get("purpose") or ""
@@ -1044,7 +1153,7 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
             result["confidence"] = "low"
             result["none_fit"] = True
             result["reasoning"] = f"REJECTED: {violation_reason}"
-            result["suggested_parent"] = _get_suggested_parent(candidates, text=text)
+            result["suggested_parent"] = _get_suggested_parent(step_a_candidates, text=text)
             if session_id:
                 emit_trace(
                     session_id, "Classifier", "rejected",
@@ -1056,148 +1165,114 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
                 violation_reason,
             )
         # --- Hybrid validation (replaces old keyword-stem prohibition gate) ---
-        # For high-confidence matches, run a two-stage check:
-        # Stage 1: Fast required_output pre-check (no API call)
-        # Stage 2: LLM-based semantic validation (one Haiku call)
+        # For high-confidence matches from domains where Haiku validation is
+        # reliable, run a two-stage check. Skip for domains where Haiku
+        # consistently gives false-positive rejections.
         elif result.get("confidence") == "high":
-            required_output = node_details.get("required_output") or ""
-            precheck_passed = _required_output_precheck(text, required_output, node_details)
+            node_id_for_val = result.get("node_id") or ""
+            skip_validation = (
+                node_id_for_val.startswith("BP.2.3") or  # Urgency
+                node_id_for_val.startswith("BP.2.5") or  # Hypothesis
+                node_id_for_val.startswith("BP.10.3") or  # PMF definitions
+                node_id_for_val.startswith("BP.8.7") or  # Incumbent threats
+                node_id_for_val.startswith("BP.8.8")  # Category compression
+            )
+            if not skip_validation:
+                required_output = node_details.get("required_output") or ""
+                precheck_passed = _required_output_precheck(text, required_output, node_details)
 
-            if not precheck_passed:
-                # Zero keyword overlap with required_output — immediate demote,
-                # no need to spend a Haiku call validating what's clearly wrong
-                result["confidence"] = "medium"
-                result["reasoning"] = (
-                    f"Demoted: fact has no keyword overlap with node's required_output "
-                    f"({result['node_id']}). Needs human review."
-                )
-                logger.info(
-                    "[FeedHandler] Required-output precheck failed: demoted high -> medium for %s",
-                    result["node_id"],
-                )
-            else:
-                # Pre-check passed — run the LLM validation for semantic accuracy
-                if session_id:
-                    emit_trace(
-                        session_id, "Classifier", "validating",
-                        f"Validating placement against node constraints...",
-                        data={"node_id": result["node_id"], "phase": "validation"},
+                if not precheck_passed:
+                    result["confidence"] = "medium"
+                    result["reasoning"] = (
+                        f"Demoted: fact has no keyword overlap with node's required_output "
+                        f"({result['node_id']}). Needs human review."
                     )
-                try:
-                    from web.handlers.llm_helper import validate_classification
-
-                    validation = validate_classification(text, node_details)
-
-                    if validation["prohibition_violated"] and not validation["required_output_match"]:
-                        # BOTH checks failed — this is definitively wrong
-                        result["node_id"] = None
-                        result["node_title"] = ""
-                        result["confidence"] = "low"
-                        result["none_fit"] = True
-                        result["reasoning"] = (
-                            f"Validation rejected: prohibition violated AND required_output mismatch. "
-                            f"{validation['reasoning']}"
-                        )
-                        result["suggested_parent"] = _get_suggested_parent(candidates, text=text)
-                        if session_id:
-                            emit_trace(
-                                session_id, "Classifier", "validated",
-                                f"Validation failed — prohibition violated and output mismatch",
-                                data={"passed": False, "phase": "validation"},
-                            )
-                        logger.info(
-                            "[FeedHandler] Validation double-reject: forced none_fit for fact"
-                        )
-                    elif validation["prohibition_violated"]:
-                        result["confidence"] = "low"
-                        result["reasoning"] = (
-                            f"Demoted: fact violates node's prohibition "
-                            f"({result['node_id']}). {validation['reasoning']}"
-                        )
-                        if session_id:
-                            emit_trace(
-                                session_id, "Classifier", "validated",
-                                f"Validation failed — prohibition violated ({result['node_id']})",
-                                data={"node_id": result["node_id"], "passed": False, "phase": "validation"},
-                            )
-                        logger.info(
-                            "[FeedHandler] Prohibition validated: demoted high -> low for %s",
-                            result["node_id"],
-                        )
-                    elif not validation["required_output_match"]:
-                        result["confidence"] = "medium"
-                        result["reasoning"] = (
-                            f"Demoted: fact doesn't produce node's required_output "
-                            f"({result['node_id']}). {validation['reasoning']}"
-                        )
-                        if session_id:
-                            emit_trace(
-                                session_id, "Classifier", "validated",
-                                f"Validation partial — required output mismatch ({result['node_id']})",
-                                data={"node_id": result["node_id"], "passed": False, "phase": "validation"},
-                            )
-                        logger.info(
-                            "[FeedHandler] Required-output mismatch: demoted high -> medium for %s",
-                            result["node_id"],
-                        )
-                    else:
-                        # Validation passed — mark so the UI can distinguish
-                        # "verified via LLM" from "direct high-confidence match"
-                        result["validated"] = True
-                        if session_id:
-                            emit_trace(
-                                session_id, "Classifier", "validated",
-                                f"Validated ✓ — placement confirmed for {result['node_id']}",
-                                data={"node_id": result["node_id"], "passed": True, "phase": "validation"},
-                            )
-                except Exception as e:
-                    logger.error(
-                        "[FeedHandler] LLM validation failed (keeping original classification): %s", e
+                    logger.info(
+                        "[FeedHandler] Required-output precheck failed: demoted high -> medium for %s",
+                        result["node_id"],
                     )
+                else:
+                    if session_id:
+                        emit_trace(
+                            session_id, "Classifier", "validating",
+                            f"Validating placement against node constraints...",
+                            data={"node_id": result["node_id"], "phase": "validation"},
+                        )
+                    try:
+                        from web.handlers.llm_helper import validate_classification
 
-        # --- Strict none_fit enforcement ---
-        # If the LLM returned medium/low confidence AND the required_output
-        # pre-check found zero overlap, force none_fit. The fact genuinely
-        # doesn't belong to any candidate.
-        #
-        # FIX #2: Skip this check if the node was originally "high" confidence
-        # but got demoted to "medium" by validation.
-        #
-        # FIX #7 (Iteration 3): Also skip for definitional/urgency nodes (BP.2.3, BP.10, BP.12)
-        # where natural language descriptions don't match required_output keywords
-        node_id_str = result.get("node_id") or ""
-        is_urgency_or_definition = (
-            node_id_str.startswith("BP.2.3") or  # Urgency
-            node_id_str.startswith("BP.2.1") or  # Problem statements
-            node_id_str.startswith("BP.7") or  # Compliance/constraints
-            node_id_str.startswith("BP.8") or  # Competitive/market
-            node_id_str.startswith("BP.10") or  # PMF definitions
-            node_id_str.startswith("BP.12")  # Risks/assumptions
-        )
+                        validation = validate_classification(text, node_details)
 
-        if (
-            not result.get("none_fit")
-            and result.get("node_id")
-            and result.get("confidence") in ("medium", "low")
-            and original_confidence != "high"  # Skip if demoted from high
-            and not is_urgency_or_definition  # Skip for urgency/definition nodes
-        ):
-            r_output = (node_details.get("required_output") or "")
-            if r_output and not _required_output_precheck(text, r_output, node_details):
-                result["node_id"] = None
-                result["node_title"] = ""
-                result["none_fit"] = True
-                result["confidence"] = "low"
-                result["reasoning"] = "Content is outside the scope of candidates provided."
-                result["suggested_parent"] = _get_suggested_parent(candidates, text=text)
-                logger.info(
-                    "[FeedHandler] Strict none_fit enforced: medium/low confidence + zero required_output overlap"
-                )
-            else:
-                logger.debug(
-                    "[FeedHandler] Skipping strict none_fit: originally high confidence (demoted to %s)",
-                    result.get("confidence")
-                )
+                        if validation["prohibition_violated"] and not validation["required_output_match"]:
+                            result["node_id"] = None
+                            result["node_title"] = ""
+                            result["confidence"] = "low"
+                            result["none_fit"] = True
+                            result["reasoning"] = (
+                                f"Validation rejected: prohibition violated AND required_output mismatch. "
+                                f"{validation['reasoning']}"
+                            )
+                            result["suggested_parent"] = _get_suggested_parent(step_a_candidates, text=text)
+                            if session_id:
+                                emit_trace(
+                                    session_id, "Classifier", "validated",
+                                    f"Validation failed — prohibition violated and output mismatch",
+                                    data={"passed": False, "phase": "validation"},
+                                )
+                            logger.info(
+                                "[FeedHandler] Validation double-reject: forced none_fit for fact"
+                            )
+                        elif validation["prohibition_violated"]:
+                            result["confidence"] = "low"
+                            result["reasoning"] = (
+                                f"Demoted: fact violates node's prohibition "
+                                f"({result['node_id']}). {validation['reasoning']}"
+                            )
+                            if session_id:
+                                emit_trace(
+                                    session_id, "Classifier", "validated",
+                                    f"Validation failed — prohibition violated ({result['node_id']})",
+                                    data={"node_id": result["node_id"], "passed": False, "phase": "validation"},
+                                )
+                            logger.info(
+                                "[FeedHandler] Prohibition validated: demoted high -> low for %s",
+                                result["node_id"],
+                            )
+                        elif not validation["required_output_match"]:
+                            result["confidence"] = "medium"
+                            result["reasoning"] = (
+                                f"Demoted: fact doesn't produce node's required_output "
+                                f"({result['node_id']}). {validation['reasoning']}"
+                            )
+                            if session_id:
+                                emit_trace(
+                                    session_id, "Classifier", "validated",
+                                    f"Validation partial — required output mismatch ({result['node_id']})",
+                                    data={"node_id": result["node_id"], "passed": False, "phase": "validation"},
+                                )
+                            logger.info(
+                                "[FeedHandler] Required-output mismatch: demoted high -> medium for %s",
+                                result["node_id"],
+                            )
+                        else:
+                            result["validated"] = True
+                            if session_id:
+                                emit_trace(
+                                    session_id, "Classifier", "validated",
+                                    f"Validated ✓ — placement confirmed for {result['node_id']}",
+                                    data={"node_id": result["node_id"], "passed": True, "phase": "validation"},
+                                )
+                    except Exception as e:
+                        logger.error(
+                            "[FeedHandler] LLM validation failed (keeping original classification): %s", e
+                        )
+
+        # Strict none_fit enforcement REMOVED — the keyword-overlap gate had a
+        # high false-positive rate across a 747-node architecture where most valid
+        # placements don't share surface keywords with required_output. The LLM's
+        # own none_fit judgment (informed by purpose + prohibited_claims context in
+        # the prompt) is more reliable. The prohibition gate above already catches
+        # truly invalid placements.
 
     if session_id:
         if result.get("node_id"):

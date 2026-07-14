@@ -259,15 +259,26 @@ def batch_store(chunks: list[dict]) -> list[str]:
         return []
 
     supabase = _get_supabase()
-    result = supabase.table(TABLE_NAME).insert(records).execute()
 
-    if result.data:
-        ids = [r["id"] for r in result.data]
-        logger.info("[RAG] Batch stored %d chunks", len(ids))
-        return ids
+    # Insert in chunks of 50 to avoid Supabase statement timeout on large batches
+    BATCH_SIZE = 50
+    all_ids = []
+    for i in range(0, len(records), BATCH_SIZE):
+        batch = records[i:i + BATCH_SIZE]
+        try:
+            result = supabase.table(TABLE_NAME).insert(batch).execute()
+            if result.data:
+                all_ids.extend(r["id"] for r in result.data)
+            else:
+                logger.error("[RAG] Batch insert returned no data for chunk %d-%d", i, i + len(batch))
+                all_ids.extend("" for _ in batch)
+        except Exception as e:
+            logger.error("[RAG] Batch insert failed for chunk %d-%d: %s", i, i + len(batch), e)
+            all_ids.extend("" for _ in batch)
 
-    logger.error("[RAG] Batch store failed")
-    return []
+    if all_ids:
+        logger.info("[RAG] Batch stored %d chunks", len([x for x in all_ids if x]))
+    return all_ids
 
 
 def retrieve(

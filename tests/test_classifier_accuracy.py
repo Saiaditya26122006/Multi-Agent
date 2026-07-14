@@ -34,7 +34,7 @@ PMF_TEST_CASES = [
     ),
     (
         "Outcome: Manuscripts evaluated through auditable workflow",
-        ["BP.1.3", "BP.1.8.5"],
+        ["BP.1.3", "BP.1.1.5"],
         ["BP.5.4.3"],  # BP.5.4.3 is procurement approval, not product workflow
         "PMF options analysis for EpistemicOS",
     ),
