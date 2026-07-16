@@ -53,10 +53,24 @@ CONTENT_TYPE_PATTERNS = {
         (r"(haven't decided|not sure if|need more data on)", 0.8),
     ],
     "assumption": [
-        (r"(i assume|we assume|assumption:|assuming that|hypothesis)", 0.9),
-        (r"(i think|i believe|probably|likely|should be|expected to)", 0.75),
+        (r"(i assume|we assume|assumption:|assuming that)", 0.9),
         (r"(untested|unvalidated|guess|bet is that)", 0.8),
         (r"(estimated at|estimated to be|is estimated)", 0.85),
+    ],
+    "hypothesis": [
+        (r"(hypothesis:|our hypothesis|if .+ then .+ will)", 0.9),
+        (r"(we predict|testable prediction|kill condition)", 0.85),
+        (r"(we expect that .+ because|falsifiable if)", 0.85),
+    ],
+    "interpretation": [
+        (r"(this means|this implies|this suggests that)", 0.85),
+        (r"(my interpretation|my read is|i interpret this as)", 0.9),
+        (r"(in other words|what this tells us|the implication is)", 0.8),
+    ],
+    "prohibited_claim": [
+        (r"(we cannot claim|this does not prove|does not establish)", 0.9),
+        (r"(prohibited:|must not infer|cannot be used to)", 0.9),
+        (r"(this is not evidence of|insufficient to claim)", 0.85),
     ],
     "fact": [
         (r"(confirmed|verified|proven|we know|evidence shows|data shows)", 0.85),
@@ -72,6 +86,9 @@ EPISTEMIC_STATUS_BY_CONTENT_TYPE = {
     "task": "INFERRED",
     "open_question": "MISSING",
     "assumption": "ASSUMPTION",
+    "hypothesis": "ASSUMPTION",
+    "interpretation": "INFERRED",
+    "prohibited_claim": "CONFIRMED",
     "fact": "INFERRED",
 }
 
@@ -111,8 +128,14 @@ def infer_epistemic_status(text: str, content_type: str) -> str:
     """
     if content_type == "assumption":
         return "ASSUMPTION"
+    if content_type == "hypothesis":
+        return "ASSUMPTION"
     if content_type == "open_question":
         return "MISSING"
+    if content_type == "interpretation":
+        return "INFERRED"
+    if content_type == "prohibited_claim":
+        return "CONFIRMED"
 
     text_lower = text.lower()
 
@@ -1209,27 +1232,28 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
         original_confidence = result.get("confidence")
 
         # --- MANDATORY: Hard prohibition gate (runs for ALL classifications) ---
-        # Check if the fact violates the node's prohibited_claims before accepting
-        # the LLM's classification. This catches cases where the LLM ignores
-        # prohibitions and picks a node with "high" confidence anyway.
+        # Per governance: prohibited inferences should NOT prevent storage —
+        # they should store with provenance, mark blocked_for_claim_use, and
+        # escalate. Rejecting storage entirely risks losing auditability.
         violation_detected, violation_reason = _check_prohibition_violation(text, result["node_id"])
 
         if violation_detected:
-            # Hard reject: set none_fit=True and clear the node_id
-            result["node_id"] = None
-            result["node_title"] = ""
+            # Store is allowed, but the fact is blocked from supporting claims.
+            # Keep the node_id (it's still relevant there), but demote confidence
+            # and mark as blocked so downstream agents cannot cite it.
             result["confidence"] = "low"
-            result["none_fit"] = True
-            result["reasoning"] = f"REJECTED: {violation_reason}"
-            result["suggested_parent"] = _get_suggested_parent(step_a_candidates, text=text)
+            result["prohibition_violated"] = True
+            result["prohibition_reason"] = violation_reason
+            result["blocked_for_claim_use"] = True
+            result["reasoning"] = f"PROHIBITION: {violation_reason} — stored but blocked from claim use"
             if session_id:
                 emit_trace(
-                    session_id, "Classifier", "rejected",
-                    f"Prohibition violation detected — rejecting classification",
+                    session_id, "Classifier", "prohibited",
+                    f"Prohibition detected — fact stored but blocked from claim use",
                     data={"reason": violation_reason, "phase": "prohibition_gate"},
                 )
             logger.info(
-                "[FeedHandler] Prohibition gate REJECTED classification: %s",
+                "[FeedHandler] Prohibition gate: stored but BLOCKED from claim use: %s",
                 violation_reason,
             )
         # --- Hybrid validation (replaces old keyword-stem prohibition gate) ---
@@ -1547,13 +1571,14 @@ def _build_audit_metadata(
     classification: dict,
     source: str,
     tier: str,
+    source_reliability: Optional[dict] = None,
 ) -> dict:
     """Build audit trail metadata from existing classifier signals.
 
     Returns:
         Dict of audit fields to merge into chunk metadata.
     """
-    return {
+    meta = {
         "classifier_confidence": classification.get("confidence", "low"),
         "classifier_validated": classification.get("validated", False),
         "classifier_similarity": classification.get("similarity", 0.0),
@@ -1561,6 +1586,18 @@ def _build_audit_metadata(
         "tier_decision": tier,
         "classified_at": datetime.now(timezone.utc).isoformat(),
     }
+    if classification.get("blocked_for_claim_use"):
+        meta["blocked_for_claim_use"] = True
+        meta["prohibition_reason"] = classification.get("prohibition_reason", "")
+    if source_reliability:
+        meta["source_family"] = source_reliability.get("source_family", "unclassified")
+        meta["evidence_tier"] = source_reliability.get("evidence_tier", "E0")
+        meta["source_traceability"] = source_reliability.get("source_traceability", "missing")
+        meta["source_limitations"] = source_reliability.get("source_limitations")
+        if source_reliability.get("source_traceability") == "missing":
+            meta["blocked_for_claim_use"] = True
+            meta["block_reason"] = meta.get("block_reason", "") or "missing source traceability"
+    return meta
 
 
 def _quarantine_key(ceo_id: str) -> str:
@@ -1697,6 +1734,7 @@ def _classify_one_fact(
     session_id: Optional[str] = None,
     document_context: Optional[str] = None,
     use_fast_model: bool = False,
+    input_source: str = "alex_direct",
 ) -> dict:
     """Build a complete, classified fact_data dict for one atomic fact.
 
@@ -1705,12 +1743,15 @@ def _classify_one_fact(
     (pulling the next already-classified fact off the review queue), so the
     two never end up building fact_data in slightly different shapes.
     """
+    from services.source_reliability import assess_source_reliability
+
     content_classification = classify_content_type(fact_text)
     content_type = content_classification["content_type"]
     epistemic_status = infer_epistemic_status(fact_text, content_type)
     classification = classify_and_match_node(
         fact_text, session_id=session_id, document_context=document_context, use_fast_model=use_fast_model
     )
+    source_reliability = assess_source_reliability(fact_text, input_source)
 
     return {
         "verbatim_text": fact_text,
@@ -1719,6 +1760,7 @@ def _classify_one_fact(
         "epistemic_status": epistemic_status,
         "classification": classification,
         "source_format": source_format,
+        "source_reliability": source_reliability,
         "submitted_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -1981,7 +2023,7 @@ def handle_raw_text(
             classification = fact_data["classification"]
             node_id = classification["node_id"]
             node_title = classification.get("node_title", "")
-            audit = _build_audit_metadata(classification, source, "auto_file")
+            audit = _build_audit_metadata(classification, source, "auto_file", fact_data.get("source_reliability"))
             result = _store_fact_now(
                 verbatim=fact_data["verbatim_text"],
                 content_type=fact_data["content_type"],
@@ -2012,7 +2054,7 @@ def handle_raw_text(
             classification = fact_data["classification"]
             node_id = classification["node_id"]
             node_title = classification.get("node_title", "")
-            audit = _build_audit_metadata(classification, source, "auto_file_flagged")
+            audit = _build_audit_metadata(classification, source, "auto_file_flagged", fact_data.get("source_reliability"))
             audit["needs_review"] = True
             result = _store_fact_now(
                 verbatim=fact_data["verbatim_text"],
@@ -2656,7 +2698,7 @@ def _execute_approval(fact_data: dict, session_id: str) -> dict:
     classification = fact_data.get("classification", {})
     tier = fact_data.get("tier", "ask")
     source = "alex_direct"
-    audit = _build_audit_metadata(classification, source, tier)
+    audit = _build_audit_metadata(classification, source, tier, fact_data.get("source_reliability"))
 
     result = _store_fact_now(
         verbatim=verbatim,
@@ -3012,7 +3054,7 @@ def process_uploaded_document(
         classification = fact_data["classification"]
         node_id = classification["node_id"]
         node_title = classification.get("node_title", "")
-        audit = _build_audit_metadata(classification, source, fact_data["tier"])
+        audit = _build_audit_metadata(classification, source, fact_data["tier"], fact_data.get("source_reliability"))
         if fact_data["tier"] == "auto_file_flagged":
             audit["needs_review"] = True
         audit["source_filename"] = filename
