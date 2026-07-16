@@ -1433,6 +1433,194 @@ def _handle_duplicate_confirm(response_text: str, session_id: str) -> dict:
 # pick the way there is for anything routed through the review flow.
 AUTO_FILE_CONFIDENCE = "high"
 
+# --- Confidence Tier Routing ---
+# Four tiers map existing classifier signals to UX decisions:
+#   auto_file:         high + validated → store immediately, no prompt
+#   auto_file_flagged: high + not validated (or medium promoted by source) → store + flag
+#   soft_ask:          medium → lean-yes prompt, auto-file after 30s with needs_review
+#   ask:               low / none_fit → full review flow
+
+QUARANTINE_TTL = 60 * 60 * 24 * 7  # 7 days
+QUARANTINE_KEY_PREFIX = "quarantine"
+QUARANTINE_COUNT_KEY_PREFIX = "quarantine_count"
+
+
+def _determine_tier(classification: dict, source: str = "alex_direct") -> str:
+    """Map classifier signals to one of four confidence tiers.
+
+    Args:
+        classification: Result dict from classify_and_match_node().
+        source: Origin of the fact — "alex_direct" for typed input, "document" for uploads.
+
+    Returns:
+        One of: "auto_file", "auto_file_flagged", "soft_ask", "ask".
+    """
+    none_fit = classification.get("none_fit", True) or not classification.get("node_id")
+    confidence = classification.get("confidence", "low")
+    validated = classification.get("validated", False)
+
+    if none_fit or confidence == "low":
+        return "ask"
+
+    if confidence == "high":
+        if validated:
+            return "auto_file"
+        return "auto_file_flagged"
+
+    if confidence == "medium":
+        if source == "alex_direct":
+            return "auto_file_flagged"
+        return "soft_ask"
+
+    return "ask"
+
+
+def _build_audit_metadata(
+    classification: dict,
+    source: str,
+    tier: str,
+) -> dict:
+    """Build audit trail metadata from existing classifier signals.
+
+    Returns:
+        Dict of audit fields to merge into chunk metadata.
+    """
+    return {
+        "classifier_confidence": classification.get("confidence", "low"),
+        "classifier_validated": classification.get("validated", False),
+        "classifier_similarity": classification.get("similarity", 0.0),
+        "source_authority": source,
+        "tier_decision": tier,
+        "classified_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _quarantine_key(ceo_id: str) -> str:
+    """Redis key for quarantine list."""
+    return f"{QUARANTINE_KEY_PREFIX}:{ceo_id}"
+
+
+def _quarantine_count_key(ceo_id: str) -> str:
+    """Redis key for quarantine count."""
+    return f"{QUARANTINE_COUNT_KEY_PREFIX}:{ceo_id}"
+
+
+def add_to_quarantine(session_id: str, fact_data: dict) -> None:
+    """Add a fact to the quarantine queue in Redis.
+
+    Args:
+        session_id: Current session (used as ceo_id proxy).
+        fact_data: Full fact dict to quarantine.
+    """
+    try:
+        r = _get_redis()
+        key = _quarantine_key(session_id)
+        entry = json.dumps({
+            **fact_data,
+            "quarantined_at": datetime.now(timezone.utc).isoformat(),
+        })
+        r.rpush(key, entry)
+        r.expire(key, QUARANTINE_TTL)
+        count_key = _quarantine_count_key(session_id)
+        r.incr(count_key)
+        r.expire(count_key, QUARANTINE_TTL)
+    except Exception as e:
+        logger.error("[FeedHandler] Redis error adding to quarantine: %s", e)
+
+
+def get_quarantine_count(session_id: str) -> int:
+    """Get current quarantine count for a session."""
+    try:
+        r = _get_redis()
+        val = r.get(_quarantine_count_key(session_id))
+        if val is None:
+            return 0
+        if isinstance(val, bytes):
+            val = val.decode("utf-8")
+        return int(val)
+    except Exception:
+        return 0
+
+
+def get_quarantine_items(session_id: str) -> list[dict]:
+    """Get all quarantined facts for a session.
+
+    Returns:
+        List of fact dicts with quarantine metadata.
+    """
+    try:
+        r = _get_redis()
+        key = _quarantine_key(session_id)
+        raw_items = r.lrange(key, 0, -1)
+        if not raw_items:
+            return []
+        items = []
+        for raw in raw_items:
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            items.append(json.loads(raw))
+        return items
+    except Exception as e:
+        logger.error("[FeedHandler] Redis error getting quarantine items: %s", e)
+        return []
+
+
+def resolve_quarantine_item(session_id: str, index: int, action: str) -> dict:
+    """Resolve a quarantined fact by index.
+
+    Args:
+        session_id: Session/CEO ID.
+        index: 0-based index into the quarantine list.
+        action: "approve", "skip", or "adjust".
+
+    Returns:
+        Dict with action result.
+    """
+    try:
+        r = _get_redis()
+        key = _quarantine_key(session_id)
+        raw_items = r.lrange(key, 0, -1)
+        if not raw_items or index >= len(raw_items):
+            return {"action": "error", "response_text": "Item not found in quarantine."}
+
+        raw = raw_items[index]
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        fact_data = json.loads(raw)
+
+        if action == "skip":
+            r.lrem(key, 1, raw_items[index])
+            count_key = _quarantine_count_key(session_id)
+            r.decr(count_key)
+            return {"action": "skipped", "response_text": "Quarantined fact discarded."}
+
+        if action == "approve":
+            classification = fact_data.get("classification", {})
+            node_id = classification.get("node_id")
+            node_title = classification.get("node_title", "")
+            if node_id:
+                result = _store_fact_now(
+                    verbatim=fact_data["verbatim_text"],
+                    content_type=fact_data.get("content_type", "fact"),
+                    epistemic_status=fact_data.get("epistemic_status", "INFERRED"),
+                    node_id=node_id,
+                    node_title=node_title,
+                    session_id=session_id,
+                    content_confidence=fact_data.get("content_confidence", 0.5),
+                    node_confidence=classification.get("confidence"),
+                )
+                r.lrem(key, 1, raw_items[index])
+                count_key = _quarantine_count_key(session_id)
+                r.decr(count_key)
+                if result["status"] == "stored":
+                    return {"action": "stored", "response_text": f"Stored → {node_id} ({node_title})"}
+                return {"action": result["status"], "response_text": f"Storage result: {result['status']}"}
+
+        return {"action": "error", "response_text": "Use 'approve' or 'skip'."}
+    except Exception as e:
+        logger.error("[FeedHandler] Quarantine resolution error: %s", e)
+        return {"action": "error", "response_text": f"Error: {e}"}
+
 
 def _classify_one_fact(
     fact_text: str,
@@ -1468,7 +1656,11 @@ def _classify_one_fact(
 
 
 def _is_strong_match(classification: dict) -> bool:
-    """True if this classification is confident enough to auto-file."""
+    """True if this classification is confident enough to auto-file.
+
+    Legacy gate kept for backward compatibility with batch document uploads.
+    The chat flow now uses _determine_tier() for finer-grained routing.
+    """
     return (
         not classification.get("none_fit", True)
         and bool(classification.get("node_id"))
@@ -1507,7 +1699,7 @@ def _format_auto_file_table(results: list[dict]) -> str:
 
     lines = []
     if stored:
-        lines.append(f"**Auto-filed {len(stored)} fact(s) — high-confidence match, no review needed:**")
+        lines.append(f"**Auto-filed {len(stored)} fact(s):**")
         lines.append("")
         lines.append("| Node | Status | Confidence | Data |")
         lines.append("|------|--------|------------|------|")
@@ -1516,10 +1708,11 @@ def _format_auto_file_table(results: list[dict]) -> str:
             text = r["verbatim_text"].replace("|", "\\|").replace("\n", " ")
             if len(text) > 120:
                 text = text[:117] + "..."
-            # Confidence indicator: validated items show verified checkmark,
-            # direct high-confidence matches show plain high indicator
+            tier = r.get("tier", "")
             if r.get("validated"):
                 conf_indicator = "✓ verified"
+            elif tier == "auto_file_flagged":
+                conf_indicator = "flagged"
             elif r.get("confidence") == "high":
                 conf_indicator = "high"
             else:
@@ -1689,21 +1882,38 @@ def handle_raw_text(
                     {"done": i + 1, "total": len(raw_facts)},
                 )
 
-        auto_batch = [f for f in classified if _is_strong_match(f["classification"])]
-        review_batch = [f for f in classified if not _is_strong_match(f["classification"])]
+        # --- Tier-based routing ---
+        # Classify each fact into one of four tiers using existing signals.
+        # Source is "alex_direct" for chat input (Alex typed it himself).
+        source = "alex_direct"
+        tiered = []
+        for fact_data in classified:
+            tier = _determine_tier(fact_data["classification"], source=source)
+            tiered.append({"fact": fact_data, "tier": tier})
 
-        if session_id and auto_batch:
+        auto_file_batch = [t for t in tiered if t["tier"] == "auto_file"]
+        flagged_batch = [t for t in tiered if t["tier"] == "auto_file_flagged"]
+        soft_ask_batch = [t for t in tiered if t["tier"] == "soft_ask"]
+        ask_batch = [t for t in tiered if t["tier"] == "ask"]
+
+        if session_id and (auto_file_batch or flagged_batch):
             emit_trace(
                 session_id, "Feed", "auto_filing",
-                f"Auto-filing {len(auto_batch)} high-confidence match(es)...",
-                {"auto": len(auto_batch), "review": len(review_batch)},
+                f"Auto-filing {len(auto_file_batch) + len(flagged_batch)} fact(s) "
+                f"({len(auto_file_batch)} high, {len(flagged_batch)} flagged)...",
+                {"auto": len(auto_file_batch), "flagged": len(flagged_batch),
+                 "soft_ask": len(soft_ask_batch), "ask": len(ask_batch)},
             )
 
         auto_results = []
-        for fact_data in auto_batch:
+
+        # Tier 1: auto_file — store immediately, no flag
+        for item in auto_file_batch:
+            fact_data = item["fact"]
             classification = fact_data["classification"]
             node_id = classification["node_id"]
             node_title = classification.get("node_title", "")
+            audit = _build_audit_metadata(classification, source, "auto_file")
             result = _store_fact_now(
                 verbatim=fact_data["verbatim_text"],
                 content_type=fact_data["content_type"],
@@ -1713,6 +1923,7 @@ def handle_raw_text(
                 session_id=session_id,
                 content_confidence=fact_data["content_confidence"],
                 node_confidence=classification.get("confidence"),
+                extra_metadata=audit,
             )
             auto_results.append({
                 "verbatim_text": fact_data["verbatim_text"],
@@ -1722,6 +1933,39 @@ def handle_raw_text(
                 "status": result["status"],
                 "confidence": classification.get("confidence", "high"),
                 "validated": classification.get("validated", False),
+                "tier": "auto_file",
+                "audit": audit,
+            })
+
+        # Tier 2: auto_file_flagged — store with needs_review=True
+        for item in flagged_batch:
+            fact_data = item["fact"]
+            classification = fact_data["classification"]
+            node_id = classification["node_id"]
+            node_title = classification.get("node_title", "")
+            audit = _build_audit_metadata(classification, source, "auto_file_flagged")
+            audit["needs_review"] = True
+            result = _store_fact_now(
+                verbatim=fact_data["verbatim_text"],
+                content_type=fact_data["content_type"],
+                epistemic_status=fact_data["epistemic_status"],
+                node_id=node_id,
+                node_title=node_title,
+                session_id=session_id,
+                content_confidence=fact_data["content_confidence"],
+                node_confidence=classification.get("confidence"),
+                extra_metadata=audit,
+            )
+            auto_results.append({
+                "verbatim_text": fact_data["verbatim_text"],
+                "node_id": node_id,
+                "node_title": node_title,
+                "epistemic_status": fact_data["epistemic_status"],
+                "status": result["status"],
+                "confidence": classification.get("confidence", "high"),
+                "validated": False,
+                "tier": "auto_file_flagged",
+                "audit": audit,
             })
 
         if auto_results and session_id:
@@ -1733,6 +1977,19 @@ def handle_raw_text(
         response_parts = []
         if auto_results:
             response_parts.append(_format_auto_file_table(auto_results))
+
+        # Tier 3: soft_ask — present with a lean-yes prompt
+        # Combined with Tier 4 (ask) into the review queue, but soft_ask
+        # facts get a friendlier prompt and auto-file after timeout.
+        review_batch = []
+        for item in soft_ask_batch:
+            fact_data = item["fact"]
+            fact_data["tier"] = "soft_ask"
+            review_batch.append(fact_data)
+        for item in ask_batch:
+            fact_data = item["fact"]
+            fact_data["tier"] = "ask"
+            review_batch.append(fact_data)
 
         if review_batch:
             first = review_batch[0]
@@ -2248,6 +2505,7 @@ def _store_fact_now(
     node_confidence: Optional[str] = None,
     new_node_flag: bool = False,
     proposed_parent: Optional[dict] = None,
+    extra_metadata: Optional[dict] = None,
 ) -> dict:
     """Write one fact to knowledge_base and run post-store hooks.
 
@@ -2267,6 +2525,19 @@ def _store_fact_now(
     try:
         from services.rag_service import store
 
+        metadata = {
+            "content_type": content_type,
+            "node_id": node_id,
+            "node_title": node_title,
+            "source": "feed_handler",
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+            "node_confidence": node_confidence,
+            "new_node_flag": new_node_flag,
+            "proposed_parent": proposed_parent,
+        }
+        if extra_metadata:
+            metadata.update(extra_metadata)
+
         chunk_id = store(
             content=verbatim,
             source_type="ceo_doc",
@@ -2275,16 +2546,7 @@ def _store_fact_now(
             topic_tags=[content_type, f"node:{node_id or 'unmatched'}"],
             session_id=session_id,
             confidence=content_confidence,
-            metadata={
-                "content_type": content_type,
-                "node_id": node_id,
-                "node_title": node_title,
-                "source": "feed_handler",
-                "approved_at": datetime.now(timezone.utc).isoformat(),
-                "node_confidence": node_confidence,
-                "new_node_flag": new_node_flag,
-                "proposed_parent": proposed_parent,
-            },
+            metadata=metadata,
         )
 
         if chunk_id is None:
@@ -2315,6 +2577,11 @@ def _execute_approval(fact_data: dict, session_id: str) -> dict:
     node_id = proposed_node["node_id"] if proposed_node else None
     node_title = proposed_node["node_title"] if proposed_node else "Unmatched"
 
+    classification = fact_data.get("classification", {})
+    tier = fact_data.get("tier", "ask")
+    source = "alex_direct"
+    audit = _build_audit_metadata(classification, source, tier)
+
     result = _store_fact_now(
         verbatim=verbatim,
         content_type=content_type,
@@ -2326,6 +2593,7 @@ def _execute_approval(fact_data: dict, session_id: str) -> dict:
         node_confidence=fact_data.get("node_confidence"),
         new_node_flag=fact_data.get("new_node_flag", False),
         proposed_parent=fact_data.get("proposed_parent"),
+        extra_metadata=audit,
     )
 
     if result["status"] == "duplicate":
@@ -2876,6 +3144,8 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
     lines.append("")
     lines.append("-" * 40)
 
+    tier = fact_data.get("tier", "ask")
+
     if none_fit:
         suggested_parent = fact_data.get("suggested_parent", {})
         no_domain = suggested_parent.get("no_domain_match", False)
@@ -2883,6 +3153,8 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
             lines.append("  [1] Create new top-level domain — type a name to create it")
         else:
             lines.append(f"  [1] Create new node under {suggested_parent.get('node_id', '?')}")
+    elif tier == "soft_ask":
+        lines.append("  Looks like a good fit. [yes] to confirm, [adjust] to move, [skip] to discard")
     else:
         lines.append("  [1] Confirm — store here")
     lines.append("  [2] Adjust — pick a different node")

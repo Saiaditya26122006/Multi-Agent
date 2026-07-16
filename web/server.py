@@ -1485,6 +1485,33 @@ async def bulk_approve_feed_batch(req: BulkApproveRequest) -> dict:
     return {"status": "done", "session_key": session_key, **result}
 
 
+@app.get("/api/quarantine")
+async def get_quarantine(token: str = "") -> dict:
+    """Return all quarantined facts for the current session."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    from web.handlers.feed_handler import get_quarantine_items, get_quarantine_count
+
+    session_key = _get_session_key()
+    items = get_quarantine_items(session_key)
+    count = get_quarantine_count(session_key)
+
+    return {"count": count, "items": items, "session_id": session_key}
+
+
+@app.post("/api/quarantine/resolve")
+async def resolve_quarantine(token: str = "", index: int = 0, action: str = "skip") -> dict:
+    """Resolve a quarantined fact by index (approve/skip)."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    from web.handlers.feed_handler import resolve_quarantine_item
+
+    session_key = _get_session_key()
+    return resolve_quarantine_item(session_key, index, action)
+
+
 @app.get("/api/validate/queue")
 async def get_validate_queue(token: str = "") -> dict:
     """Return assumptions awaiting validation."""
