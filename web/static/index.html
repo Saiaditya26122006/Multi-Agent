@@ -3286,6 +3286,14 @@
                 </div>
                 <div class="tray-tile-status" style="background:var(--accent)"></div>
             </div>
+            <div class="tray-tile" data-action="governance">
+                <i data-lucide="shield-alert" class="tray-tile-icon"></i>
+                <div class="tray-tile-info">
+                    <div class="tray-tile-name">Governance</div>
+                    <div class="tray-tile-badge" id="badgeGovernance">BP.12 register — contradictions, gaps, reviews</div>
+                </div>
+                <div class="tray-tile-status" style="background:var(--danger)"></div>
+            </div>
         </div>
         <div class="tray-recommendation">
             <i data-lucide="sparkles" style="width:16px;height:16px;color:var(--accent);flex-shrink:0;"></i>
@@ -3328,6 +3336,25 @@
             <div class="activity-drawer-empty" id="epistemicLoadingState">
                 Loading...
             </div>
+        </div>
+    </div>
+
+    <!-- GOVERNANCE DRAWER — BP.12 register: unresolved contradictions,
+         evidence gaps, assumption conflicts, prohibited inferences.
+         Controller (Alex) resolves them here. -->
+    <div class="activity-backdrop" id="governanceBackdrop"></div>
+    <div class="activity-drawer" id="governanceDrawer" style="max-width:700px;">
+        <div class="activity-drawer-header">
+            <div>
+                <div class="activity-drawer-title">Governance — BP.12 Register</div>
+                <div class="activity-drawer-sub">Unresolved items awaiting controller decision</div>
+            </div>
+            <button class="tray-close-btn" id="governanceCloseBtn" title="Close">
+                <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </button>
+        </div>
+        <div class="activity-drawer-body" id="governanceDrawerBody">
+            <div class="activity-drawer-empty">Loading...</div>
         </div>
     </div>
 
@@ -3440,6 +3467,11 @@
             const epistemicDrawer = document.getElementById('epistemicDrawer');
             const epistemicCloseBtn = document.getElementById('epistemicCloseBtn');
             const epistemicDrawerBody = document.getElementById('epistemicDrawerBody');
+            const governanceBackdrop = document.getElementById('governanceBackdrop');
+            const governanceDrawer = document.getElementById('governanceDrawer');
+            const governanceCloseBtn = document.getElementById('governanceCloseBtn');
+            const governanceDrawerBody = document.getElementById('governanceDrawerBody');
+            let governanceLoaded = false;
             const storedDataBackdrop = document.getElementById('storedDataBackdrop');
             const storedDataDrawer = document.getElementById('storedDataDrawer');
             const storedDataCloseBtn = document.getElementById('storedDataCloseBtn');
@@ -3538,6 +3570,11 @@
                         openStoredDataDrawer();
                         return;
                     }
+                    if (tile.dataset.action === 'governance') {
+                        closeTray();
+                        openGovernanceDrawer();
+                        return;
+                    }
                     const wsNum = tile.dataset.workspace;
                     switchWorkspace(parseInt(wsNum));
                     closeTray();
@@ -3546,6 +3583,10 @@
                 // Epistemic log drawer
                 epistemicBackdrop.addEventListener('click', closeEpistemicDrawer);
                 epistemicCloseBtn.addEventListener('click', closeEpistemicDrawer);
+
+                // Governance drawer
+                governanceBackdrop.addEventListener('click', closeGovernanceDrawer);
+                governanceCloseBtn.addEventListener('click', closeGovernanceDrawer);
 
                 // Stored data drawer
                 storedDataBackdrop.addEventListener('click', closeStoredDataDrawer);
@@ -3632,6 +3673,7 @@
                         if (plusTray.classList.contains('active')) { closeTray(); return; }
                         if (activityDrawer.classList.contains('active')) { closeActivityDrawer(); return; }
                         if (epistemicDrawer.classList.contains('active')) { closeEpistemicDrawer(); return; }
+                        if (governanceDrawer.classList.contains('active')) { closeGovernanceDrawer(); return; }
                         if (storedDataDrawer.classList.contains('active')) { closeStoredDataDrawer(); return; }
                         if (processPanel.classList.contains('open')) { closeProcessPanel(); return; }
                     }
@@ -4287,6 +4329,7 @@
                     { icon: 'workflow', title: 'Open Process panel', sub: "See what's happening right now, live", action: () => openProcessPanel() },
                     { icon: 'activity', title: 'Open Live Activity', sub: 'Full pipeline trace history', action: () => openActivityDrawer() },
                     { icon: 'scale', title: 'Open Epistemic Log', sub: 'Killed ideas, reviews, staleness', action: () => openEpistemicDrawer() },
+                    { icon: 'shield-alert', title: 'Open Governance', sub: 'BP.12 register — contradictions, gaps, controller decisions', action: () => openGovernanceDrawer() },
                     { icon: 'table', title: 'Open Stored Data', sub: 'Every fact, node, and status — in one table', action: () => openStoredDataDrawer() },
                     { icon: isDark ? 'sun' : 'moon', title: isDark ? 'Switch to light mode' : 'Switch to dark mode', sub: 'Toggle color theme', action: () => toggleTheme() },
                 ];
@@ -4548,6 +4591,89 @@
                 epistemicDrawer.classList.remove('active');
                 epistemicBackdrop.classList.remove('active');
             }
+
+            function openGovernanceDrawer() {
+                governanceDrawer.classList.add('active');
+                governanceBackdrop.classList.add('active');
+                loadGovernanceRegister();
+            }
+
+            function closeGovernanceDrawer() {
+                governanceDrawer.classList.remove('active');
+                governanceBackdrop.classList.remove('active');
+            }
+
+            async function loadGovernanceRegister() {
+                if (!token) return;
+                governanceDrawerBody.innerHTML = '<div class="activity-drawer-empty">Loading BP.12 register...</div>';
+                try {
+                    const res = await fetch(`/api/bp12/register?token=${token}&limit=50`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    if (!data.items || data.items.length === 0) {
+                        governanceDrawerBody.innerHTML = '<div class="activity-drawer-empty">No open governance items. All contradictions and evidence gaps have been resolved.</div>';
+                        return;
+                    }
+                    governanceDrawerBody.innerHTML = renderGovernanceItems(data.items);
+                } catch (err) {
+                    governanceDrawerBody.innerHTML = `<div class="activity-drawer-empty">Failed to load: ${err.message}</div>`;
+                }
+            }
+
+            function renderGovernanceItems(items) {
+                const typeColors = {
+                    contradiction: 'var(--danger)',
+                    evidence_gap: 'var(--warning)',
+                    unresolved_assumption: 'var(--warning)',
+                    prohibited_inference: 'var(--danger)',
+                    source_conflict: 'var(--warning)',
+                    sufficiency_failure: 'var(--text-tertiary)',
+                };
+                const severityBadge = (s) => {
+                    const colors = { critical: '#e11', high: 'var(--danger)', medium: 'var(--warning)', low: 'var(--text-tertiary)' };
+                    return `<span style="font-size:10px;padding:1px 6px;border-radius:3px;background:${colors[s] || 'var(--text-tertiary)'};color:#fff;font-weight:600;">${s}</span>`;
+                };
+                let html = `<div style="padding:12px;font-size:12px;color:var(--text-secondary);border-bottom:1px solid var(--border);">${items.length} open item(s) requiring decision</div>`;
+                for (const item of items) {
+                    const color = typeColors[item.item_type] || 'var(--text-tertiary)';
+                    const nodes = (item.affected_node_ids || []).join(', ') || '—';
+                    const created = item.created_at ? new Date(item.created_at).toLocaleDateString() : '—';
+                    html += `
+                        <div style="border-bottom:1px solid var(--border);padding:14px 16px;" id="gov-item-${item.id}">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                                <span style="font-size:12px;font-weight:600;color:var(--text-primary);flex:1;">${escapeHtml(item.item_type.replace(/_/g, ' '))}</span>
+                                ${severityBadge(item.severity)}
+                                <span style="font-size:11px;color:var(--text-tertiary);">${created}</span>
+                            </div>
+                            <div style="font-size:13px;color:var(--text-primary);margin-bottom:4px;">${escapeHtml(item.title)}</div>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:8px;">${escapeHtml(item.description || '')}</div>
+                            <div style="font-size:11px;color:var(--text-tertiary);margin-bottom:8px;">Nodes: ${escapeHtml(nodes)}</div>
+                            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                <button onclick="resolveGovernanceItem('${item.id}','resolve','Accepted — evidence sufficient')" style="font-size:11px;padding:3px 10px;cursor:pointer;background:var(--success);color:#fff;border:none;border-radius:4px;">Accept</button>
+                                <button onclick="resolveGovernanceItem('${item.id}','kill','Killed — evidence insufficient or contradicted')" style="font-size:11px;padding:3px 10px;cursor:pointer;background:var(--danger);color:#fff;border:none;border-radius:4px;">Kill</button>
+                                <button onclick="resolveGovernanceItem('${item.id}','accept_risk','Accepted risk — proceed with caveat')" style="font-size:11px;padding:3px 10px;cursor:pointer;background:var(--warning);color:#fff;border:none;border-radius:4px;">Accept Risk</button>
+                                <button onclick="resolveGovernanceItem('${item.id}','escalate','Needs further investigation')" style="font-size:11px;padding:3px 10px;cursor:pointer;background:var(--text-tertiary);color:#fff;border:none;border-radius:4px;">Escalate</button>
+                            </div>
+                        </div>
+                    `;
+                }
+                return html;
+            }
+
+            window.resolveGovernanceItem = async function(itemId, decision, reasoning) {
+                try {
+                    const res = await fetch(`/api/bp12/resolve?token=${token}&item_id=${itemId}&decision=${encodeURIComponent(decision)}&reasoning=${encodeURIComponent(reasoning)}`, { method: 'POST' });
+                    if (!res.ok) throw new Error('Failed');
+                    const el = document.getElementById(`gov-item-${itemId}`);
+                    if (el) {
+                        el.style.opacity = '0.4';
+                        el.innerHTML = `<div style="padding:8px;font-size:12px;color:var(--success);">Resolved: ${escapeHtml(decision)}</div>`;
+                    }
+                } catch (e) {
+                    alert('Failed to resolve item');
+                }
+            };
 
             async function loadEpistemicLog() {
                 if (!token) return;
