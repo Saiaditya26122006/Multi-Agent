@@ -30,14 +30,17 @@ CONTENT_TYPE_PATTERNS = {
         (r"(worst case|if .+ fails|downside)", 0.75),
     ],
     "metric": [
-        (r"(\d+%|\$[\d,.]+|[\d,.]+ users|[\d,.]+ customers)", 0.85),
-        (r"(revenue|arpu|cac|ltv|churn|conversion|retention|mrr|arr)", 0.8),
+        (r"(\d+%)", 0.85),
         (r"(target:|goal:|kpi:|metric:)", 0.9),
+        (r"([\d,.]+ users|[\d,.]+ customers)", 0.85),
+        (r"(arpu|cac|ltv|churn rate|conversion rate|retention rate|mrr|arr)", 0.8),
+        (r"(approximately \d|there are .* \d[\d,]*)", 0.75),
     ],
     "constraint": [
-        (r"(must not|cannot|we can't|we don't have|budget is|deadline)", 0.85),
+        (r"(must not|we can't|we don't have|budget is|deadline)", 0.85),
         (r"(limitation|constraint|restriction|blocker|dependency)", 0.8),
         (r"(not allowed|prohibited|out of scope)", 0.8),
+        (r"(mandatory|is required|compliance is|must stay|capped at)", 0.85),
     ],
     "task": [
         (r"(need to|todo|action item|next step|we should)", 0.75),
@@ -53,6 +56,7 @@ CONTENT_TYPE_PATTERNS = {
         (r"(i assume|we assume|assumption:|assuming that|hypothesis)", 0.9),
         (r"(i think|i believe|probably|likely|should be|expected to)", 0.75),
         (r"(untested|unvalidated|guess|bet is that)", 0.8),
+        (r"(estimated at|estimated to be|is estimated)", 0.85),
     ],
     "fact": [
         (r"(confirmed|verified|proven|we know|evidence shows|data shows)", 0.85),
@@ -364,12 +368,14 @@ LEVEL1_KEYWORDS: dict[str, list[str]] = {
              "substitute", "positioning", "differentiation"],
     "BP.9": ["pricing", "price", "revenue", "model", "euros",
              "license", "subscription", "gtm", "sales", "channel",
-             "distribution", "outreach", "partner"],
+             "distribution", "outreach", "partner", "arr", "mrr",
+             "cac", "ltv", "unit economics", "willingness to pay",
+             "wtp", "per-seat", "per-manuscript", "cost structure"],
     "BP.10": ["validation", "confirmed", "survey", "pmf",
               "behavioural evidence", "proof", "traction"],
     "BP.11": ["investor", "pitch", "data room", "narrative",
-              "fundraise", "cap table", "finance", "cost",
-              "budget", "unit economics"],
+              "fundraise", "cap table", "finance",
+              "diligence", "stakeholder"],
 }
 
 LEVEL1_TITLES: dict[str, str] = {
@@ -951,11 +957,18 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
     elif text_lower.startswith("assumption:") or text_lower.startswith("key assumption:"):
         forced_domains = ["BP.2", "BP.10"]
     elif text_lower.startswith("constraint:") or text_lower.startswith("limitation:"):
-        forced_domains = ["BP.7", "BP.1"]
+        forced_domains = ["BP.9", "BP.7"]
     elif text_lower.startswith("revenue") or text_lower.startswith("pricing"):
         forced_domains = ["BP.9", "BP.5"]
     elif text_lower.startswith("target market") or text_lower.startswith("target customer"):
         forced_domains = ["BP.4", "BP.3"]
+    elif text_lower.startswith("target:") or text_lower.startswith("unit economics"):
+        forced_domains = ["BP.9", "BP.11"]
+    elif "willingness to pay" in text_lower or "wtp" in text_lower:
+        forced_domains = ["BP.9", "BP.5"]
+    elif "we decided" in text_lower or "decision:" in text_lower:
+        if "pricing" in text_lower or "per-seat" in text_lower or "revenue" in text_lower or "licensing" in text_lower:
+            forced_domains = ["BP.9", "BP.5"]
 
     # --- Two-Stage Classification (Task #4) ---
     # Stage 1: Use LLM to pick 1-3 level-1 domains (BP.1, BP.2, etc.)

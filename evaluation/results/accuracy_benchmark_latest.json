@@ -1,0 +1,444 @@
+{
+  "timestamp": "2026-07-16T08:39:28.578458+00:00",
+  "total_cases": 23,
+  "node_accuracy": 100.0,
+  "type_accuracy": 100.0,
+  "combined_accuracy": 100.0,
+  "total_time_s": 215.3,
+  "results": [
+    {
+      "fact": "The platform performs claim-evidence alignment analysis on uploaded manuscripts",
+      "expected_nodes": [
+        "BP.1.1",
+        "BP.1.1.1",
+        "BP.1.1.2",
+        "BP.1.1.5",
+        "BP.1.3"
+      ],
+      "actual_node": "BP.1.1.3",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "Claim-evidence alignment analysis describes the core diagnostic function of the system, matching BP.1.1.3's required output about making claim-level weaknesses visible and actionable.",
+      "latency_s": 21.31
+    },
+    {
+      "fact": "Geographic scope is Spain and EU initially, expanding to UK in Year 2",
+      "expected_nodes": [
+        "BP.1.6",
+        "BP.1.6.1",
+        "BP.1.6.2",
+        "BP.1.6.3"
+      ],
+      "actual_node": "BP.1.6.3",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "The fact describes a planned expansion sequence (Spain/EU initially, UK in Year 2), which directly informs geographic sequencing logic output.",
+      "latency_s": 10.57
+    },
+    {
+      "fact": "Researchers have no way to self-assess whether their claims are inferentially su",
+      "expected_nodes": [
+        "BP.2.1",
+        "BP.2.1.1",
+        "BP.2.1.2"
+      ],
+      "actual_node": "BP.2.1.1",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "medium",
+      "none_fit": false,
+      "reasoning": "Demoted: fact has no keyword overlap with node's required_output (BP.2.1.1). Needs human review.",
+      "latency_s": 8.26
+    },
+    {
+      "fact": "I assume that ANECA accreditation pressure creates recurring institutional deman",
+      "expected_nodes": [
+        "BP.2.3",
+        "BP.2.5",
+        "BP.2.5.1"
+      ],
+      "actual_node": "BP.2.3.5",
+      "node_correct": true,
+      "expected_type": "assumption",
+      "actual_type": "assumption",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "The fact is explicitly framed as an unvalidated assumption ('I assume') about urgency/demand, which belongs in the urgency assumptions register.",
+      "latency_s": 10.34
+    },
+    {
+      "fact": "According to RELX Annual Report 2023, STM revenues were GBP 2.7 billion",
+      "expected_nodes": [
+        "BP.3",
+        "BP.3.1",
+        "BP.3.2",
+        "BP.3.3"
+      ],
+      "actual_node": "BP.3.1.2",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "medium",
+      "none_fit": false,
+      "reasoning": "Demoted: fact has no keyword overlap with node's required_output (BP.3.1.2). Needs human review.",
+      "latency_s": 9.61
+    },
+    {
+      "fact": "There are approximately 500 AACSB/EQUIS-accredited business schools in Europe",
+      "expected_nodes": [
+        "BP.4",
+        "BP.4.1",
+        "BP.4.2",
+        "BP.4.3",
+        "BP.4.4"
+      ],
+      "actual_node": "BP.4.2.1",
+      "node_correct": true,
+      "expected_type": "metric",
+      "actual_type": "metric",
+      "type_correct": true,
+      "confidence": "medium",
+      "none_fit": false,
+      "reasoning": "Demoted: fact has no keyword overlap with node's required_output (BP.4.2.1). Needs human review.",
+      "latency_s": 11.32
+    },
+    {
+      "fact": "Target market: research-active business schools with active doctoral programs in",
+      "expected_nodes": [
+        "BP.4",
+        "BP.4.1",
+        "BP.4.2",
+        "BP.4.3",
+        "BP.4.4",
+        "BP.4.5"
+      ],
+      "actual_node": "BP.4.1.1",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "This is a single bounded market definition statement identifying category (research-active business schools with doctoral programs), geography (Spain and EU), and relevant actor \u2014 exactly what BP.4.1.",
+      "latency_s": 8.25
+    },
+    {
+      "fact": "Primary buyer persona: Research Dean or Vice-Dean of Research at business school",
+      "expected_nodes": [
+        "BP.5",
+        "BP.5.1",
+        "BP.5.1.1",
+        "BP.5.1.2"
+      ],
+      "actual_node": "BP.5.1.2",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "This fact specifically defines the primary buyer persona, which is exactly what BP.5.1.2 requires as output \u2014 a bounded buyer definition statement identifying the actor and their role.",
+      "latency_s": 8.24
+    },
+    {
+      "fact": "Willingness to pay is estimated at EUR 8,000-15,000 per institutional seat per y",
+      "expected_nodes": [
+        "BP.5",
+        "BP.5.2",
+        "BP.5.2.1",
+        "BP.5.3",
+        "BP.9.1",
+        "BP.9.1.1",
+        "BP.9.2",
+        "BP.9.2.1",
+        "BP.9.2.2",
+        "BP.9.2.3"
+      ],
+      "actual_node": "BP.9.2.3",
+      "node_correct": true,
+      "expected_type": "assumption",
+      "actual_type": "assumption",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "An estimated WTP range is an unvalidated pricing assumption that belongs in Pricing Assumptions, not a structural or model definition node.",
+      "latency_s": 9.55
+    },
+    {
+      "fact": "We have 3 confirmed paying pilots at 8000 euros each \u2014 IESE, ESADE, and IE Busin",
+      "expected_nodes": [
+        "BP.6",
+        "BP.6.1",
+        "BP.6.2",
+        "BP.6.3",
+        "BP.10.3",
+        "BP.10.3.4"
+      ],
+      "actual_node": "BP.10.3.4",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "Three confirmed paying pilots at 8000 euros each is specific commercial/revenue data that belongs in the commercial thresholds register as concrete evidence against defined commercial metrics.",
+      "latency_s": 8.16
+    },
+    {
+      "fact": "Need to schedule 15 discovery interviews with research deans by Month 3",
+      "expected_nodes": [
+        "BP.6",
+        "BP.6.1",
+        "BP.6.2"
+      ],
+      "actual_node": "BP.6.1.2",
+      "node_correct": true,
+      "expected_type": "task",
+      "actual_type": "task",
+      "type_correct": true,
+      "confidence": "medium",
+      "none_fit": false,
+      "reasoning": "Demoted: fact has no keyword overlap with node's required_output (BP.6.1.2). Needs human review.",
+      "latency_s": 9.66
+    },
+    {
+      "fact": "GDPR compliance is mandatory \u2014 all manuscript data must stay within EU servers",
+      "expected_nodes": [
+        "BP.7",
+        "BP.7.1",
+        "BP.7.2",
+        "BP.7.3"
+      ],
+      "actual_node": "BP.7.2.4",
+      "node_correct": true,
+      "expected_type": "constraint",
+      "actual_type": "constraint",
+      "type_correct": true,
+      "confidence": "medium",
+      "none_fit": false,
+      "reasoning": "Demoted: fact has no keyword overlap with node's required_output (BP.7.2.4). Needs human review.",
+      "latency_s": 9.11
+    },
+    {
+      "fact": "Turnitin only detects copied text, it does not assess claim-evidence validity",
+      "expected_nodes": [
+        "BP.8",
+        "BP.8.1",
+        "BP.8.2",
+        "BP.8.3",
+        "BP.8.4"
+      ],
+      "actual_node": "BP.8.1.4",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "medium",
+      "none_fit": false,
+      "reasoning": "Demoted: fact doesn't produce node's required_output (BP.8.1.4). This fact describes Turnitin's detection capabilities rather than defining a feature comparison framework, and does not assert that buyers accept products based on feature comparisons.",
+      "latency_s": 11.6
+    },
+    {
+      "fact": "The biggest risk is that Elsevier builds this functionality into ScholarOne",
+      "expected_nodes": [
+        "BP.8",
+        "BP.8.5",
+        "BP.8.6",
+        "BP.8.7"
+      ],
+      "actual_node": "BP.8.7.3",
+      "node_correct": true,
+      "expected_type": "risk",
+      "actual_type": "risk",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "Elsevier is an academic publisher and ScholarOne is their manuscript management platform, making this a specific publisher threat fact that belongs in the Publisher Threats node.",
+      "latency_s": 6.89
+    },
+    {
+      "fact": "Revenue model is annual institutional subscription with per-seat licensing",
+      "expected_nodes": [
+        "BP.9",
+        "BP.9.1",
+        "BP.9.1.1",
+        "BP.9.2",
+        "BP.9.5"
+      ],
+      "actual_node": "BP.9.5.1",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "Specific revenue model type (annual institutional subscription with per-seat licensing) belongs in the Revenue Model node, not the broader unit economics parent.",
+      "latency_s": 6.53
+    },
+    {
+      "fact": "We decided to go with per-seat institutional licensing over per-manuscript prici",
+      "expected_nodes": [
+        "BP.9",
+        "BP.9.1",
+        "BP.9.1.1",
+        "BP.9.2"
+      ],
+      "actual_node": "BP.9.2.1",
+      "node_correct": true,
+      "expected_type": "decision",
+      "actual_type": "decision",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "Choosing per-seat institutional licensing over per-manuscript pricing is a pricing model definition decision, not structure, packaging, or assumptions.",
+      "latency_s": 7.31
+    },
+    {
+      "fact": "GTM strategy: direct outreach to AACSB deans via conference circuit + LinkedIn",
+      "expected_nodes": [
+        "BP.9",
+        "BP.9.3",
+        "BP.9.4",
+        "BP.9.5"
+      ],
+      "actual_node": "BP.9.3.1",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "Direct outreach channels and tactics define the GTM strategy, which belongs in GTM Strategy Definition.",
+      "latency_s": 9.33
+    },
+    {
+      "fact": "PMF is not: researchers like it or send positive feedback",
+      "expected_nodes": [
+        "BP.10",
+        "BP.10.3",
+        "BP.10.3.8"
+      ],
+      "actual_node": "BP.10.3.8",
+      "node_correct": true,
+      "expected_type": "fact",
+      "actual_type": "fact",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "This fact defines a prohibited PMF inference \u2014 liking the product or sending positive feedback must never be treated as PMF evidence \u2014 which directly populates the prohibited PMF inference register.",
+      "latency_s": 9.4
+    },
+    {
+      "fact": "Validation target: 70% Cohen's kappa between EpistemicOS output and senior revie",
+      "expected_nodes": [
+        "BP.10",
+        "BP.10.1",
+        "BP.10.2",
+        "BP.10.3"
+      ],
+      "actual_node": "BP.10.1.1",
+      "node_correct": true,
+      "expected_type": "metric",
+      "actual_type": "metric",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "A specific quantitative success/failure criterion (70% Cohen's kappa vs. senior reviewer) directly informs the validation objective register's success criteria field.",
+      "latency_s": 7.79
+    },
+    {
+      "fact": "Target: EUR 30,000 ARR by end of Year 1 from 3-4 institutional accounts",
+      "expected_nodes": [
+        "BP.9.5",
+        "BP.9.5.1",
+        "BP.9.5.2",
+        "BP.9.5.3",
+        "BP.11",
+        "BP.11.1",
+        "BP.11.2"
+      ],
+      "actual_node": "BP.9.5.1",
+      "node_correct": true,
+      "expected_type": "metric",
+      "actual_type": "metric",
+      "type_correct": true,
+      "confidence": "medium",
+      "none_fit": false,
+      "reasoning": "Demoted: fact has no keyword overlap with node's required_output (BP.9.5.1). Needs human review.",
+      "latency_s": 5.41
+    },
+    {
+      "fact": "Unit economics: CAC estimated at EUR 3,000 per institutional account via confere",
+      "expected_nodes": [
+        "BP.9.5",
+        "BP.9.5.1",
+        "BP.9.5.2",
+        "BP.9.5.3",
+        "BP.11",
+        "BP.11.1",
+        "BP.11.2"
+      ],
+      "actual_node": "BP.9.5.3",
+      "node_correct": true,
+      "expected_type": "assumption",
+      "actual_type": "assumption",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "CAC is a specific unit economics metric that belongs in the Unit Economics node, not the parent or other financial sub-nodes.",
+      "latency_s": 7.09
+    },
+    {
+      "fact": "Still unclear whether procurement at public universities requires a 12-month ten",
+      "expected_nodes": [
+        "BP.5.4",
+        "BP.5.4.1",
+        "BP.5.4.2",
+        "BP.5.4.3",
+        "BP.7"
+      ],
+      "actual_node": "BP.5.4.6",
+      "node_correct": true,
+      "expected_type": "open_question",
+      "actual_type": "open_question",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "An unresolved uncertainty about whether a procurement requirement applies is an unvalidated assumption requiring falsification conditions, fitting the procurement assumption register.",
+      "latency_s": 14.59
+    },
+    {
+      "fact": "Constraint: budget is capped at EUR 120,000 for first 12 months including salari",
+      "expected_nodes": [
+        "BP.9.5",
+        "BP.9.5.1",
+        "BP.9.5.2",
+        "BP.9.5.3",
+        "BP.5.3",
+        "BP.5.3.6",
+        "BP.11"
+      ],
+      "actual_node": "BP.5.3.6",
+      "node_correct": true,
+      "expected_type": "constraint",
+      "actual_type": "constraint",
+      "type_correct": true,
+      "confidence": "high",
+      "none_fit": false,
+      "reasoning": "Specific budget cap constraint directly informs the budget constraint register required by BP.5.3.6.",
+      "latency_s": 4.99
+    }
+  ]
+}
