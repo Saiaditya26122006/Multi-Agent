@@ -2775,10 +2775,11 @@ def _run_post_store_hooks(
     content_type: str = "fact",
     node_id: Optional[str] = None,
 ) -> None:
-    """Run post-storage hooks: contradiction check, negative knowledge, temporal scoring, multi-node linking."""
+    """Run post-storage hooks: contradiction check, BP.12 register, temporal scoring, multi-node linking, evidence links."""
     try:
         from services.rag_service import retrieve, update_metadata
         from services.temporal_decay import compute_final_score
+        from services.bp12_register import create_register_item
 
         contradictions = retrieve(
             query=content,
@@ -2805,15 +2806,30 @@ def _run_post_store_hooks(
                     "contradiction_detected_at": datetime.now(timezone.utc).isoformat(),
                     "resolution_status": "unresolved",
                 })
+                # Create BP.12 register item for controller review
+                old_node_id = (chunk.metadata or {}).get("node_id", "")
+                create_register_item(
+                    item_type="contradiction",
+                    title=f"Contradiction: new '{content[:50]}' vs existing '{chunk.content[:50]}'",
+                    description=(
+                        f"New fact (status={epistemic_status}) conflicts with existing "
+                        f"fact (status={chunk.epistemic_status}). Requires controller "
+                        f"decision: which one to keep, reclassify, or accept both."
+                    ),
+                    affected_chunk_ids=[chunk_id, chunk.id],
+                    affected_node_ids=[n for n in [node_id, old_node_id] if n],
+                    severity="high" if epistemic_status == "CONFIRMED" else "medium",
+                    source_session_id=session_id,
+                )
                 logger.info(
-                    "[FeedHandler] Contradiction linked (not auto-resolved): "
+                    "[FeedHandler] Contradiction linked + BP.12 registered: "
                     "new chunk %s vs existing %s",
                     chunk_id,
                     chunk.id,
                 )
                 emit_trace(
                     session_id, "Governance", "contradiction_linked",
-                    f"Contradiction detected with existing ({chunk.epistemic_status}) — flagged for controller review",
+                    f"Contradiction detected — BP.12 register item created for controller review",
                     data={
                         "type": "contradiction",
                         "new_fact": content[:100],
@@ -2848,14 +2864,30 @@ def _run_post_store_hooks(
                     "resolution_status": "unresolved",
                     "requires_controller_review": True,
                 })
+                # Create BP.12 register item
+                assumption_node_id = (chunk.metadata or {}).get("node_id", "")
+                create_register_item(
+                    item_type="unresolved_assumption",
+                    title=f"Assumption challenged: '{chunk.content[:50]}' by confirmed evidence",
+                    description=(
+                        f"Assumption ('{chunk.content[:100]}') may be invalidated by "
+                        f"new confirmed evidence ('{content[:100]}'). Controller must "
+                        f"decide: kill assumption, accept coexistence, or reclassify."
+                    ),
+                    affected_chunk_ids=[chunk.id, chunk_id],
+                    affected_node_ids=[n for n in [node_id, assumption_node_id] if n],
+                    affected_assumption_ids=[chunk.id],
+                    severity="high",
+                    source_session_id=session_id,
+                )
                 logger.info(
-                    "[FeedHandler] Assumption-evidence conflict linked (not auto-killed): "
-                    "assumption %s vs new confirmed %s",
+                    "[FeedHandler] Assumption-evidence conflict: BP.12 registered: "
+                    "assumption %s vs confirmed %s",
                     chunk.id, chunk_id,
                 )
                 emit_trace(
                     session_id, "Governance", "conflict_linked",
-                    f"Assumption may conflict with new confirmed evidence — flagged for review",
+                    f"Assumption challenged by confirmed evidence — BP.12 item created",
                     data={
                         "type": "assumption_conflict",
                         "assumption_chunk_id": chunk.id,
@@ -2876,7 +2908,8 @@ def _run_post_store_hooks(
 
         try:
             from services.memory_index import link_new_chunk
-            from services.multi_node_linker import compute_multi_node_metadata
+            from services.multi_node_linker import compute_multi_node_metadata, derive_secondary_nodes
+            from services.evidence_links import create_links_from_multi_node
 
             link_result = link_new_chunk(
                 chunk_id=chunk_id,
@@ -2886,13 +2919,65 @@ def _run_post_store_hooks(
             )
 
             if link_result and link_result.get("count", 0) > 0:
-                compute_multi_node_metadata(
+                multi_meta = compute_multi_node_metadata(
                     chunk_id=chunk_id,
                     primary_node_id=node_id or "",
                     content_type=content_type,
                     epistemic_status=epistemic_status,
                     link_result=link_result,
                 )
+                # Create per-link evidence boundaries for each secondary node
+                secondary = derive_secondary_nodes(node_id or "", link_result)
+                if secondary:
+                    evidence_tier = "E0"
+                    try:
+                        from services.rag_service import _get_supabase, TABLE_NAME
+                        sb = _get_supabase()
+                        row = sb.table(TABLE_NAME).select("metadata").eq("id", chunk_id).limit(1).execute()
+                        if row.data:
+                            evidence_tier = (row.data[0].get("metadata") or {}).get("evidence_tier", "E0")
+                    except Exception:
+                        pass
+                    create_links_from_multi_node(
+                        chunk_id=chunk_id,
+                        primary_node_id=node_id or "",
+                        secondary_nodes=secondary,
+                        content_type=content_type,
+                        evidence_tier=evidence_tier,
+                        session_id=session_id,
+                    )
+                    # Cross-node prohibition propagation: check if the fact's
+                    # inference is prohibited in any secondary node. If so,
+                    # block the link and register in BP.12.
+                    for sec in secondary:
+                        sec_node_id = sec["node_id"]
+                        violated, reason = _check_prohibition_violation(content, sec_node_id)
+                        if violated:
+                            from services.evidence_links import get_links_for_node, update_link_sufficiency
+                            # Block the evidence link for this node
+                            links = get_links_for_node(sec_node_id)
+                            for link in links:
+                                if link.get("chunk_id") == chunk_id:
+                                    update_link_sufficiency(
+                                        link["id"], "blocked",
+                                        boundary_reason=f"Cross-node prohibition: {reason}",
+                                    )
+                            create_register_item(
+                                item_type="prohibited_inference",
+                                title=f"Prohibited inference blocked in {sec_node_id}",
+                                description=(
+                                    f"Fact stored in {node_id} is relevant to {sec_node_id} but "
+                                    f"violates its prohibited_claims: {reason}"
+                                ),
+                                affected_chunk_ids=[chunk_id],
+                                affected_node_ids=[node_id or "", sec_node_id],
+                                severity="medium",
+                                source_session_id=session_id,
+                            )
+                            logger.info(
+                                "[FeedHandler] Cross-node prohibition: blocked %s in %s",
+                                chunk_id[:8], sec_node_id,
+                            )
         except Exception as link_err:
             logger.error("[FeedHandler] Memory index linking failed (non-fatal): %s", link_err)
 

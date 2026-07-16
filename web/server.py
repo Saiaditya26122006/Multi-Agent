@@ -1532,6 +1532,54 @@ async def resolve_quarantine(token: str = "", index: int = 0, action: str = "ski
     return resolve_quarantine_item(session_key, index, action)
 
 
+@app.get("/api/bp12/register")
+async def get_bp12_register(
+    token: str = "", item_type: str = "", severity: str = "", limit: int = 50
+) -> dict:
+    """Return open BP.12 register items (unresolved governance issues)."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    from services.bp12_register import get_open_items
+
+    items = get_open_items(
+        item_type=item_type or None,
+        severity=severity or None,
+        limit=limit,
+    )
+    return {"items": items, "count": len(items)}
+
+
+@app.post("/api/bp12/resolve")
+async def resolve_bp12_item(
+    token: str = "", item_id: str = "", decision: str = "", reasoning: str = ""
+) -> dict:
+    """Resolve a BP.12 register item with a controller decision."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    if not item_id or not decision:
+        raise HTTPException(status_code=400, detail="item_id and decision required")
+
+    from services.bp12_register import resolve_item
+
+    success = resolve_item(item_id, decision, reasoning)
+    if success:
+        return {"status": "resolved", "item_id": item_id, "decision": decision}
+    raise HTTPException(status_code=500, detail="Failed to resolve item")
+
+
+@app.get("/api/evidence-links/{node_id:path}")
+async def get_evidence_links_for_node(node_id: str, token: str = "") -> dict:
+    """Return all evidence links targeting a node (what evidence supports it)."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    from services.evidence_links import get_links_for_node
+
+    links = get_links_for_node(node_id)
+    return {"node_id": node_id, "links": links, "count": len(links)}
+
+
 @app.get("/api/validate/queue")
 async def get_validate_queue(token: str = "") -> dict:
     """Return assumptions awaiting validation."""
