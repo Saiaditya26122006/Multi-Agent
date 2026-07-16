@@ -2552,7 +2552,10 @@ def _store_fact_now(
         if chunk_id is None:
             return {"status": "duplicate", "chunk_id": None}
 
-        _run_post_store_hooks(verbatim, chunk_id, epistemic_status, session_id)
+        _run_post_store_hooks(
+            verbatim, chunk_id, epistemic_status, session_id,
+            content_type=content_type, node_id=node_id,
+        )
         return {"status": "stored", "chunk_id": chunk_id}
 
     except Exception as e:
@@ -2650,9 +2653,14 @@ def _execute_approval(fact_data: dict, session_id: str) -> dict:
 
 
 def _run_post_store_hooks(
-    content: str, chunk_id: str, epistemic_status: str, session_id: str
+    content: str,
+    chunk_id: str,
+    epistemic_status: str,
+    session_id: str,
+    content_type: str = "fact",
+    node_id: Optional[str] = None,
 ) -> None:
-    """Run post-storage hooks: contradiction check, negative knowledge, temporal scoring."""
+    """Run post-storage hooks: contradiction check, negative knowledge, temporal scoring, multi-node linking."""
     try:
         from services.rag_service import retrieve
         from services.rag_hooks import store_contradiction_resolution, store_negative_knowledge
@@ -2725,13 +2733,23 @@ def _run_post_store_hooks(
 
         try:
             from services.memory_index import link_new_chunk
+            from services.multi_node_linker import compute_multi_node_metadata
 
-            link_new_chunk(
+            link_result = link_new_chunk(
                 chunk_id=chunk_id,
                 content=content,
-                metadata={"epistemic_status": epistemic_status},
+                metadata={"epistemic_status": epistemic_status, "node_id": node_id},
                 session_id=session_id,
             )
+
+            if link_result and link_result.get("count", 0) > 0:
+                compute_multi_node_metadata(
+                    chunk_id=chunk_id,
+                    primary_node_id=node_id or "",
+                    content_type=content_type,
+                    epistemic_status=epistemic_status,
+                    link_result=link_result,
+                )
         except Exception as link_err:
             logger.error("[FeedHandler] Memory index linking failed (non-fatal): %s", link_err)
 
@@ -3003,7 +3021,10 @@ def bulk_store_facts(
                 })
                 continue
 
-            _run_post_store_hooks(verbatim, chunk_id, fact["epistemic_status"], session_id)
+            _run_post_store_hooks(
+                verbatim, chunk_id, fact["epistemic_status"], session_id,
+                content_type=fact["content_type"], node_id=node_id,
+            )
             stored_count += 1
             results.append({
                 "fact_id": fact_id, "status": "stored", "chunk_id": chunk_id,

@@ -441,6 +441,49 @@ def delete(chunk_id: str) -> bool:
     return False
 
 
+def update_metadata(chunk_id: str, new_fields: dict) -> bool:
+    """Merge new fields into an existing chunk's metadata JSONB.
+
+    Args:
+        chunk_id: UUID of the chunk to update.
+        new_fields: Dict of fields to merge (existing keys are overwritten).
+
+    Returns:
+        True if successful.
+    """
+    supabase = _get_supabase()
+    try:
+        existing = (
+            supabase.table(TABLE_NAME)
+            .select("metadata")
+            .eq("id", chunk_id)
+            .limit(1)
+            .execute()
+        )
+        if not existing.data:
+            logger.warning("[RAG] update_metadata: chunk %s not found", chunk_id)
+            return False
+
+        current_meta = existing.data[0].get("metadata") or {}
+        current_meta.update(new_fields)
+
+        result = (
+            supabase.table(TABLE_NAME)
+            .update({"metadata": current_meta})
+            .eq("id", chunk_id)
+            .execute()
+        )
+        if result.data:
+            logger.debug("[RAG] Updated metadata for chunk %s: +%d fields", chunk_id, len(new_fields))
+            return True
+
+        logger.warning("[RAG] update_metadata returned no data for chunk %s", chunk_id)
+        return False
+    except Exception as e:
+        logger.error("[RAG] update_metadata failed for chunk %s: %s", chunk_id, e)
+        return False
+
+
 def retrieve_with_relationships(
     query: str,
     top_k: int = 5,

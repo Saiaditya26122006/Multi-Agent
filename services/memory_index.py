@@ -103,7 +103,7 @@ def link_new_chunk(
     content: str,
     metadata: Optional[dict] = None,
     session_id: Optional[str] = None,
-) -> int:
+) -> dict:
     """Find and store relationships between a new chunk and existing chunks.
 
     Args:
@@ -113,8 +113,10 @@ def link_new_chunk(
         session_id: Session that created this chunk.
 
     Returns:
-        Number of relationships created.
+        Dict with: count (int), linked_nodes (list of node_ids from related
+        chunks in different nodes), relationships (list of relationship dicts).
     """
+    empty_result = {"count": 0, "linked_nodes": [], "relationships": []}
     try:
         from services.rag_service import retrieve
 
@@ -132,10 +134,12 @@ def link_new_chunk(
         similar_chunks = [c for c in similar_chunks if c.id != chunk_id]
 
         if not similar_chunks:
-            return 0
+            return empty_result
 
         supabase = _get_supabase()
         created_count = 0
+        linked_nodes = set()
+        relationships = []
 
         for chunk in similar_chunks:
             existing_epistemic = chunk.epistemic_status
@@ -168,17 +172,31 @@ def link_new_chunk(
             insert_result = supabase.table(TABLE_NAME).insert(record).execute()
             if insert_result.data:
                 created_count += 1
+                rel_info = {
+                    "related_chunk_id": chunk.id,
+                    "related_node_id": existing_node_id,
+                    "relationship_type": relationship_type,
+                    "confidence": round(confidence, 4),
+                }
+                relationships.append(rel_info)
+                if existing_node_id and existing_node_id != new_node_id:
+                    linked_nodes.add(existing_node_id)
 
         logger.info(
-            "[MemoryIndex] Linked chunk %s: %d relationship(s) created",
+            "[MemoryIndex] Linked chunk %s: %d relationship(s) created, %d cross-node link(s)",
             chunk_id,
             created_count,
+            len(linked_nodes),
         )
-        return created_count
+        return {
+            "count": created_count,
+            "linked_nodes": sorted(linked_nodes),
+            "relationships": relationships,
+        }
 
     except Exception as e:
         logger.error("[MemoryIndex] Error linking chunk %s: %s", chunk_id, e)
-        return 0
+        return empty_result
 
 
 def get_relationships(chunk_id: str) -> list[dict]:
