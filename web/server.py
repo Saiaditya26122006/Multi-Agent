@@ -1769,6 +1769,7 @@ async def get_stored_knowledge(
     node_id: str = "",
     epistemic_status: str = "",
     sort: str = "node",
+    needs_review: bool = False,
 ) -> dict:
     """Return stored knowledge_base rows as a flat table — Alex's ask for
     visibility into exactly what got stored and under which node, without
@@ -1829,6 +1830,8 @@ async def get_stored_knowledge(
             row_node_id = meta.get("node_id") or row.get("section") or ""
             if node_id and row_node_id != node_id:
                 continue
+            if needs_review and not meta.get("needs_review"):
+                continue
             rows.append({
                 "id": row["id"],
                 "node_id": row_node_id,
@@ -1841,6 +1844,10 @@ async def get_stored_knowledge(
                 "source": meta.get("source") or row.get("source_type", ""),
                 "stored_at": row.get("created_at", ""),
                 "confidence": row.get("confidence"),
+                "tier_decision": meta.get("tier_decision", ""),
+                "needs_review": meta.get("needs_review", False),
+                "secondary_node_ids": meta.get("secondary_node_ids", []),
+                "evidence_use_boundary": meta.get("evidence_use_boundary", ""),
             })
 
         if node_sort:

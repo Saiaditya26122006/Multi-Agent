@@ -1944,6 +1944,7 @@ def handle_raw_text(
                 "node_title": node_title,
                 "epistemic_status": fact_data["epistemic_status"],
                 "status": result["status"],
+                "chunk_id": result.get("chunk_id"),
                 "confidence": classification.get("confidence", "high"),
                 "validated": classification.get("validated", False),
                 "tier": "auto_file",
@@ -1975,6 +1976,7 @@ def handle_raw_text(
                 "node_title": node_title,
                 "epistemic_status": fact_data["epistemic_status"],
                 "status": result["status"],
+                "chunk_id": result.get("chunk_id"),
                 "confidence": classification.get("confidence", "high"),
                 "validated": False,
                 "tier": "auto_file_flagged",
@@ -1986,6 +1988,9 @@ def handle_raw_text(
             if stored_facts:
                 from tools.trace_emitter import emit_classification
                 emit_classification(session_id, stored_facts)
+                stored_ids = [r["chunk_id"] for r in auto_results if r.get("chunk_id")]
+                if stored_ids:
+                    record_last_stored(session_id, stored_ids)
 
         response_parts = []
         if auto_results:
@@ -3300,6 +3305,58 @@ def handle_feed_question(text: str, session_id: str) -> dict:
         }
 
 
+LAST_STORED_KEY_PREFIX = "feed_last_stored"
+LAST_STORED_TTL = 600  # 10 minutes — undo window
+
+
+def _last_stored_key(session_id: str) -> str:
+    """Redis key for last auto-filed chunk IDs (undo stack)."""
+    return f"{LAST_STORED_KEY_PREFIX}:{session_id}"
+
+
+def record_last_stored(session_id: str, chunk_ids: list[str]) -> None:
+    """Record chunk IDs of recently auto-filed facts for undo."""
+    if not chunk_ids:
+        return
+    try:
+        r = _get_redis()
+        key = _last_stored_key(session_id)
+        r.set(key, json.dumps(chunk_ids), ex=LAST_STORED_TTL)
+    except Exception as e:
+        logger.error("[FeedHandler] Redis error recording last stored: %s", e)
+
+
+def handle_undo(session_id: str) -> str:
+    """Undo the most recent auto-filed facts by deleting them from knowledge_base.
+
+    Returns:
+        Response text confirming what was undone.
+    """
+    try:
+        r = _get_redis()
+        key = _last_stored_key(session_id)
+        raw = r.get(key)
+        if not raw:
+            return "Nothing to undo — no recent auto-filed facts within the last 10 minutes."
+
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        chunk_ids = json.loads(raw)
+
+        from services.rag_service import delete
+
+        deleted = 0
+        for cid in chunk_ids:
+            if delete(cid):
+                deleted += 1
+
+        r.delete(key)
+        return f"Undone — removed {deleted} fact(s) from the knowledge base."
+    except Exception as e:
+        logger.error("[FeedHandler] Undo failed: %s", e)
+        return f"Undo failed: {e}"
+
+
 def handle_feed_message(text: str, session_id: str) -> str:
     """Main entry point for all feed workspace messages.
 
@@ -3338,6 +3395,11 @@ def handle_feed_message(text: str, session_id: str) -> str:
         if state == "FEED_AWAITING_NEW_DOMAIN_NAME":
             result = handle_new_domain_name(text, session_id)
             return result.get("response_text") or "Processing new domain..."
+
+        # Undo — must check before question detection
+        text_lower = text.strip().lower()
+        if text_lower == "undo":
+            return handle_undo(session_id)
 
         if looks_like_question(text):
             result = handle_feed_question(text, session_id)

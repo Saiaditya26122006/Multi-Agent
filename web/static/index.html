@@ -4215,18 +4215,44 @@
                         appendSystemMessage('No quarantined facts pending.', {});
                         return;
                     }
-                    let lines = [`**${data.items.length} fact(s) pending review:**\n`];
+                    let html = `<div style="margin-bottom:8px;font-weight:600;">${data.items.length} fact(s) pending review:</div>`;
                     data.items.forEach((item, i) => {
                         const node = item.classification?.node_id || 'unmatched';
-                        const text = (item.verbatim_text || '').slice(0, 100);
-                        lines.push(`${i + 1}. [${item.epistemic_status || '?'}] "${text}" → ${node}`);
+                        const text = (item.verbatim_text || '').slice(0, 120);
+                        html += `<div style="border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:6px;">`;
+                        html += `<div style="font-size:12px;color:var(--text-secondary);">[${item.epistemic_status || '?'}] → ${node}</div>`;
+                        html += `<div style="margin:4px 0;">"${text}"</div>`;
+                        html += `<button onclick="resolveQuarantine(${i},'approve')" style="font-size:11px;padding:2px 8px;margin-right:4px;cursor:pointer;background:var(--success);color:#fff;border:none;border-radius:4px;">Approve</button>`;
+                        html += `<button onclick="resolveQuarantine(${i},'skip')" style="font-size:11px;padding:2px 8px;cursor:pointer;background:var(--danger);color:#fff;border:none;border-radius:4px;">Skip</button>`;
+                        html += `</div>`;
                     });
-                    lines.push('\nTo resolve: use the /quarantine command or the API.');
-                    appendSystemMessage(lines.join('\n'), {});
+                    appendSystemMessage(html, { rich_type: 'html_raw' });
                 } catch (e) {
                     appendSystemMessage('Failed to load quarantine queue.', {});
                 }
             }
+
+            window.resolveQuarantine = async function(index, action) {
+                try {
+                    const res = await fetch(`/api/quarantine/resolve?token=${token}&index=${index}&action=${action}`, { method: 'POST' });
+                    const data = await res.json();
+                    appendSystemMessage(data.response_text || `${action} done.`, {});
+                    // Refresh badge
+                    const badge = document.getElementById('quarantineBadge');
+                    if (badge) {
+                        const countRes = await fetch(`/api/quarantine?token=${token}`);
+                        const countData = await countRes.json();
+                        if (countData.count > 0) {
+                            badge.textContent = `${countData.count} pending`;
+                            badge.style.display = 'inline-flex';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    }
+                } catch (e) {
+                    appendSystemMessage('Failed to resolve quarantined fact.', {});
+                }
+            };
 
             function initTheme() {
                 const saved = localStorage.getItem('eos-theme');
@@ -4664,6 +4690,8 @@
                         sort: storedDataSortMode,
                     });
                     if (storedDataStatusFilter) params.set('epistemic_status', storedDataStatusFilter);
+                    const flaggedCheckbox = document.getElementById('storedDataFlaggedFilter');
+                    if (flaggedCheckbox && flaggedCheckbox.checked) params.set('needs_review', 'true');
 
                     const res = await fetch(`/api/knowledge/stored?${params.toString()}`);
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -4695,6 +4723,9 @@
                             <option value="node">BP order (sheet order)</option>
                             <option value="recent">Most recent first</option>
                         </select>
+                        <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;">
+                            <input type="checkbox" id="storedDataFlaggedFilter" style="margin:0;"> Flagged only
+                        </label>
                         <span class="stored-data-count">${storedDataTotal} stored fact${storedDataTotal === 1 ? '' : 's'}</span>
                     </div>
                     <div class="stored-data-bulk-bar" id="storedDataBulkBar" style="display:none;">
@@ -4747,6 +4778,13 @@
                     sortSelect.value = storedDataSortMode;
                     sortSelect.addEventListener('change', () => {
                         storedDataSortMode = sortSelect.value;
+                        storedDataOffset = 0;
+                        loadStoredData();
+                    });
+                }
+                const flaggedFilter = document.getElementById('storedDataFlaggedFilter');
+                if (flaggedFilter) {
+                    flaggedFilter.addEventListener('change', () => {
                         storedDataOffset = 0;
                         loadStoredData();
                     });
