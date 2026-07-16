@@ -2883,7 +2883,9 @@ def process_uploaded_document(
     )
 
     # Classify all facts with the full LLM classifier
-    source = "document"
+    # Same source authority as chat — Alex uploaded the doc himself,
+    # so it gets the same trust level and tier promotion rules.
+    source = "alex_direct"
     classified = []
     checkpoint = max(1, len(raw_facts) // 5)
 
