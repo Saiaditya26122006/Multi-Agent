@@ -7,7 +7,7 @@ Answers the question: "How reliable is this source?" — separate from
 
 Produces four fields per fact:
   - source_family: category of origin (ceo_direct, third_party_report, etc.)
-  - evidence_tier: E0-E4 (simplified from Alex's E0-E7, pending full spec)
+  - evidence_tier: E0-E7 (canonical governance ladder)
   - source_traceability: present / partial / missing
   - source_limitations: what this source cannot tell you
 """
@@ -81,65 +81,83 @@ def classify_source_family(text: str, input_source: str = "alex_direct") -> str:
 
 
 # --- Evidence Tier ---
-# Simplified hierarchy (E0-E4). Alex's full E0-E7 can be layered on top
-# once he provides the complete specification.
+# Full canonical E0-E7 hierarchy as defined in the governance architecture.
 #
-# E0: No evidence — claim only
-# E1: Single anecdotal source, founder interpretation
-# E2: Multiple consistent signals OR single credible third-party
-# E3: Direct first-party data (contracts, payments, signed agreements)
-# E4: Replicated/validated evidence (multiple independent confirmations)
+# E0: No evidence — assertion only, no supporting data of any kind
+# E1: Founder/team interpretation — single-person view without external data
+# E2: Single anecdotal signal — one interview, one email, one conversation
+# E3: Multiple consistent signals — several interviews, consistent feedback
+# E4: Credible third-party source — named report, published study, citation
+# E5: Direct first-party data — signed contracts, payments, binding agreements
+# E6: Controlled observation — structured test, A/B result, measured outcome
+# E7: Replicated/validated — independently confirmed by multiple parties/methods
 
 EVIDENCE_TIER_RULES = {
-    "E4": [
+    "E7": [
         r"(independently verified|cross-verified|peer.?reviewed)",
-        r"(replicated|validated by .+ and .+|multiple independent)",
+        r"(replicated|validated by .+ and .+|multiple independent confirmations)",
     ],
-    "E3": [
+    "E6": [
+        r"(a/b test|controlled experiment|measured outcome|structured test)",
+        r"(cohort analysis|controlled observation|randomised|randomized)",
+    ],
+    "E5": [
         r"(signed|contracted|paid|received payment|invoice)",
         r"(bank transfer|pilot agreement|binding agreement)",
         r"(\d+ paying|\d+ confirmed paying|\d+ signed)",
     ],
-    "E2": [
+    "E4": [
         r"(according to .*(report|study|research|survey))",
-        r"(data shows|evidence shows|findings indicate)",
-        r"(multiple interviews|several sources|consistent feedback)",
+        r"(published|annual report|cited in|doi:|isbn:)",
+        r"(gartner|mckinsey|forrester|statista|crunchbase)",
     ],
-    "E1": [
+    "E3": [
+        r"(multiple interviews|several sources|consistent feedback)",
+        r"(data shows|evidence shows|findings indicate)",
+        r"(\d+ interviews|\d+ conversations|\d+ respondents)",
+    ],
+    "E2": [
         r"(one .*(email|call|meeting|conversation))",
         r"(anecdotal|single source|one dean|one interview)",
+        r"(feedback from one|a dean told us|in one conversation)",
+    ],
+    "E1": [
         r"(i think|i believe|my interpretation|founder view)",
         r"(estimated|projected|forecast|expected to)",
         r"(target:|goal:|plan to reach|aim for|intend to)",
+        r"(my read is|it seems like|appears to be)",
     ],
 }
 
 
 def classify_evidence_tier(text: str, source_family: str) -> str:
-    """Classify the evidence tier of a fact.
+    """Classify the evidence tier of a fact (E0-E7 canonical ladder).
 
     Args:
         text: The fact text.
         source_family: Already-classified source family.
 
     Returns:
-        Evidence tier string (E0-E4).
+        Evidence tier string (E0-E7).
     """
     text_lower = text.lower()
 
-    for tier in ("E4", "E3", "E2", "E1"):
+    for tier in ("E7", "E6", "E5", "E4", "E3", "E2", "E1"):
         for pattern in EVIDENCE_TIER_RULES[tier]:
             if re.search(pattern, text_lower):
                 return tier
 
+    # Fallback based on source family when no textual markers found
     if source_family == "first_party_data":
-        return "E3"
+        return "E5"
     if source_family == "third_party_report":
+        return "E4"
+    if source_family == "interview_transcript":
         return "E2"
     if source_family in ("founder_interpretation", "system_generated", "market_inference"):
         return "E1"
     if source_family == "ceo_direct":
-        return "E2"
+        return "E3"
 
     return "E0"
 
@@ -208,9 +226,11 @@ def assess_limitations(source_family: str, evidence_tier: str) -> Optional[str]:
     base_limitation = LIMITATION_RULES.get(source_family)
 
     if evidence_tier == "E0":
-        return "No evidence backing — claim only, cannot support any downstream assertion"
-    if evidence_tier == "E1" and not base_limitation:
-        return "Single/weak evidence — insufficient for high-stakes claims without corroboration"
+        return "No evidence backing — assertion only, cannot support any downstream claim"
+    if evidence_tier == "E1":
+        return base_limitation or "Founder/team interpretation only — insufficient for any external claim"
+    if evidence_tier == "E2":
+        return base_limitation or "Single anecdotal signal — cannot generalize without corroboration"
 
     return base_limitation
 

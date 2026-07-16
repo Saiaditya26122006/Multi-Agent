@@ -92,36 +92,61 @@ EPISTEMIC_STATUS_BY_CONTENT_TYPE = {
     "fact": "INFERRED",
 }
 
-# Epistemic status patterns — assessed INDEPENDENTLY of content type.
-# A "metric" is not automatically CONFIRMED; a "fact" is not automatically
-# CONFIRMED. Status depends on source traceability and certainty markers.
-EPISTEMIC_CONFIRM_PATTERNS = [
+# --- Assertion Certainty ---
+# Text markers determine how EXPLICITLY the author states something,
+# NOT whether it's verified. "We signed a pilot" is an explicit assertion
+# but unverified until source provenance confirms it.
+ASSERTION_EXPLICIT_PATTERNS = [
     r"(confirmed|verified|proven|signed|contracted|paid|received)",
     r"(we have \d|there are \d.*confirmed|data shows|evidence shows)",
     r"(the contract states|invoice shows|bank transfer|signed agreement)",
 ]
 
-EPISTEMIC_ASSUMPTION_PATTERNS = [
+ASSERTION_HEDGED_PATTERNS = [
     r"(estimated|projected|forecast|expected|assumed|hypothesi[sz])",
     r"(target:|goal:|plan to|intend to|aim for|we expect)",
     r"(should be|probably|likely|i think|i believe|bet is)",
 ]
 
 
+def infer_assertion_certainty(text: str) -> str:
+    """Determine how explicitly the author asserts this claim.
+
+    NOT the same as verification. "We signed" = explicit assertion,
+    but whether the signing actually happened requires source provenance.
+
+    Returns:
+        "explicit" — author states it as fact/done
+        "hedged" — author qualifies with uncertainty language
+        "ambiguous" — no clear certainty markers either way
+    """
+    text_lower = text.lower()
+
+    for pattern in ASSERTION_EXPLICIT_PATTERNS:
+        if re.search(pattern, text_lower):
+            return "explicit"
+
+    for pattern in ASSERTION_HEDGED_PATTERNS:
+        if re.search(pattern, text_lower):
+            return "hedged"
+
+    return "ambiguous"
+
+
 def infer_epistemic_status(text: str, content_type: str) -> str:
-    """Infer epistemic status INDEPENDENTLY of content type.
+    """Infer epistemic status from content type + assertion certainty.
 
-    Content type tells you WHAT something is (metric, decision, risk).
-    Epistemic status tells you HOW CERTAIN it is (confirmed, assumed, inferred).
+    IMPORTANT: This does NOT produce CONFIRMED based on text markers alone.
+    CONFIRMED requires source_traceability=present (verified externally).
+    Text-based "explicit" assertions get INFERRED until verified.
 
-    A metric can be CONFIRMED ("3 signed contracts at EUR 8k") or ASSUMPTION
-    ("target: EUR 500k ARR"). A decision can be CONFIRMED ("we signed") or
-    INFERRED ("we plan to go with"). These are orthogonal axes.
+    The only items that can be CONFIRMED at ingestion time:
+    - prohibited_claim (definitional — it IS what it says)
+    - Nothing else. CONFIRMED is earned through verification, not claimed.
 
     Args:
         text: The fact text.
-        content_type: Classified content type (used only for assumption/open_question
-            which are inherently non-confirmed by definition).
+        content_type: Classified content type.
 
     Returns:
         One of the valid epistemic statuses.
@@ -137,20 +162,15 @@ def infer_epistemic_status(text: str, content_type: str) -> str:
     if content_type == "prohibited_claim":
         return "CONFIRMED"
 
-    text_lower = text.lower()
+    assertion = infer_assertion_certainty(text)
 
-    for pattern in EPISTEMIC_CONFIRM_PATTERNS:
-        if re.search(pattern, text_lower):
-            return "CONFIRMED"
+    if assertion == "hedged":
+        return "ASSUMPTION"
 
-    for pattern in EPISTEMIC_ASSUMPTION_PATTERNS:
-        if re.search(pattern, text_lower):
-            return "ASSUMPTION"
-
-    # Default: content type provides a floor, not a ceiling
-    if content_type == "decision":
-        return "CONFIRMED"
-
+    # Even "explicit" assertions are INFERRED, not CONFIRMED.
+    # CONFIRMED requires verification (source_traceability=present +
+    # evidence_tier >= E5). The verification_status field tracks this
+    # separately — epistemic_status alone cannot grant CONFIRMED.
     return "INFERRED"
 
 
@@ -1572,18 +1592,34 @@ def _build_audit_metadata(
     source: str,
     tier: str,
     source_reliability: Optional[dict] = None,
+    fact_text: str = "",
 ) -> dict:
     """Build audit trail metadata from existing classifier signals.
 
     Returns:
         Dict of audit fields to merge into chunk metadata.
     """
+    assertion_certainty = infer_assertion_certainty(fact_text) if fact_text else "ambiguous"
+
+    # Verification status: CONFIRMED requires BOTH explicit assertion AND
+    # present source traceability AND evidence tier >= E5.
+    # At ingestion time, nothing is verified unless source proves it.
+    verification_status = "unverified"
+    if source_reliability:
+        traceability = source_reliability.get("source_traceability", "missing")
+        tier_str = source_reliability.get("evidence_tier", "E0")
+        tier_num = int(tier_str[1]) if len(tier_str) == 2 and tier_str[1].isdigit() else 0
+        if traceability == "present" and tier_num >= 5 and assertion_certainty == "explicit":
+            verification_status = "verified"
+
     meta = {
         "classifier_confidence": classification.get("confidence", "low"),
         "classifier_validated": classification.get("validated", False),
         "classifier_similarity": classification.get("similarity", 0.0),
         "source_authority": source,
         "tier_decision": tier,
+        "assertion_certainty": assertion_certainty,
+        "verification_status": verification_status,
         "classified_at": datetime.now(timezone.utc).isoformat(),
     }
     if classification.get("blocked_for_claim_use"):
@@ -2023,7 +2059,7 @@ def handle_raw_text(
             classification = fact_data["classification"]
             node_id = classification["node_id"]
             node_title = classification.get("node_title", "")
-            audit = _build_audit_metadata(classification, source, "auto_file", fact_data.get("source_reliability"))
+            audit = _build_audit_metadata(classification, source, "auto_file", fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
             result = _store_fact_now(
                 verbatim=fact_data["verbatim_text"],
                 content_type=fact_data["content_type"],
@@ -2054,7 +2090,7 @@ def handle_raw_text(
             classification = fact_data["classification"]
             node_id = classification["node_id"]
             node_title = classification.get("node_title", "")
-            audit = _build_audit_metadata(classification, source, "auto_file_flagged", fact_data.get("source_reliability"))
+            audit = _build_audit_metadata(classification, source, "auto_file_flagged", fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
             audit["needs_review"] = True
             result = _store_fact_now(
                 verbatim=fact_data["verbatim_text"],
@@ -2698,7 +2734,7 @@ def _execute_approval(fact_data: dict, session_id: str) -> dict:
     classification = fact_data.get("classification", {})
     tier = fact_data.get("tier", "ask")
     source = "alex_direct"
-    audit = _build_audit_metadata(classification, source, tier, fact_data.get("source_reliability"))
+    audit = _build_audit_metadata(classification, source, tier, fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
 
     result = _store_fact_now(
         verbatim=verbatim,
@@ -3139,7 +3175,7 @@ def process_uploaded_document(
         classification = fact_data["classification"]
         node_id = classification["node_id"]
         node_title = classification.get("node_title", "")
-        audit = _build_audit_metadata(classification, source, fact_data["tier"], fact_data.get("source_reliability"))
+        audit = _build_audit_metadata(classification, source, fact_data["tier"], fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
         if fact_data["tier"] == "auto_file_flagged":
             audit["needs_review"] = True
         audit["source_filename"] = filename

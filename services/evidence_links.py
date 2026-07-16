@@ -28,6 +28,7 @@ def _get_supabase():
 def create_evidence_link(
     chunk_id: str,
     target_node_id: str,
+    candidate_claim: Optional[str] = None,
     claim_supported: Optional[str] = None,
     claim_not_supported: Optional[str] = None,
     sufficiency_status: str = "untested",
@@ -40,6 +41,7 @@ def create_evidence_link(
     Args:
         chunk_id: UUID of the evidence chunk.
         target_node_id: BP node this link targets.
+        candidate_claim: The specific atomic claim being assessed (item→claim→node).
         claim_supported: What this evidence CAN support in the target.
         claim_not_supported: What it CANNOT support despite being relevant.
         sufficiency_status: sufficient/partial/insufficient/untested/blocked.
@@ -55,6 +57,7 @@ def create_evidence_link(
         record = {
             "chunk_id": chunk_id,
             "target_node_id": target_node_id,
+            "candidate_claim": candidate_claim,
             "claim_supported": claim_supported,
             "claim_not_supported": claim_not_supported,
             "sufficiency_status": sufficiency_status,

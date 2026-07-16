@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS evidence_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chunk_id UUID NOT NULL REFERENCES knowledge_base(id) ON DELETE CASCADE,
     target_node_id TEXT NOT NULL,
+    candidate_claim TEXT,
     claim_supported TEXT,
     claim_not_supported TEXT,
     sufficiency_status TEXT NOT NULL DEFAULT 'untested' CHECK (sufficiency_status IN (
@@ -31,6 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_evidence_links_target ON evidence_links(target_no
 CREATE INDEX IF NOT EXISTS idx_evidence_links_sufficiency ON evidence_links(sufficiency_status);
 
 COMMENT ON TABLE evidence_links IS 'Per-claim evidence boundaries. The same fact can support one claim (sufficient) and not another (blocked) in different nodes.';
+COMMENT ON COLUMN evidence_links.candidate_claim IS 'The specific atomic claim this link assesses (item → candidate_claim → node). Required for final sufficiency assessment.';
 COMMENT ON COLUMN evidence_links.claim_supported IS 'What this evidence CAN support in the target node (specific claim text)';
 COMMENT ON COLUMN evidence_links.claim_not_supported IS 'What this evidence CANNOT support despite being relevant (prevents misuse)';
 COMMENT ON COLUMN evidence_links.sufficiency_status IS 'sufficient=proven, partial=contributes, insufficient=irrelevant, untested=not yet assessed, blocked=prohibited';
