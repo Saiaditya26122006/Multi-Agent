@@ -2830,27 +2830,26 @@ def clear_batch(session_id: str) -> None:
 def process_uploaded_document(
     text: str, filename: str, session_id: str, max_facts: int = 200
 ) -> dict:
-    """Split extracted document text into atomic facts and classify all of them.
+    """Split extracted document text into atomic facts, classify with the
+    full LLM pipeline + tier system, auto-file confident ones immediately,
+    and return only the uncertain ones for manual review.
 
-    Unlike handle_raw_text() (one fact per chat turn), this classifies the
-    whole document up front so the Process panel can show a single bulk
-    review checklist. Nothing is written to the knowledge base here —
-    bulk_store_facts() does that once Alex approves a subset.
+    Uses the same classify_and_match_node() → _determine_tier() pipeline
+    as the chat flow, so document-sourced facts get identical accuracy,
+    prohibition gates, validation, and audit metadata. Source = "document"
+    means only high+validated facts auto-file (stricter than chat where
+    medium also promotes).
 
     Args:
         text: Extracted plain text (from services.document_extractor).
         filename: Original filename, kept for provenance and display.
         session_id: Current session ID.
-        max_facts: Safety cap on facts classified in one batch. Node
-            matching runs a local embedding compare per fact — cheap
-            individually, but a large document can yield hundreds of
-            sentences, so this keeps a single upload bounded.
+        max_facts: Safety cap on facts classified in one batch.
 
     Returns:
-        Dict with: batch_id, filename, total_facts, truncated, facts (each:
-        id, verbatim_text, content_type, content_confidence,
-        epistemic_status, proposed_node, node_confidence,
-        all_node_candidates, selected).
+        Dict with: batch_id, filename, total_facts, truncated,
+        auto_filed_count, auto_filed_results, facts (only the
+        review-needed ones for the Process panel checklist).
     """
     fmt = detect_format(text)
     raw_facts = split_into_atomic_facts(text, fmt)
@@ -2869,54 +2868,37 @@ def process_uploaded_document(
             "filename": filename,
             "total_facts": 0,
             "truncated": False,
+            "auto_filed_count": 0,
+            "auto_filed_results": [],
             "facts": [],
         }
 
+    # Generate document context for disambiguation (same as chat flow)
+    document_context = _generate_document_context(text)
+
     emit_trace(
         session_id, "Feed", "classifying",
-        f"Classifying {len(raw_facts)} extracted fact(s) from {filename}...",
+        f"Classifying {len(raw_facts)} extracted fact(s) from {filename} (full LLM pipeline)...",
         {"filename": filename, "fact_count": len(raw_facts)},
     )
 
+    # Classify all facts with the full LLM classifier
+    source = "document"
     classified = []
     checkpoint = max(1, len(raw_facts) // 5)
+
     for i, fact in enumerate(raw_facts):
         fact_text = fact["text"]
-
-        content_classification = classify_content_type(fact_text)
-        content_type = content_classification["content_type"]
-        epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(
-            content_type, fact.get("inferred_status", "INFERRED")
+        fact_data = _classify_one_fact(
+            fact_text, fmt, fact.get("inferred_status", "INFERRED"),
+            session_id=session_id, document_context=document_context,
+            use_fast_model=len(raw_facts) > 5,
         )
-
-        # Use the local cached-embedding matcher (not match_bp_node's RAG
-        # round trip) — a batch of a hundred-plus facts doing a network
-        # call each would be far too slow for a "live" process panel.
-        node_matches = _direct_node_match(fact_text, top_k=3)
-
-        proposed_node = None
-        node_confidence = "unmatched"
-        if node_matches and node_matches[0]["similarity"] >= 0.6:
-            proposed_node = node_matches[0]
-            node_confidence = "matched"
-        elif node_matches:
-            proposed_node = node_matches[0]
-            node_confidence = "low_confidence"
-
-        classified.append({
-            "id": str(i),
-            "verbatim_text": fact_text,
-            "content_type": content_type,
-            "content_confidence": content_classification["confidence"],
-            "epistemic_status": epistemic_status,
-            "proposed_node": proposed_node,
-            "node_confidence": node_confidence,
-            "all_node_candidates": node_matches[:3],
-            "source_format": fact.get("source_format", fmt),
-            # Pre-check facts with a usable node match; leave unmatched ones
-            # unchecked so Alex has to make an explicit call on those.
-            "selected": node_confidence in ("matched", "low_confidence"),
-        })
+        tier = _determine_tier(fact_data["classification"], source=source)
+        fact_data["tier"] = tier
+        fact_data["id"] = str(i)
+        fact_data["source_format"] = fact.get("source_format", fmt)
+        classified.append(fact_data)
 
         if (i + 1) % checkpoint == 0 or i == len(raw_facts) - 1:
             emit_trace(
@@ -2925,6 +2907,87 @@ def process_uploaded_document(
                 {"filename": filename, "done": i + 1, "total": len(raw_facts)},
             )
 
+    # --- Tier-based routing (same logic as chat flow) ---
+    auto_file_batch = [f for f in classified if f["tier"] == "auto_file"]
+    flagged_batch = [f for f in classified if f["tier"] == "auto_file_flagged"]
+    review_batch = [f for f in classified if f["tier"] in ("soft_ask", "ask")]
+
+    emit_trace(
+        session_id, "Feed", "tier_routing",
+        f"Tier routing: {len(auto_file_batch)} auto-file, "
+        f"{len(flagged_batch)} flagged, {len(review_batch)} need review",
+        {"auto": len(auto_file_batch), "flagged": len(flagged_batch),
+         "review": len(review_batch), "filename": filename},
+    )
+
+    # Auto-file high-confidence facts immediately
+    auto_filed_results = []
+    auto_filed_ids = []
+    for fact_data in auto_file_batch + flagged_batch:
+        classification = fact_data["classification"]
+        node_id = classification["node_id"]
+        node_title = classification.get("node_title", "")
+        audit = _build_audit_metadata(classification, source, fact_data["tier"])
+        if fact_data["tier"] == "auto_file_flagged":
+            audit["needs_review"] = True
+        audit["source_filename"] = filename
+
+        result = _store_fact_now(
+            verbatim=fact_data["verbatim_text"],
+            content_type=fact_data["content_type"],
+            epistemic_status=fact_data["epistemic_status"],
+            node_id=node_id,
+            node_title=node_title,
+            session_id=session_id,
+            content_confidence=fact_data["content_confidence"],
+            node_confidence=classification.get("confidence"),
+            extra_metadata=audit,
+        )
+        auto_filed_results.append({
+            "verbatim_text": fact_data["verbatim_text"],
+            "node_id": node_id,
+            "node_title": node_title,
+            "epistemic_status": fact_data["epistemic_status"],
+            "status": result["status"],
+            "chunk_id": result.get("chunk_id"),
+            "tier": fact_data["tier"],
+            "confidence": classification.get("confidence", "high"),
+            "validated": classification.get("validated", False),
+        })
+        if result.get("chunk_id"):
+            auto_filed_ids.append(result["chunk_id"])
+
+    if auto_filed_ids:
+        record_last_stored(session_id, auto_filed_ids)
+
+    # Build the review batch for the Process panel checklist
+    review_facts = []
+    for fact_data in review_batch:
+        classification = fact_data["classification"]
+        proposed_node = None
+        node_confidence = "unmatched"
+        if classification.get("node_id") and not classification.get("none_fit"):
+            proposed_node = {
+                "node_id": classification["node_id"],
+                "node_title": classification.get("node_title", ""),
+                "similarity": 0.0,
+            }
+            node_confidence = classification.get("confidence", "low")
+
+        review_facts.append({
+            "id": fact_data["id"],
+            "verbatim_text": fact_data["verbatim_text"],
+            "content_type": fact_data["content_type"],
+            "content_confidence": fact_data["content_confidence"],
+            "epistemic_status": fact_data["epistemic_status"],
+            "proposed_node": proposed_node,
+            "node_confidence": node_confidence,
+            "all_node_candidates": [],
+            "source_format": fact_data.get("source_format", fmt),
+            "selected": node_confidence != "unmatched",
+            "tier": fact_data["tier"],
+        })
+
     batch_id = f"batch_{session_id}_{int(datetime.now(timezone.utc).timestamp())}"
 
     batch_data = {
@@ -2932,17 +2995,29 @@ def process_uploaded_document(
         "filename": filename,
         "total_facts": len(classified),
         "truncated": truncated,
-        "facts": classified,
+        "auto_filed_count": len([r for r in auto_filed_results if r["status"] == "stored"]),
+        "auto_filed_results": auto_filed_results,
+        "facts": review_facts,
         "submitted_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    _store_batch(session_id, batch_data)
+    # Only store the review batch in Redis (auto-filed facts are already in KB)
+    if review_facts:
+        _store_batch(session_id, batch_data)
+
+    summary_parts = []
+    stored_count = len([r for r in auto_filed_results if r["status"] == "stored"])
+    if stored_count:
+        summary_parts.append(f"{stored_count} auto-filed (high confidence)")
+    if review_facts:
+        summary_parts.append(f"{len(review_facts)} need your review")
 
     emit_trace(
         session_id, "Feed", "ready_for_review",
-        f"Ready for review — {len(classified)} fact(s) extracted from {filename}"
+        f"{filename}: {', '.join(summary_parts)}"
         + (" (truncated)" if truncated else ""),
-        {"filename": filename, "batch_id": batch_id, "fact_count": len(classified)},
+        {"filename": filename, "batch_id": batch_id,
+         "auto_filed": stored_count, "review": len(review_facts)},
     )
 
     return batch_data

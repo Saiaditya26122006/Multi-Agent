@@ -1418,21 +1418,41 @@ async def upload_feed_document(
         )
         return {"status": "no_facts", "session_key": session_key, "batch": batch}
 
+    auto_filed = batch.get("auto_filed_count", 0)
+    review_count = len(batch.get("facts", []))
+    total = batch.get("total_facts", 0)
+
+    if auto_filed and review_count:
+        msg = (
+            f"**{filename}** — {total} fact(s) extracted.\n\n"
+            f"**{auto_filed} auto-filed** (high confidence) — type 'undo' to reverse.\n\n"
+            f"**{review_count} need review** — open the Process panel to approve/skip."
+        )
+    elif auto_filed and not review_count:
+        msg = (
+            f"**{filename}** — {total} fact(s) extracted, "
+            f"all {auto_filed} auto-filed (high confidence). "
+            f"Type 'undo' to reverse."
+        )
+    else:
+        msg = (
+            f"**{filename}** — {total} fact(s) extracted. "
+            f"Open the Process panel to review before storing."
+        )
+
     await manager.broadcast(
         session_key,
         {
             "role": "assistant",
-            "text": (
-                f"Extracted {batch['total_facts']} fact(s) from {filename}. "
-                f"Open the Process panel to review before storing."
-            ),
+            "text": msg,
             "timestamp": datetime.utcnow().isoformat(),
             "channel": "system",
             "workspace": "feed",
         },
     )
 
-    return {"status": "awaiting_review", "session_key": session_key, "batch": batch}
+    status = "auto_filed" if auto_filed and not review_count else "awaiting_review"
+    return {"status": status, "session_key": session_key, "batch": batch}
 
 
 class BulkApproveRequest(BaseModel):
