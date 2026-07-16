@@ -67,13 +67,68 @@ CONTENT_TYPE_PATTERNS = {
 EPISTEMIC_STATUS_BY_CONTENT_TYPE = {
     "decision": "CONFIRMED",
     "risk": "INFERRED",
-    "metric": "CONFIRMED",
-    "constraint": "CONFIRMED",
+    "metric": "INFERRED",
+    "constraint": "INFERRED",
     "task": "INFERRED",
     "open_question": "MISSING",
     "assumption": "ASSUMPTION",
-    "fact": "CONFIRMED",
+    "fact": "INFERRED",
 }
+
+# Epistemic status patterns — assessed INDEPENDENTLY of content type.
+# A "metric" is not automatically CONFIRMED; a "fact" is not automatically
+# CONFIRMED. Status depends on source traceability and certainty markers.
+EPISTEMIC_CONFIRM_PATTERNS = [
+    r"(confirmed|verified|proven|signed|contracted|paid|received)",
+    r"(we have \d|there are \d.*confirmed|data shows|evidence shows)",
+    r"(the contract states|invoice shows|bank transfer|signed agreement)",
+]
+
+EPISTEMIC_ASSUMPTION_PATTERNS = [
+    r"(estimated|projected|forecast|expected|assumed|hypothesi[sz])",
+    r"(target:|goal:|plan to|intend to|aim for|we expect)",
+    r"(should be|probably|likely|i think|i believe|bet is)",
+]
+
+
+def infer_epistemic_status(text: str, content_type: str) -> str:
+    """Infer epistemic status INDEPENDENTLY of content type.
+
+    Content type tells you WHAT something is (metric, decision, risk).
+    Epistemic status tells you HOW CERTAIN it is (confirmed, assumed, inferred).
+
+    A metric can be CONFIRMED ("3 signed contracts at EUR 8k") or ASSUMPTION
+    ("target: EUR 500k ARR"). A decision can be CONFIRMED ("we signed") or
+    INFERRED ("we plan to go with"). These are orthogonal axes.
+
+    Args:
+        text: The fact text.
+        content_type: Classified content type (used only for assumption/open_question
+            which are inherently non-confirmed by definition).
+
+    Returns:
+        One of the valid epistemic statuses.
+    """
+    if content_type == "assumption":
+        return "ASSUMPTION"
+    if content_type == "open_question":
+        return "MISSING"
+
+    text_lower = text.lower()
+
+    for pattern in EPISTEMIC_CONFIRM_PATTERNS:
+        if re.search(pattern, text_lower):
+            return "CONFIRMED"
+
+    for pattern in EPISTEMIC_ASSUMPTION_PATTERNS:
+        if re.search(pattern, text_lower):
+            return "ASSUMPTION"
+
+    # Default: content type provides a floor, not a ceiling
+    if content_type == "decision":
+        return "CONFIRMED"
+
+    return "INFERRED"
 
 
 def classify_content_type(text: str) -> dict:
@@ -1652,7 +1707,7 @@ def _classify_one_fact(
     """
     content_classification = classify_content_type(fact_text)
     content_type = content_classification["content_type"]
-    epistemic_status = EPISTEMIC_STATUS_BY_CONTENT_TYPE.get(content_type, inferred_status)
+    epistemic_status = infer_epistemic_status(fact_text, content_type)
     classification = classify_and_match_node(
         fact_text, session_id=session_id, document_context=document_context, use_fast_model=use_fast_model
     )
@@ -2680,8 +2735,7 @@ def _run_post_store_hooks(
 ) -> None:
     """Run post-storage hooks: contradiction check, negative knowledge, temporal scoring, multi-node linking."""
     try:
-        from services.rag_service import retrieve
-        from services.rag_hooks import store_contradiction_resolution, store_negative_knowledge
+        from services.rag_service import retrieve, update_metadata
         from services.temporal_decay import compute_final_score
 
         contradictions = retrieve(
@@ -2695,50 +2749,79 @@ def _run_post_store_hooks(
             if chunk.id == chunk_id:
                 continue
             if chunk.similarity > 0.85 and chunk.epistemic_status != epistemic_status:
-                store_contradiction_resolution(
-                    contradiction=f"New fact conflicts with existing: '{chunk.content[:80]}'",
-                    resolution=f"New input supersedes (approved by CEO): '{content[:80]}'",
-                    reasoning="CEO directly submitted and approved newer data",
-                    session_id=session_id,
-                )
+                # Link the contradiction — do NOT auto-resolve.
+                # Per governance: contradictions must remain visible and linked
+                # until controller review. Store the link on BOTH chunks.
+                update_metadata(chunk.id, {
+                    "contradicted_by_id": chunk_id,
+                    "contradiction_detected_at": datetime.now(timezone.utc).isoformat(),
+                    "resolution_status": "unresolved",
+                    "requires_controller_review": True,
+                })
+                update_metadata(chunk_id, {
+                    "contradicts_id": chunk.id,
+                    "contradiction_detected_at": datetime.now(timezone.utc).isoformat(),
+                    "resolution_status": "unresolved",
+                })
                 logger.info(
-                    "[FeedHandler] Contradiction resolved: new chunk %s vs existing %s",
+                    "[FeedHandler] Contradiction linked (not auto-resolved): "
+                    "new chunk %s vs existing %s",
                     chunk_id,
                     chunk.id,
                 )
                 emit_trace(
-                    session_id, "Contradiction", "detected",
-                    f"New fact conflicts with existing ({chunk.epistemic_status}): \"{chunk.content[:60]}\"",
+                    session_id, "Governance", "contradiction_linked",
+                    f"Contradiction detected with existing ({chunk.epistemic_status}) — flagged for controller review",
                     data={
                         "type": "contradiction",
                         "new_fact": content[:100],
                         "old_fact": chunk.content[:100],
                         "old_status": chunk.epistemic_status,
                         "old_chunk_id": chunk.id,
-                        "resolution": "new_supersedes",
+                        "new_chunk_id": chunk_id,
+                        "resolution_status": "unresolved",
                     },
                 )
                 break
 
         if epistemic_status == "CONFIRMED":
-            invalidated = retrieve(
+            conflicting_assumptions = retrieve(
                 query=content,
                 source_types=["ceo_doc", "agent_insight"],
                 epistemic_status=["ASSUMPTION"],
                 top_k=3,
                 threshold=0.8,
             )
-            for chunk in invalidated:
+            for chunk in conflicting_assumptions:
                 if chunk.id == chunk_id:
                     continue
-                store_negative_knowledge(
-                    what_failed=f"Assumption invalidated: '{chunk.content[:80]}'",
-                    reason=f"CEO confirmed contradicting fact: '{content[:80]}'",
-                    source="ceo_correction",
-                    session_id=session_id,
-                )
+                # DO NOT auto-kill the assumption. Link it as a potential
+                # contradiction and flag for controller review. Per governance:
+                # AI must not close evidence gaps or invalidate assumptions
+                # independently — they must remain visible until controller
+                # review resolves them.
+                update_metadata(chunk.id, {
+                    "conflicting_evidence_id": chunk_id,
+                    "conflict_detected_at": datetime.now(timezone.utc).isoformat(),
+                    "resolution_status": "unresolved",
+                    "requires_controller_review": True,
+                })
                 logger.info(
-                    "[FeedHandler] Assumption invalidated: %s", chunk.id
+                    "[FeedHandler] Assumption-evidence conflict linked (not auto-killed): "
+                    "assumption %s vs new confirmed %s",
+                    chunk.id, chunk_id,
+                )
+                emit_trace(
+                    session_id, "Governance", "conflict_linked",
+                    f"Assumption may conflict with new confirmed evidence — flagged for review",
+                    data={
+                        "type": "assumption_conflict",
+                        "assumption_chunk_id": chunk.id,
+                        "assumption_text": chunk.content[:100],
+                        "confirmed_chunk_id": chunk_id,
+                        "confirmed_text": content[:100],
+                        "resolution_status": "unresolved",
+                    },
                 )
                 break
 

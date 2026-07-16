@@ -13,9 +13,10 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 EVIDENCE_USE_BOUNDARIES = {
-    "cite_freely": "Can be referenced by any agent working on any related node",
-    "cite_with_caveat": "Can be referenced but must note it's stored under a different node",
-    "primary_only": "Should only be used by agents working on the primary node",
+    "relevant_cross_node": "Relevant to secondary nodes — does NOT imply sufficient to support claims there",
+    "relevant_primary_only": "Relevant only to its primary node",
+    "blocked_for_claim_use": "Cannot be used to support any claim (contradiction/missing status)",
+    "requires_controller_review": "Assumption/question — requires controller decision before claim use",
 }
 
 CROSS_NODE_RELATIONSHIP_TYPES = {"confirms", "related", "updates", "depends_on"}
@@ -64,32 +65,35 @@ def determine_evidence_use_boundary(
     epistemic_status: str,
     secondary_count: int,
 ) -> str:
-    """Determine how freely this evidence can be cited across nodes.
+    """Determine the RELEVANCE boundary for cross-node citation.
+
+    This answers: "Is this fact RELEVANT to other nodes?"
+    It does NOT answer: "Is this fact SUFFICIENT to support claims in
+    those nodes?" — that requires per-claim assessment against the
+    target node's proof burden, which is a different question entirely.
+
+    Cross-node relevance never increases evidence authority. A fact
+    that links to 5 nodes is not more reliable than one that links to 1.
 
     Args:
-        content_type: The classified content type (decision, risk, metric, etc.).
+        content_type: The classified content type.
         epistemic_status: CONFIRMED, ASSUMPTION, INFERRED, etc.
-        secondary_count: Number of secondary nodes this fact links to.
+        secondary_count: Number of secondary nodes (relevance indicator only).
 
     Returns:
-        One of: "cite_freely", "cite_with_caveat", "primary_only".
+        One of: "relevant_cross_node", "relevant_primary_only",
+        "blocked_for_claim_use", "requires_controller_review".
     """
-    if epistemic_status == "CONFIRMED" and content_type in ("fact", "metric", "decision"):
-        return "cite_freely"
+    if epistemic_status in ("CONTRADICTION", "MISSING"):
+        return "blocked_for_claim_use"
 
     if epistemic_status == "ASSUMPTION" or content_type in ("assumption", "open_question"):
-        return "cite_with_caveat"
-
-    if epistemic_status in ("CONTRADICTION", "MISSING"):
-        return "primary_only"
-
-    if secondary_count >= 2 and epistemic_status in ("CONFIRMED", "INFERRED"):
-        return "cite_freely"
+        return "requires_controller_review"
 
     if secondary_count >= 1:
-        return "cite_with_caveat"
+        return "relevant_cross_node"
 
-    return "primary_only"
+    return "relevant_primary_only"
 
 
 def compute_multi_node_metadata(
@@ -127,7 +131,7 @@ def compute_multi_node_metadata(
         secondary_count=len(secondary_ids),
     )
 
-    if not secondary_ids and boundary == "primary_only":
+    if not secondary_ids and boundary == "relevant_primary_only":
         return None
 
     multi_node_meta = {
