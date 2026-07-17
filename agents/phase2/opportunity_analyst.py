@@ -212,6 +212,22 @@ Return ONLY valid JSON with these exact keys:
             "competitive_strategy": "Differentiation through unique value proposition and first-mover positioning in target market",
             "objectives": [{"objective": "Validate product-market fit", "metric": "customers", "target_value": "10", "timeframe": "6 months"}],
             "icp_hypothesis": {"buyer_role": "Decision maker", "budget_process": "Annual budget cycle", "decision_timeline": "1-3 months", "pain_points": ["Unmet need identified in idea summary"]},
+            # market_sizing is required by the schema. Values are deliberately
+            # unusable placeholders — a plausible-looking TAM here would be read as
+            # a real estimate. The zero capture rates and the text say otherwise.
+            "market_sizing": {
+                "tam": 1.0,
+                "tam_definition": "UNKNOWN — no market sizing was produced because the LLM output could not be parsed",
+                "tam_source": "No source — placeholder value, not an estimate",
+                "sam": 1.0,
+                "sam_definition": "UNKNOWN — no market sizing was produced because the LLM output could not be parsed",
+                "sam_calculation": "No calculation — placeholder value, not an estimate",
+                "som_year_1": 1.0,
+                "som_year_3": 1.0,
+                "som_logic": "No logic available — this section fell back to defaults after an unparseable LLM response. These figures are placeholders and must not be used.",
+                "capture_rate_year_1_pct": 0.0,
+                "capture_rate_year_3_pct": 0.0,
+            },
             "assumptions_used": [{"statement": "LLM output was unparseable — defaults used", "confidence": "low", "source": "assumed", "source_detail": None}],
             "uncertainties": ["LLM response could not be parsed — full analysis not completed"],
             "confidence_score": "low",

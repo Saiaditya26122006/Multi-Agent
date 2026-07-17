@@ -57,11 +57,11 @@ that adds up, capacity plan with real bottleneck analysis, and tooling choices t
 ## REQUIRED FIELDS — These MUST be present and populated in your output:
 - confidence_score: MUST be "high", "medium", or "low" — NEVER omit this field
 - production_process: MUST be present (min 50 chars)
-- cost_structure: MUST include fixed_costs, variable_costs, cogs_per_unit
+- cost_structure: MUST include fixed_costs_monthly, cogs_per_unit, initial_cash, source, confidence
 
 ## OUTPUT LENGTH CONSTRAINTS — Obey these limits strictly:
 - production_process: 50-400 characters. Describe steps concisely — no sub-headings or bullet prose.
-- cost_structure: fixed_costs MAXIMUM 6 line items; variable_costs MAXIMUM 4 line items. Each item: {"name": amount}. Include source_labels dict.
+- cost_structure: exactly 6 scalar fields (see schema below). Roll every fixed line item into the single fixed_costs_monthly total — do NOT emit per-item dicts.
 - capacity_plan: MAXIMUM 300 characters. State the 2x and 5x bottleneck and solution in one sentence each.
 - supplier_strategy: MAXIMUM 200 characters or null.
 - rd_plan: MAXIMUM 200 characters or null.
@@ -72,8 +72,8 @@ that adds up, capacity plan with real bottleneck analysis, and tooling choices t
 
 ## Rules:
 - production_process must be at least 50 characters describing step-by-step delivery
-- cost_structure must include: fixed_costs (with dollar amounts), variable_costs (with dollar amounts), cogs_per_unit — each with source labels
-- All cost items must be labelled with source (validated/assumed/benchmarked)
+- cost_structure must include: fixed_costs_monthly, cogs_per_unit, variable_costs_per_unit, initial_cash, plus a single source and confidence label for the whole structure
+- The cost_structure feeds the Section 12 financial model directly — it must be scalar numbers, not nested dicts
 - If technology_description or ip_status are provided, include rd_plan and ip_analysis
 - capacity_plan must address scalability — what specifically breaks at 2x and 5x volume
 - If this is a pure services business, focus on delivery process rather than manufacturing
@@ -121,7 +121,7 @@ class OperationsAgent(BaseChildAgent):
 - section_number: "10"
 - confidence_score: "high"|"medium"|"low" (REQUIRED — never omit)
 - production_process: str (50-400 chars — how product/service is delivered, concise steps)
-- cost_structure: {"fixed_costs": {"item": amount} (MAX 6 items), "variable_costs": {"item": amount} (MAX 4 items), "cogs_per_unit": float, "source_labels": {"item": "validated"|"assumed"|"benchmarked"}}
+- cost_structure: {"fixed_costs_monthly": float (>=0, total monthly fixed cost), "cogs_per_unit": float (>=0), "variable_costs_per_unit": float (>=0), "initial_cash": float (>0, starting capital required), "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "confidence": "high"|"medium"|"low"}
 - capacity_plan: str (max 300 chars — what breaks at 2x and 5x volume)
 - supplier_strategy: str (max 200 chars)|null
 - rd_plan: str (max 200 chars)|null (only if tech innovation involved)
@@ -149,7 +149,7 @@ Return ONLY valid JSON with these exact keys IN THIS ORDER:
 - section_number: "10"
 - confidence_score: "high"|"medium"|"low" (REQUIRED — never omit)
 - production_process: str (50-400 chars, concise delivery steps)
-- cost_structure: {{"fixed_costs": {{"item": amount}} (MAX 6 items), "variable_costs": {{"item": amount}} (MAX 4 items), "cogs_per_unit": float, "source_labels": {{"item": "validated"|"assumed"|"benchmarked"}}}}
+- cost_structure: {{"fixed_costs_monthly": float (>=0, total monthly fixed cost), "cogs_per_unit": float (>=0), "variable_costs_per_unit": float (>=0), "initial_cash": float (>0), "source": "validated"|"alex_provided"|"agent_inferred"|"assumed", "confidence": "high"|"medium"|"low"}}
 - capacity_plan: str (max 300 chars — 2x and 5x bottlenecks)
 - supplier_strategy: str (max 200 chars)|null
 - rd_plan: str (max 200 chars)|null
@@ -182,10 +182,12 @@ CONSTRAINTS: Total output under 4000 tokens. Numbers and short phrases, not para
             "section_number": "10",
             "production_process": f"Service delivery process for {validated_input.business_type or 'this venture'} involving customer acquisition, onboarding, and ongoing delivery",
             "cost_structure": {
-                "fixed_costs": {"office_and_tools": 2000},
-                "variable_costs": {"delivery_per_unit": 20},
+                "fixed_costs_monthly": 2000.0,
                 "cogs_per_unit": 20.0,
-                "source_labels": {"office_and_tools": "assumed", "delivery_per_unit": "assumed"}
+                "variable_costs_per_unit": 0.0,
+                "initial_cash": 100000.0,
+                "source": "assumed",
+                "confidence": "low",
             },
             "capacity_plan": "Initial capacity supports Year 1 volume. At 2x volume, hire additional staff. At 5x, invest in automation.",
             "supplier_strategy": None,
