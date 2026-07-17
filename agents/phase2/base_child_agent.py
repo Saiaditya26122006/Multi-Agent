@@ -735,20 +735,72 @@ Output to analyze:
             return 1.0, []
 
     def _embed_evidence(self, rag_evidence: list[dict]) -> list[list[float]]:
-        """Embed evidence chunk contents once, for reuse across every claim."""
-        try:
-            from services.rag_service import embed
+        """Get one embedding per evidence chunk, for reuse across every claim.
 
-            embeddings = []
-            for evidence in rag_evidence:
-                content = evidence.get("content", "")
-                if not content:
-                    continue
+        These chunks came out of the knowledge base, which already stores the
+        embedding it indexed them by — re-deriving it costs a ~400ms Bedrock round
+        trip per chunk to recompute a vector we already have. Fetch them in one
+        query and only embed whatever is genuinely missing.
+        """
+        stored = self._fetch_stored_embeddings(
+            [e["id"] for e in rag_evidence if e.get("id")]
+        )
+
+        embeddings = []
+        for evidence in rag_evidence:
+            content = evidence.get("content", "")
+            if not content:
+                continue
+
+            cached = stored.get(evidence.get("id"))
+            if cached:
+                embeddings.append(cached)
+                continue
+
+            try:
+                from services.rag_service import embed
+
                 embeddings.append(embed(content, input_type="search_document"))
-            return embeddings
+            except Exception as e:
+                logger.warning(
+                    "[%s] Failed to embed evidence chunk: %s", self.AGENT_NAME, e
+                )
+        return embeddings
+
+    def _fetch_stored_embeddings(self, chunk_ids: list[str]) -> dict[str, list[float]]:
+        """Read the embeddings the knowledge base already holds for these chunks."""
+        if not chunk_ids:
+            return {}
+
+        try:
+            from services.rag_service import _get_supabase, TABLE_NAME
+
+            rows = (
+                _get_supabase()
+                .table(TABLE_NAME)
+                .select("id,embedding")
+                .in_("id", chunk_ids)
+                .execute()
+            )
+
+            out = {}
+            for row in rows.data or []:
+                vec = row.get("embedding")
+                # pgvector comes back as a JSON-ish string over PostgREST.
+                if isinstance(vec, str):
+                    try:
+                        vec = json.loads(vec)
+                    except ValueError:
+                        continue
+                if isinstance(vec, list) and vec:
+                    out[row["id"]] = vec
+            return out
         except Exception as e:
-            logger.warning("[%s] Failed to embed RAG evidence: %s", self.AGENT_NAME, e)
-            return []
+            logger.warning(
+                "[%s] Could not read stored embeddings, will re-embed: %s",
+                self.AGENT_NAME, e,
+            )
+            return {}
 
     async def _check_claim_grounding(
         self, claim: str, evidence_embeddings: list[list[float]]
