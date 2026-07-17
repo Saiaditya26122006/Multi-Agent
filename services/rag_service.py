@@ -92,7 +92,7 @@ def _get_supabase():
 
 
 def embed(text: str, input_type: str = "search_query") -> list[float]:
-    """Convert text into a 1024-dimensional embedding vector via Cohere Embed v3.
+    """Convert text into a 1024-dimensional embedding vector via Amazon Titan Embed v2.
 
     Args:
         text: The text to embed.

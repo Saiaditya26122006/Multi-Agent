@@ -144,12 +144,20 @@ All Agents ← rag_mixin.py/rag_service.py ← Semantic Retrieval (top-k cosine 
 pytest tests/test_rag_service.py tests/test_ingestion.py tests/test_conversation_store.py tests/test_temporal_decay.py tests/test_rag_hooks.py tests/test_preference_extractor.py tests/test_assumption_tracker.py tests/test_rag_integration.py tests/test_rag_performance.py -v
 ```
 
-71 tests, all passing. See `tests/RAG_TESTING_CHECKLIST.md` for details.
+71 tests. See `tests/RAG_TESTING_CHECKLIST.md` for details. These hit live Supabase
+and Bedrock, so they are slow (~2 min) and depend on network distance to us-east-1.
 
 ## Known Issues / Watch Items
 
 - Financial agent depends on `simulation/financial_sim.py` — ensure `run_simulation()` returns `runs_completed`, `probability_distribution`, `primary_risk_factor`
 - Summary agent `executive_summary` field has min_length=200 — fallback text must meet this
 - Bedrock `invoke_model` API uses positional kwargs — not the `converse` API
-- RAG retrieval latency is ~400ms (remote Supabase) — acceptable but monitor under load
-- Embedding model (Amazon Titan Embed v2) outputs 1024-dim normalized vectors — threshold set to 0.4, expect better discrimination than the old MiniLM
+- RAG retrieval is ~1s, and it is dominated by embedding, not by Supabase: a warm Titan
+  embed is a ~400ms Bedrock round trip from Europe/Asia and the vector search itself is
+  only ~180ms. Measured from inside us-east-1 it would be far lower. Anything that
+  embeds in a loop pays that per item — prefer the embedding already stored on the
+  `knowledge_base` row (see `BaseChildAgent._fetch_stored_embeddings`).
+- Embedding model (Amazon Titan Embed v2) outputs 1024-dim normalized vectors.
+  `DEFAULT_THRESHOLD` is **0.3**. Titan similarities are compressed: rephrasings of the
+  same idea measure ~0.39-0.65 and unrelated text ~0.10-0.29, so thresholds much above
+  ~0.5 will silently match nothing. `has_been_killed` used 0.65 and never fired.

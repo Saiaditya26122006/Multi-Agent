@@ -3,6 +3,16 @@ Performance and accuracy tests for the RAG system.
 
 Tests retrieval latency, embedding speed, and result quality.
 Requires live Supabase connection with ingested data.
+
+On latency budgets: embedding is a Bedrock (Titan v2) round trip and retrieval is
+that plus a Supabase RPC, so both are dominated by network distance to us-east-1
+rather than by our code — a warm embed measures ~380ms from Europe/Asia and would
+measure far less from inside us-east-1. The old 50ms budget dates from when
+embedding ran locally on all-MiniLM-L6-v2; it has been unreachable since the move
+to Titan and simply failed everywhere. These budgets are set to catch a real
+regression (an order of magnitude, a lost singleton, a retry storm) without
+failing on geography. Both tests warm up first, because the first call pays client
+construction and the TLS handshake (~1.7s) and that is not what they measure.
 """
 
 import time
@@ -10,9 +20,13 @@ import pytest
 
 from services.rag_service import embed, retrieve
 
+# Generous on purpose — see the module docstring.
+EMBED_BUDGET_MS = 2000
+RETRIEVAL_BUDGET_MS = 3000
+
 
 class TestLatency:
-    def test_retrieval_latency_under_200ms(self):
+    def test_retrieval_latency(self):
         queries = [
             "pricing model institutional subscription",
             "GDPR compliance data processing",
@@ -26,6 +40,8 @@ class TestLatency:
             "researcher doctoral student user",
         ]
 
+        retrieve("warmup", top_k=1, threshold=0.3)  # pay client init + TLS once
+
         times = []
         for q in queries:
             start = time.time()
@@ -34,9 +50,13 @@ class TestLatency:
             times.append(elapsed)
 
         avg_ms = sum(times) / len(times)
-        assert avg_ms < 500, f"Average retrieval latency {avg_ms:.0f}ms exceeds 500ms (remote Supabase)"
+        assert avg_ms < RETRIEVAL_BUDGET_MS, (
+            f"Average retrieval latency {avg_ms:.0f}ms exceeds "
+            f"{RETRIEVAL_BUDGET_MS}ms — retrieval is one embed plus one RPC, so "
+            f"this suggests a real regression rather than network distance"
+        )
 
-    def test_embed_latency_under_50ms(self):
+    def test_embed_latency(self):
         texts = [
             "pricing model for academic institutions",
             "GDPR compliance requirements",
@@ -50,6 +70,8 @@ class TestLatency:
             "competitive differentiation strategy",
         ]
 
+        embed("warmup")  # pay client init + TLS once
+
         times = []
         for t in texts:
             start = time.time()
@@ -58,7 +80,11 @@ class TestLatency:
             times.append(elapsed)
 
         avg_ms = sum(times) / len(times)
-        assert avg_ms < 50, f"Average embed latency {avg_ms:.0f}ms exceeds 50ms"
+        assert avg_ms < EMBED_BUDGET_MS, (
+            f"Average embed latency {avg_ms:.0f}ms exceeds {EMBED_BUDGET_MS}ms — "
+            f"a warm Titan call is a single round trip, so this suggests the client "
+            f"singleton is being rebuilt or calls are being retried"
+        )
 
 
 class TestAccuracy:
