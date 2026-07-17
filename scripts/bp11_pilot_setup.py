@@ -80,15 +80,17 @@ def get_bp11_chunks() -> list[dict]:
             'metadata'
         ).execute()
 
-        # Filter for BP.1.1 by section match in metadata or content
+        # Chunks are tagged with metadata.node_id (there is no section_id key), and
+        # the ids are hierarchical — BP.1.1's evidence lives on its descendants
+        # (BP.1.1.1, BP.1.1.7.4, ...), not on a chunk labelled exactly "BP.1.1".
         bp11_chunks = []
         for chunk in result.data or []:
             metadata = chunk.get('metadata', {})
-            # Check if this chunk relates to BP.1.1
-            if isinstance(metadata, dict):
-                if metadata.get('section_id') == 'BP.1.1' or \
-                   'BP.1.1' in str(metadata.get('section_id', '')):
-                    bp11_chunks.append(chunk)
+            if not isinstance(metadata, dict):
+                continue
+            node_id = str(metadata.get('node_id', ''))
+            if node_id == 'BP.1.1' or node_id.startswith('BP.1.1.'):
+                bp11_chunks.append(chunk)
 
         logger.info("[BP.1.1 Pilot] Found %d related chunks", len(bp11_chunks))
         return bp11_chunks

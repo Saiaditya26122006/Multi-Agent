@@ -166,18 +166,22 @@ class IntelligenceEngine:
                     "may lack specificity"
                 )
 
-        # P0-3: CONFIDENCE CALIBRATION — override LLM claims with programmatic calibration
+        # P0-3: CONFIDENCE CALIBRATION — assumption sourcing sets a CEILING on the
+        # agent's claimed confidence. It never raises it: the agent did the reasoning
+        # and knows what it is unsure about, so a heuristic that promotes medium → high
+        # would assert more certainty than anything in the pipeline actually has.
         if parsed:
-            calibrated = self._calibrate_confidence_from_assumptions(parsed)
-            if calibrated != parsed.get("confidence_score"):
+            ceiling = self._calibrate_confidence_from_assumptions(parsed)
+            claimed = parsed.get("confidence_score")
+            if self._confidence_rank(ceiling) < self._confidence_rank(claimed):
                 logger.info(
-                    "[IE] Confidence calibrated: %s → %s (based on assumption sources)",
-                    parsed.get("confidence_score"), calibrated,
+                    "[IE] Confidence capped: %s → %s (based on assumption sources)",
+                    claimed, ceiling,
                 )
-                parsed["confidence_score"] = calibrated
+                parsed["confidence_score"] = ceiling
                 parsed.setdefault("_quality_warnings", []).append(
-                    f"Confidence calibrated from {parsed.get('confidence_score', 'unknown')} "
-                    f"to {calibrated} based on assumption evidence quality"
+                    f"Confidence capped from {claimed} to {ceiling} "
+                    "based on assumption evidence quality"
                 )
 
         reasoning_trace = {
@@ -585,6 +589,12 @@ Respond with exactly one token: YES or NO""",
 
         return unresolved
 
+    @staticmethod
+    def _confidence_rank(confidence: Optional[str]) -> int:
+        """Order confidence levels so they can be compared. Unknown values rank
+        highest so an unrecognised label is always capped rather than trusted."""
+        return {"low": 0, "medium": 1, "high": 2}.get(confidence, 3)
+
     def _count_generic_phrases(self, output: dict) -> int:
         """Count generic filler phrases in output text fields."""
         if not output:
@@ -606,8 +616,8 @@ Respond with exactly one token: YES or NO""",
         """
         assumptions = output.get("assumptions_used", [])
         if not assumptions:
-            # No assumptions recorded → cannot verify confidence → default low
-            logger.debug("[IE] No assumptions found — defaulting to low confidence")
+            # No assumptions recorded → nothing to verify confidence against → cap low
+            logger.debug("[IE] No assumptions found — capping confidence at low")
             return "low"
 
         # Count assumptions by source quality
