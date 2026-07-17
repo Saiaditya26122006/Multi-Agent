@@ -145,13 +145,17 @@ _TRACKED_TABLES = ("knowledge_base", "pipeline_runs", "bp12_register")
 
 
 def _client():
-    try:
-        from memory.supabase_client import supabase
+    """The real Supabase client, captured before any test module could swap it.
 
-        return supabase
-    except Exception as e:  # offline / no creds — nothing to clean
-        logger.warning("[conftest] Supabase unavailable, skipping cleanup: %s", e)
-        return None
+    Reading memory.supabase_client.supabase here would hand back a mock: collection
+    runs before fixtures, so the mocked-world modules have already assigned their
+    MockSupabaseClient onto that attribute by the time this runs. The cleanup then
+    silently no-ops and the test rows stay in the CEO's knowledge base.
+    """
+    client = _REAL.get("supabase")
+    if client is None:
+        logger.warning("[conftest] No real Supabase client captured, skipping cleanup")
+    return client
 
 
 _PAGE = 1000
