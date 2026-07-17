@@ -160,14 +160,17 @@ def _handle_question(message: str, classification: dict) -> dict:
                 chunks_for_llm.append(chunk)
             response = generate_answer(message, chunks_for_llm)
         else:
-            response = "No relevant data found in the knowledge base for that question. Try rephrasing, or switch to INSPECT for deeper analysis."
+            response = (
+                "No relevant data found in the knowledge base for that question. "
+                "Try rephrasing, or type 'a' for a coverage heatmap of what the plan does contain."
+            )
 
         return {
             "action": "direct_answer",
             "intent": "question",
             "confidence": classification["confidence"],
             "response_text": response,
-            "suggested_workspace": "inspect",
+            "suggested_workspace": "auto",
         }
     except Exception as e:
         logger.error("[AutoHandler] Error handling question: %s", e)
@@ -175,8 +178,8 @@ def _handle_question(message: str, classification: dict) -> dict:
             "action": "direct_answer",
             "intent": "question",
             "confidence": 0.5,
-            "response_text": "Error retrieving data. Try switching to INSPECT workspace.",
-            "suggested_workspace": "inspect",
+            "response_text": "Error retrieving data. Try rephrasing, or type 'a' to inspect coverage.",
+            "suggested_workspace": "auto",
         }
 
 
@@ -209,7 +212,8 @@ def _generate_workspace_suggestion(intent: str, workspace: Optional[str]) -> str
         "new_data": "This looks like new data. Switch to FEED (type '1') for the best experience — I'll parse it, tag it, and map it to your plan.",
         "correction": "This looks like a correction. Switch to FEED (type '1') and I'll update the existing knowledge.",
         "command": "That sounds like a build command. Switch to BUILD (type '2') and I'll show you what's ready to generate.",
-        "feedback": "That sounds like feedback. Switch to VALIDATE (type '5') to formally record it against the assumption it relates to.",
+        # Validate was folded into Auto & Ask — there is no workspace 5 to switch to.
+        "feedback": "That sounds like feedback. Tell me which assumption it relates to and I'll record it against that assumption.",
     }
     return suggestions.get(intent, f"Consider switching to {workspace} for this.")
 

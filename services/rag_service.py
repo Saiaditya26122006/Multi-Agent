@@ -312,7 +312,15 @@ def retrieve(
 
     supabase = _get_supabase()
 
-    fetch_multiplier = 10 if metadata_filter else 3
+    # Only match_threshold is applied by the RPC. source_types, section,
+    # epistemic_status, metadata_filter and exclude_superseded are all applied in
+    # Python below, on whatever match_count rows came back — so a narrow window can
+    # crowd out the rows the caller actually asked for and return nothing even when
+    # a match exists. Widen the window whenever any post-filter is active.
+    has_post_filter = bool(
+        source_types or section or epistemic_status or metadata_filter
+    )
+    fetch_multiplier = 10 if has_post_filter else 3
     rpc_params = {
         "query_embedding": query_embedding,
         "match_threshold": threshold,

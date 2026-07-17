@@ -220,19 +220,16 @@ class TestPilotRetrievalQuality:
         assert candidates[0]["node_id"] == "BP.1.1.1"
 
     @patch("services.rag_service.retrieve")
-    def test_no_candidates_below_threshold(self, mock_retrieve):
-        """When all candidates below threshold, returns empty."""
-        mock_chunk = MagicMock()
-        mock_chunk.metadata = {
-            "node_id": "BP.1.1.1",
-            "node_title": "Product Identity",
-            "purpose": "test",
-            "required_output": "",
-            "prohibited_claims": "",
-        }
-        mock_chunk.content = "BP.1.1.1 | Product Identity"
-        mock_chunk.similarity = 0.1
-        mock_retrieve.return_value = [mock_chunk]
+    def test_no_candidates_when_nothing_clears_threshold(self, mock_retrieve):
+        """A fact with no node above the threshold yields no candidates.
+
+        retrieve() enforces the threshold itself (match_threshold in the RPC) and
+        retrieve_candidate_nodes deliberately does no second filter. This used to
+        stub retrieve into returning a similarity=0.1 chunk at threshold=0.35 —
+        something the real retrieve can never do — and then expected the caller to
+        re-filter it.
+        """
+        mock_retrieve.return_value = []
 
         from services.node_indexer import retrieve_candidate_nodes
 
@@ -242,7 +239,9 @@ class TestPilotRetrievalQuality:
             threshold=0.35,
         )
 
-        assert len(candidates) == 0
+        assert candidates == []
+        # The threshold must actually reach retrieve, since that is what enforces it.
+        assert mock_retrieve.call_args.kwargs["threshold"] == 0.35
 
 
 @pytest.mark.pilot

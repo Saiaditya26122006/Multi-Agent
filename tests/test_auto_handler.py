@@ -48,17 +48,36 @@ class TestClassifyIntent:
         assert result["confidence"] < 0.5
 
 
+def _mock_enriched_chunk(content="Pricing is annual SaaS", source_type="ceo_doc"):
+    chunk = MagicMock()
+    chunk.content = content
+    chunk.epistemic_status = "ASSUMPTION"
+    chunk.source_type = source_type
+    return {"chunk": chunk, "relationships": []}
+
+
 class TestHandleAutoMessage:
-    @patch("services.rag_service.retrieve")
-    def test_question_answered_directly(self, mock_retrieve):
-        chunk = MagicMock()
-        chunk.content = "Pricing is annual SaaS"
-        chunk.epistemic_status = "ASSUMPTION"
-        mock_retrieve.return_value = [chunk]
+    # _handle_question calls retrieve_with_relationships + generate_answer. Patching
+    # rag_service.retrieve left the mock dead, so this ran against the live database
+    # and made a real LLM call.
+    @patch("web.handlers.llm_helper.generate_answer")
+    @patch("services.rag_service.retrieve_with_relationships")
+    def test_question_answered_directly(self, mock_retrieve, mock_answer):
+        mock_retrieve.return_value = [_mock_enriched_chunk()]
+        mock_answer.return_value = "Pricing is an annual institutional subscription."
 
         result = handle_auto_message("What's our pricing?")
         assert result["action"] == "direct_answer"
-        assert "knowledge base" in result["response_text"]
+        assert result["intent"] == "question"
+        assert result["response_text"] == "Pricing is an annual institutional subscription."
+
+    @patch("services.rag_service.retrieve_with_relationships")
+    def test_question_with_no_results_says_so(self, mock_retrieve):
+        mock_retrieve.return_value = []
+
+        result = handle_auto_message("What's our pricing?")
+        assert result["action"] == "direct_answer"
+        assert "No relevant data found" in result["response_text"]
 
     def test_decision_routes_to_pipeline(self):
         result = handle_auto_message("Yes")

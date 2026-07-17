@@ -109,6 +109,26 @@ class TestHasBeenKilled:
         result = has_been_killed(f"freemium pricing model for individual academic researchers {unique}")
         assert result is True
 
+    def test_has_been_killed_catches_rephrasing(self):
+        """The guard exists so killed ideas are not re-suggested, and an agent will
+        re-propose in its own words rather than Alex's. The old 0.65 threshold sat
+        above every rephrasing — and above the exact wording (0.649) — so it never
+        fired and killed ideas came back.
+        """
+        store_decision(
+            proposal="freemium pricing model for individual academic researchers",
+            decision="kill",
+            reasoning="Not viable for this market, investors dislike B2C edtech",
+        )
+        assert has_been_killed("offer a freemium plan to individual researchers") is True
+        assert has_been_killed("B2C pricing aimed at solo researchers") is True
+
+    def test_has_been_killed_ignores_unrelated_proposals(self):
+        """Guarding too broadly is its own failure — it would block ideas Alex
+        never killed."""
+        assert has_been_killed("hire a senior backend engineer in month 3") is False
+        assert has_been_killed("office space lease in central London") is False
+
     def test_has_been_killed_false(self):
         result = has_been_killed(f"totally_unrelated_{uuid.uuid4().hex}")
         assert result is False

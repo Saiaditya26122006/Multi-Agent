@@ -269,6 +269,13 @@ def has_been_asked(question_topic: str, session_id: Optional[str] = None) -> boo
     return False
 
 
+# Measured against real stored kill decisions: rephrasings of a killed idea score
+# 0.39-0.65, unrelated proposals score 0.10-0.29. 0.35 sits inside that gap.
+# The previous 0.65 was above the entire "same idea" range — even the exact killed
+# wording scored 0.649 — so this guard never fired and killed ideas came back.
+KILLED_SIMILARITY_THRESHOLD = 0.35
+
+
 def has_been_killed(proposal_topic: str) -> bool:
     """Check if a similar proposal was previously killed by Alex.
 
@@ -284,7 +291,7 @@ def has_been_killed(proposal_topic: str) -> bool:
         query=proposal_topic,
         source_types=["negative_knowledge"],
         top_k=3,
-        threshold=0.65,
+        threshold=KILLED_SIMILARITY_THRESHOLD,
     )
 
     return len(chunks) > 0
