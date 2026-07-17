@@ -139,6 +139,16 @@ def _drop_mocked_singletons() -> None:
             logger.debug("[conftest] Dropped mocked %s.%s", module_name, attr)
 
 
+# test_supabase.py is a sequential smoke script, not a pytest suite: its checks
+# take positional arguments and each one consumes the previous one's output
+# (test_create_session(ceo_id) needs the id test 1 fetched), driven by
+# run_all_tests() under `if __name__ == "__main__"`. pytest collects them on the
+# test_ prefix and then errors with "fixture 'ceo_id' not found". It passes 7/7 on
+# its own terms — run it directly:
+#     python tests/test_supabase.py
+collect_ignore = ["test_supabase.py"]
+
+
 # Tables the suite writes into, and the dependent rows that must go first so
 # foreign keys don't block the delete.
 _TRACKED_TABLES = ("knowledge_base", "pipeline_runs", "bp12_register")
