@@ -123,7 +123,9 @@ class TestCouncilConfig:
     """Test council configuration is correct."""
 
     def test_all_personas_present(self):
-        expected = {"skeptic", "architect", "visionary", "stranger", "operator"}
+        # saboteur (P3-1) is defined here but gated at runtime by
+        # ENABLE_ADVERSARIAL_PERSONA, so it is present in the dict regardless.
+        expected = {"skeptic", "architect", "visionary", "stranger", "operator", "saboteur"}
         assert set(COUNCIL_PERSONAS.keys()) == expected
 
     def test_persona_has_required_fields(self):

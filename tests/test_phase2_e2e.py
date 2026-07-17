@@ -263,6 +263,21 @@ VALID_OPPORTUNITY_OUTPUT = {
         "decision_timeline": "1-2 weeks",
         "pain_points": ["Messy spreadsheet cap tables", "Expensive legal fees for equity events", "Confusion about dilution"],
     },
+    # SOM/SAM must equal the stated capture rates, and capture_rate_year_1_pct is
+    # rejected above 5.0 by the validator on MarketSizing.
+    "market_sizing": {
+        "tam": 120000000.0,
+        "tam_definition": "All US startups raising a seed round each year that need cap table management software",
+        "tam_source": "Crunchbase 2025 seed round counts cross-checked against PitchBook",
+        "sam": 48000000.0,
+        "sam_definition": "US seed-stage startups that self-serve rather than route equity events through a law firm",
+        "sam_calculation": "TAM $120M x 40% self-serve segment = $48M",
+        "som_year_1": 480000.0,
+        "som_year_3": 1920000.0,
+        "som_logic": "1% of SAM in year 1 via founder communities and accelerator partnerships, rising to 4% by year 3 as referrals compound. Constrained by a two-person go-to-market team.",
+        "capture_rate_year_1_pct": 1.0,
+        "capture_rate_year_3_pct": 4.0,
+    },
     "assumptions_used": [
         {"statement": "Seed-stage startups need simpler tooling than Series B+", "confidence": "high", "source": "alex_provided", "source_detail": "CEO Q&A"},
         {"statement": "Market size of 50k+ seed startups per year in US", "confidence": "medium", "source": "agent_inferred", "source_detail": None},

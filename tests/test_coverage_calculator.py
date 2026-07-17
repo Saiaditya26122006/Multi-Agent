@@ -66,16 +66,20 @@ class TestGetSections:
 class TestGetPlanCoverage:
     """Test plan coverage calculation."""
 
-    @patch("services.rag_service.retrieve")
+    # get_plan_coverage resolves filled nodes via _get_filled_node_ids (one Supabase
+    # query), not per-node rag_service.retrieve calls. Patching retrieve here left
+    # the mock dead and sent these tests at the live database.
+
+    @patch("services.coverage_calculator._get_filled_node_ids")
     @patch("services.coverage_calculator._load_bp_architecture")
-    def test_full_coverage_when_all_nodes_have_data(self, mock_arch, mock_retrieve):
+    def test_full_coverage_when_all_nodes_have_data(self, mock_arch, mock_filled):
         mock_arch.return_value = {
             "nodes": [
                 {"node_id": "BP.1", "node_title": "Product"},
                 {"node_id": "BP.1.1", "node_title": "Identity"},
             ]
         }
-        mock_retrieve.return_value = [MagicMock(content="data")]
+        mock_filled.return_value = {"BP.1", "BP.1.1"}
 
         import services.coverage_calculator as cc
         cc._bp_architecture = None
@@ -87,16 +91,16 @@ class TestGetPlanCoverage:
         assert result["filled_nodes"] == 2
         assert result["coverage_pct"] == 100.0
 
-    @patch("services.rag_service.retrieve")
+    @patch("services.coverage_calculator._get_filled_node_ids")
     @patch("services.coverage_calculator._load_bp_architecture")
-    def test_zero_coverage_when_no_data(self, mock_arch, mock_retrieve):
+    def test_zero_coverage_when_no_data(self, mock_arch, mock_filled):
         mock_arch.return_value = {
             "nodes": [
                 {"node_id": "BP.1", "node_title": "Product"},
                 {"node_id": "BP.2", "node_title": "Market"},
             ]
         }
-        mock_retrieve.return_value = []
+        mock_filled.return_value = set()
 
         import services.coverage_calculator as cc
         cc._bp_architecture = None
@@ -115,7 +119,10 @@ class TestGetPlanCoverage:
         import services.coverage_calculator as cc
         cc._bp_architecture = None
 
-        with patch("services.rag_service.retrieve", side_effect=Exception("DB down")):
+        with patch(
+            "services.coverage_calculator._get_filled_node_ids",
+            side_effect=Exception("DB down"),
+        ):
             from services.coverage_calculator import get_plan_coverage
 
             result = get_plan_coverage()
@@ -175,34 +182,44 @@ class TestGetConfidenceBreakdown:
             assert result["breakdown"] == {}
 
 
-class TestGetContradictionCount:
-    """Test contradiction counting."""
+def _mock_supabase_rows(rows):
+    """Stub the supabase query chain get_contradiction_count builds."""
+    sb = MagicMock()
+    chain = sb.table.return_value.select.return_value.eq.return_value.is_.return_value
+    chain.execute.return_value = MagicMock(data=rows)
+    return sb
 
-    @patch("services.rag_service.retrieve")
-    def test_counts_unresolved_contradictions(self, mock_retrieve):
-        mock_retrieve.return_value = [
-            MagicMock(metadata={"resolved": False}),
-            MagicMock(metadata={"resolved": False}),
-            MagicMock(metadata={"resolved": True}),
-        ]
+
+class TestGetContradictionCount:
+    """Test contradiction counting.
+
+    Unresolved-ness is now decided by the Supabase query itself
+    (epistemic_status == "CONTRADICTION" AND superseded_by IS NULL). These tests
+    used to stub rag_service.retrieve and filter on a metadata["resolved"] flag —
+    a flag nothing ever sets, which made every past resolution count as a new open
+    issue. That behaviour was deliberately removed.
+    """
+
+    @patch("services.rag_service._get_supabase")
+    def test_counts_unresolved_contradictions(self, mock_sb):
+        mock_sb.return_value = _mock_supabase_rows([{"id": "a"}, {"id": "b"}])
 
         from services.coverage_calculator import get_contradiction_count
 
         assert get_contradiction_count() == 2
 
-    @patch("services.rag_service.retrieve")
-    def test_zero_when_all_resolved(self, mock_retrieve):
-        mock_retrieve.return_value = [
-            MagicMock(metadata={"resolved": True}),
-        ]
+    @patch("services.rag_service._get_supabase")
+    def test_zero_when_all_resolved(self, mock_sb):
+        # Resolved contradictions carry superseded_by, so the query excludes them.
+        mock_sb.return_value = _mock_supabase_rows([])
 
         from services.coverage_calculator import get_contradiction_count
 
         assert get_contradiction_count() == 0
 
-    @patch("services.rag_service.retrieve")
-    def test_zero_on_empty_result(self, mock_retrieve):
-        mock_retrieve.return_value = []
+    @patch("services.rag_service._get_supabase")
+    def test_zero_on_empty_result(self, mock_sb):
+        mock_sb.return_value = _mock_supabase_rows([])
 
         from services.coverage_calculator import get_contradiction_count
 
@@ -210,7 +227,7 @@ class TestGetContradictionCount:
 
     def test_returns_zero_on_error(self):
         with patch(
-            "services.rag_service.retrieve",
+            "services.rag_service._get_supabase",
             side_effect=Exception("Unavailable"),
         ):
             from services.coverage_calculator import get_contradiction_count

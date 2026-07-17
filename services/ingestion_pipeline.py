@@ -10,6 +10,7 @@ Usage:
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -340,10 +341,27 @@ def _chunk_constraints(data: dict, section: str, topics: list[str]) -> list[dict
     return chunks
 
 
+_BP_NODE_ID_RE = re.compile(r"^BP\.\d+(\.\d+)*$")
+
+
 def _chunk_bp_architecture(data: dict, section: str, topics: list[str]) -> list[dict]:
-    """Chunk bp_architecture.json — each BP node is a chunk."""
+    """Chunk bp_architecture.json — each BP node is a chunk.
+
+    nodes[0] is a schema/template row describing the columns ("node_id": "Unique
+    hierarchical ID; permanent once assigned"), not a real node. Ingesting it put
+    template prose into the knowledge base as a chunk whose section was that
+    sentence. Real node ids are BP.1, BP.1.1, BP.1.1.6 — 746 of the 747 rows match,
+    which is exactly what business_plan_sections holds.
+    """
     chunks = []
     for node in data.get("nodes", []):
+        if not _BP_NODE_ID_RE.match(str(node.get("node_id", ""))):
+            logger.debug(
+                "[Ingestion] Skipping non-node row: node_id=%r",
+                str(node.get("node_id", ""))[:60],
+            )
+            continue
+
         content_parts = [
             f"BP Node {node.get('node_id', '')}: {node.get('node_title', '')}",
         ]

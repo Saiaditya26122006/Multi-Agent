@@ -4,6 +4,7 @@ Unit tests for services/ingestion_pipeline.py
 Tests chunking logic without requiring Supabase (mocks batch_store).
 """
 
+import re
 import json
 import pytest
 from pathlib import Path
@@ -53,10 +54,26 @@ class TestChunkPreservesStatus:
 
 
 class TestChunkBPArchitecture:
-    def test_chunk_bp_architecture_produces_20(self):
+    def test_chunk_bp_architecture_chunks_every_real_node(self):
+        """One chunk per real BP node. The count is derived, not hardcoded — the
+        architecture grows, and the old fixed 20 just went stale."""
         data = _load_json("bp_architecture.json")
         chunks = _chunk_bp_architecture(data, "governance", ["architecture"])
-        assert len(chunks) == 20
+
+        real_nodes = [
+            n for n in data["nodes"]
+            if re.match(r"^BP\.\d+(\.\d+)*$", str(n.get("node_id", "")))
+        ]
+        assert len(chunks) == len(real_nodes)
+
+    def test_chunk_bp_architecture_skips_template_row(self):
+        """nodes[0] is a schema/template row, not a node. Ingesting it put template
+        prose in the knowledge base with the description as the section name."""
+        data = _load_json("bp_architecture.json")
+        chunks = _chunk_bp_architecture(data, "governance", ["architecture"])
+
+        assert all(str(c["section"]).startswith("BP.") for c in chunks)
+        assert not any("permanent once assigned" in c["content"] for c in chunks)
 
 
 class TestChunkProhibitedClaims:

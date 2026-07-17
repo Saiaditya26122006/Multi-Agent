@@ -12,6 +12,7 @@ import sys
 import json
 import asyncio
 import logging
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
 
@@ -241,7 +242,10 @@ def test_intelligence_engine_reason_and_produce():
     assert trace["revisions_applied"] is True
     assert trace["reasoning_budget"] == 3
     assert usage["input_tokens"] > 0
-    assert call_count[0] == 4  # decompose, produce, challenge, revise
+    # Assert the challenge/revise steps ran rather than an exact call count — the
+    # chain gained a coverage check and a gap re-produce, and any future step would
+    # break a hardcoded number without anything actually being wrong.
+    assert trace["challenge"], "Expected the challenge step to run at budget=3"
     logger.info("PASS: test_intelligence_engine_reason_and_produce")
     return True
 
@@ -276,7 +280,9 @@ def test_intelligence_engine_budget_2_skips_challenge():
 
     assert result is not None
     assert trace["revisions_applied"] is False
-    assert call_count[0] == 2  # only decompose + produce
+    # The point of budget=2 is that challenge/revise are skipped, not a specific
+    # call count (the chain also runs a coverage check and gap re-produce).
+    assert not trace["challenge"], "Expected the challenge step to be skipped at budget=2"
     logger.info("PASS: test_intelligence_engine_budget_2_skips_challenge")
     return True
 
@@ -561,20 +567,26 @@ def test_devils_advocate_valid_response():
     return True
 
 
-def test_devils_advocate_fallback_pass():
-    """DA agent returns fallback pass when LLM fails."""
+def test_devils_advocate_fallback_escalates():
+    """A broken quality gate must escalate, never silently pass the section.
+
+    This previously asserted the opposite (_fallback_pass returning verdict="pass"
+    with no challenges). Passing a section through because the reviewer crashed is
+    exactly the failure the gate exists to prevent, so the fallback now escalates.
+    """
     from agents.phase2.devils_advocate import DevilsAdvocateAgent
     from schemas.outputs.devils_advocate import DevilsAdvocateOutput
 
     agent = object.__new__(DevilsAdvocateAgent)
     agent.model_id = "claude-sonnet-4-20250514"
 
-    fallback = agent._fallback_pass("da-002")
+    fallback = agent._fallback_escalate("da-002", "1", "LLM call failed")
     validated = DevilsAdvocateOutput(**fallback)
-    assert validated.verdict == "pass"
-    assert len(validated.challenges) == 0
-    assert "review recommended" in validated.summary.lower() or "could not be completed" in validated.summary.lower()
-    logger.info("PASS: test_devils_advocate_fallback_pass")
+    assert validated.verdict == "escalate"
+    assert validated.challenges, "Escalation must say why it escalated"
+    assert validated.recommended_confidence == "low"
+    assert "escalation required" in validated.summary.lower()
+    logger.info("PASS: test_devils_advocate_fallback_escalates")
     return True
 
 
@@ -668,31 +680,32 @@ def test_learning_engine_build_context():
     redis = MagicMock(client=redis_client)
     engine = LearningEngine(redis)
 
-    # Seed rejection data (get_section_history scans rejection keys)
-    rejection = json.dumps({
-        "event": "rejected",
+    # P2-2 reads extracted patterns (learning:extracted:<section>:<ts>), not the raw
+    # rejection keys this test used to seed. Timestamps must be recent — patterns
+    # decay exponentially and anything under MIN_RELEVANCE_SCORE is dropped.
+    now = datetime.now(timezone.utc)
+    pattern = json.dumps({
+        "root_cause": "budget_too_high",
+        "anti_pattern": "Budget too high",
+        "positive_pattern": "Cut it in half",
+        "trigger_field": "marketing_budget",
         "section": "8",
-        "reason": "Budget too high",
-        "ceo_feedback": "Cut it in half",
-        "timestamp": "2026-05-25T10:00:00Z",
-        "session_id": "old-session",
+        "timestamp": now.isoformat(),
     })
-    redis_client.set("learning:rejection:old-session:8", rejection)
+    redis_client.set("learning:extracted:8:20260717100000", pattern)
 
-    # Seed a second rejection from another session
-    rejection2 = json.dumps({
-        "event": "rejected",
+    pattern2 = json.dumps({
+        "root_cause": "audience_too_broad",
+        "anti_pattern": "Target audience too broad",
+        "positive_pattern": "Focus on seed-stage only",
         "section": "8",
-        "reason": "Target audience too broad",
-        "ceo_feedback": "Focus on seed-stage only",
-        "timestamp": "2026-05-24T09:00:00Z",
-        "session_id": "older-session",
+        "timestamp": (now - timedelta(days=1)).isoformat(),
     })
-    redis_client.set("learning:rejection:older-session:8", rejection2)
+    redis_client.set("learning:extracted:8:20260716090000", pattern2)
 
     context = engine.build_learning_context("8")
-    assert "LEARNING FROM PAST RUNS" in context
-    assert "REJECTED" in context
+    assert "LEARNED PATTERNS" in context
+    assert "BUDGET_TOO_HIGH" in context
     assert "Budget too high" in context
     assert "Cut it in half" in context
     logger.info("PASS: test_learning_engine_build_context")
