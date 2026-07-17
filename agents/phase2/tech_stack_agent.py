@@ -9,7 +9,7 @@ import logging
 import os
 from typing import Optional
 
-import boto3
+from agents.phase2.base_child_agent import get_shared_bedrock_client
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
@@ -184,7 +184,7 @@ class TechStackAgent(Agent):
         super().__init__(jid, password)
         self.redis = RedisClient()
         self.model_id = os.getenv("CLAUDE_HAIKU_MODEL", "claude-haiku-4-5-20251001")
-        self.bedrock = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"))
+        self.bedrock = get_shared_bedrock_client()
         self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
 
     async def setup(self):

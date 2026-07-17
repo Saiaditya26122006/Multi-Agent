@@ -1,25 +1,15 @@
-import sys
-from pathlib import Path
+"""Financial Modelling Agent — 3-statement model, break-even analysis, DCF, SimPy integration."""
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-
-import asyncio
 import json
 import logging
 import os
 from datetime import datetime
-from typing import Optional
+from pathlib import Path
 
-import boto3
-from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour, OneShotBehaviour
-
-from agents.phase2.rag_mixin import rag_enrich, rag_check_killed
-from spade.message import Message
-
-from memory.redis_client import RedisClient
-from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
-from agents.phase2.intelligence_engine import IntelligenceEngine
+from agents.phase2.base_child_agent import BaseChildAgent
+from agents.phase2.llm_utils import parse_json_with_retry
+from agents.phase2.message_bus import ACLMessage
+from agents.phase2.rag_mixin import rag_enrich
 from schemas.inputs.financial_modelling import FinancialModellingInput
 from schemas.outputs.financial_modelling import FinancialModellingOutput
 from simulation.financial_sim import run_simulation
@@ -58,7 +48,19 @@ def _get_live_market_data(section_number: str) -> str:
         )
     return "\n".join(lines)
 
+
 SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "skills" / "financial"
+
+DEFAULT_FINANCIAL_SKILLS = ["three_statement_model", "dcf_model", "comps_analysis"]
+
+
+def _load_skill(skill_name: str) -> str:
+    """Load a financial skill markdown file."""
+    path = SKILLS_DIR / f"{skill_name}.md"
+    if path.exists():
+        return path.read_text()
+    return ""
+
 
 SYSTEM_PROMPT = """You are the Financial Modelling agent in a multi-agent business plan system.
 Your role: build a financial model where every number traces to an upstream assumption, growth rates
@@ -146,90 +148,74 @@ You must respond with ONLY a valid JSON object. No markdown, no code blocks, no 
 """
 
 
-def _load_skill(skill_name: str) -> str:
-    """Load a financial skill markdown file."""
-    path = SKILLS_DIR / f"{skill_name}.md"
-    if path.exists():
-        return path.read_text()
-    return ""
+class FinancialModellingAgent(BaseChildAgent):
+    SYSTEM_PROMPT = SYSTEM_PROMPT
+    AGENT_NAME = "FinancialModelling"
+    AGENT_ROLE = (
+        "Financial Modelling — you build 3-statement models, break-even analysis, "
+        "DCF valuation, and integrate Monte Carlo simulation results into the financial plan"
+    )
+    SECTION_NUMBER = "12"
+    MODEL_ENV = "CLAUDE_SONNET_MODEL"
+    MODEL_DEFAULT = "claude-sonnet-4-20250514"
+    INPUT_SCHEMA = FinancialModellingInput
+    OUTPUT_SCHEMA = FinancialModellingOutput
 
-
-class ListenBehaviour(CyclicBehaviour):
-
-    async def run(self):
-        msg = await self.receive(timeout=5)
-        if msg is None:
-            return
-
-        performative = msg.get_metadata("performative")
-        task_id = msg.get_metadata("task_id")
-        session_id = msg.get_metadata("session_id")
-        pipeline_run_id = msg.get_metadata("pipeline_run_id")
-        content = json.loads(msg.body)
-        sender = str(msg.sender)
-
-        if performative == "request":
-            await self.agent.handle_request(task_id, session_id, pipeline_run_id, content)
-        elif performative == "revise":
-            await self.agent.handle_revise(task_id, session_id, pipeline_run_id, content)
-        elif performative == "propose":
-            await self.agent.handle_propose(task_id, session_id, pipeline_run_id, sender, content)
-
-
-class FinancialModellingAgent(Agent):
-
-    def __init__(self, jid: str, password: str):
-        super().__init__(jid, password)
-        self.redis = RedisClient()
-        self.model_id = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
-        self.bedrock = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"))
-        self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
+    def __init__(self, bus=None):
+        super().__init__(bus=bus)
         self.simpy_runs = int(os.getenv("SIMPY_SIMULATION_RUNS", "1000"))
 
-    async def setup(self):
-        logger.info("[FinancialModelling] Starting")
-        self.add_behaviour(ListenBehaviour())
-        signal_ready(self.redis, "financial_modelling")
+    def _default_gap_key(self) -> str:
+        return "cost_structure"
 
-    async def _send_msg(self, msg: Message):
-        class _Send(OneShotBehaviour):
-            async def run(self_b):
-                await self_b.send(msg)
-        b = _Send()
-        self.add_behaviour(b)
-        await b.join(timeout=10)
+    def reasoning_budget(self, revision_required: bool) -> int:
+        return 4
 
-    async def handle_request(self, task_id, session_id, pipeline_run_id, content):
-        task = content.get("task", {})
-        input_package = task.get("input_package", {})
-
-        try:
-            validated_input = FinancialModellingInput(
-                task_id=task_id,
-                session_id=session_id,
-                revenue_assumptions=input_package.get("revenue_assumptions", {}),
-                cac_assumptions=input_package.get("cac_assumptions", {}),
-                cost_structure=input_package.get("cost_structure", {}),
-                headcount_plan=input_package.get("headcount_plan", {}),
-                business_type=input_package.get("business_type", ""),
-                opportunity_description=input_package.get("opportunity_description", ""),
-                market_context=input_package.get("market_context", ""),
-                simpy_runs=self.simpy_runs,
-                acceptance_criteria=task.get("acceptance_criteria", ""),
-            )
-        except Exception as e:
-            logger.error("[FinancialModelling] Input validation failed: %s", e)
-            await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
-            return
-
-        rag_context = rag_enrich(
+    def _rag_enrich(self) -> str:
+        return rag_enrich(
             "pricing decisions revenue costs funding WTP financial projections",
             section="12",
         )
-        if rag_context:
-            input_package["rag_financial_context"] = rag_context
 
-        sim_assumptions = self._build_sim_assumptions(validated_input)
+    def _extract_input(self, input_package: dict, task: dict) -> dict:
+        return {
+            "revenue_assumptions": input_package.get("revenue_assumptions", {}),
+            "cac_assumptions": input_package.get("cac_assumptions", {}),
+            "cost_structure": input_package.get("cost_structure", {}),
+            "headcount_plan": input_package.get("headcount_plan", {}),
+            "business_type": input_package.get("business_type", ""),
+            "opportunity_description": input_package.get("opportunity_description", ""),
+            "market_context": input_package.get("market_context", ""),
+            "simpy_runs": self.simpy_runs,
+            "acceptance_criteria": task.get("acceptance_criteria", ""),
+        }
+
+    def _build_sim_assumptions(self, input_package: dict) -> dict:
+        rev = input_package.get("revenue_assumptions", {})
+        cac = input_package.get("cac_assumptions", {})
+        costs = input_package.get("cost_structure", {})
+        hc = input_package.get("headcount_plan", {})
+
+        year1_hc_cost = hc.get("year_1", {}).get("cost", 240000)
+
+        return {
+            "price_per_unit": rev.get("price_per_unit", 100),
+            "volume_year1": rev.get("volume_year1", 100),
+            "volume_year2": rev.get("volume_year2", 500),
+            "volume_year3": rev.get("volume_year3", 1500),
+            "sales_cycle_months": rev.get("sales_cycle_months", 3),
+            "churn_rate": rev.get("churn_rate", 0.12),
+            "conversion_rate": rev.get("conversion_rate", 0.01),
+            "cac": cac.get("cac_estimate", 500),
+            "fixed_costs_monthly": costs.get("fixed_costs_monthly", 10000),
+            "variable_cost_per_unit": costs.get("cogs_per_unit", 0),
+            "headcount_cost_monthly": year1_hc_cost / 12,
+            "initial_cash": costs.get("initial_cash", 100000),
+            "leads_per_month": rev.get("leads_per_month", 1000),
+        }
+
+    def _build_ie_input_data(self, input_package: dict) -> dict:
+        sim_assumptions = self._build_sim_assumptions(input_package)
         logger.info("[FinancialModelling] Running SimPy with %d runs", self.simpy_runs)
         try:
             sim_results = run_simulation(sim_assumptions, num_runs=self.simpy_runs)
@@ -242,6 +228,7 @@ class FinancialModellingAgent(Agent):
             from memory.supabase_client import log_event
             from tools.trace_emitter import emit_trace
 
+            session_id = input_package.get("session_id", "")
             log_event(
                 agent_id="financial_modelling",
                 action="simulation_error",
@@ -251,9 +238,8 @@ class FinancialModellingAgent(Agent):
                 input_ref=json.dumps(sim_assumptions, default=str)[:500],
                 output_ref=str(e)[:500],
             )
-            trace_key = str(input_package.get("session_id", session_id))
             emit_trace(
-                trace_key,
+                str(session_id),
                 "FinancialModelling",
                 "simulation_error",
                 "Financial simulation failed — section 12 will need manual "
@@ -271,21 +257,17 @@ class FinancialModellingAgent(Agent):
 
         skills_loaded = []
         skills_content = ""
-        for skill_name in validated_input.financial_skills:
+        for skill_name in input_package.get("financial_skills", DEFAULT_FINANCIAL_SKILLS):
             skill_text = _load_skill(skill_name)
             if skill_text:
                 skills_content += f"\n\n--- SKILL: {skill_name} ---\n{skill_text}"
                 skills_loaded.append(skill_name)
 
-        cross_context = input_package.get("cross_section_context", {})
-        learning_context = input_package.get("learning_context", "")
+        # Stash for _augment_parsed (runs after IE/fallback, before output validation)
+        input_package["_sim_results"] = sim_results
+        input_package["_skills_loaded"] = skills_loaded
 
-        revision_required = input_package.get("revision_required", False)
-        revision_feedback = input_package.get("revision_feedback", "")
-        if revision_required and revision_feedback:
-            learning_context += f"\n\nMANDATORY REVISIONS (from quality review):\n{revision_feedback}\nFix these issues. Do NOT weaken your analysis — make it more rigorous."
-
-        input_data = {
+        return {
             "revenue_assumptions": input_package.get("revenue_assumptions", {}),
             "cac_assumptions": input_package.get("cac_assumptions", {}),
             "cost_structure": input_package.get("cost_structure", {}),
@@ -298,81 +280,15 @@ class FinancialModellingAgent(Agent):
             "live_market_data": _get_live_market_data("12"),
         }
 
-        parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(
-            agent_role=(
-                "Financial Modelling — you build 3-statement models, break-even analysis, "
-                "DCF valuation, and integrate Monte Carlo simulation results into the financial plan"
-            ),
-            input_data=input_data,
-            output_schema_prompt=self._build_schema_prompt(),
-            cross_section_context=cross_context if cross_context else None,
-            reasoning_budget=4,
-            learning_context=learning_context,
-        )
+    def _augment_parsed(self, parsed: dict, input_package: dict) -> dict:
+        sim_results = input_package.get("_sim_results", {}) or {}
+        parsed["simpy_runs_completed"] = sim_results.get("runs_completed")
+        parsed["financial_skills_applied"] = input_package.get("_skills_loaded", [])
+        parsed["probability_distribution"] = sim_results.get("probability_distribution")
+        parsed["primary_risk_factor"] = sim_results.get("primary_risk_factor")
+        return parsed
 
-        if not parsed:
-            user_message = self._build_prompt(validated_input, sim_results, skills_content)
-            llm_response, fallback_usage = await self._call_llm(user_message)
-            if not llm_response:
-                await self._escalate(task_id, session_id, pipeline_run_id, "weak_evidence", "Intelligence engine and fallback both failed")
-                return
-            parsed = self._parse_llm_response(llm_response, validated_input)
-            token_usage["input_tokens"] = token_usage.get("input_tokens", 0) + fallback_usage.get("input_tokens", 0)
-            token_usage["output_tokens"] = token_usage.get("output_tokens", 0) + fallback_usage.get("output_tokens", 0)
-
-        try:
-            parsed["task_id"] = task_id
-            parsed["model_used"] = self.model_id
-            parsed["input_tokens"] = token_usage.get("input_tokens", 0)
-            parsed["output_tokens"] = token_usage.get("output_tokens", 0)
-            parsed["simpy_runs_completed"] = sim_results["runs_completed"]
-            parsed["financial_skills_applied"] = skills_loaded
-            parsed["probability_distribution"] = sim_results["probability_distribution"]
-            parsed["primary_risk_factor"] = sim_results["primary_risk_factor"]
-            validated_output = FinancialModellingOutput(**parsed)
-        except Exception as e:
-            logger.error("[FinancialModelling] Output validation failed: %s", e)
-            await self._escalate(task_id, session_id, pipeline_run_id, "output_conflict", str(e))
-            return
-
-        result = validated_output.model_dump()
-        result["reasoning_trace"] = reasoning_trace
-
-        await self._check_contradictions(task_id, session_id, pipeline_run_id, validated_input, sim_results, result)
-        await self._send_inform(task_id, session_id, pipeline_run_id, result)
-
-    async def _check_contradictions(self, task_id, session_id, pipeline_run_id, inp, sim_results, output):
-        """Detect input contradictions and fire propose if found."""
-        rev = inp.revenue_assumptions
-        price = rev.get("price_per_unit", 0)
-        vol1 = rev.get("volume_year1", 0)
-        marketing_year1_revenue = price * vol1
-
-        break_even = output.get("break_even_analysis", {})
-        baseline_month = break_even.get("baseline_month", 0)
-
-        # If simulation says break-even >30 months but marketing implies profitability in year 1
-        if baseline_month > 30 and marketing_year1_revenue > 0:
-            ratio = baseline_month / 12
-            if ratio > 2.5:
-                mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-                msg = Message(to=mother_jid)
-                msg.set_metadata("performative", "propose")
-                msg.set_metadata("task_id", task_id)
-                msg.set_metadata("session_id", session_id)
-                msg.set_metadata("pipeline_run_id", pipeline_run_id)
-                msg.body = json.dumps({
-                    "target_agent": "marketing_strategy",
-                    "proposal": f"Revenue assumptions yield break-even at month {baseline_month}, "
-                                f"which conflicts with marketing's volume projections. "
-                                f"Suggest revising volume_year1 upward or reducing CAC estimate.",
-                    "field": "revenue_assumptions",
-                    "evidence": {"break_even_month": baseline_month, "marketing_year1_revenue": marketing_year1_revenue},
-                })
-                await self._send_msg(msg)
-                logger.info("[FinancialModelling] Proposed revenue adjustment to marketing agent")
-
-    async def handle_revise(self, task_id, session_id, pipeline_run_id, content):
+    async def handle_revise(self, task_id: str, session_id: str, pipeline_run_id: str, content: dict):
         """Handle revision request from Council Agent."""
         revision_instructions = content.get("revision_instructions", "")
         original_output = content.get("original_output", {})
@@ -396,39 +312,55 @@ class FinancialModellingAgent(Agent):
         revised_content = {"task": {"input_package": input_package, "task_id": task_id}}
         await self.handle_request(task_id, session_id, pipeline_run_id, revised_content)
 
-    async def handle_propose(self, task_id, session_id, pipeline_run_id, sender, content):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "inform")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"status": "accepted", "proposal": content.get("proposal", "")})
-        await self._send_msg(msg)
+    async def _post_process(self, task_id: str, session_id: str, pipeline_run_id: str, validated_input: FinancialModellingInput, result: dict):
+        """Detect input contradictions and propose a fix to marketing agent."""
+        rev = validated_input.revenue_assumptions
+        price = rev.get("price_per_unit", 0)
+        vol1 = rev.get("volume_year1", 0)
+        marketing_year1_revenue = price * vol1
 
-    def _build_sim_assumptions(self, inp: FinancialModellingInput) -> dict:
-        rev = inp.revenue_assumptions
-        cac = inp.cac_assumptions
-        costs = inp.cost_structure
-        hc = inp.headcount_plan
+        break_even = result.get("break_even_analysis", {})
+        baseline_month = break_even.get("baseline_month", 0)
 
-        year1_hc_cost = hc.get("year_1", {}).get("cost", 240000)
+        # If simulation says break-even >30 months but marketing implies profitability in year 1
+        if baseline_month > 30 and marketing_year1_revenue > 0:
+            ratio = baseline_month / 12
+            if ratio > 2.5 and self._bus is not None:
+                msg = ACLMessage(
+                    sender="financial_modelling",
+                    receiver="mother_agent",
+                    performative="propose",
+                    content={
+                        "target_agent": "marketing_strategy",
+                        "proposal": f"Revenue assumptions yield break-even at month {baseline_month}, "
+                                    f"which conflicts with marketing's volume projections. "
+                                    f"Suggest revising volume_year1 upward or reducing CAC estimate.",
+                        "field": "revenue_assumptions",
+                        "evidence": {"break_even_month": baseline_month, "marketing_year1_revenue": marketing_year1_revenue},
+                    },
+                    task_id=task_id,
+                    session_id=session_id,
+                    pipeline_run_id=pipeline_run_id,
+                )
+                await self._bus.send(msg)
+                logger.info("[FinancialModelling] Proposed revenue adjustment to marketing agent")
 
-        return {
-            "price_per_unit": rev.get("price_per_unit", 100),
-            "volume_year1": rev.get("volume_year1", 100),
-            "volume_year2": rev.get("volume_year2", 500),
-            "volume_year3": rev.get("volume_year3", 1500),
-            "sales_cycle_months": rev.get("sales_cycle_months", 3),
-            "churn_rate": rev.get("churn_rate", 0.12),
-            "conversion_rate": rev.get("conversion_rate", 0.01),
-            "cac": cac.get("cac_estimate", 500),
-            "fixed_costs_monthly": costs.get("fixed_costs_monthly", 10000),
-            "variable_cost_per_unit": costs.get("cogs_per_unit", 0),
-            "headcount_cost_monthly": year1_hc_cost / 12,
-            "initial_cash": costs.get("initial_cash", 100000),
-            "leads_per_month": rev.get("leads_per_month", 1000),
-        }
+    async def _send_inform(self, task_id: str, session_id: str, pipeline_run_id: str, output: dict):
+        """Financial model output goes to the Council Agent."""
+        content = {"output": output, "section_number": self.SECTION_NUMBER, "agent_name": "financial_modelling"}
+        if self._bus is not None:
+            msg = ACLMessage(
+                sender="financial_modelling",
+                receiver="council_agent",
+                performative="inform",
+                content=content,
+                task_id=task_id,
+                session_id=session_id,
+                pipeline_run_id=pipeline_run_id,
+            )
+            await self._bus.send(msg)
+            return
+        logger.error("[FinancialModelling] No message bus — cannot send inform")
 
     def _build_schema_prompt(self) -> str:
         return """Return ONLY valid JSON with these exact keys IN THIS ORDER:
@@ -448,19 +380,19 @@ CONSTRAINTS: Total output must be under 4000 tokens. Use numbers and short phras
 
 NOTE: probability_distribution, primary_risk_factor, simpy_runs_completed, financial_skills_applied, model_used, and task_id will be added automatically. Do NOT include them."""
 
-    def _build_prompt(self, inp: FinancialModellingInput, sim_results: dict, skills_content: str) -> str:
+    def _build_prompt(self, validated_input: FinancialModellingInput, sim_results: dict = None, skills_content: str = "") -> str:
         return f"""Build a complete financial model for this business.
 
-REVENUE ASSUMPTIONS: {json.dumps(inp.revenue_assumptions, indent=2)}
-CAC ASSUMPTIONS: {json.dumps(inp.cac_assumptions, indent=2)}
-COST STRUCTURE: {json.dumps(inp.cost_structure, indent=2)}
-HEADCOUNT PLAN: {json.dumps(inp.headcount_plan, indent=2)}
-BUSINESS TYPE: {inp.business_type}
-OPPORTUNITY: {inp.opportunity_description}
-MARKET CONTEXT: {inp.market_context}
+REVENUE ASSUMPTIONS: {json.dumps(validated_input.revenue_assumptions, indent=2)}
+CAC ASSUMPTIONS: {json.dumps(validated_input.cac_assumptions, indent=2)}
+COST STRUCTURE: {json.dumps(validated_input.cost_structure, indent=2)}
+HEADCOUNT PLAN: {json.dumps(validated_input.headcount_plan, indent=2)}
+BUSINESS TYPE: {validated_input.business_type}
+OPPORTUNITY: {validated_input.opportunity_description}
+MARKET CONTEXT: {validated_input.market_context}
 
 SIMPY SIMULATION RESULTS (1000 runs):
-{json.dumps(sim_results, indent=2)}
+{json.dumps(sim_results or {}, indent=2)}
 
 FINANCIAL SKILLS (follow these methodologies):
 {skills_content}
@@ -483,22 +415,24 @@ CONSTRAINTS: Total output must be under 4000 tokens. Use numbers and short phras
 NOTE: probability_distribution, primary_risk_factor, simpy_runs_completed, financial_skills_applied, model_used, and task_id will be added automatically. Do NOT include them.
 """
 
-    def _parse_llm_response(self, raw: str, inp: FinancialModellingInput) -> dict:
-        """Parse LLM response with retry before falling back to defaults."""
+    def _parse_llm_response(self, raw: str, validated_input: FinancialModellingInput) -> dict:
         result = parse_json_with_retry(
             raw=raw,
             bedrock_client=self.bedrock,
             model_id=self.model_id,
             system_prompt=SYSTEM_PROMPT,
-            user_message=self._build_prompt(inp, {}, ""),
+            user_message=self._build_prompt(validated_input, {}, ""),
             agent_name="FinancialModelling",
             max_tokens=8192,
         )
         if result is not None:
             return result
 
-        logger.warning("[FinancialModelling] Both parse attempts failed, constructing fallback")
-        rev = inp.revenue_assumptions
+        logger.warning("[FinancialModelling] Both parse attempts failed, using fallback")
+        return self._fallback_defaults(validated_input)
+
+    def _fallback_defaults(self, validated_input: FinancialModellingInput) -> dict:
+        rev = validated_input.revenue_assumptions
         price = rev.get("price_per_unit", 100)
         vol1 = rev.get("volume_year1", 100)
         return {
@@ -519,65 +453,3 @@ NOTE: probability_distribution, primary_risk_factor, simpy_runs_completed, finan
             "input_tokens": 0,
             "output_tokens": 0,
         }
-
-    async def _call_llm(self, user_message: str) -> tuple[Optional[str], dict]:
-        try:
-            response = self.bedrock.converse(
-                modelId=self.model_id,
-                system=[{"text": SYSTEM_PROMPT}],
-                messages=[{"role": "user", "content": [{"text": user_message}]}],
-                inferenceConfig={"maxTokens": 8192},
-            )
-            usage = response.get("usage", {})
-            text = response["output"]["message"]["content"][0]["text"]
-            return text, {"input_tokens": usage.get("inputTokens", 0), "output_tokens": usage.get("outputTokens", 0)}
-        except Exception as e:
-            logger.error("[FinancialModelling] LLM call failed: %s", e)
-            return None, {}
-
-    async def _escalate(self, task_id, session_id, pipeline_run_id, trigger, notes):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "escalate")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"trigger": trigger, "notes": notes, "section": "12", "gap_key": "cost_structure"})
-        await self._send_msg(msg)
-
-    async def _send_inform(self, task_id, session_id, pipeline_run_id, output):
-        council_jid = os.getenv("COUNCIL_AGENT_JID", "")
-        target_jid = council_jid if council_jid else os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=target_jid)
-        msg.set_metadata("performative", "inform")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({
-            "output": output,
-            "section_number": "12",
-            "agent_name": "financial_modelling",
-        })
-        await self._send_msg(msg)
-
-
-async def main():
-    from dotenv import load_dotenv
-    load_dotenv()
-    jid = os.getenv("FINANCIAL_MODELLING_JID")
-    password = os.getenv("FINANCIAL_MODELLING_PASSWORD")
-    if not jid or not password:
-        raise ValueError("FINANCIAL_MODELLING_JID and PASSWORD must be set")
-    agent = FinancialModellingAgent(jid=jid, password=password)
-    await agent.start(auto_register=True)
-    try:
-        while agent.is_alive():
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        await agent.stop()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

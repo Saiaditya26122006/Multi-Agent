@@ -40,19 +40,19 @@ import logging
 import os
 import time
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 import boto3
 from botocore.config import Config as BotoConfig
 
 try:
-    from spade.agent import Agent
+    from spade.agent import Agent as _SpadeAgent
     from spade.behaviour import CyclicBehaviour, OneShotBehaviour
     from spade.message import Message
     SPADE_AVAILABLE = True
 except ImportError:
     SPADE_AVAILABLE = False
-    Agent = object
+    _SpadeAgent = object
     CyclicBehaviour = object
     OneShotBehaviour = object
     Message = None
@@ -86,31 +86,57 @@ def get_shared_bedrock_client():
     return _shared_bedrock_client
 
 
-class ChildListenBehaviour(CyclicBehaviour):
-    """Standard listener that routes SPADE messages to agent handler methods."""
+class CircuitBreaker:
+    """Trips after consecutive failures, failing fast during cooldown."""
 
-    async def run(self):
-        msg = await self.receive(timeout=5)
-        if msg is None:
-            return
+    def __init__(self, failure_threshold: int = 3, cooldown_seconds: float = 30.0):
+        self._failure_threshold = failure_threshold
+        self._cooldown_seconds = cooldown_seconds
+        self._consecutive_failures: int = 0
+        self._last_failure_time: float = 0.0
+        self._state: str = "closed"
 
-        performative = msg.get_metadata("performative")
-        task_id = msg.get_metadata("task_id")
-        session_id = msg.get_metadata("session_id")
-        pipeline_run_id = msg.get_metadata("pipeline_run_id")
-        content = json.loads(msg.body)
-        sender = str(msg.sender)
+    @property
+    def is_open(self) -> bool:
+        if self._state == "open":
+            if (time.time() - self._last_failure_time) > self._cooldown_seconds:
+                self._state = "half_open"
+                return False
+            return True
+        return False
 
-        if performative == "request":
-            await self.agent.handle_request(task_id, session_id, pipeline_run_id, content)
-        elif performative == "revise":
-            await self.agent.handle_revise(task_id, session_id, pipeline_run_id, content)
-        elif performative == "propose":
-            await self.agent.handle_propose(task_id, session_id, pipeline_run_id, sender, content)
+    def record_success(self) -> None:
+        self._consecutive_failures = 0
+        self._state = "closed"
+
+    def record_failure(self) -> None:
+        self._consecutive_failures += 1
+        self._last_failure_time = time.time()
+        if self._consecutive_failures >= self._failure_threshold:
+            self._state = "open"
+            logger.warning(
+                "Circuit breaker OPEN — %d consecutive failures, cooling down %ds",
+                self._consecutive_failures, self._cooldown_seconds,
+            )
+
+    @property
+    def state(self) -> str:
+        return self._state
 
 
-class BaseChildAgent(Agent, ABC):
-    """Abstract base for all Phase 2 section-producing agents."""
+_bedrock_circuit_breaker = CircuitBreaker(failure_threshold=3, cooldown_seconds=30.0)
+
+
+def get_circuit_breaker() -> CircuitBreaker:
+    return _bedrock_circuit_breaker
+
+
+class BaseChildAgent(ABC):
+    """Abstract base for all Phase 2 section-producing agents.
+
+    Primary transport: MessageBus (in-process async).
+    Legacy fallback: SPADE/XMPP (if bus not provided and SPADE_AVAILABLE).
+    """
 
     SYSTEM_PROMPT: str = ""
     AGENT_NAME: str = ""
@@ -125,8 +151,7 @@ class BaseChildAgent(Agent, ABC):
     LLM_RETRY_BACKOFF: tuple = (2, 4, 8)
     LLM_MAX_TOKENS: int = 4096
 
-    def __init__(self, jid: str, password: str):
-        super().__init__(jid, password)
+    def __init__(self, bus: Optional[MessageBus] = None):
         self.redis = RedisClient()
         self.model_id = os.getenv(self.MODEL_ENV, self.MODEL_DEFAULT)
         self.bedrock = get_shared_bedrock_client()
@@ -134,22 +159,52 @@ class BaseChildAgent(Agent, ABC):
         self.beliefs = AgentBeliefStore(
             agent_name=self.AGENT_NAME, redis_client=self.redis
         )
-        self._message_bus: Optional[MessageBus] = None
+        self._bus = bus
+        from agents.phase2.knowledge_graph import get_knowledge_graph
+        self._knowledge_graph = get_knowledge_graph()
 
-    async def setup(self):
-        logger.info("[%s] Starting", self.AGENT_NAME)
-        self.add_behaviour(ChildListenBehaviour())
-        signal_ready(self.redis, self.AGENT_NAME.lower().replace(" ", "_"))
+    async def start(self, bus: Optional[MessageBus] = None, register_as: Optional[str] = None) -> None:
+        """Register this agent on the message bus and signal readiness.
 
-    # ── Message sending ──────────────────────────────────────────────────────
+        `register_as` should be the agent's roster key (e.g. "environment_research").
+        Falls back to a derived name from AGENT_NAME when not provided, but that
+        derived name will NOT match snake_case roster keys for multi-word agents —
+        callers dispatching via the roster (e.g. PipelineOrchestrator) must pass it.
+        """
+        if bus is not None:
+            self._bus = bus
+        agent_key = register_as or self.AGENT_NAME.lower().replace(" ", "_")
+        if self._bus is not None:
+            self._bus.register(agent_key, self._handle_bus_message)
+        signal_ready(self.redis, agent_key)
+        logger.info("[%s] Started as '%s' (bus=%s)", self.AGENT_NAME, agent_key, self._bus is not None)
 
-    async def _send_msg(self, msg: Message):
-        class _Send(OneShotBehaviour):
-            async def run(self_b):
-                await self_b.send(msg)
-        b = _Send()
-        self.add_behaviour(b)
-        await b.join(timeout=10)
+    async def _handle_bus_message(self, message: ACLMessage) -> Any:
+        """Route incoming bus messages to the appropriate handler."""
+        if message.performative == "request":
+            return await self.handle_request(
+                message.task_id, message.session_id,
+                message.pipeline_run_id, message.content,
+            )
+        elif message.performative == "revise":
+            return await self.handle_revise(
+                message.task_id, message.session_id,
+                message.pipeline_run_id, message.content,
+            )
+        elif message.performative == "propose":
+            return await self.handle_propose(
+                message.task_id, message.session_id,
+                message.pipeline_run_id, message.sender, message.content,
+            )
+        elif message.performative == "query":
+            return await self.handle_query(message)
+        return None
+
+    async def handle_query(self, message: ACLMessage) -> Any:
+        """Handle direct agent-to-agent queries. Override for custom logic."""
+        return {"status": "not_implemented", "agent": self.AGENT_NAME}
+
+    # ── Message sending (bus-first, SPADE fallback) ──────────────────────────
 
     async def _escalate(
         self,
@@ -159,44 +214,64 @@ class BaseChildAgent(Agent, ABC):
         trigger: str,
         notes: str,
     ):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "escalate")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({
+        content = {
             "trigger": trigger,
             "notes": notes,
             "section": self.SECTION_NUMBER,
             "gap_key": self._default_gap_key(),
-        })
-        await self._send_msg(msg)
+        }
+        await self._send_to_mother("escalate", task_id, session_id, pipeline_run_id, content)
 
     async def _send_inform(self, task_id: str, session_id: str, pipeline_run_id: str, output: dict):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "inform")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"output": output, "section_number": self.SECTION_NUMBER})
-        await self._send_msg(msg)
+        content = {"output": output, "section_number": self.SECTION_NUMBER}
+        await self._send_to_mother("inform", task_id, session_id, pipeline_run_id, content)
 
     async def _send_response(self, task_id: str, session_id: str, pipeline_run_id: str, performative: str, content: dict):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", performative)
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps(content)
-        await self._send_msg(msg)
+        await self._send_to_mother(performative, task_id, session_id, pipeline_run_id, content)
+
+    async def _send_to_mother(
+        self, performative: str, task_id: str, session_id: str, pipeline_run_id: str, content: dict
+    ):
+        """Send via message bus (preferred) or SPADE fallback."""
+        if self._bus is not None:
+            msg = ACLMessage(
+                sender=self.AGENT_NAME.lower().replace(" ", "_"),
+                receiver="mother_agent",
+                performative=performative,
+                content=content,
+                task_id=task_id,
+                session_id=session_id,
+                pipeline_run_id=pipeline_run_id,
+            )
+            await self._bus.send(msg)
+            return
+        logger.error("[%s] No message bus — cannot send %s", self.AGENT_NAME, performative)
+
+    async def query_agent(self, agent_name: str, query_content: dict, task_id: str, session_id: str, pipeline_run_id: str, timeout: float = 30.0) -> Any:
+        """Direct agent-to-agent query via message bus."""
+        if self._bus is None:
+            logger.error("[%s] No bus — cannot query %s", self.AGENT_NAME, agent_name)
+            return None
+        msg = ACLMessage(
+            sender=self.AGENT_NAME.lower().replace(" ", "_"),
+            receiver=agent_name,
+            performative="query",
+            content=query_content,
+            task_id=task_id,
+            session_id=session_id,
+            pipeline_run_id=pipeline_run_id,
+        )
+        return await self._bus.request_response(msg, timeout=timeout)
 
     # ── LLM call with retry + backoff ────────────────────────────────────────
 
     async def _call_llm(self, user_message: str) -> tuple[Optional[str], dict]:
-        """Call Bedrock with exponential backoff. Returns (text, usage) or (None, {})."""
+        """Call Bedrock with exponential backoff + circuit breaker. Returns (text, usage) or (None, {})."""
+        circuit = get_circuit_breaker()
+        if circuit.is_open:
+            logger.warning("[%s] Circuit breaker OPEN — failing fast", self.AGENT_NAME)
+            return None, {}
+
         for attempt in range(self.LLM_MAX_RETRIES):
             try:
                 response = self.bedrock.converse(
@@ -207,6 +282,7 @@ class BaseChildAgent(Agent, ABC):
                 )
                 usage = response.get("usage", {})
                 text = response["output"]["message"]["content"][0]["text"]
+                circuit.record_success()
                 return text, {
                     "input_tokens": usage.get("inputTokens", 0),
                     "output_tokens": usage.get("outputTokens", 0),
@@ -214,6 +290,7 @@ class BaseChildAgent(Agent, ABC):
             except (
                 self.bedrock.exceptions.ThrottlingException,
             ) as e:
+                circuit.record_failure()
                 wait = self.LLM_RETRY_BACKOFF[min(attempt, len(self.LLM_RETRY_BACKOFF) - 1)]
                 logger.warning(
                     "[%s] Throttled — retrying in %ds (attempt %d/%d)",
@@ -221,6 +298,7 @@ class BaseChildAgent(Agent, ABC):
                 )
                 await asyncio.sleep(wait)
             except Exception as e:
+                circuit.record_failure()
                 if "timeout" in str(e).lower() or "ReadTimeout" in type(e).__name__:
                     wait = self.LLM_RETRY_BACKOFF[min(attempt, len(self.LLM_RETRY_BACKOFF) - 1)]
                     logger.warning(
@@ -318,6 +396,8 @@ class BaseChildAgent(Agent, ABC):
             token_usage["input_tokens"] = token_usage.get("input_tokens", 0) + fallback_usage.get("input_tokens", 0)
             token_usage["output_tokens"] = token_usage.get("output_tokens", 0) + fallback_usage.get("output_tokens", 0)
 
+        parsed = self._augment_parsed(parsed, input_package)
+
         try:
             parsed["task_id"] = task_id
             parsed["model_used"] = self.model_id
@@ -385,6 +465,9 @@ class BaseChildAgent(Agent, ABC):
                 logger.error("[%s] Failed to trigger revision: %s", self.AGENT_NAME, e)
 
         self.redis.client.set(f"task_output:{task_id}", json.dumps(result, default=str), ex=3600)
+
+        # Publish key facts to the shared knowledge graph
+        self._publish_to_knowledge_graph(result)
 
         await self._post_process(task_id, session_id, pipeline_run_id, validated_input, result)
         await self._send_inform(task_id, session_id, pipeline_run_id, result)
@@ -461,6 +544,39 @@ class BaseChildAgent(Agent, ABC):
             return list(schema_fields - present_fields)
         except Exception:
             return []
+
+    # ── Knowledge Graph integration ────────────────────────────────────────────
+
+    def _publish_to_knowledge_graph(self, result: dict) -> None:
+        """Extract key facts from output and add to shared knowledge graph."""
+        try:
+            confidence_map = {"high": 0.9, "medium": 0.6, "low": 0.3, "none": 0.1}
+            confidence = confidence_map.get(result.get("confidence_score", "medium"), 0.5)
+
+            # Add main output as a fact
+            summary = result.get("executive_summary", "") or result.get("summary", "") or ""
+            if summary and len(summary) > 20:
+                self._knowledge_graph.add_fact(
+                    content=summary[:500],
+                    provenance=self.AGENT_NAME.lower().replace(" ", "_"),
+                    confidence=confidence,
+                    section=str(self.SECTION_NUMBER),
+                    category="section_output",
+                )
+
+            # Add quantitative claims as individual facts
+            for key in ("revenue_assumptions", "pricing", "break_even_analysis",
+                        "target_market_size", "headcount_plan", "icp_hypothesis"):
+                if key in result and result[key]:
+                    self._knowledge_graph.add_fact(
+                        content=f"{key}: {json.dumps(result[key], default=str)[:300]}",
+                        provenance=self.AGENT_NAME.lower().replace(" ", "_"),
+                        confidence=confidence,
+                        section=str(self.SECTION_NUMBER),
+                        category=key,
+                    )
+        except Exception as e:
+            logger.debug("[%s] Knowledge graph publish failed: %s", self.AGENT_NAME, e)
 
     # ── RAG retrieval ─────────────────────────────────────────────────────────
 
@@ -544,27 +660,15 @@ Output to analyze:
         user_prompt: str,
         max_tokens: int = 500,
     ) -> str:
-        """Simple Bedrock call without full agent machinery."""
+        """Simple Bedrock call without full agent machinery. Uses shared client."""
         try:
-            client = boto3.client(
-                "bedrock-runtime",
-                region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
-                config=BotoConfig(retries={"max_attempts": 2}, read_timeout=30),
-            )
-
-            response = client.invoke_model(
+            response = self.bedrock.converse(
                 modelId=model_id,
-                messages=[
-                    {"role": "user", "content": user_prompt}
-                ],
-                system=system_prompt,
-                max_tokens=max_tokens,
-                temperature=0,
+                system=[{"text": system_prompt}],
+                messages=[{"role": "user", "content": [{"text": user_prompt}]}],
+                inferenceConfig={"maxTokens": max_tokens, "temperature": 0},
             )
-
-            response_body = json.loads(response["body"].read())
-            text = response_body["content"][0]["text"]
-            return text
+            return response["output"]["message"]["content"][0]["text"]
         except Exception as e:
             logger.error("[%s] Bedrock call failed: %s", self.AGENT_NAME, e)
             return "{}"
@@ -758,6 +862,11 @@ Output to analyze:
         """Default gap key for escalation messages. Override if needed."""
         return "input_data"
 
+    def _augment_parsed(self, parsed: dict, input_package: dict) -> dict:
+        """Override to inject extra computed fields (e.g. simulation results) into
+        parsed output before schema validation. Default: no-op."""
+        return parsed
+
     # ── Abstract methods (must be implemented by each child) ─────────────────
 
     @abstractmethod
@@ -786,20 +895,10 @@ Output to analyze:
         ...
 
 
-async def run_child_agent(agent_class: type, jid_env: str, password_env: str):
-    """Standard main() for running a child agent standalone."""
+async def run_child_agent(agent_class: type, jid_env: str = "", password_env: str = "", bus: Optional[MessageBus] = None):
+    """Start a child agent on a message bus (preferred) or standalone for testing."""
     from dotenv import load_dotenv
     load_dotenv()
-    jid = os.getenv(jid_env)
-    password = os.getenv(password_env)
-    if not jid or not password:
-        raise ValueError(f"{jid_env} and {password_env} must be set")
-    agent = agent_class(jid=jid, password=password)
-    await agent.start(auto_register=True)
-    try:
-        while agent.is_alive():
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        await agent.stop()
+    agent = agent_class(bus=bus)
+    await agent.start(bus=bus)
+    return agent

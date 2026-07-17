@@ -11,7 +11,7 @@ import logging
 import os
 from typing import Optional
 
-import boto3
+from agents.phase2.base_child_agent import get_shared_bedrock_client
 
 from agents.phase2.llm_utils import strip_markdown_json
 
@@ -36,10 +36,7 @@ class DocumentCompiler:
     """Compiles JSON section outputs into narrative Markdown."""
 
     def __init__(self, bedrock_client=None, model_id: str = ""):
-        self.bedrock = bedrock_client or boto3.client(
-            "bedrock-runtime",
-            region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
-        )
+        self.bedrock = bedrock_client or get_shared_bedrock_client()
         self.model_id = model_id or os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
 
     async def compile(

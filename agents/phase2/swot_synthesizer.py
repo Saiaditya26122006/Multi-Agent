@@ -1,23 +1,12 @@
-import sys
-from pathlib import Path
+"""SWOT Synthesizer Agent — combines PEST, Five Forces, and org capabilities into a SWOT matrix."""
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-
-import asyncio
 import json
 import logging
-import os
-from typing import Optional
 
-import boto3
-from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour, OneShotBehaviour
-from spade.message import Message
-from agents.phase2.rag_mixin import rag_enrich, rag_check_killed
-
-from memory.redis_client import RedisClient
-from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
-from agents.phase2.intelligence_engine import IntelligenceEngine
+from agents.phase2.base_child_agent import BaseChildAgent
+from agents.phase2.llm_utils import parse_json_with_retry
+from agents.phase2.message_bus import ACLMessage
+from agents.phase2.rag_mixin import rag_enrich
 from schemas.inputs.swot_synthesizer import SWOTSynthesizerInput
 from schemas.outputs.swot_synthesizer import SWOTSynthesizerOutput
 
@@ -81,87 +70,41 @@ You must respond with ONLY a valid JSON object. No markdown, no code blocks, no 
 """
 
 
-class ListenBehaviour(CyclicBehaviour):
+class SWOTSynthesizerAgent(BaseChildAgent):
+    SYSTEM_PROMPT = SYSTEM_PROMPT
+    AGENT_NAME = "SWOTSynthesizer"
+    AGENT_ROLE = (
+        "SWOT Synthesizer — you combine PEST analysis, Five Forces, and org capabilities "
+        "into a coherent SWOT matrix with strategic implications and priority issues"
+    )
+    SECTION_NUMBER = "5"
+    MODEL_ENV = "CLAUDE_SONNET_MODEL"
+    MODEL_DEFAULT = "claude-sonnet-4-20250514"
+    INPUT_SCHEMA = SWOTSynthesizerInput
+    OUTPUT_SCHEMA = SWOTSynthesizerOutput
 
-    async def run(self):
-        msg = await self.receive(timeout=5)
-        if msg is None:
-            return
+    def _default_gap_key(self) -> str:
+        return "pest_analysis"
 
-        performative = msg.get_metadata("performative")
-        task_id = msg.get_metadata("task_id")
-        session_id = msg.get_metadata("session_id")
-        pipeline_run_id = msg.get_metadata("pipeline_run_id")
-        content = json.loads(msg.body)
-        sender = str(msg.sender)
-
-        if performative == "request":
-            await self.agent.handle_request(task_id, session_id, pipeline_run_id, content)
-        elif performative == "revise":
-            await self.agent.handle_revise(task_id, session_id, pipeline_run_id, content)
-        elif performative == "propose":
-            await self.agent.handle_propose(task_id, session_id, pipeline_run_id, sender, content)
-
-
-class SWOTSynthesizerAgent(Agent):
-
-    def __init__(self, jid: str, password: str):
-        super().__init__(jid, password)
-        self.redis = RedisClient()
-        self.model_id = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
-        self.bedrock = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"))
-        self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
-
-    async def setup(self):
-        logger.info("[SWOTSynthesizer] Starting")
-        self.add_behaviour(ListenBehaviour())
-        signal_ready(self.redis, "swot_synthesizer")
-
-    async def _send_msg(self, msg: Message):
-        class _Send(OneShotBehaviour):
-            async def run(self_b):
-                await self_b.send(msg)
-        b = _Send()
-        self.add_behaviour(b)
-        await b.join(timeout=10)
-
-    async def handle_request(self, task_id, session_id, pipeline_run_id, content):
-        task = content.get("task", {})
-        input_package = task.get("input_package", {})
-
-        try:
-            validated_input = SWOTSynthesizerInput(
-                task_id=task_id,
-                session_id=session_id,
-                pest_analysis=input_package.get("pest_analysis", []),
-                five_forces=input_package.get("five_forces", []),
-                risks_opportunities=input_package.get("risks_opportunities", {}),
-                capability_gaps=input_package.get("capability_gaps", []),
-                org_structure=input_package.get("org_structure", ""),
-                opportunity_description=input_package.get("opportunity_description", ""),
-                acceptance_criteria=task.get("acceptance_criteria", ""),
-            )
-        except Exception as e:
-            logger.error("[SWOTSynthesizer] Input validation failed: %s", e)
-            await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
-            return
-
-        rag_context = rag_enrich(
+    def _rag_enrich(self) -> str:
+        return rag_enrich(
             "SWOT strengths weaknesses opportunities threats strategic implications",
             section="5",
         )
-        if rag_context:
-            input_package["rag_swot_context"] = rag_context
 
-        cross_context = input_package.get("cross_section_context", {})
-        learning_context = input_package.get("learning_context", "")
+    def _extract_input(self, input_package: dict, task: dict) -> dict:
+        return {
+            "pest_analysis": input_package.get("pest_analysis", []),
+            "five_forces": input_package.get("five_forces", []),
+            "risks_opportunities": input_package.get("risks_opportunities", {}),
+            "capability_gaps": input_package.get("capability_gaps", []),
+            "org_structure": input_package.get("org_structure", ""),
+            "opportunity_description": input_package.get("opportunity_description", ""),
+            "acceptance_criteria": task.get("acceptance_criteria", ""),
+        }
 
-        revision_required = input_package.get("revision_required", False)
-        revision_feedback = input_package.get("revision_feedback", "")
-        if revision_required and revision_feedback:
-            learning_context += f"\n\nMANDATORY REVISIONS (from quality review):\n{revision_feedback}\nFix these issues. Do NOT weaken your analysis — make it more rigorous."
-
-        input_data = {
+    def _build_ie_input_data(self, input_package: dict) -> dict:
+        return {
             "pest_analysis": input_package.get("pest_analysis", []),
             "five_forces": input_package.get("five_forces", []),
             "risks_opportunities": input_package.get("risks_opportunities", {}),
@@ -170,46 +113,7 @@ class SWOTSynthesizerAgent(Agent):
             "opportunity_description": input_package.get("opportunity_description", ""),
         }
 
-        parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(
-            agent_role=(
-                "SWOT Synthesizer — you combine PEST analysis, Five Forces, and org capabilities "
-                "into a coherent SWOT matrix with strategic implications and priority issues"
-            ),
-            input_data=input_data,
-            output_schema_prompt=self._build_schema_prompt(),
-            cross_section_context=cross_context if cross_context else None,
-            reasoning_budget=4 if revision_required else 3,
-            learning_context=learning_context,
-        )
-
-        if not parsed:
-            user_message = self._build_prompt(validated_input)
-            llm_response, fallback_usage = await self._call_llm(user_message)
-            if not llm_response:
-                await self._escalate(task_id, session_id, pipeline_run_id, "weak_evidence", "Intelligence engine and fallback both failed")
-                return
-            parsed = self._parse_llm_response(llm_response, validated_input)
-            token_usage["input_tokens"] = token_usage.get("input_tokens", 0) + fallback_usage.get("input_tokens", 0)
-            token_usage["output_tokens"] = token_usage.get("output_tokens", 0) + fallback_usage.get("output_tokens", 0)
-
-        try:
-            parsed["task_id"] = task_id
-            parsed["model_used"] = self.model_id
-            parsed["input_tokens"] = token_usage.get("input_tokens", 0)
-            parsed["output_tokens"] = token_usage.get("output_tokens", 0)
-            validated_output = SWOTSynthesizerOutput(**parsed)
-        except Exception as e:
-            logger.error("[SWOTSynthesizer] Output validation failed: %s", e)
-            await self._escalate(task_id, session_id, pipeline_run_id, "output_conflict", str(e))
-            return
-
-        result = validated_output.model_dump()
-        result["reasoning_trace"] = reasoning_trace
-
-        await self._check_contradictions(task_id, session_id, pipeline_run_id, validated_input, result)
-        await self._send_inform(task_id, session_id, pipeline_run_id, result)
-
-    async def handle_revise(self, task_id, session_id, pipeline_run_id, content):
+    async def handle_revise(self, task_id: str, session_id: str, pipeline_run_id: str, content: dict):
         """Handle revision request from Council Agent."""
         revision_instructions = content.get("revision_instructions", "")
         original_output = content.get("original_output", {})
@@ -235,11 +139,11 @@ class SWOTSynthesizerAgent(Agent):
         revised_content = {"task": {"input_package": input_package, "task_id": task_id}}
         await self.handle_request(task_id, session_id, pipeline_run_id, revised_content)
 
-    async def _check_contradictions(self, task_id, session_id, pipeline_run_id, inp, output):
-        """Detect if SWOT threats are unaddressed by org capabilities."""
-        threats = output.get("threats", [])
+    async def _post_process(self, task_id: str, session_id: str, pipeline_run_id: str, validated_input: SWOTSynthesizerInput, result: dict):
+        """Detect if SWOT threats are unaddressed by org capabilities; propose a fix to org designer."""
+        threats = result.get("threats", [])
         high_threats = [t for t in threats if isinstance(t, dict) and t.get("impact") == "high"]
-        capability_gaps = inp.capability_gaps or []
+        capability_gaps = validated_input.capability_gaps or []
         gap_descriptions = [g.get("gap", "").lower() if isinstance(g, dict) else "" for g in capability_gaps]
 
         unaddressed = []
@@ -249,33 +153,42 @@ class SWOTSynthesizerAgent(Agent):
             if not addressed:
                 unaddressed.append(threat.get("item", ""))
 
-        if len(unaddressed) >= 2:
-            mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-            msg = Message(to=mother_jid)
-            msg.set_metadata("performative", "propose")
-            msg.set_metadata("task_id", task_id)
-            msg.set_metadata("session_id", session_id)
-            msg.set_metadata("pipeline_run_id", pipeline_run_id)
-            msg.body = json.dumps({
-                "target_agent": "organisation_designer",
-                "proposal": f"SWOT found {len(unaddressed)} high-severity threats with no matching "
-                            f"capability in org structure: {', '.join(unaddressed[:3])}. "
-                            f"Suggest adding capability_gaps or roles to address these.",
-                "field": "capability_gaps",
-                "evidence": {"unaddressed_threats": unaddressed[:3]},
-            })
-            await self._send_msg(msg)
+        if len(unaddressed) >= 2 and self._bus is not None:
+            msg = ACLMessage(
+                sender="swot_synthesizer",
+                receiver="mother_agent",
+                performative="propose",
+                content={
+                    "target_agent": "organisation_designer",
+                    "proposal": f"SWOT found {len(unaddressed)} high-severity threats with no matching "
+                                f"capability in org structure: {', '.join(unaddressed[:3])}. "
+                                f"Suggest adding capability_gaps or roles to address these.",
+                    "field": "capability_gaps",
+                    "evidence": {"unaddressed_threats": unaddressed[:3]},
+                },
+                task_id=task_id,
+                session_id=session_id,
+                pipeline_run_id=pipeline_run_id,
+            )
+            await self._bus.send(msg)
             logger.info("[SWOTSynthesizer] Proposed capability gap addition to org designer")
 
-    async def handle_propose(self, task_id, session_id, pipeline_run_id, sender, content):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "inform")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"status": "accepted", "proposal": content.get("proposal", "")})
-        await self._send_msg(msg)
+    async def _send_inform(self, task_id: str, session_id: str, pipeline_run_id: str, output: dict):
+        """SWOT output goes to the Council Agent."""
+        content = {"output": output, "section_number": self.SECTION_NUMBER, "agent_name": "swot_synthesizer"}
+        if self._bus is not None:
+            msg = ACLMessage(
+                sender="swot_synthesizer",
+                receiver="council_agent",
+                performative="inform",
+                content=content,
+                task_id=task_id,
+                session_id=session_id,
+                pipeline_run_id=pipeline_run_id,
+            )
+            await self._bus.send(msg)
+            return
+        logger.error("[SWOTSynthesizer] No message bus — cannot send inform")
 
     def _build_schema_prompt(self) -> str:
         return """Return ONLY valid JSON with these exact keys:
@@ -292,15 +205,15 @@ class SWOTSynthesizerAgent(Agent):
 - input_tokens: 0
 - output_tokens: 0"""
 
-    def _build_prompt(self, inp: SWOTSynthesizerInput) -> str:
+    def _build_prompt(self, validated_input: SWOTSynthesizerInput) -> str:
         return f"""Synthesize a SWOT matrix from these inputs.
 
-PEST ANALYSIS: {json.dumps(inp.pest_analysis, indent=2)}
-FIVE FORCES: {json.dumps(inp.five_forces, indent=2)}
-RISKS & OPPORTUNITIES: {json.dumps(inp.risks_opportunities, indent=2)}
-CAPABILITY GAPS: {json.dumps(inp.capability_gaps, indent=2)}
-ORG STRUCTURE: {inp.org_structure}
-OPPORTUNITY: {inp.opportunity_description}
+PEST ANALYSIS: {json.dumps(validated_input.pest_analysis, indent=2)}
+FIVE FORCES: {json.dumps(validated_input.five_forces, indent=2)}
+RISKS & OPPORTUNITIES: {json.dumps(validated_input.risks_opportunities, indent=2)}
+CAPABILITY GAPS: {json.dumps(validated_input.capability_gaps, indent=2)}
+ORG STRUCTURE: {validated_input.org_structure}
+OPPORTUNITY: {validated_input.opportunity_description}
 
 Return ONLY valid JSON with these exact keys:
 - section_number: "5"
@@ -317,105 +230,45 @@ Return ONLY valid JSON with these exact keys:
 - output_tokens: 0
 """
 
-    def _parse_llm_response(self, raw: str, inp: SWOTSynthesizerInput) -> dict:
-        """Parse LLM response with retry before falling back to defaults."""
+    def _parse_llm_response(self, raw: str, validated_input: SWOTSynthesizerInput) -> dict:
         result = parse_json_with_retry(
             raw=raw,
             bedrock_client=self.bedrock,
             model_id=self.model_id,
             system_prompt=SYSTEM_PROMPT,
-            user_message=self._build_prompt(inp),
+            user_message=self._build_prompt(validated_input),
             agent_name="SWOTSynthesizer",
         )
         if result is not None:
             return result
 
-        logger.warning("[SWOTSynthesizer] Both parse attempts failed, constructing fallback")
+        logger.warning("[SWOTSynthesizer] Both parse attempts failed, using fallback")
+        return self._fallback_defaults(validated_input)
+
+    def _fallback_defaults(self, validated_input: SWOTSynthesizerInput) -> dict:
         return {
-                "section_number": "5",
-                "strengths": [
-                    {"item": "Novel approach to market problem", "evidence": "Derived from opportunity description", "impact": "high"},
-                    {"item": "Founder domain knowledge", "evidence": "CEO-provided assumptions", "impact": "medium"},
-                ],
-                "weaknesses": [
-                    {"item": "Early stage with limited resources", "evidence": "Startup phase with capability gaps", "impact": "high"},
-                    {"item": "Unproven business model", "evidence": "No validated revenue data", "impact": "medium"},
-                ],
-                "opportunities": [
-                    {"item": "Growing market demand", "evidence": "Market context analysis", "impact": "high"},
-                    {"item": "Technology adoption trend", "evidence": "PEST technological factors", "impact": "medium"},
-                ],
-                "threats": [
-                    {"item": "Competitive response from incumbents", "evidence": "Five forces rivalry assessment", "impact": "high"},
-                    {"item": "Market timing risk", "evidence": "Economic uncertainty", "impact": "medium"},
-                ],
-                "strategic_implications": "The business has a viable opportunity but must move quickly to establish a competitive position before incumbents respond. Resource constraints require focused execution on highest-impact activities.",
-                "priority_strategic_issues": ["Validate product-market fit before scaling", "Secure initial funding to address capability gaps"],
-                "assumptions_used": [{"statement": "LLM output was unparseable — defaults used", "confidence": "low", "source": "assumed", "source_detail": None}],
-                "uncertainties": ["LLM response could not be parsed — full analysis not completed"],
-                "confidence_score": "low",
-                "input_tokens": 0,
-                "output_tokens": 0,
-            }
-
-    async def _call_llm(self, user_message: str) -> tuple[Optional[str], dict]:
-        try:
-            response = self.bedrock.converse(
-                modelId=self.model_id,
-                system=[{"text": SYSTEM_PROMPT}],
-                messages=[{"role": "user", "content": [{"text": user_message}]}],
-                inferenceConfig={"maxTokens": 4096},
-            )
-            usage = response.get("usage", {})
-            text = response["output"]["message"]["content"][0]["text"]
-            return text, {"input_tokens": usage.get("inputTokens", 0), "output_tokens": usage.get("outputTokens", 0)}
-        except Exception as e:
-            logger.error("[SWOTSynthesizer] LLM call failed: %s", e)
-            return None, {}
-
-    async def _escalate(self, task_id, session_id, pipeline_run_id, trigger, notes):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "escalate")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"trigger": trigger, "notes": notes, "section": "5", "gap_key": "pest_analysis"})
-        await self._send_msg(msg)
-
-    async def _send_inform(self, task_id, session_id, pipeline_run_id, output):
-        council_jid = os.getenv("COUNCIL_AGENT_JID", "")
-        target_jid = council_jid if council_jid else os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=target_jid)
-        msg.set_metadata("performative", "inform")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({
-            "output": output,
             "section_number": "5",
-            "agent_name": "swot_synthesizer",
-        })
-        await self._send_msg(msg)
-
-
-async def main():
-    from dotenv import load_dotenv
-    load_dotenv()
-    jid = os.getenv("SWOT_SYNTHESIZER_JID")
-    password = os.getenv("SWOT_SYNTHESIZER_PASSWORD")
-    if not jid or not password:
-        raise ValueError("SWOT_SYNTHESIZER_JID and PASSWORD must be set")
-    agent = SWOTSynthesizerAgent(jid=jid, password=password)
-    await agent.start(auto_register=True)
-    try:
-        while agent.is_alive():
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        await agent.stop()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+            "strengths": [
+                {"item": "Novel approach to market problem", "evidence": "Derived from opportunity description", "impact": "high"},
+                {"item": "Founder domain knowledge", "evidence": "CEO-provided assumptions", "impact": "medium"},
+            ],
+            "weaknesses": [
+                {"item": "Early stage with limited resources", "evidence": "Startup phase with capability gaps", "impact": "high"},
+                {"item": "Unproven business model", "evidence": "No validated revenue data", "impact": "medium"},
+            ],
+            "opportunities": [
+                {"item": "Growing market demand", "evidence": "Market context analysis", "impact": "high"},
+                {"item": "Technology adoption trend", "evidence": "PEST technological factors", "impact": "medium"},
+            ],
+            "threats": [
+                {"item": "Competitive response from incumbents", "evidence": "Five forces rivalry assessment", "impact": "high"},
+                {"item": "Market timing risk", "evidence": "Economic uncertainty", "impact": "medium"},
+            ],
+            "strategic_implications": "The business has a viable opportunity but must move quickly to establish a competitive position before incumbents respond. Resource constraints require focused execution on highest-impact activities.",
+            "priority_strategic_issues": ["Validate product-market fit before scaling", "Secure initial funding to address capability gaps"],
+            "assumptions_used": [{"statement": "LLM output was unparseable — defaults used", "confidence": "low", "source": "assumed", "source_detail": None}],
+            "uncertainties": ["LLM response could not be parsed — full analysis not completed"],
+            "confidence_score": "low",
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }

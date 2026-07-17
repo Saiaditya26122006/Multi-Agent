@@ -1,25 +1,13 @@
-import sys
-from pathlib import Path
+"""Marketing Strategy Agent — GTM plan, competitive positioning, CAC/LTV unit economics."""
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-
-import asyncio
 import json
 import logging
-import os
 from datetime import datetime
-from typing import Optional
 
-import boto3
-from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour, OneShotBehaviour
-
-from agents.phase2.rag_mixin import rag_enrich, rag_check_killed
-from spade.message import Message
-
-from memory.redis_client import RedisClient
-from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
-from agents.phase2.intelligence_engine import IntelligenceEngine
+from agents.phase2.base_child_agent import BaseChildAgent
+from agents.phase2.llm_utils import parse_json_with_retry
+from agents.phase2.message_bus import ACLMessage
+from agents.phase2.rag_mixin import rag_enrich
 from schemas.inputs.marketing_strategy import MarketingStrategyInput
 from schemas.outputs.marketing_strategy import MarketingStrategyOutput
 from services.search_service import search_for_section
@@ -56,6 +44,7 @@ def _get_live_market_data(section_number: str) -> str:
             f"(Source: {r['url']}, Freshness: {r['freshness']})"
         )
     return "\n".join(lines)
+
 
 SYSTEM_PROMPT = """You are the Marketing Strategy agent in a multi-agent business plan system.
 Your role: build the full marketing plan where every number traces to a conversion assumption,
@@ -220,90 +209,44 @@ You must respond with ONLY a valid JSON object. No markdown, no code blocks, no 
 """
 
 
-class ListenBehaviour(CyclicBehaviour):
+class MarketingStrategyAgent(BaseChildAgent):
+    SYSTEM_PROMPT = SYSTEM_PROMPT
+    AGENT_NAME = "MarketingStrategy"
+    AGENT_ROLE = (
+        "Marketing Strategy — you build the full marketing plan including target market, "
+        "competitive positioning, marketing mix, revenue assumptions, and CAC estimates"
+    )
+    SECTION_NUMBER = "8"
+    MODEL_ENV = "CLAUDE_SONNET_MODEL"
+    MODEL_DEFAULT = "claude-sonnet-4-20250514"
+    INPUT_SCHEMA = MarketingStrategyInput
+    OUTPUT_SCHEMA = MarketingStrategyOutput
 
-    async def run(self):
-        msg = await self.receive(timeout=5)
-        if msg is None:
-            return
+    def _default_gap_key(self) -> str:
+        return "pricing_assumption"
 
-        performative = msg.get_metadata("performative")
-        task_id = msg.get_metadata("task_id")
-        session_id = msg.get_metadata("session_id")
-        pipeline_run_id = msg.get_metadata("pipeline_run_id")
-        content = json.loads(msg.body)
-        sender = str(msg.sender)
-
-        if performative == "request":
-            await self.agent.handle_request(task_id, session_id, pipeline_run_id, content)
-        elif performative == "revise":
-            await self.agent.handle_revise(task_id, session_id, pipeline_run_id, content)
-        elif performative == "propose":
-            await self.agent.handle_propose(task_id, session_id, pipeline_run_id, sender, content)
-
-
-class MarketingStrategyAgent(Agent):
-
-    def __init__(self, jid: str, password: str):
-        super().__init__(jid, password)
-        self.redis = RedisClient()
-        self.model_id = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
-        self.bedrock = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"))
-        self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
-
-    async def setup(self):
-        logger.info("[MarketingStrategy] Starting")
-        self.add_behaviour(ListenBehaviour())
-        signal_ready(self.redis, "marketing_strategy")
-
-    async def _send_msg(self, msg: Message):
-        class _Send(OneShotBehaviour):
-            async def run(self_b):
-                await self_b.send(msg)
-        b = _Send()
-        self.add_behaviour(b)
-        await b.join(timeout=10)
-
-    async def handle_request(self, task_id, session_id, pipeline_run_id, content):
-        task = content.get("task", {})
-        input_package = task.get("input_package", {})
-
-        try:
-            validated_input = MarketingStrategyInput(
-                task_id=task_id,
-                session_id=session_id,
-                swot_matrix=input_package.get("swot_matrix", {}),
-                icp_hypothesis=input_package.get("icp_hypothesis", {}),
-                competitive_strategy=input_package.get("competitive_strategy", ""),
-                market_context=input_package.get("market_context", ""),
-                strategic_implications=input_package.get("strategic_implications", ""),
-                pricing_assumption=input_package.get("pricing_assumption"),
-                target_volume=input_package.get("target_volume"),
-                cac_assumptions=input_package.get("cac_assumptions"),
-                partnership_targets=input_package.get("partnership_targets"),
-                acceptance_criteria=task.get("acceptance_criteria", ""),
-            )
-        except Exception as e:
-            logger.error("[MarketingStrategy] Input validation failed: %s", e)
-            await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
-            return
-
-        rag_context = rag_enrich(
+    def _rag_enrich(self) -> str:
+        return rag_enrich(
             "GTM sales motion ICP buyers marketing positioning geography",
             section="8",
         )
-        if rag_context:
-            input_package["rag_marketing_context"] = rag_context
 
-        cross_context = input_package.get("cross_section_context", {})
-        learning_context = input_package.get("learning_context", "")
+    def _extract_input(self, input_package: dict, task: dict) -> dict:
+        return {
+            "swot_matrix": input_package.get("swot_matrix", {}),
+            "icp_hypothesis": input_package.get("icp_hypothesis", {}),
+            "competitive_strategy": input_package.get("competitive_strategy", ""),
+            "market_context": input_package.get("market_context", ""),
+            "strategic_implications": input_package.get("strategic_implications", ""),
+            "pricing_assumption": input_package.get("pricing_assumption"),
+            "target_volume": input_package.get("target_volume"),
+            "cac_assumptions": input_package.get("cac_assumptions"),
+            "partnership_targets": input_package.get("partnership_targets"),
+            "acceptance_criteria": task.get("acceptance_criteria", ""),
+        }
 
-        revision_required = input_package.get("revision_required", False)
-        revision_feedback = input_package.get("revision_feedback", "")
-        if revision_required and revision_feedback:
-            learning_context += f"\n\nMANDATORY REVISIONS (from quality review):\n{revision_feedback}\nFix these issues. Do NOT weaken your analysis — make it more rigorous."
-
-        input_data = {
+    def _build_ie_input_data(self, input_package: dict) -> dict:
+        return {
             "swot_matrix": input_package.get("swot_matrix", {}),
             "icp_hypothesis": input_package.get("icp_hypothesis", {}),
             "competitive_strategy": input_package.get("competitive_strategy", ""),
@@ -315,73 +258,7 @@ class MarketingStrategyAgent(Agent):
             "live_market_data": _get_live_market_data("8"),
         }
 
-        parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(
-            agent_role=(
-                "Marketing Strategy — you build the full marketing plan including target market, "
-                "competitive positioning, marketing mix, revenue assumptions, and CAC estimates"
-            ),
-            input_data=input_data,
-            output_schema_prompt=self._build_schema_prompt(),
-            cross_section_context=cross_context if cross_context else None,
-            reasoning_budget=4 if revision_required else 3,
-            learning_context=learning_context,
-        )
-
-        if not parsed:
-            user_message = self._build_prompt(validated_input)
-            llm_response, fallback_usage = await self._call_llm(user_message)
-            if not llm_response:
-                await self._escalate(task_id, session_id, pipeline_run_id, "weak_evidence", "Intelligence engine and fallback both failed")
-                return
-            parsed = self._parse_llm_response(llm_response, validated_input)
-            token_usage["input_tokens"] = token_usage.get("input_tokens", 0) + fallback_usage.get("input_tokens", 0)
-            token_usage["output_tokens"] = token_usage.get("output_tokens", 0) + fallback_usage.get("output_tokens", 0)
-
-        try:
-            parsed["task_id"] = task_id
-            parsed["model_used"] = self.model_id
-            parsed["input_tokens"] = token_usage.get("input_tokens", 0)
-            parsed["output_tokens"] = token_usage.get("output_tokens", 0)
-            validated_output = MarketingStrategyOutput(**parsed)
-        except Exception as e:
-            logger.error("[MarketingStrategy] Output validation failed: %s", e)
-            await self._escalate(task_id, session_id, pipeline_run_id, "output_conflict", str(e))
-            return
-
-        # 🚨 MAGIC RATIO GUARDRAIL — Enforce LTV:CAC >= 3.0
-        unit_economics = validated_output.unit_economics
-        ltv_cac_ratio = unit_economics.ltv_cac_ratio
-        magic_ratio_pass = unit_economics.magic_ratio_pass
-        justification = unit_economics.magic_ratio_justification
-
-        if ltv_cac_ratio < 3.0 and not magic_ratio_pass:
-            # HARD STOP — escalate to CEO
-            logger.error(
-                "[MarketingStrategy] MAGIC RATIO FAILURE — LTV:CAC %.2f < 3.0, no valid justification",
-                ltv_cac_ratio
-            )
-            await self._escalate(
-                task_id, session_id, pipeline_run_id,
-                trigger="unit_economics_failure",
-                notes=f"LTV:CAC ratio is {ltv_cac_ratio:.2f} (below 3:1 threshold). "
-                      f"Options: (1) Increase pricing → raises LTV, (2) Reduce CAC via cheaper channels, "
-                      f"(3) Increase retention (lower churn) → extends customer lifetime, "
-                      f"(4) Provide valid justification (marketplace network effects, land-and-expand, VC-funded land grab)."
-            )
-            return
-
-        if ltv_cac_ratio < 3.0 and magic_ratio_pass:
-            # Exception granted — log justification
-            logger.warning(
-                "[MarketingStrategy] Magic ratio exception granted — LTV:CAC %.2f < 3.0 with justification: %s",
-                ltv_cac_ratio, justification[:100]
-            )
-
-        result = validated_output.model_dump()
-        result["reasoning_trace"] = reasoning_trace
-        await self._send_inform(task_id, session_id, pipeline_run_id, result)
-
-    async def handle_revise(self, task_id, session_id, pipeline_run_id, content):
+    async def handle_revise(self, task_id: str, session_id: str, pipeline_run_id: str, content: dict):
         """Handle revision request from Council Agent."""
         revision_instructions = content.get("revision_instructions", "")
         original_output = content.get("original_output", {})
@@ -404,30 +281,65 @@ class MarketingStrategyAgent(Agent):
         revised_content = {"task": {"input_package": input_package, "task_id": task_id}}
         await self.handle_request(task_id, session_id, pipeline_run_id, revised_content)
 
-    async def handle_propose(self, task_id, session_id, pipeline_run_id, sender, content):
+    async def handle_propose(self, task_id: str, session_id: str, pipeline_run_id: str, sender: str, content: dict):
         proposal = content.get("proposal", "")
         field = content.get("field", "")
         if field in ("revenue_assumptions", "cac_assumptions"):
-            mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-            msg = Message(to=mother_jid)
-            msg.set_metadata("performative", "refuse")
-            msg.set_metadata("task_id", task_id)
-            msg.set_metadata("session_id", session_id)
-            msg.set_metadata("pipeline_run_id", pipeline_run_id)
-            msg.body = json.dumps({
-                "original_proposer": sender,
-                "reason": "Revenue/CAC assumptions are derived from market analysis — cannot accept external override without evidence",
-            })
-            await self._send_msg(msg)
+            await self._send_response(
+                task_id, session_id, pipeline_run_id, "refuse",
+                {
+                    "original_proposer": sender,
+                    "reason": "Revenue/CAC assumptions are derived from market analysis — cannot accept external override without evidence",
+                },
+            )
         else:
-            mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-            msg = Message(to=mother_jid)
-            msg.set_metadata("performative", "inform")
-            msg.set_metadata("task_id", task_id)
-            msg.set_metadata("session_id", session_id)
-            msg.set_metadata("pipeline_run_id", pipeline_run_id)
-            msg.body = json.dumps({"status": "accepted", "proposal": proposal})
-            await self._send_msg(msg)
+            await self._send_response(
+                task_id, session_id, pipeline_run_id, "inform",
+                {"status": "accepted", "proposal": proposal},
+            )
+
+    async def _send_inform(self, task_id: str, session_id: str, pipeline_run_id: str, output: dict):
+        """Enforce the LTV:CAC magic-ratio guardrail before informing the Council Agent."""
+        unit_economics = output.get("unit_economics", {}) or {}
+        ltv_cac_ratio = unit_economics.get("ltv_cac_ratio", 0.0)
+        magic_ratio_pass = unit_economics.get("magic_ratio_pass", False)
+        justification = unit_economics.get("magic_ratio_justification") or ""
+
+        if ltv_cac_ratio < 3.0 and not magic_ratio_pass:
+            logger.error(
+                "[MarketingStrategy] MAGIC RATIO FAILURE — LTV:CAC %.2f < 3.0, no valid justification",
+                ltv_cac_ratio,
+            )
+            await self._escalate(
+                task_id, session_id, pipeline_run_id,
+                trigger="unit_economics_failure",
+                notes=f"LTV:CAC ratio is {ltv_cac_ratio:.2f} (below 3:1 threshold). "
+                      f"Options: (1) Increase pricing → raises LTV, (2) Reduce CAC via cheaper channels, "
+                      f"(3) Increase retention (lower churn) → extends customer lifetime, "
+                      f"(4) Provide valid justification (marketplace network effects, land-and-expand, VC-funded land grab).",
+            )
+            return
+
+        if ltv_cac_ratio < 3.0 and magic_ratio_pass:
+            logger.warning(
+                "[MarketingStrategy] Magic ratio exception granted — LTV:CAC %.2f < 3.0 with justification: %s",
+                ltv_cac_ratio, justification[:100],
+            )
+
+        content = {"output": output, "section_number": self.SECTION_NUMBER, "agent_name": "marketing_strategy"}
+        if self._bus is not None:
+            msg = ACLMessage(
+                sender="marketing_strategy",
+                receiver="council_agent",
+                performative="inform",
+                content=content,
+                task_id=task_id,
+                session_id=session_id,
+                pipeline_run_id=pipeline_run_id,
+            )
+            await self._bus.send(msg)
+            return
+        logger.error("[MarketingStrategy] No message bus — cannot send inform")
 
     def _build_schema_prompt(self) -> str:
         return """Return ONLY valid JSON with these exact keys:
@@ -446,18 +358,18 @@ class MarketingStrategyAgent(Agent):
 - input_tokens: 0
 - output_tokens: 0"""
 
-    def _build_prompt(self, inp: MarketingStrategyInput) -> str:
+    def _build_prompt(self, validated_input: MarketingStrategyInput) -> str:
         return f"""Build a complete marketing strategy for this business.
 
-SWOT MATRIX: {json.dumps(inp.swot_matrix, indent=2)}
-ICP HYPOTHESIS: {json.dumps(inp.icp_hypothesis, indent=2)}
-COMPETITIVE STRATEGY: {inp.competitive_strategy}
-MARKET CONTEXT: {inp.market_context}
-STRATEGIC IMPLICATIONS: {inp.strategic_implications}
-PRICING ASSUMPTION (from CEO): {inp.pricing_assumption or 'Not provided — infer from competitors'}
-TARGET VOLUME (from CEO): {inp.target_volume or 'Not provided — derive from market size'}
-CAC ASSUMPTION (from CEO): {inp.cac_assumptions or 'Not provided — benchmark from industry'}
-PARTNERSHIP TARGETS: {json.dumps(inp.partnership_targets) if inp.partnership_targets else 'None specified'}
+SWOT MATRIX: {json.dumps(validated_input.swot_matrix, indent=2)}
+ICP HYPOTHESIS: {json.dumps(validated_input.icp_hypothesis, indent=2)}
+COMPETITIVE STRATEGY: {validated_input.competitive_strategy}
+MARKET CONTEXT: {validated_input.market_context}
+STRATEGIC IMPLICATIONS: {validated_input.strategic_implications}
+PRICING ASSUMPTION (from CEO): {validated_input.pricing_assumption or 'Not provided — infer from competitors'}
+TARGET VOLUME (from CEO): {validated_input.target_volume or 'Not provided — derive from market size'}
+CAC ASSUMPTION (from CEO): {validated_input.cac_assumptions or 'Not provided — benchmark from industry'}
+PARTNERSHIP TARGETS: {json.dumps(validated_input.partnership_targets) if validated_input.partnership_targets else 'None specified'}
 
 Return ONLY valid JSON with these exact keys:
 - section_number: "8"
@@ -476,22 +388,23 @@ Return ONLY valid JSON with these exact keys:
 - output_tokens: 0
 """
 
-    def _parse_llm_response(self, raw: str, inp: MarketingStrategyInput) -> dict:
-        """Parse LLM response with retry before falling back to defaults."""
+    def _parse_llm_response(self, raw: str, validated_input: MarketingStrategyInput) -> dict:
         result = parse_json_with_retry(
             raw=raw,
             bedrock_client=self.bedrock,
             model_id=self.model_id,
             system_prompt=SYSTEM_PROMPT,
-            user_message=self._build_prompt(inp),
+            user_message=self._build_prompt(validated_input),
             agent_name="MarketingStrategy",
             max_tokens=8192,
         )
         if result is not None:
             return result
 
-        logger.warning("[MarketingStrategy] Both parse attempts failed, constructing fallback")
+        logger.warning("[MarketingStrategy] Both parse attempts failed, using fallback")
+        return self._fallback_defaults(validated_input)
 
+    def _fallback_defaults(self, validated_input: MarketingStrategyInput) -> dict:
         # Calculate fallback unit economics
         price = 100.0
         churn = 0.12
@@ -505,117 +418,57 @@ Return ONLY valid JSON with these exact keys:
         payback_months = (cac / (price * gross_margin)) * 12  # 7.5 months
 
         return {
-                "section_number": "8",
-                "target_market_analysis": {"segmentation": "To be determined based on ICP validation", "icp_refined": "Initial hypothesis requires market testing", "market_size_tam_sam_som": "Requires further research"},
-                "competitors": [
-                    {"name": "Incumbent Solution A", "positioning": "Established market player", "pricing": None, "strengths": ["Brand recognition", "Existing customer base"], "weaknesses": ["Slow innovation", "Legacy technology"]},
-                    {"name": "Alternative/Substitute B", "positioning": "Adjacent market solution", "pricing": None, "strengths": ["Low cost"], "weaknesses": ["Poor fit for target use case"]},
-                ],
-                "competitive_advantages": ["Novel approach to customer problem", "Speed and agility as early-stage venture"],
-                "marketing_mix": {"product": "Core product addressing identified pain points", "pricing_policy": "Value-based pricing aligned with market", "distribution": "Direct-to-customer digital channels", "promotion": "Content marketing and targeted outreach"},
-                "customer_relations": {"communication": "Direct engagement via digital channels", "loyalty_strategy": "Early adopter program with feedback loop"},
-                "revenue_assumptions": {"price_per_unit": price, "volume_year1": 100, "volume_year2": 500, "volume_year3": 1500, "sales_cycle_months": 3},
-                "cac_assumptions": {"cac_estimate": cac, "cac_source": "Industry benchmark — not validated", "confidence": "low"},
-                "unit_economics": {
-                    "cac": {
-                        "total_cac": cac,
-                        "breakdown": {
-                            "sales_team_cost_per_customer": 300.0,
-                            "marketing_spend_per_customer": 150.0,
-                            "tools_and_overhead": 50.0
-                        },
-                        "validation_source": "assumed — fallback defaults",
-                        "confidence": "low"
-                    },
-                    "ltv": {
-                        "calculation_method": "avg_revenue_annual * (1 / churn_rate) * gross_margin",
-                        "avg_revenue_annual": price,
-                        "churn_rate_annual": churn,
-                        "customer_lifetime_years": round(lifetime_years, 2),
-                        "gross_margin": gross_margin,
-                        "ltv_gross": round(ltv_gross, 2),
-                        "ltv_net": round(ltv_net, 2)
-                    },
-                    "ltv_cac_ratio": round(ltv_cac, 2),
-                    "payback_period_months": round(payback_months, 2),
-                    "health_assessment": "WARNING — LTV:CAC < 3:1 (fallback defaults, low confidence)",
-                    "key_assumptions": [
-                        "Churn rate assumed at 12% (SaaS median)",
-                        "Gross margin 80% (SaaS benchmark)",
-                        "CAC from industry benchmarks"
-                    ],
-                    "uncertainties": [
-                        "No retention data — churn rate is pure assumption",
-                        "CAC not validated with actual sales data",
-                        "Gross margin not verified against actual cost structure"
-                    ]
-                },
-                "market_entry_strategy": "Focus on early adopter segment with direct sales approach, then expand through referrals and content marketing",
-                "assumptions_used": [{"statement": "LLM output was unparseable — defaults used", "confidence": "low", "source": "assumed", "source_detail": None}],
-                "uncertainties": ["LLM response could not be parsed — full analysis not completed"],
-                "confidence_score": "low",
-                "input_tokens": 0,
-                "output_tokens": 0,
-            }
-
-    async def _call_llm(self, user_message: str) -> tuple[Optional[str], dict]:
-        try:
-            response = self.bedrock.converse(
-                modelId=self.model_id,
-                system=[{"text": SYSTEM_PROMPT}],
-                messages=[{"role": "user", "content": [{"text": user_message}]}],
-                inferenceConfig={"maxTokens": 4096},
-            )
-            usage = response.get("usage", {})
-            text = response["output"]["message"]["content"][0]["text"]
-            return text, {"input_tokens": usage.get("inputTokens", 0), "output_tokens": usage.get("outputTokens", 0)}
-        except Exception as e:
-            logger.error("[MarketingStrategy] LLM call failed: %s", e)
-            return None, {}
-
-    async def _escalate(self, task_id, session_id, pipeline_run_id, trigger, notes):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "escalate")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"trigger": trigger, "notes": notes, "section": "8", "gap_key": "pricing_assumption"})
-        await self._send_msg(msg)
-
-    async def _send_inform(self, task_id, session_id, pipeline_run_id, output):
-        council_jid = os.getenv("COUNCIL_AGENT_JID", "")
-        target_jid = council_jid if council_jid else os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=target_jid)
-        msg.set_metadata("performative", "inform")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({
-            "output": output,
             "section_number": "8",
-            "agent_name": "marketing_strategy",
-        })
-        await self._send_msg(msg)
-
-
-async def main():
-    from dotenv import load_dotenv
-    load_dotenv()
-    jid = os.getenv("MARKETING_STRATEGY_JID")
-    password = os.getenv("MARKETING_STRATEGY_PASSWORD")
-    if not jid or not password:
-        raise ValueError("MARKETING_STRATEGY_JID and PASSWORD must be set")
-    agent = MarketingStrategyAgent(jid=jid, password=password)
-    await agent.start(auto_register=True)
-    try:
-        while agent.is_alive():
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        await agent.stop()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+            "target_market_analysis": {"segmentation": "To be determined based on ICP validation", "icp_refined": "Initial hypothesis requires market testing", "market_size_tam_sam_som": "Requires further research"},
+            "competitors": [
+                {"name": "Incumbent Solution A", "positioning": "Established market player", "pricing": None, "strengths": ["Brand recognition", "Existing customer base"], "weaknesses": ["Slow innovation", "Legacy technology"]},
+                {"name": "Alternative/Substitute B", "positioning": "Adjacent market solution", "pricing": None, "strengths": ["Low cost"], "weaknesses": ["Poor fit for target use case"]},
+            ],
+            "competitive_advantages": ["Novel approach to customer problem", "Speed and agility as early-stage venture"],
+            "marketing_mix": {"product": "Core product addressing identified pain points", "pricing_policy": "Value-based pricing aligned with market", "distribution": "Direct-to-customer digital channels", "promotion": "Content marketing and targeted outreach"},
+            "customer_relations": {"communication": "Direct engagement via digital channels", "loyalty_strategy": "Early adopter program with feedback loop"},
+            "revenue_assumptions": {"price_per_unit": price, "volume_year1": 100, "volume_year2": 500, "volume_year3": 1500, "sales_cycle_months": 3},
+            "cac_assumptions": {"cac_estimate": cac, "cac_source": "Industry benchmark — not validated", "confidence": "low"},
+            "unit_economics": {
+                "cac": {
+                    "total_cac": cac,
+                    "breakdown": {
+                        "sales_team_cost_per_customer": 300.0,
+                        "marketing_spend_per_customer": 150.0,
+                        "tools_and_overhead": 50.0
+                    },
+                    "validation_source": "assumed — fallback defaults",
+                    "confidence": "low"
+                },
+                "ltv": {
+                    "calculation_method": "avg_revenue_annual * (1 / churn_rate) * gross_margin",
+                    "avg_revenue_annual": price,
+                    "churn_rate_annual": churn,
+                    "customer_lifetime_years": round(lifetime_years, 2),
+                    "gross_margin": gross_margin,
+                    "ltv_gross": round(ltv_gross, 2),
+                    "ltv_net": round(ltv_net, 2)
+                },
+                "ltv_cac_ratio": round(ltv_cac, 2),
+                "payback_period_months": round(payback_months, 2),
+                "health_assessment": "WARNING — LTV:CAC < 3:1 (fallback defaults, low confidence)",
+                "magic_ratio_pass": False,
+                "magic_ratio_justification": None,
+                "key_assumptions": [
+                    "Churn rate assumed at 12% (SaaS median)",
+                    "Gross margin 80% (SaaS benchmark)",
+                    "CAC from industry benchmarks"
+                ],
+                "uncertainties": [
+                    "No retention data — churn rate is pure assumption",
+                    "CAC not validated with actual sales data",
+                    "Gross margin not verified against actual cost structure"
+                ]
+            },
+            "market_entry_strategy": "Focus on early adopter segment with direct sales approach, then expand through referrals and content marketing",
+            "assumptions_used": [{"statement": "LLM output was unparseable — defaults used", "confidence": "low", "source": "assumed", "source_detail": None}],
+            "uncertainties": ["LLM response could not be parsed — full analysis not completed"],
+            "confidence_score": "low",
+            "input_tokens": 0,
+            "output_tokens": 0,
+        }

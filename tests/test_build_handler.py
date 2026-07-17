@@ -15,13 +15,28 @@ from web.handlers.build_handler import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_orchestrator():
+    """Clear orchestrator state between tests.
+
+    get_orchestrator() returns a singleton, so a pipeline started by one test stays
+    in active_pipelines and makes the next start_build return "Pipeline already
+    running".
+    """
+    from services.pipeline_orchestrator import get_orchestrator
+
+    get_orchestrator().active_pipelines.clear()
+    yield
+    get_orchestrator().active_pipelines.clear()
+
+
 class TestBuildFullPlan:
     @patch("web.handlers.build_handler.get_build_blockers", return_value=[])
     @patch("web.handlers.build_handler._get_all_sections", return_value=["BP.1", "BP.2"])
     def test_starts_when_no_blockers(self, mock_sections, mock_blockers):
         result = build_full_plan()
         assert result["status"] == "started"
-        assert "All sections" in result["message"]
+        assert result["run_id"]
 
     @patch("web.handlers.build_handler.get_build_blockers")
     def test_blocked_when_dependencies_missing(self, mock_blockers):

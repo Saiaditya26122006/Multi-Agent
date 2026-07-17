@@ -9,7 +9,7 @@ import logging
 import os
 from typing import Optional
 
-import boto3
+from agents.phase2.base_child_agent import get_shared_bedrock_client
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
@@ -70,7 +70,7 @@ class DevilsAdvocateAgent(Agent):
         super().__init__(jid, password)
         self.redis = RedisClient()
         self.model_id = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
-        self.bedrock = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"))
+        self.bedrock = get_shared_bedrock_client()
 
     async def setup(self):
         logger.info("[DevilsAdvocate] Starting")

@@ -5,7 +5,7 @@ from typing import List, Optional, Dict, Any
 class SummaryAgentInput(BaseModel):
     task_id: str
     session_id: str
-    pipeline_run_id: str
+    pipeline_run_id: str = Field(default="")
     completed_sections: Dict[str, Any] = Field(
         ...,
         description="Dict of section_number -> section output. Only completed sections included.",

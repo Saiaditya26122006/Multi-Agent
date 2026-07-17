@@ -131,6 +131,11 @@ def is_workspace_switch(text: str) -> Optional[Workspace]:
         if cleaned == WORKSPACE_LABELS[ws].lower():
             return ws
 
+    # Names of the workspaces that were folded into Auto & Ask still route there,
+    # so habits learned from the old 7-workspace menu keep working.
+    if cleaned in LEGACY_WORKSPACES:
+        return LEGACY_WORKSPACES[cleaned]
+
     return None
 
 

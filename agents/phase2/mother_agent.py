@@ -28,7 +28,7 @@ except ImportError:
     PeriodicBehaviour = object
     Message = None
 
-import boto3
+from agents.phase2.base_child_agent import get_shared_bedrock_client
 
 from memory.supabase_client import SupabaseClient
 from memory.redis_client import RedisClient
@@ -208,10 +208,7 @@ class MotherAgent(Agent):
         self.gap_rules = GAP_RULES
         self.active_runs: dict = {}
         self.model_id = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
-        self.bedrock = boto3.client(
-            "bedrock-runtime",
-            region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
-        )
+        self.bedrock = get_shared_bedrock_client()
         self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
         self.learning = LearningEngine(self.redis, self.db)
         self.compiler = DocumentCompiler(self.bedrock, self.model_id)
@@ -319,7 +316,7 @@ class MotherAgent(Agent):
 
         return prior_outputs
 
-    def _start_child_agents_sync(self):
+    async def _start_child_agents(self):
         import subprocess
         import time
         agents_to_start = [
@@ -352,13 +349,13 @@ class MotherAgent(Agent):
             logger.info("[MotherAgent] Started child agent: %s (pid %d)", agent_path, proc.pid)
 
         logger.info("[MotherAgent] All child agents launched — waiting for readiness probes")
-        self._wait_for_child_readiness(
+        await self._wait_for_child_readiness(
             [name for name, _ in agents_to_start],
             timeout=30,
         )
 
-    def _wait_for_child_readiness(self, agent_names: list, timeout: int = 30):
-        """Poll Redis for readiness keys set by child agents on XMPP connect."""
+    async def _wait_for_child_readiness(self, agent_names: list, timeout: int = 30):
+        """Poll Redis for readiness keys set by child agents."""
         import time
         start = time.time()
         ready = set()
@@ -373,7 +370,7 @@ class MotherAgent(Agent):
             if len(ready) == len(agent_names):
                 logger.info("[MotherAgent] All %d child agents ready", len(ready))
                 return
-            time.sleep(1)
+            await asyncio.sleep(1)
 
         not_ready = set(agent_names) - ready
         logger.warning(
@@ -3057,7 +3054,7 @@ async def main():
 
     agent = MotherAgent(jid=jid, password=password)
 
-    agent._start_child_agents_sync()
+    await agent._start_child_agents()
 
     await agent.start(auto_register=True)
     print("[MotherAgent] Running. Press Ctrl+C to stop.")

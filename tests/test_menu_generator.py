@@ -75,15 +75,11 @@ class TestMainMenu:
         }
 
         menu = generate_main_menu()
-        assert len(menu["items"]) == 7
+        # Inspect/Challenge/Validate/Export were consolidated into Auto & Ask.
+        assert len(menu["items"]) == 3
         ids = [item["id"] for item in menu["items"]]
-        assert "feed" in ids
-        assert "build" in ids
-        assert "inspect" in ids
-        assert "challenge" in ids
-        assert "validate" in ids
-        assert "export" in ids
-        assert "auto" in ids
+        assert ids == ["feed", "build", "auto"]
+        assert [item["number"] for item in menu["items"]] == ["1", "2", "3"]
 
     @patch("services.coverage_calculator.get_blocked_sections", return_value=[])
     @patch("services.recommendation_engine.get_highest_leverage_action")
@@ -130,9 +126,10 @@ class TestMainMenu:
         }
 
         menu = generate_main_menu()
-        validate_item = next(i for i in menu["items"] if i["id"] == "validate")
-        assert validate_item["status"] == "urgent"
-        assert "45d" in validate_item["badge"]
+        # Assumption ageing now badges Auto & Ask, which absorbed Validate.
+        auto_item = next(i for i in menu["items"] if i["id"] == "auto")
+        assert auto_item["status"] == "urgent"
+        assert "45d" in auto_item["badge"]
 
 
 class TestSubMenu:
@@ -152,28 +149,24 @@ class TestSubMenu:
         assert sub["workspace"] == "build"
         assert len(sub["options"]) == 4
 
-    def test_inspect_sub_menu_has_options(self):
-        sub = generate_sub_menu(Workspace.INSPECT)
-        assert sub["workspace"] == "inspect"
-        assert len(sub["options"]) == 6
+    @patch("services.coverage_calculator.get_oldest_assumptions", return_value=[])
+    @patch("services.coverage_calculator.get_dashboard_stats",
+           return_value={"coverage_pct": 50, "contradiction_count": 0})
+    def test_auto_sub_menu_has_options(self, mock_dash, mock_oldest):
+        """Auto & Ask absorbed Inspect, Challenge, Validate and Export."""
+        sub = generate_sub_menu(Workspace.AUTO)
+        assert sub["workspace"] == "auto"
+        assert len(sub["options"]) == 8
 
     @patch("services.coverage_calculator.get_oldest_assumptions", return_value=[])
-    def test_challenge_sub_menu_has_options(self, mock_oldest):
-        sub = generate_sub_menu(Workspace.CHALLENGE)
-        assert sub["workspace"] == "challenge"
-        assert len(sub["options"]) == 5
-
-    @patch("services.coverage_calculator.get_oldest_assumptions", return_value=[])
-    def test_validate_sub_menu_has_options(self, mock_oldest):
-        sub = generate_sub_menu(Workspace.VALIDATE)
-        assert sub["workspace"] == "validate"
-        assert len(sub["options"]) == 4
-
-    @patch("services.coverage_calculator.get_dashboard_stats", return_value={"coverage_pct": 50})
-    def test_export_sub_menu_has_options(self, mock_dash):
-        sub = generate_sub_menu(Workspace.EXPORT)
-        assert sub["workspace"] == "export"
-        assert len(sub["options"]) == 5
+    @patch("services.coverage_calculator.get_dashboard_stats",
+           return_value={"coverage_pct": 50, "contradiction_count": 0})
+    def test_auto_sub_menu_keys_match_dispatcher(self, mock_dash, mock_oldest):
+        """Every key must be something _dispatch_auto() actually accepts, or the
+        menu offers Alex an action that silently does nothing."""
+        sub = generate_sub_menu(Workspace.AUTO)
+        keys = [o["key"] for o in sub["options"]]
+        assert keys == ["A", "B", "C", "D", "E", "challenge", "validate", "export"]
 
 
 class TestFormatting:
@@ -201,10 +194,7 @@ class TestFormatting:
         text = format_menu_as_text(menu)
         assert "Feed Data" in text
         assert "Build Plan" in text
-        assert "Inspect" in text
-        assert "Challenge" in text
-        assert "Validate" in text
-        assert "Export" in text
+        assert "Auto & Ask" in text
         assert "47%" in text
         assert "Type a number" in text
 

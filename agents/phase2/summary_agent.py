@@ -1,23 +1,13 @@
-import sys
-from pathlib import Path
+"""Summary Agent — synthesizes all section outputs into a one-page executive summary."""
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-
-import asyncio
 import json
 import logging
 import os
-from typing import Optional
 
-import boto3
-from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour, OneShotBehaviour
-from spade.message import Message
-from agents.phase2.rag_mixin import rag_enrich, rag_check_killed
-
-from memory.redis_client import RedisClient
-from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
-from agents.phase2.intelligence_engine import IntelligenceEngine
+from agents.phase2.base_child_agent import BaseChildAgent
+from agents.phase2.llm_utils import parse_json_with_retry
+from agents.phase2.message_bus import ACLMessage
+from agents.phase2.rag_mixin import rag_enrich
 from schemas.inputs.summary_agent import SummaryAgentInput
 from schemas.outputs.summary_agent import SummaryAgentOutput
 
@@ -97,126 +87,48 @@ that surfaces conflicts honestly, names the biggest risk clearly, and gives a di
 You must respond with ONLY a valid JSON object. No markdown, no code blocks, no explanations before or after the JSON. The JSON must contain exactly these fields in this order: section_number, executive_summary, headline_metrics, key_assumptions_flagged, sections_included, sections_skipped, coherence_issues_resolved, input_tokens, output_tokens.
 """
 
-
-class ListenBehaviour(CyclicBehaviour):
-
-    async def run(self):
-        msg = await self.receive(timeout=5)
-        if msg is None:
-            return
-
-        performative = msg.get_metadata("performative")
-        task_id = msg.get_metadata("task_id")
-        session_id = msg.get_metadata("session_id")
-        pipeline_run_id = msg.get_metadata("pipeline_run_id")
-        content = json.loads(msg.body)
-        sender = str(msg.sender)
-
-        if performative == "request":
-            await self.agent.handle_request(task_id, session_id, pipeline_run_id, content)
-        elif performative == "revise":
-            await self.agent.handle_revise(task_id, session_id, pipeline_run_id, content)
-        elif performative == "propose":
-            await self.agent.handle_propose(task_id, session_id, pipeline_run_id, sender, content)
+ALL_SECTIONS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
 
 
-class SummaryAgentAgent(Agent):
+class SummaryAgentAgent(BaseChildAgent):
+    SYSTEM_PROMPT = SYSTEM_PROMPT
+    AGENT_NAME = "SummaryAgent"
+    AGENT_ROLE = (
+        "Summary Agent — you synthesize all section outputs into a one-page executive summary "
+        "for Alex (CEO). Write for decision-making, not for show."
+    )
+    SECTION_NUMBER = "executive_summary"
+    MODEL_ENV = "CLAUDE_HAIKU_MODEL"
+    MODEL_DEFAULT = "claude-haiku-4-5-20251001"
+    INPUT_SCHEMA = SummaryAgentInput
+    OUTPUT_SCHEMA = SummaryAgentOutput
 
-    def __init__(self, jid: str, password: str):
-        super().__init__(jid, password)
-        self.redis = RedisClient()
-        self.model_id = os.getenv("CLAUDE_HAIKU_MODEL", "claude-haiku-4-5-20251001")
-        self.bedrock = boto3.client("bedrock-runtime", region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"))
-        self.intelligence = IntelligenceEngine(self.bedrock, self.model_id)
+    def _default_gap_key(self) -> str:
+        return ""
 
-    async def setup(self):
-        logger.info("[SummaryAgent] Starting")
-        self.add_behaviour(ListenBehaviour())
-        signal_ready(self.redis, "summary_agent")
+    def reasoning_budget(self, revision_required: bool) -> int:
+        return 3 if revision_required else 2
 
-    async def _send_msg(self, msg: Message):
-        class _Send(OneShotBehaviour):
-            async def run(self_b):
-                await self_b.send(msg)
-        b = _Send()
-        self.add_behaviour(b)
-        await b.join(timeout=10)
-
-    async def handle_request(self, task_id, session_id, pipeline_run_id, content):
-        task = content.get("task", {})
-        input_package = task.get("input_package", {})
-
-        try:
-            validated_input = SummaryAgentInput(
-                task_id=task_id,
-                session_id=session_id,
-                pipeline_run_id=pipeline_run_id,
-                completed_sections=input_package.get("completed_sections", {}),
-                flagged_assumptions=input_package.get("flagged_assumptions", []),
-                acceptance_criteria=task.get("acceptance_criteria", ""),
-            )
-        except Exception as e:
-            logger.error("[SummaryAgent] Input validation failed: %s", e)
-            await self._escalate(task_id, session_id, pipeline_run_id, "unclear_input", str(e))
-            return
-
-        rag_context = rag_enrich(
+    def _rag_enrich(self) -> str:
+        return rag_enrich(
             "executive summary product value proposition key decisions",
             section="1",
         )
-        if rag_context:
-            input_package["rag_summary_context"] = rag_context
 
-        learning_context = input_package.get("learning_context", "")
+    def _extract_input(self, input_package: dict, task: dict) -> dict:
+        return {
+            "completed_sections": input_package.get("completed_sections", {}),
+            "flagged_assumptions": input_package.get("flagged_assumptions", []),
+            "acceptance_criteria": task.get("acceptance_criteria", ""),
+        }
 
-        revision_required = input_package.get("revision_required", False)
-        revision_feedback = input_package.get("revision_feedback", "")
-        if revision_required and revision_feedback:
-            learning_context += f"\n\nMANDATORY REVISIONS (from quality review):\n{revision_feedback}\nFix these issues. Do NOT weaken your analysis — make it more rigorous."
-
-        input_data = {
+    def _build_ie_input_data(self, input_package: dict) -> dict:
+        return {
             "completed_sections": input_package.get("completed_sections", {}),
             "flagged_assumptions": input_package.get("flagged_assumptions", []),
         }
 
-        parsed, reasoning_trace, token_usage = await self.intelligence.reason_and_produce(
-            agent_role=(
-                "Summary Agent — you synthesize all section outputs into a one-page executive summary "
-                "for Alex (CEO). Write for decision-making, not for show."
-            ),
-            input_data=input_data,
-            output_schema_prompt=self._build_schema_prompt(),
-            cross_section_context=None,
-            reasoning_budget=3 if revision_required else 2,
-            learning_context=learning_context,
-        )
-
-        if not parsed:
-            user_message = self._build_prompt(validated_input)
-            llm_response, fallback_usage = await self._call_llm(user_message)
-            if not llm_response:
-                await self._escalate(task_id, session_id, pipeline_run_id, "weak_evidence", "Intelligence engine and fallback both failed")
-                return
-            parsed = self._parse_llm_response(llm_response, validated_input)
-            token_usage["input_tokens"] = token_usage.get("input_tokens", 0) + fallback_usage.get("input_tokens", 0)
-            token_usage["output_tokens"] = token_usage.get("output_tokens", 0) + fallback_usage.get("output_tokens", 0)
-
-        try:
-            parsed["task_id"] = task_id
-            parsed["model_used"] = self.model_id
-            parsed["input_tokens"] = token_usage.get("input_tokens", 0)
-            parsed["output_tokens"] = token_usage.get("output_tokens", 0)
-            validated_output = SummaryAgentOutput(**parsed)
-        except Exception as e:
-            logger.error("[SummaryAgent] Output validation failed: %s", e)
-            await self._escalate(task_id, session_id, pipeline_run_id, "output_conflict", str(e))
-            return
-
-        result = validated_output.model_dump()
-        result["reasoning_trace"] = reasoning_trace
-        await self._send_inform(task_id, session_id, pipeline_run_id, result)
-
-    async def handle_revise(self, task_id, session_id, pipeline_run_id, content):
+    async def handle_revise(self, task_id: str, session_id: str, pipeline_run_id: str, content: dict):
         """Handle revision request from Council Agent."""
         revision_instructions = content.get("revision_instructions", "")
         original_output = content.get("original_output", {})
@@ -237,15 +149,22 @@ class SummaryAgentAgent(Agent):
         revised_content = {"task": {"input_package": input_package, "task_id": task_id}}
         await self.handle_request(task_id, session_id, pipeline_run_id, revised_content)
 
-    async def handle_propose(self, task_id, session_id, pipeline_run_id, sender, content):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "inform")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"status": "accepted", "proposal": content.get("proposal", "")})
-        await self._send_msg(msg)
+    async def _send_inform(self, task_id: str, session_id: str, pipeline_run_id: str, output: dict):
+        """Summary output goes to the Council Agent (falls back to Mother if no bus receiver)."""
+        content = {"output": output, "section_number": self.SECTION_NUMBER, "agent_name": "summary_agent"}
+        if self._bus is not None:
+            msg = ACLMessage(
+                sender="summary_agent",
+                receiver="council_agent",
+                performative="inform",
+                content=content,
+                task_id=task_id,
+                session_id=session_id,
+                pipeline_run_id=pipeline_run_id,
+            )
+            await self._bus.send(msg)
+            return
+        logger.error("[SummaryAgent] No message bus — cannot send inform")
 
     def _build_schema_prompt(self) -> str:
         return """Return ONLY valid JSON with these exact keys IN THIS ORDER:
@@ -261,18 +180,17 @@ class SummaryAgentAgent(Agent):
 
 CONSTRAINTS: Total output under 3000 tokens. Concise, numbers-first, no filler."""
 
-    def _build_prompt(self, inp: SummaryAgentInput) -> str:
-        all_sections = list(inp.completed_sections.keys())
-        all_possible = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
-        skipped = [s for s in all_possible if s not in all_sections]
+    def _build_prompt(self, validated_input: SummaryAgentInput) -> str:
+        all_sections = list(validated_input.completed_sections.keys())
+        skipped = [s for s in ALL_SECTIONS if s not in all_sections]
 
         return f"""Write an executive summary for this business plan.
 
 COMPLETED SECTIONS ({len(all_sections)} total):
-{json.dumps(inp.completed_sections, indent=2)}
+{json.dumps(validated_input.completed_sections, indent=2)}
 
 FLAGGED ASSUMPTIONS (low confidence or assumed):
-{json.dumps(inp.flagged_assumptions, indent=2)}
+{json.dumps(validated_input.flagged_assumptions, indent=2)}
 
 SECTIONS INCLUDED: {all_sections}
 SECTIONS SKIPPED: {skipped}
@@ -291,93 +209,32 @@ Return ONLY valid JSON with these exact keys IN THIS ORDER:
 CONSTRAINTS: Total output under 3000 tokens. Concise, numbers-first.
 """
 
-    def _parse_llm_response(self, raw: str, inp: SummaryAgentInput) -> dict:
-        """Parse LLM response with retry before falling back to defaults."""
+    def _parse_llm_response(self, raw: str, validated_input: SummaryAgentInput) -> dict:
         result = parse_json_with_retry(
             raw=raw,
             bedrock_client=self.bedrock,
             model_id=self.model_id,
             system_prompt=SYSTEM_PROMPT,
-            user_message=self._build_prompt(inp),
+            user_message=self._build_prompt(validated_input),
             agent_name="SummaryAgent",
         )
         if result is not None:
             return result
 
-        logger.warning("[SummaryAgent] Both parse attempts failed, constructing fallback")
-        all_sections = list(inp.completed_sections.keys())
-        all_possible = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
-        skipped = [s for s in all_possible if s not in all_sections]
+        logger.warning("[SummaryAgent] Both parse attempts failed, using fallback")
+        return self._fallback_defaults(validated_input)
+
+    def _fallback_defaults(self, validated_input: SummaryAgentInput) -> dict:
+        all_sections = list(validated_input.completed_sections.keys())
+        skipped = [s for s in ALL_SECTIONS if s not in all_sections]
         return {
             "section_number": "executive_summary",
             "executive_summary": "This business plan covers an early-stage venture opportunity. The analysis was generated by the multi-agent system but the LLM output could not be parsed into structured format. Key sections have been completed and are available for review. Alex should review the individual section outputs directly for detailed findings. The plan requires validation of key assumptions before external use.",
             "headline_metrics": {"year1_revenue_range": "See financial model", "break_even_month": "See financial model", "primary_risk": "Unvalidated assumptions", "team_size_year1": "See org design"},
-            "key_assumptions_flagged": [a.get("statement", str(a)) if isinstance(a, dict) else str(a) for a in inp.flagged_assumptions[:5]] or ["No specific assumptions flagged"],
+            "key_assumptions_flagged": [a.get("statement", str(a)) if isinstance(a, dict) else str(a) for a in validated_input.flagged_assumptions[:5]] or ["No specific assumptions flagged"],
             "sections_included": all_sections,
             "sections_skipped": skipped,
             "coherence_issues_resolved": [],
             "input_tokens": 0,
             "output_tokens": 0,
         }
-
-    async def _call_llm(self, user_message: str) -> tuple[Optional[str], dict]:
-        try:
-            response = self.bedrock.converse(
-                modelId=self.model_id,
-                system=[{"text": SYSTEM_PROMPT}],
-                messages=[{"role": "user", "content": [{"text": user_message}]}],
-                inferenceConfig={"maxTokens": 4096},
-            )
-            usage = response.get("usage", {})
-            text = response["output"]["message"]["content"][0]["text"]
-            return text, {"input_tokens": usage.get("inputTokens", 0), "output_tokens": usage.get("outputTokens", 0)}
-        except Exception as e:
-            logger.error("[SummaryAgent] LLM call failed: %s", e)
-            return None, {}
-
-    async def _escalate(self, task_id, session_id, pipeline_run_id, trigger, notes):
-        mother_jid = os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=mother_jid)
-        msg.set_metadata("performative", "escalate")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({"trigger": trigger, "notes": notes, "section": "executive_summary", "gap_key": ""})
-        await self._send_msg(msg)
-
-    async def _send_inform(self, task_id, session_id, pipeline_run_id, output):
-        council_jid = os.getenv("COUNCIL_AGENT_JID", "")
-        target_jid = council_jid if council_jid else os.getenv("MOTHER_AGENT_JID", "")
-        msg = Message(to=target_jid)
-        msg.set_metadata("performative", "inform")
-        msg.set_metadata("task_id", task_id)
-        msg.set_metadata("session_id", session_id)
-        msg.set_metadata("pipeline_run_id", pipeline_run_id)
-        msg.body = json.dumps({
-            "output": output,
-            "section_number": "executive_summary",
-            "agent_name": "summary_agent",
-        })
-        await self._send_msg(msg)
-
-
-async def main():
-    from dotenv import load_dotenv
-    load_dotenv()
-    jid = os.getenv("SUMMARY_JID")
-    password = os.getenv("SUMMARY_PASSWORD")
-    if not jid or not password:
-        raise ValueError("SUMMARY_JID and PASSWORD must be set")
-    agent = SummaryAgentAgent(jid=jid, password=password)
-    await agent.start(auto_register=True)
-    try:
-        while agent.is_alive():
-            await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        await agent.stop()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

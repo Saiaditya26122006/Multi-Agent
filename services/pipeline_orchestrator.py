@@ -18,6 +18,7 @@ import asyncio
 import json
 import logging
 import os
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -25,7 +26,7 @@ from typing import Any, Dict, List, Optional, Literal
 
 import yaml
 from memory.redis_client import RedisClient
-from database.supabase_client import SupabaseClient
+from memory.supabase_client import SupabaseClient
 from tools.trace_emitter import emit_trace
 from tools.reply_handler import send_reply
 from services.conversation_store import store_ceo_answer, store_decision
@@ -186,8 +187,8 @@ class PipelineOrchestrator:
         # Store state in Redis
         self._save_state(session_id)
 
-        # Start pipeline in background task
-        asyncio.create_task(self._run_pipeline(session_id, run_id, instruction, scope))
+        # Start pipeline in the background
+        self._schedule_pipeline(session_id, run_id, instruction, scope)
 
         # Emit start trace
         emit_trace(session_id, "Build", "pipeline_start", f"Starting: {instruction}", {"run_id": run_id})
@@ -197,6 +198,39 @@ class PipelineOrchestrator:
             "status": "building",
             "message": "Pipeline started successfully",
         }
+
+    def _schedule_pipeline(
+        self,
+        session_id: str,
+        run_id: str,
+        instruction: str,
+        scope: str,
+    ) -> None:
+        """Schedule _run_pipeline to run in the background.
+
+        start_build reaches us from a worker thread (web/server.py dispatches the
+        sync handler via asyncio.to_thread), so there is normally no running loop
+        here and asyncio.create_task() would raise RuntimeError. Fall back to a
+        dedicated daemon thread owning its own loop.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            loop.create_task(self._run_pipeline(session_id, run_id, instruction, scope))
+            return
+
+        def _run() -> None:
+            try:
+                asyncio.run(self._run_pipeline(session_id, run_id, instruction, scope))
+            except Exception:
+                logger.exception(
+                    "[PipelineOrchestrator] Pipeline crashed (run_id=%s)", run_id
+                )
+
+        threading.Thread(target=_run, daemon=True, name=f"pipeline-{run_id}").start()
 
     def get_status(self, session_id: str) -> Dict[str, Any]:
         """
@@ -406,10 +440,159 @@ class PipelineOrchestrator:
         phase1_data: Dict,
         prior_outputs: Dict
     ) -> Dict:
-        """Execute all agents in a group."""
-        # TODO: This will dispatch tasks to child agents via MessageBus
-        # For now, return empty dict (stub)
-        return {}
+        """Execute all agents in a group via MessageBus."""
+        agent_names = group_config["agents"]
+        is_parallel = group_config.get("parallel", False)
+
+        # Filter to applicable sections only
+        active_agents = []
+        for name in agent_names:
+            agent_config = self.agent_roster["agents"].get(name, {})
+            sections = agent_config.get("sections_owned", [])
+            if not sections or any(s in applicable_sections for s in sections):
+                active_agents.append(name)
+
+        if not active_agents:
+            return {}
+
+        # Ensure agents are registered on the bus
+        await self._ensure_agents_registered(active_agents)
+
+        # Build input packages for each agent
+        ceo_data = get_relevant_ceo_data(phase1_data.get("idea", ""))
+
+        outputs = {}
+        if is_parallel:
+            tasks = []
+            for name in active_agents:
+                input_package = self._build_input_package(
+                    name, phase1_data, prior_outputs, ceo_data
+                )
+                tasks.append(
+                    self._dispatch_to_agent(name, session_id, run_id, input_package)
+                )
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for name, result in zip(active_agents, results):
+                if isinstance(result, Exception):
+                    logger.error("[PipelineOrchestrator] Agent %s failed: %s", name, result)
+                    emit_trace(session_id, "Build", "agent_failed", f"{name}: {result}")
+                elif result:
+                    section = self.agent_roster["agents"].get(name, {}).get("sections_owned", [""])[0]
+                    outputs[section or name] = result
+                    emit_trace(session_id, "Build", "agent_complete", f"{name} done")
+        else:
+            for name in active_agents:
+                input_package = self._build_input_package(
+                    name, phase1_data, prior_outputs, ceo_data
+                )
+                try:
+                    result = await self._dispatch_to_agent(
+                        name, session_id, run_id, input_package
+                    )
+                    if result:
+                        section = self.agent_roster["agents"].get(name, {}).get("sections_owned", [""])[0]
+                        outputs[section or name] = result
+                        prior_outputs[section or name] = result
+                        emit_trace(session_id, "Build", "agent_complete", f"{name} done")
+                except Exception as e:
+                    logger.error("[PipelineOrchestrator] Agent %s failed: %s", name, e)
+                    emit_trace(session_id, "Build", "agent_failed", f"{name}: {e}")
+
+        return outputs
+
+    async def _dispatch_to_agent(
+        self,
+        agent_name: str,
+        session_id: str,
+        run_id: str,
+        input_package: Dict,
+    ) -> Optional[Dict]:
+        """Send a request to an agent via MessageBus and await its response."""
+        task_id = f"{run_id}_{agent_name}"
+        msg = ACLMessage(
+            sender="pipeline_orchestrator",
+            receiver=agent_name,
+            performative="request",
+            content={"task": {"input_package": input_package}},
+            task_id=task_id,
+            session_id=session_id,
+            pipeline_run_id=run_id,
+        )
+        timeout = self.agent_roster["agents"].get(agent_name, {}).get("timeout_seconds", 90)
+        result = await self.message_bus.request_response(msg, timeout=float(timeout))
+        return result
+
+    async def _ensure_agents_registered(self, agent_names: List[str]) -> None:
+        """Lazily instantiate and register agents that aren't on the bus yet."""
+        for name in agent_names:
+            if name in self.message_bus.registered_agents:
+                continue
+            agent_instance = self._create_agent_instance(name)
+            if agent_instance:
+                await agent_instance.start(bus=self.message_bus, register_as=name)
+
+    def _create_agent_instance(self, name: str) -> Optional[Any]:
+        """Factory: create agent instance by roster name."""
+        from agents.phase2.base_child_agent import BaseChildAgent
+        agent_map = self._get_agent_map()
+        agent_class = agent_map.get(name)
+        if agent_class is None:
+            logger.error("[PipelineOrchestrator] No class found for agent '%s'", name)
+            return None
+        if issubclass(agent_class, BaseChildAgent):
+            return agent_class(bus=self.message_bus)
+        return None
+
+    def _get_agent_map(self) -> Dict[str, type]:
+        """Lazy import map of agent names to classes."""
+        if not hasattr(self, "_agent_class_map"):
+            from agents.phase2.opportunity_analyst import OpportunityAnalystAgent
+            from agents.phase2.alliances import AlliancesAgent
+            from agents.phase2.entrepreneur_team import EntrepreneurTeamAgent
+            from agents.phase2.exit_strategy import ExitStrategyAgent
+            from agents.phase2.hr_plan import HRPlanAgent
+            from agents.phase2.quality_management import QualityManagementAgent
+            from agents.phase2.rd_technology import RDTechnologyAgent
+            from agents.phase2.operations import OperationsAgent
+            from agents.phase2.environment_research import EnvironmentResearchAgent
+            from agents.phase2.launch_contingency import LaunchContingencyAgent
+            from agents.phase2.summary_agent import SummaryAgentAgent
+            from agents.phase2.swot_synthesizer import SWOTSynthesizerAgent
+            from agents.phase2.marketing_strategy import MarketingStrategyAgent
+            from agents.phase2.financial_modelling import FinancialModellingAgent
+            self._agent_class_map = {
+                "opportunity_analyst": OpportunityAnalystAgent,
+                "entrepreneur_team": EntrepreneurTeamAgent,
+                "alliances": AlliancesAgent,
+                "exit_strategy": ExitStrategyAgent,
+                "hr_plan": HRPlanAgent,
+                "quality_management": QualityManagementAgent,
+                "rd_technology": RDTechnologyAgent,
+                "operations": OperationsAgent,
+                "environment_research": EnvironmentResearchAgent,
+                "launch_contingency": LaunchContingencyAgent,
+                "summary_agent": SummaryAgentAgent,
+                "swot_synthesizer": SWOTSynthesizerAgent,
+                "marketing_strategy": MarketingStrategyAgent,
+                "financial_modelling": FinancialModellingAgent,
+            }
+        return self._agent_class_map
+
+    def _build_input_package(
+        self,
+        agent_name: str,
+        phase1_data: Dict,
+        prior_outputs: Dict,
+        ceo_data: Dict,
+    ) -> Dict:
+        """Assemble input package for an agent from session data and prior outputs."""
+        return {
+            "idea": phase1_data.get("idea", ""),
+            "session_data": phase1_data,
+            "ceo_data": ceo_data,
+            "cross_section_context": prior_outputs,
+            "prior_outputs": prior_outputs,
+        }
 
     async def _request_gate2_approval(
         self,
@@ -569,11 +752,17 @@ class PipelineOrchestrator:
         return ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "executive_summary"]
 
     def _create_pipeline_run(self, session_id: str, scope: str) -> str:
-        """Create pipeline_runs record in Supabase."""
+        """Create pipeline_runs record in Supabase.
+
+        `scope` is an orchestrator concept ("all" or a section number); it is not a
+        run_mode. The pipeline_runs_run_mode_check constraint only accepts
+        "full_pipeline", so the requested scope belongs in sections_requested.
+        """
         try:
             result = self.db.client.table("pipeline_runs").insert({
                 "session_id": session_id,
-                "run_mode": scope,
+                "run_mode": "full_pipeline",
+                "sections_requested": [] if scope == "all" else [scope],
                 "status": "running",
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }).execute()

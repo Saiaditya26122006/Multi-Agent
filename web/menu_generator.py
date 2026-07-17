@@ -104,44 +104,12 @@ def generate_main_menu(session_id: Optional[str] = None) -> dict:
             "status": "blocked" if blocked_count > 3 else ("warning" if blocked_count > 0 else "ready"),
         },
         {
-            "id": Workspace.INSPECT.value,
-            "number": "3",
-            "label": WORKSPACE_LABELS[Workspace.INSPECT],
-            "description": WORKSPACE_DESCRIPTIONS[Workspace.INSPECT],
-            "badge": None,
-            "status": "ready",
-        },
-        {
-            "id": Workspace.CHALLENGE.value,
-            "number": "4",
-            "label": WORKSPACE_LABELS[Workspace.CHALLENGE],
-            "description": WORKSPACE_DESCRIPTIONS[Workspace.CHALLENGE],
-            "badge": f"{contradiction_count} contradictions" if contradiction_count > 0 else None,
-            "status": "urgent" if contradiction_count >= 5 else "ready",
-        },
-        {
-            "id": Workspace.VALIDATE.value,
-            "number": "5",
-            "label": WORKSPACE_LABELS[Workspace.VALIDATE],
-            "description": WORKSPACE_DESCRIPTIONS[Workspace.VALIDATE],
-            "badge": f"{oldest_age}d oldest" if oldest_age > 14 else None,
-            "status": "urgent" if oldest_age > 30 else "ready",
-        },
-        {
-            "id": Workspace.EXPORT.value,
-            "number": "6",
-            "label": WORKSPACE_LABELS[Workspace.EXPORT],
-            "description": WORKSPACE_DESCRIPTIONS[Workspace.EXPORT],
-            "badge": f"{coverage_pct:.0f}% complete",
-            "status": "warning" if coverage_pct < 60 else "ready",
-        },
-        {
             "id": Workspace.AUTO.value,
-            "number": "7",
+            "number": "3",
             "label": WORKSPACE_LABELS[Workspace.AUTO],
             "description": WORKSPACE_DESCRIPTIONS[Workspace.AUTO],
-            "badge": None,
-            "status": "ready",
+            "badge": _auto_badge(contradiction_count, oldest_age, coverage_pct),
+            "status": _auto_status(contradiction_count, oldest_age, coverage_pct),
         },
     ]
 
@@ -150,6 +118,35 @@ def generate_main_menu(session_id: Optional[str] = None) -> dict:
         "dashboard": dashboard,
         "recommendation": recommendation,
     }
+
+
+def _auto_badge(
+    contradiction_count: int,
+    oldest_age: int,
+    coverage_pct: float,
+) -> Optional[str]:
+    """Merge the signals that used to badge the separate Inspect/Challenge/
+    Validate/Export entries, now that Auto & Ask owns all four."""
+    parts = []
+    if contradiction_count > 0:
+        parts.append(f"{contradiction_count} contradictions")
+    if oldest_age > 14:
+        parts.append(f"{oldest_age}d oldest")
+    parts.append(f"{coverage_pct:.0f}% complete")
+    return " · ".join(parts)
+
+
+def _auto_status(
+    contradiction_count: int,
+    oldest_age: int,
+    coverage_pct: float,
+) -> str:
+    """Worst-signal-wins status for the consolidated Auto & Ask workspace."""
+    if contradiction_count >= 5 or oldest_age > 30:
+        return "urgent"
+    if coverage_pct < 60:
+        return "warning"
+    return "ready"
 
 
 def generate_sub_menu(workspace: Workspace) -> dict:
@@ -165,14 +162,8 @@ def generate_sub_menu(workspace: Workspace) -> dict:
         return _feed_sub_menu()
     elif workspace == Workspace.BUILD:
         return _build_sub_menu()
-    elif workspace == Workspace.INSPECT:
-        return _inspect_sub_menu()
-    elif workspace == Workspace.CHALLENGE:
-        return _challenge_sub_menu()
-    elif workspace == Workspace.VALIDATE:
-        return _validate_sub_menu()
-    elif workspace == Workspace.EXPORT:
-        return _export_sub_menu()
+    elif workspace == Workspace.AUTO:
+        return _auto_sub_menu()
     else:
         return {"workspace": workspace.value, "options": [], "context_stats": {}}
 
@@ -229,92 +220,41 @@ def _build_sub_menu() -> dict:
     }
 
 
-def _inspect_sub_menu() -> dict:
+def _auto_sub_menu() -> dict:
+    """Options for the consolidated Auto & Ask workspace.
+
+    Keys mirror the vocabulary _dispatch_auto() in web/server.py actually accepts —
+    a-e, "challenge", "validate", "export" — so the menu never offers Alex an action
+    that does nothing. The Inspect/Challenge/Validate/Export workspaces were folded
+    into this one; their standalone sub-menus are gone.
+    """
+    stats = {}
+    try:
+        from services.coverage_calculator import get_dashboard_stats, get_oldest_assumptions
+
+        dash = get_dashboard_stats()
+        stats["coverage_pct"] = dash.get("coverage_pct", 0.0)
+        stats["contradiction_count"] = dash.get("contradiction_count", 0)
+        stats["assumption_queue"] = get_oldest_assumptions(top_k=5)
+    except Exception:
+        logger.exception("[MenuGenerator] Failed to load Auto & Ask context stats")
+        stats["coverage_pct"] = 0.0
+        stats["contradiction_count"] = 0
+        stats["assumption_queue"] = []
+
     options = [
         {"key": "A", "label": "Coverage heatmap — which sections are full/empty", "action": "coverage"},
         {"key": "B", "label": "Confidence breakdown — CONFIRMED vs ASSUMPTION vs gaps", "action": "confidence"},
         {"key": "C", "label": "Contradictions — what conflicts with what", "action": "contradictions"},
         {"key": "D", "label": "Stale data — what's old and needs refreshing", "action": "stale"},
         {"key": "E", "label": "Dependency chain — what's blocking what", "action": "dependencies"},
-        {"key": "F", "label": "Specific section deep-dive — pick which one", "action": "section_dive"},
+        {"key": "challenge", "label": "Stress-test the entire plan (devil's advocate)", "action": "challenge"},
+        {"key": "validate", "label": "Check core assumptions", "action": "validate"},
+        {"key": "export", "label": "Export the plan (DOCX/PDF)", "action": "export"},
     ]
 
     return {
-        "workspace": Workspace.INSPECT.value,
-        "options": options,
-        "context_stats": {},
-    }
-
-
-def _challenge_sub_menu() -> dict:
-    stats = {}
-    try:
-        from services.coverage_calculator import get_oldest_assumptions
-
-        oldest = get_oldest_assumptions(top_k=3)
-        stats["vulnerable_assumptions"] = oldest
-    except Exception:
-        stats["vulnerable_assumptions"] = []
-
-    options = [
-        {"key": "A", "label": "My weakest assumptions (system picks)", "action": "weakest"},
-        {"key": "B", "label": "A specific section", "action": "section"},
-        {"key": "C", "label": "A specific claim I made", "action": "claim"},
-        {"key": "D", "label": "Full devil's advocate on the entire plan", "action": "full_da"},
-        {"key": "E", "label": "Competitor comparison — how do I stack up?", "action": "competitor"},
-    ]
-
-    return {
-        "workspace": Workspace.CHALLENGE.value,
-        "options": options,
-        "context_stats": stats,
-    }
-
-
-def _validate_sub_menu() -> dict:
-    stats = {}
-    try:
-        from services.coverage_calculator import get_oldest_assumptions
-
-        oldest = get_oldest_assumptions(top_k=5)
-        stats["assumption_queue"] = oldest
-    except Exception:
-        stats["assumption_queue"] = []
-
-    options = [
-        {"key": "A", "label": "Confirm an assumption (I have evidence now)", "action": "confirm"},
-        {"key": "B", "label": "Kill an assumption (it was wrong)", "action": "kill"},
-        {"key": "C", "label": "Report a customer conversation", "action": "conversation"},
-        {"key": "D", "label": "Update a decision I made earlier", "action": "update_decision"},
-    ]
-
-    return {
-        "workspace": Workspace.VALIDATE.value,
-        "options": options,
-        "context_stats": stats,
-    }
-
-
-def _export_sub_menu() -> dict:
-    stats = {}
-    try:
-        from services.coverage_calculator import get_dashboard_stats
-
-        dash = get_dashboard_stats()
-        stats["coverage_pct"] = dash.get("coverage_pct", 0.0)
-    except Exception:
-        stats["coverage_pct"] = 0.0
-
-    options = [
-        {"key": "A", "label": "Full business plan (DOCX)", "action": "full_docx"},
-        {"key": "B", "label": "Executive summary only (1-pager)", "action": "exec_summary"},
-        {"key": "C", "label": "Investor pitch version (hides uncertainties)", "action": "investor"},
-        {"key": "D", "label": "Internal version (shows all epistemic tags)", "action": "internal"},
-        {"key": "E", "label": "Gap report (what's missing before submission)", "action": "gap_report"},
-    ]
-
-    return {
-        "workspace": Workspace.EXPORT.value,
+        "workspace": Workspace.AUTO.value,
         "options": options,
         "context_stats": stats,
     }

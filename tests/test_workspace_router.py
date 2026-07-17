@@ -69,16 +69,20 @@ class TestWorkspaceSwitch:
     def test_number_switch(self):
         assert is_workspace_switch("1") == Workspace.FEED
         assert is_workspace_switch("2") == Workspace.BUILD
-        assert is_workspace_switch("3") == Workspace.INSPECT
-        assert is_workspace_switch("4") == Workspace.CHALLENGE
-        assert is_workspace_switch("5") == Workspace.VALIDATE
-        assert is_workspace_switch("6") == Workspace.EXPORT
-        assert is_workspace_switch("7") == Workspace.AUTO
+        assert is_workspace_switch("3") == Workspace.AUTO
+        # Only 3 workspaces remain; the old 4-7 are no longer switch targets.
+        assert is_workspace_switch("4") is None
 
     def test_name_switch(self):
         assert is_workspace_switch("feed") == Workspace.FEED
         assert is_workspace_switch("build") == Workspace.BUILD
-        assert is_workspace_switch("inspect") == Workspace.INSPECT
+        assert is_workspace_switch("auto") == Workspace.AUTO
+
+    def test_legacy_names_route_to_auto(self):
+        """Inspect/Challenge/Validate/Export were folded into Auto & Ask, but their
+        names still route there rather than being treated as chat messages."""
+        for name in ("inspect", "challenge", "validate", "export"):
+            assert is_workspace_switch(name) == Workspace.AUTO
 
     def test_label_switch(self):
         assert is_workspace_switch("Feed Data") == Workspace.FEED

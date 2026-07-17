@@ -20,7 +20,7 @@ import logging
 import os
 from typing import Optional
 
-import boto3
+from agents.phase2.base_child_agent import get_shared_bedrock_client
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, OneShotBehaviour
 from spade.message import Message
@@ -67,10 +67,7 @@ class CouncilAgent(Agent):
         self.db = SupabaseClient()
         self.haiku_model = os.getenv("CLAUDE_HAIKU_MODEL", "claude-haiku-4-5-20251001")
         self.sonnet_model = os.getenv("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
-        self.bedrock = boto3.client(
-            "bedrock-runtime",
-            region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
-        )
+        self.bedrock = get_shared_bedrock_client()
 
     async def setup(self):
         logger.info("[CouncilAgent] Starting")
