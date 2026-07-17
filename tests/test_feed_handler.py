@@ -7,9 +7,8 @@ from web.handlers.feed_handler import (
     detect_format,
     split_into_atomic_facts,
     handle_raw_text,
-    tag_epistemic_status,
+    infer_epistemic_status,
     format_feed_response,
-    format_feed_panel,
     _infer_epistemic_status,
 )
 
@@ -82,25 +81,35 @@ class TestEpistemicInference:
 
 
 class TestHandleRawText:
-    def test_returns_structured_result(self):
+    def test_files_every_fact_it_was_given(self):
+        """handle_raw_text no longer returns a parse of the input
+        ({format_detected, count, facts}); it files the facts itself and reports
+        what it did with them. Every bullet must end up either auto-filed or
+        queued for review — silently dropping one loses CEO data."""
         text = "- Revenue is SaaS\n- Pricing is annual\n- Target is universities"
         result = handle_raw_text(text)
-        assert result["format_detected"] == "bullets"
-        assert result["count"] == 3
-        assert len(result["facts"]) == 3
+
+        assert result["action"] in ("auto_filed", "needs_review", "no_facts")
+        accounted = int(result["auto_filed_count"]) + int(result["review_count"])
+        assert accounted == 3
 
 
-class TestTagEpistemicStatus:
-    def test_returns_full_tag(self):
-        result = tag_epistemic_status("I think the buyer is the research dean")
-        assert result["epistemic_status"] == "ASSUMPTION"
-        assert result["confidence"] == 0.8
-        assert len(result["language_cues"]) > 0
+class TestInferEpistemicStatus:
+    """tag_epistemic_status returned {epistemic_status, confidence, language_cues}.
 
-    def test_no_cues_lower_confidence(self):
-        result = tag_epistemic_status("Annual pricing model")
-        assert result["confidence"] == 0.5
-        assert result["language_cues"] == []
+    The audit split the four merged confidence concepts apart, so the tagger no
+    longer invents a confidence number of its own — it reports the epistemic status
+    and nothing else. Reliability and per-link sufficiency live in
+    services/source_reliability.py and services/evidence_links.py now.
+    """
+
+    def test_hedging_language_is_an_assumption(self):
+        assert infer_epistemic_status("I think the buyer is the research dean", "fact") == "ASSUMPTION"
+
+    def test_bare_statement_is_not_confirmed_from_text_alone(self):
+        # CONFIRMED requires source traceability verified externally; asserting
+        # something plainly is not evidence that it is true.
+        assert infer_epistemic_status("Annual pricing model", "fact") == "INFERRED"
 
 
 class TestFormatting:
@@ -124,16 +133,7 @@ class TestFormatting:
         text = format_feed_response(results)
         assert "No extractable facts" in text
 
-    def test_format_feed_panel(self):
-        results = {
-            "format_detected": "bullets",
-            "count": 2,
-            "facts": [
-                {"text": "Fact one", "inferred_status": "ASSUMPTION", "source_format": "bullets"},
-                {"text": "Fact two", "inferred_status": "CONFIRMED", "source_format": "bullets"},
-            ],
-        }
-        panel = format_feed_panel(results)
-        assert panel["type"] == "feed_results"
-        assert panel["total_facts"] == 2
-        assert "ASSUMPTION" in panel["status_breakdown"]
+    # A test for format_feed_panel lived here. No such function exists in
+    # feed_handler — nor anywhere else — and nothing renders a "feed_results" panel,
+    # so it asserted against something that was never wired up. Removed rather than
+    # writing the function purely to satisfy the test.
