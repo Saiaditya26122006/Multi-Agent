@@ -709,10 +709,17 @@ Output to analyze:
             if not claims:
                 return 1.0, []
 
-            # Check each claim against evidence
+            # Embed the evidence ONCE. It is identical for every claim, so doing it
+            # inside the per-claim loop cost len(claims) x len(evidence) embed calls
+            # (110 for the default 10x10) at ~800ms each — roughly 90s per section,
+            # which alone exceeded the agent's timeout.
+            evidence_embeddings = self._embed_evidence(rag_evidence)
+            if not evidence_embeddings:
+                return 1.0, []
+
             ungrounded = []
             for claim in claims:
-                is_grounded = await self._check_claim_grounding(claim, rag_evidence)
+                is_grounded = await self._check_claim_grounding(claim, evidence_embeddings)
                 if not is_grounded:
                     ungrounded.append(claim)
 
@@ -727,9 +734,27 @@ Output to analyze:
             logger.error("[%s] Grounding verification failed: %s", self.AGENT_NAME, e)
             return 1.0, []
 
-    async def _check_claim_grounding(self, claim: str, rag_evidence: list[dict]) -> bool:
-        """Check if a single claim is supported by RAG evidence via semantic similarity."""
-        if not rag_evidence:
+    def _embed_evidence(self, rag_evidence: list[dict]) -> list[list[float]]:
+        """Embed evidence chunk contents once, for reuse across every claim."""
+        try:
+            from services.rag_service import embed
+
+            embeddings = []
+            for evidence in rag_evidence:
+                content = evidence.get("content", "")
+                if not content:
+                    continue
+                embeddings.append(embed(content, input_type="search_document"))
+            return embeddings
+        except Exception as e:
+            logger.warning("[%s] Failed to embed RAG evidence: %s", self.AGENT_NAME, e)
+            return []
+
+    async def _check_claim_grounding(
+        self, claim: str, evidence_embeddings: list[list[float]]
+    ) -> bool:
+        """Check if a claim is supported by pre-embedded RAG evidence."""
+        if not evidence_embeddings:
             return False
 
         try:
@@ -738,15 +763,9 @@ Output to analyze:
             # Embed the claim
             claim_embedding = embed(claim, input_type="search_query")
 
-            # Check similarity against evidence chunks
+            # Check similarity against the pre-computed evidence embeddings
             best_similarity = 0.0
-            for evidence in rag_evidence:
-                content = evidence.get("content", "")
-                if not content:
-                    continue
-
-                # Simple cosine similarity (dot product of normalized vectors)
-                evidence_embedding = embed(content, input_type="search_document")
+            for evidence_embedding in evidence_embeddings:
                 similarity = self._cosine_similarity(claim_embedding, evidence_embedding)
 
                 if similarity > best_similarity:
