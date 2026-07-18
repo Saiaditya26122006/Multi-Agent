@@ -1,0 +1,2162 @@
+[
+  {
+    "text": "Claim is the atomic unit of validation",
+    "source": "assumptions_register",
+    "candidates": [
+      {
+        "node_id": "BP.3.4.9",
+        "title": "Claim-Support Acceptance Check",
+        "purpose": "Confirm that the claim-support map is complete, sufficiency-assessed, and gap-documented before downstream use.",
+        "sim": 0.362
+      },
+      {
+        "node_id": "BP.3.4.1",
+        "title": "Claim Inventory",
+        "purpose": "Compile the inventory of all BP claims that require source-backed evidence.",
+        "sim": 0.334
+      },
+      {
+        "node_id": "BP.1.1.2",
+        "title": "Unit of Analysis",
+        "purpose": "Define what the system evaluates.",
+        "sim": 0.329
+      },
+      {
+        "node_id": "BP.11.3.9",
+        "title": "Claim Clearance Acceptance Check",
+        "purpose": "Confirm that all BP.11.3 nodes are present, internally coherent, and ready for controller review.",
+        "sim": 0.303
+      },
+      {
+        "node_id": "BP.10.1.4",
+        "title": "Validation Scope",
+        "purpose": "Define the explicit boundaries of what the validation effort can and cannot determine, including population, time horizo",
+        "sim": 0.301
+      },
+      {
+        "node_id": "BP.9.1.9",
+        "title": "Value Creation and Capture Acceptance Check",
+        "purpose": "Confirm that BP.9.1 is internally coherent, complete, and free of prohibited inferences before downstream BP.9.2 pricing",
+        "sim": 0.291
+      },
+      {
+        "node_id": "BP.10.1.5",
+        "title": "Validation Assumptions",
+        "purpose": "State all unvalidated assumptions underpinning the validation strategy and pilot design with explicit falsification cond",
+        "sim": 0.291
+      },
+      {
+        "node_id": "BP.1.7.1",
+        "title": "BP.1 Claim Classification",
+        "purpose": "Define the classes of claims made within BP.1 and assign each claim to a governed evidence category.",
+        "sim": 0.288
+      }
+    ]
+  },
+  {
+    "text": "Business schools are easiest first pilots",
+    "source": "assumptions_register",
+    "candidates": [
+      {
+        "node_id": "BP.1.1.7.5",
+        "title": "Pilot-Ready State Criteria",
+        "purpose": "Defines minimum evidence for calling EpistemicOS pilot-ready.",
+        "sim": 0.26
+      },
+      {
+        "node_id": "BP.10.1.3",
+        "title": "Pilot Design",
+        "purpose": "Define the structure of the validation pilot, including participants, duration, intervention, and observation method, wi",
+        "sim": 0.238
+      },
+      {
+        "node_id": "BP.6.6.1",
+        "title": "Initial Adoption Target",
+        "purpose": "Define the first actor, role, or context targeted for product adoption.",
+        "sim": 0.188
+      },
+      {
+        "node_id": "BP.10.1",
+        "title": "Validation Strategy and Pilot Design",
+        "purpose": "Defines validation objectives, hypotheses, pilot design, and scope without asserting validation outcomes.",
+        "sim": 0.178
+      },
+      {
+        "node_id": "BP.1.6.1",
+        "title": "Initial Operating Geography",
+        "purpose": "Define the first geography in which EpistemicOS is intended to operate for planning purposes.",
+        "sim": 0.161
+      },
+      {
+        "node_id": "BP.6.6.5",
+        "title": "Adoption Trigger Logic",
+        "purpose": "Define the specific events or conditions that trigger each stage of the adoption sequence.",
+        "sim": 0.158
+      },
+      {
+        "node_id": "BP.6.6.4",
+        "title": "Institutional Adoption Sequence",
+        "purpose": "Define the hypothesised sequence in which institutions approve and embed the product.",
+        "sim": 0.157
+      },
+      {
+        "node_id": "BP.10.2.1",
+        "title": "Behavioural Success Metrics",
+        "purpose": "Define the specific, observable behavioural metrics that would indicate workflow-triggered use, pre-registered prior to ",
+        "sim": 0.153
+      }
+    ]
+  },
+  {
+    "text": "Journals are harder but more defensible long term",
+    "source": "assumptions_register",
+    "candidates": [
+      {
+        "node_id": "BP.8.5.7",
+        "title": "Defensibility Evidence Requirements",
+        "purpose": "Define evidence standards for defensibility claims.",
+        "sim": 0.192
+      },
+      {
+        "node_id": "BP.8.5.5",
+        "title": "Defensibility Assumptions",
+        "purpose": "State assumptions about defensibility mechanisms and duration.",
+        "sim": 0.188
+      },
+      {
+        "node_id": "BP.8.9.5",
+        "title": "Defensibility Audit",
+        "purpose": "Audit defensibility mechanisms and competitive moat.",
+        "sim": 0.178
+      },
+      {
+        "node_id": "BP.8.5.6",
+        "title": "Defensibility Dependencies",
+        "purpose": "Identify dependencies on sustained defensibility.",
+        "sim": 0.178
+      },
+      {
+        "node_id": "BP.8.5.9",
+        "title": "Defensibility Acceptance Check",
+        "purpose": "Confirm defensibility mechanisms are realistic and documented.",
+        "sim": 0.168
+      },
+      {
+        "node_id": "BP.8.5.1",
+        "title": "Defensibility Mechanisms",
+        "purpose": "Define mechanisms protecting EpistemicOS from competitive imitation.",
+        "sim": 0.165
+      },
+      {
+        "node_id": "BP.8.7.3",
+        "title": "Publisher Threats",
+        "purpose": "Assess threats from academic publishers and platform consolidation.",
+        "sim": 0.149
+      },
+      {
+        "node_id": "BP.3.3.7",
+        "title": "Academic Evidence Requirements",
+        "purpose": "Define minimum evidence requirements for academic sources to be used in BP claim support.",
+        "sim": 0.141
+      }
+    ]
+  },
+  {
+    "text": "Researchers feel AI-induced epistemic risk",
+    "source": "assumptions_register",
+    "candidates": [
+      {
+        "node_id": "BP.8.7.4",
+        "title": "AI Platform Threats",
+        "purpose": "Assess threats from AI platform incumbents and new entrants.",
+        "sim": 0.282
+      },
+      {
+        "node_id": "BP.7.3.4",
+        "title": "Prohibited AI Uses",
+        "purpose": "List prohibited uses and deployment contexts for EpistemicOS.",
+        "sim": 0.267
+      },
+      {
+        "node_id": "BP.7.3",
+        "title": "AI Governance and Ethical Constraints",
+        "purpose": "Governs AI framework, human oversight, ethical constraints, and prohibited AI uses.",
+        "sim": 0.266
+      },
+      {
+        "node_id": "BP.8.5.4",
+        "title": "Imitation Risk",
+        "purpose": "Assess risk of competitive imitation of key features or positioning.",
+        "sim": 0.242
+      },
+      {
+        "node_id": "BP.1.5.4.1",
+        "title": "Category Compression Risk Identification",
+        "purpose": "Identify conditions under which EpistemicOS may be incorrectly compressed into a broader or narrower category.",
+        "sim": 0.211
+      },
+      {
+        "node_id": "BP.7.3.8",
+        "title": "Prohibited AI Governance Inferences",
+        "purpose": "Define inferences that must not be made from AI governance claims.",
+        "sim": 0.207
+      },
+      {
+        "node_id": "BP.7.3.5",
+        "title": "AI Governance Assumptions",
+        "purpose": "State assumptions about AI governance applicability.",
+        "sim": 0.207
+      },
+      {
+        "node_id": "BP.1.1.7.1",
+        "title": "Concept State Criteria",
+        "purpose": "Defines minimum evidence for calling EpistemicOS a concept.",
+        "sim": 0.204
+      }
+    ]
+  },
+  {
+    "text": "Advanced researchers pay for risk containment, not efficiency",
+    "source": "assumptions_register",
+    "candidates": [
+      {
+        "node_id": "BP.7.4",
+        "title": "Confidentiality and Research Data Risk",
+        "purpose": "Governs confidential data types, research data classification, and confidentiality risks.",
+        "sim": 0.213
+      },
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.173
+      },
+      {
+        "node_id": "BP.3.3.6",
+        "title": "Academic Boundary Rules",
+        "purpose": "Define what academic sources may and may not be used to support within the BP architecture.",
+        "sim": 0.171
+      },
+      {
+        "node_id": "BP.3.3.8",
+        "title": "Academic Misuse Controls",
+        "purpose": "Define controls to detect and prevent misuse of academic sources in BP claim support.",
+        "sim": 0.169
+      },
+      {
+        "node_id": "BP.8.8",
+        "title": "Category Compression Risk",
+        "purpose": "Governs category definition risks, buyer confusion, adjacent category mapping, and category compression scenarios.",
+        "sim": 0.158
+      },
+      {
+        "node_id": "BP.1.5.4.1",
+        "title": "Category Compression Risk Identification",
+        "purpose": "Identify conditions under which EpistemicOS may be incorrectly compressed into a broader or narrower category.",
+        "sim": 0.15
+      },
+      {
+        "node_id": "BP.9.6.2",
+        "title": "Financial Risk Assessment",
+        "purpose": "Governs financial risk assessment without validating downstream commercial success.",
+        "sim": 0.142
+      },
+      {
+        "node_id": "BP.2.5.6",
+        "title": "Prohibited Hypothesis Upgrades",
+        "purpose": "Define the conditions under which the governing hypothesis must NOT be upgraded to a stronger claim, regardless of parti",
+        "sim": 0.125
+      }
+    ]
+  },
+  {
+    "text": "Institutional buyers value auditability",
+    "source": "assumptions_register",
+    "candidates": [
+      {
+        "node_id": "BP.8.6.3",
+        "title": "Institutional Trust Factors",
+        "purpose": "Define institutional factors affecting trust.",
+        "sim": 0.348
+      },
+      {
+        "node_id": "BP.5.6.3",
+        "title": "Buying Centre Audit",
+        "purpose": "Audit BP.5.2 for completeness, composition coherence, and absence of prohibited buying-centre inferences.",
+        "sim": 0.327
+      },
+      {
+        "node_id": "BP.5.3.1",
+        "title": "Economic Buyer Identification",
+        "purpose": "Identify the economic buyer: the actor who controls the budget or can authorise expenditure for this product.",
+        "sim": 0.32
+      },
+      {
+        "node_id": "BP.8.4.4",
+        "title": "Institutional Differentiation",
+        "purpose": "Define institutional or organizational differentiation.",
+        "sim": 0.315
+      },
+      {
+        "node_id": "BP.8.2.4",
+        "title": "Institutional Alternatives",
+        "purpose": "Map institutional or organizational alternatives to workflow.",
+        "sim": 0.311
+      },
+      {
+        "node_id": "BP.5.6.5",
+        "title": "Procurement Architecture Audit",
+        "purpose": "Audit BP.5.4 and BP.5.5 for completeness, process coherence, and absence of prohibited procurement and timing inferences",
+        "sim": 0.309
+      },
+      {
+        "node_id": "BP.3.1",
+        "title": "Source Audit and Inventory",
+        "purpose": "Defines how candidate sources are identified, logged, and made reviewable.",
+        "sim": 0.308
+      },
+      {
+        "node_id": "BP.3.1.7",
+        "title": "Source Audit Requirements",
+        "purpose": "Define the audit process and frequency for reviewing the source inventory.",
+        "sim": 0.307
+      }
+    ]
+  },
+  {
+    "text": "Primary monetization hypothesis: Institutional SaaS subscription",
+    "source": "pricing_model",
+    "candidates": [
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.281
+      },
+      {
+        "node_id": "BP.8.2.4",
+        "title": "Institutional Alternatives",
+        "purpose": "Map institutional or organizational alternatives to workflow.",
+        "sim": 0.255
+      },
+      {
+        "node_id": "BP.6.5.4",
+        "title": "Institutional Politics",
+        "purpose": "Identify political, authority, or stakeholder-alignment factors that affect institutional adoption.",
+        "sim": 0.248
+      },
+      {
+        "node_id": "BP.6.6.4",
+        "title": "Institutional Adoption Sequence",
+        "purpose": "Define the hypothesised sequence in which institutions approve and embed the product.",
+        "sim": 0.225
+      },
+      {
+        "node_id": "BP.3.3",
+        "title": "Academic Foundation and Methodology Synthesis",
+        "purpose": "Defines how academic sources support planning logic without becoming business validation.",
+        "sim": 0.213
+      },
+      {
+        "node_id": "BP.6.5.1",
+        "title": "Institutional Legitimacy Requirements",
+        "purpose": "Define the legitimacy standards that the product must meet to be adopted within institutional contexts.",
+        "sim": 0.209
+      },
+      {
+        "node_id": "BP.7.5.3",
+        "title": "Institution-Specific Requirements",
+        "purpose": "Define compliance requirements by institution type.",
+        "sim": 0.208
+      },
+      {
+        "node_id": "BP.9",
+        "title": "Business Model, Revenue, and GTM Logic",
+        "purpose": "Governs the business model hypothesis, pricing, GTM motion, sales cycle, unit economics, and financial viability without",
+        "sim": 0.201
+      }
+    ]
+  },
+  {
+    "text": "Unit of sale: Institution, school, department, researcher seat, manuscript, claim, or journal workflow",
+    "source": "pricing_model",
+    "candidates": [
+      {
+        "node_id": "BP.1.1.2",
+        "title": "Unit of Analysis",
+        "purpose": "Define what the system evaluates.",
+        "sim": 0.461
+      },
+      {
+        "node_id": "BP.9.5.3",
+        "title": "Unit Economics",
+        "purpose": "Governs unit economics without validating downstream commercial success.",
+        "sim": 0.275
+      },
+      {
+        "node_id": "BP.9.5",
+        "title": "Unit Economics and Financial Model Logic",
+        "purpose": "Governs revenue model, cost structure, unit economics, and financial projections without validating financial viability ",
+        "sim": 0.258
+      },
+      {
+        "node_id": "BP.1.1.1",
+        "title": "Product Identity",
+        "purpose": "Define the product in one controlled statement.",
+        "sim": 0.251
+      },
+      {
+        "node_id": "BP.3.3.1",
+        "title": "Academic Source Inventory",
+        "purpose": "Compile the inventory of academic sources used to support BP planning logic.",
+        "sim": 0.245
+      },
+      {
+        "node_id": "BP.7.5.3",
+        "title": "Institution-Specific Requirements",
+        "purpose": "Define compliance requirements by institution type.",
+        "sim": 0.232
+      },
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.23
+      },
+      {
+        "node_id": "BP.8.4.1",
+        "title": "Differentiation Claim Inventory",
+        "purpose": "Inventory all claimed differentiation points.",
+        "sim": 0.215
+      }
+    ]
+  },
+  {
+    "text": "Value unit: Claim appears to be unit of validation; institution or manuscript may be unit of purchase",
+    "source": "pricing_model",
+    "candidates": [
+      {
+        "node_id": "BP.1.1.2",
+        "title": "Unit of Analysis",
+        "purpose": "Define what the system evaluates.",
+        "sim": 0.36
+      },
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.319
+      },
+      {
+        "node_id": "BP.9.1.1",
+        "title": "Value Proposition Definition",
+        "purpose": "State the core value proposition without implying demand, adoption, or willingness to pay.",
+        "sim": 0.315
+      },
+      {
+        "node_id": "BP.3.4.1",
+        "title": "Claim Inventory",
+        "purpose": "Compile the inventory of all BP claims that require source-backed evidence.",
+        "sim": 0.301
+      },
+      {
+        "node_id": "BP.9.1.2",
+        "title": "Value Creation Logic",
+        "purpose": "Explain the hypothesised mechanism by which the product creates the claimed value in the intended user workflow.",
+        "sim": 0.292
+      },
+      {
+        "node_id": "BP.9.1",
+        "title": "Value Creation, Delivery, and Capture Logic",
+        "purpose": "Defines the hypothesised mechanism by which EpistemicOS creates value, delivers it to users, and captures value for the ",
+        "sim": 0.287
+      },
+      {
+        "node_id": "BP.9.1.3",
+        "title": "Value Delivery Logic",
+        "purpose": "Define how the value is made accessible to users (delivery modality, integration path, user responsibility).",
+        "sim": 0.276
+      },
+      {
+        "node_id": "BP.11.1.3",
+        "title": "Narrative Claim Inventory",
+        "purpose": "Inventory every discrete claim the narrative intends to make, so each claim can be individually checked against its sour",
+        "sim": 0.272
+      }
+    ]
+  },
+  {
+    "text": "Individual researcher pricing: Possible premium researcher subscription",
+    "source": "pricing_model",
+    "candidates": [
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.23
+      },
+      {
+        "node_id": "BP.9.2.8",
+        "title": "Prohibited Pricing Inferences",
+        "purpose": "Governs prohibited pricing inferences without validating downstream commercial success.",
+        "sim": 0.159
+      },
+      {
+        "node_id": "BP.5.3.1",
+        "title": "Economic Buyer Identification",
+        "purpose": "Identify the economic buyer: the actor who controls the budget or can authorise expenditure for this product.",
+        "sim": 0.159
+      },
+      {
+        "node_id": "BP.7.4.2",
+        "title": "Research Data Classification",
+        "purpose": "Classify research data by sensitivity and handling requirements.",
+        "sim": 0.158
+      },
+      {
+        "node_id": "BP.6.4.3",
+        "title": "Willingness-to-Pay Signals",
+        "purpose": "Collect and classify WTP signals from discovery without treating them as pricing validation.",
+        "sim": 0.151
+      },
+      {
+        "node_id": "BP.8.7.3",
+        "title": "Publisher Threats",
+        "purpose": "Assess threats from academic publishers and platform consolidation.",
+        "sim": 0.144
+      },
+      {
+        "node_id": "BP.3.3.1",
+        "title": "Academic Source Inventory",
+        "purpose": "Compile the inventory of academic sources used to support BP planning logic.",
+        "sim": 0.137
+      },
+      {
+        "node_id": "BP.9.2.9",
+        "title": "Pricing Acceptance Check",
+        "purpose": "Governs pricing acceptance check without validating downstream commercial success.",
+        "sim": 0.135
+      }
+    ]
+  },
+  {
+    "text": "Doctoral student pricing: Possible individual or programme-paid model",
+    "source": "pricing_model",
+    "candidates": [
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.212
+      },
+      {
+        "node_id": "BP.3.3.6",
+        "title": "Academic Boundary Rules",
+        "purpose": "Define what academic sources may and may not be used to support within the BP architecture.",
+        "sim": 0.156
+      },
+      {
+        "node_id": "BP.9.2.1",
+        "title": "Pricing Model Definition",
+        "purpose": "Governs pricing model definition without validating downstream commercial success.",
+        "sim": 0.155
+      },
+      {
+        "node_id": "BP.9.1.3",
+        "title": "Value Delivery Logic",
+        "purpose": "Define how the value is made accessible to users (delivery modality, integration path, user responsibility).",
+        "sim": 0.152
+      },
+      {
+        "node_id": "BP.4.2.3",
+        "title": "SOM Model",
+        "purpose": "Define the Serviceable Obtainable Market model reflecting realistic near-term capture assumptions.",
+        "sim": 0.149
+      },
+      {
+        "node_id": "BP.9.2.2",
+        "title": "Pricing Structure",
+        "purpose": "Governs pricing structure without validating downstream commercial success.",
+        "sim": 0.137
+      },
+      {
+        "node_id": "BP.6.1.2",
+        "title": "Target Participants",
+        "purpose": "Define who must participate in discovery to generate evidence sufficient for governed claims.",
+        "sim": 0.133
+      },
+      {
+        "node_id": "BP.6.4.4",
+        "title": "Pricing Signal Classification",
+        "purpose": "Classify collected WTP signals by evidence strength and permitted downstream use.",
+        "sim": 0.124
+      }
+    ]
+  },
+  {
+    "text": "Market category hypothesis: Manuscript diagnostics, research integrity infrastructure, reviewer-readiness, epistemic validation software",
+    "source": "competitors",
+    "candidates": [
+      {
+        "node_id": "BP.1.1.1",
+        "title": "Product Identity",
+        "purpose": "Define the product in one controlled statement.",
+        "sim": 0.355
+      },
+      {
+        "node_id": "BP.1.5.1.1",
+        "title": "Category Hypothesis Formulation",
+        "purpose": "State the provisional category that EpistemicOS is hypothesized to belong to.",
+        "sim": 0.32
+      },
+      {
+        "node_id": "BP.1.5",
+        "title": "Category Hypothesis",
+        "purpose": "Defines the provisional category frame without claiming category validation.",
+        "sim": 0.259
+      },
+      {
+        "node_id": "BP.8.8.7",
+        "title": "Category Evidence Requirements",
+        "purpose": "Define evidence standards for category compression claims.",
+        "sim": 0.251
+      },
+      {
+        "node_id": "BP.4.6",
+        "title": "BP.4 Market Architecture Acceptance Check",
+        "purpose": "Determines whether BP.4 is coherent enough for downstream buyer, GTM, and validation design.",
+        "sim": 0.247
+      },
+      {
+        "node_id": "BP.3.1",
+        "title": "Source Audit and Inventory",
+        "purpose": "Defines how candidate sources are identified, logged, and made reviewable.",
+        "sim": 0.247
+      },
+      {
+        "node_id": "BP.1.5.1",
+        "title": "Category Hypothesis Statement",
+        "purpose": "Governs formulation of the provisional category hypothesis without asserting category validity.",
+        "sim": 0.242
+      },
+      {
+        "node_id": "BP.1.5.1.3",
+        "title": "Category Hypothesis Dependencies",
+        "purpose": "Identify upstream product elements that the category hypothesis depends on.",
+        "sim": 0.242
+      }
+    ]
+  },
+  {
+    "text": "Comparable model: Turnitin/iThenticate used as analogy for institutional risk infrastructure",
+    "source": "competitors",
+    "candidates": [
+      {
+        "node_id": "BP.8.6.3",
+        "title": "Institutional Trust Factors",
+        "purpose": "Define institutional factors affecting trust.",
+        "sim": 0.32
+      },
+      {
+        "node_id": "BP.8.5.4",
+        "title": "Imitation Risk",
+        "purpose": "Assess risk of competitive imitation of key features or positioning.",
+        "sim": 0.313
+      },
+      {
+        "node_id": "BP.6.5",
+        "title": "Institutional Legitimacy and Trust Friction",
+        "purpose": "Defines trust, legitimacy, politics, and perception risks affecting adoption.",
+        "sim": 0.311
+      },
+      {
+        "node_id": "BP.8.2.4",
+        "title": "Institutional Alternatives",
+        "purpose": "Map institutional or organizational alternatives to workflow.",
+        "sim": 0.292
+      },
+      {
+        "node_id": "BP.6.5.1",
+        "title": "Institutional Legitimacy Requirements",
+        "purpose": "Define the legitimacy standards that the product must meet to be adopted within institutional contexts.",
+        "sim": 0.279
+      },
+      {
+        "node_id": "BP.7.6.3",
+        "title": "Institutional Deployment Constraints",
+        "purpose": "Define institutional governance constraints on deployment.",
+        "sim": 0.271
+      },
+      {
+        "node_id": "BP.8.7.9",
+        "title": "Threat Architecture Acceptance Check",
+        "purpose": "Confirm threats are identified and mitigation strategies exist.",
+        "sim": 0.254
+      },
+      {
+        "node_id": "BP.8.6.9",
+        "title": "Trust Architecture Acceptance Check",
+        "purpose": "Confirm trust mechanisms are realistic and credible.",
+        "sim": 0.248
+      }
+    ]
+  },
+  {
+    "text": "Direct competitors: Need to identify claim-level or manuscript-level validation tools",
+    "source": "competitors",
+    "candidates": [
+      {
+        "node_id": "BP.8.1.7",
+        "title": "Competitor Evidence Requirements",
+        "purpose": "Define evidence standards for competitive landscape claims.",
+        "sim": 0.358
+      },
+      {
+        "node_id": "BP.10.1.7",
+        "title": "Validation Evidence Requirements",
+        "purpose": "Define evidence type, tier, source family, and sufficiency threshold required before strengthening any validation strate",
+        "sim": 0.339
+      },
+      {
+        "node_id": "BP.3.4.9",
+        "title": "Claim-Support Acceptance Check",
+        "purpose": "Confirm that the claim-support map is complete, sufficiency-assessed, and gap-documented before downstream use.",
+        "sim": 0.319
+      },
+      {
+        "node_id": "BP.10.1",
+        "title": "Validation Strategy and Pilot Design",
+        "purpose": "Defines validation objectives, hypotheses, pilot design, and scope without asserting validation outcomes.",
+        "sim": 0.294
+      },
+      {
+        "node_id": "BP.10.1.2",
+        "title": "Validation Hypotheses",
+        "purpose": "State the specific, falsifiable hypotheses that the validation pilot is designed to test, prior to evidence collection.",
+        "sim": 0.288
+      },
+      {
+        "node_id": "BP.9.1.7",
+        "title": "Value Logic Evidence Requirements",
+        "purpose": "Define the evidence type, tier, source family, and sufficiency threshold required before strengthening value creation an",
+        "sim": 0.282
+      },
+      {
+        "node_id": "BP.10.1.1",
+        "title": "Validation Objectives",
+        "purpose": "Define the specific objectives the validation effort is designed to test, in bounded and falsifiable terms.",
+        "sim": 0.278
+      },
+      {
+        "node_id": "BP.11.1.4",
+        "title": "Evidence-to-Claim Mapping",
+        "purpose": "Map each inventoried narrative claim to the specific BP.1\u2013BP.10 evidence tier and source family that supports it, so nar",
+        "sim": 0.273
+      }
+    ]
+  },
+  {
+    "text": "Adjacent tools: AI writing tools, academic writing assistants, literature review tools, citation tools, peer-review support, research integrity tools, plagiarism/AI detection, gene",
+    "source": "competitors",
+    "candidates": [
+      {
+        "node_id": "BP.8.1.5",
+        "title": "Adjacent and Substitute Solutions",
+        "purpose": "Map adjacent and substitute solutions in competitive landscape.",
+        "sim": 0.235
+      },
+      {
+        "node_id": "BP.6.2.2",
+        "title": "Current Alternatives",
+        "purpose": "Identify the tools, methods, or approaches currently used by the ICP instead of the product.",
+        "sim": 0.231
+      },
+      {
+        "node_id": "BP.8.8.3",
+        "title": "Adjacent Category Mapping",
+        "purpose": "Map risk of compression into adjacent categories.",
+        "sim": 0.211
+      },
+      {
+        "node_id": "BP.8.2.3",
+        "title": "Software Alternatives",
+        "purpose": "Identify existing software alternatives for the workflow.",
+        "sim": 0.201
+      },
+      {
+        "node_id": "BP.1.5.2.1",
+        "title": "Alternative Category Labels",
+        "purpose": "List plausible alternative category labels that EpistemicOS could belong to.",
+        "sim": 0.173
+      },
+      {
+        "node_id": "BP.3.3.1",
+        "title": "Academic Source Inventory",
+        "purpose": "Compile the inventory of academic sources used to support BP planning logic.",
+        "sim": 0.167
+      },
+      {
+        "node_id": "BP.8.7.4",
+        "title": "AI Platform Threats",
+        "purpose": "Assess threats from AI platform incumbents and new entrants.",
+        "sim": 0.166
+      },
+      {
+        "node_id": "BP.1.2.1",
+        "title": "Writing Assistance Exclusion",
+        "purpose": "Exclude writing-improvement positioning.",
+        "sim": 0.165
+      }
+    ]
+  },
+  {
+    "text": "GDPR manuscript data handling",
+    "source": "compliance_risks",
+    "candidates": [
+      {
+        "node_id": "BP.7.2",
+        "title": "Data Processing and Privacy Governance",
+        "purpose": "Governs data classification, processing activities, personal data handling, and privacy assumptions.",
+        "sim": 0.322
+      },
+      {
+        "node_id": "BP.7.4.4",
+        "title": "Data Handling Requirements",
+        "purpose": "Define secure handling requirements for confidential data.",
+        "sim": 0.322
+      },
+      {
+        "node_id": "BP.7.4",
+        "title": "Confidentiality and Research Data Risk",
+        "purpose": "Governs confidential data types, research data classification, and confidentiality risks.",
+        "sim": 0.282
+      },
+      {
+        "node_id": "BP.7.2.9",
+        "title": "Data Governance Acceptance Check",
+        "purpose": "Confirm data governance scope is complete and coherent.",
+        "sim": 0.274
+      },
+      {
+        "node_id": "BP.7.2.6",
+        "title": "Data Governance Dependencies",
+        "purpose": "Identify dependencies on privacy frameworks or user consent.",
+        "sim": 0.252
+      },
+      {
+        "node_id": "BP.3.1.2",
+        "title": "Source Metadata",
+        "purpose": "Record structured metadata for each identified source.",
+        "sim": 0.228
+      },
+      {
+        "node_id": "BP.7.2.2",
+        "title": "Data Processing Activities",
+        "purpose": "Define data processing operations and workflows.",
+        "sim": 0.221
+      },
+      {
+        "node_id": "BP.7.4.2",
+        "title": "Research Data Classification",
+        "purpose": "Classify research data by sensitivity and handling requirements.",
+        "sim": 0.214
+      }
+    ]
+  },
+  {
+    "text": "Third-party LLM API use",
+    "source": "compliance_risks",
+    "candidates": [
+      {
+        "node_id": "BP.3.2.3",
+        "title": "Permitted Uses by Tier",
+        "purpose": "Define what each evidence tier is permitted to support across BP claim types.",
+        "sim": 0.211
+      },
+      {
+        "node_id": "BP.3.5.3",
+        "title": "Source Misuse Detection",
+        "purpose": "Define the process for detecting when a source is used to support a claim outside its permitted boundary.",
+        "sim": 0.181
+      },
+      {
+        "node_id": "BP.7.3.4",
+        "title": "Prohibited AI Uses",
+        "purpose": "List prohibited uses and deployment contexts for EpistemicOS.",
+        "sim": 0.176
+      },
+      {
+        "node_id": "BP.1.5.2.1",
+        "title": "Alternative Category Labels",
+        "purpose": "List plausible alternative category labels that EpistemicOS could belong to.",
+        "sim": 0.171
+      },
+      {
+        "node_id": "BP.6.5.1",
+        "title": "Institutional Legitimacy Requirements",
+        "purpose": "Define the legitimacy standards that the product must meet to be adopted within institutional contexts.",
+        "sim": 0.168
+      },
+      {
+        "node_id": "BP.8.2.4",
+        "title": "Institutional Alternatives",
+        "purpose": "Map institutional or organizational alternatives to workflow.",
+        "sim": 0.159
+      },
+      {
+        "node_id": "BP.2.6.3",
+        "title": "Allowed Sources and Source Routing",
+        "purpose": "Define which evidence source families may support each BP.2 claim type and when evidence must be routed to BP.3 for sour",
+        "sim": 0.155
+      },
+      {
+        "node_id": "BP.9.3.8",
+        "title": "Prohibited GTM Inferences",
+        "purpose": "Governs prohibited gtm inferences without validating downstream commercial success.",
+        "sim": 0.154
+      }
+    ]
+  },
+  {
+    "text": "Data transfer",
+    "source": "compliance_risks",
+    "candidates": [
+      {
+        "node_id": "BP.7.4.4",
+        "title": "Data Handling Requirements",
+        "purpose": "Define secure handling requirements for confidential data.",
+        "sim": 0.225
+      },
+      {
+        "node_id": "BP.7.2.2",
+        "title": "Data Processing Activities",
+        "purpose": "Define data processing operations and workflows.",
+        "sim": 0.21
+      },
+      {
+        "node_id": "BP.7.2.4",
+        "title": "Data Storage and Retention",
+        "purpose": "Define data storage requirements and retention policies.",
+        "sim": 0.203
+      },
+      {
+        "node_id": "BP.7.2.1",
+        "title": "Data Classification",
+        "purpose": "Classify data types processed by EpistemicOS.",
+        "sim": 0.2
+      },
+      {
+        "node_id": "BP.7.4.1",
+        "title": "Confidential Data Types",
+        "purpose": "Define types of confidential data handled by EpistemicOS.",
+        "sim": 0.18
+      },
+      {
+        "node_id": "BP.7.4",
+        "title": "Confidentiality and Research Data Risk",
+        "purpose": "Governs confidential data types, research data classification, and confidentiality risks.",
+        "sim": 0.177
+      },
+      {
+        "node_id": "BP.8.5.3",
+        "title": "Knowledge and Data Assets",
+        "purpose": "Define proprietary knowledge and data assets creating defensibility.",
+        "sim": 0.17
+      },
+      {
+        "node_id": "BP.7.4.2",
+        "title": "Research Data Classification",
+        "purpose": "Classify research data by sensitivity and handling requirements.",
+        "sim": 0.166
+      }
+    ]
+  },
+  {
+    "text": "Manuscript confidentiality",
+    "source": "compliance_risks",
+    "candidates": [
+      {
+        "node_id": "BP.7.4",
+        "title": "Confidentiality and Research Data Risk",
+        "purpose": "Governs confidential data types, research data classification, and confidentiality risks.",
+        "sim": 0.355
+      },
+      {
+        "node_id": "BP.7.4.1",
+        "title": "Confidential Data Types",
+        "purpose": "Define types of confidential data handled by EpistemicOS.",
+        "sim": 0.329
+      },
+      {
+        "node_id": "BP.7.4.7",
+        "title": "Confidentiality Evidence Requirements",
+        "purpose": "Define evidence standards for confidentiality claims.",
+        "sim": 0.322
+      },
+      {
+        "node_id": "BP.7.4.6",
+        "title": "Confidentiality Dependencies",
+        "purpose": "Identify dependencies on institutional confidentiality policies.",
+        "sim": 0.313
+      },
+      {
+        "node_id": "BP.7.4.5",
+        "title": "Confidentiality Assumptions",
+        "purpose": "State assumptions about confidentiality controls.",
+        "sim": 0.311
+      },
+      {
+        "node_id": "BP.7.4.8",
+        "title": "Prohibited Confidentiality Inferences",
+        "purpose": "Define inferences that must not be made from confidentiality architecture.",
+        "sim": 0.286
+      },
+      {
+        "node_id": "BP.7.4.9",
+        "title": "Confidentiality Acceptance Check",
+        "purpose": "Confirm confidentiality scope is complete and coherent.",
+        "sim": 0.286
+      },
+      {
+        "node_id": "BP.7.4.3",
+        "title": "Confidentiality Risks",
+        "purpose": "Identify risks to confidentiality in data processing workflows.",
+        "sim": 0.284
+      }
+    ]
+  },
+  {
+    "text": "Copyright/IP ownership",
+    "source": "compliance_risks",
+    "candidates": [
+      {
+        "node_id": "BP.5.3.2",
+        "title": "Budget Ownership",
+        "purpose": "Define which role or function owns the budget line relevant to this product without implying purchase intent.",
+        "sim": 0.27
+      },
+      {
+        "node_id": "BP.7",
+        "title": "Legal, Regulatory, Data, and Deployability Governance",
+        "purpose": "Governs legal frameworks, regulatory jurisdictions, data processing, privacy, AI governance, confidentiality, compliance",
+        "sim": 0.2
+      },
+      {
+        "node_id": "BP.7.2",
+        "title": "Data Processing and Privacy Governance",
+        "purpose": "Governs data classification, processing activities, personal data handling, and privacy assumptions.",
+        "sim": 0.174
+      },
+      {
+        "node_id": "BP.4.4.6",
+        "title": "ICP Assumptions",
+        "purpose": "State all unvalidated assumptions underpinning the ICP and beachhead definition.",
+        "sim": 0.159
+      },
+      {
+        "node_id": "BP.7.1.4",
+        "title": "Legal Obligations",
+        "purpose": "Define legal obligations arising from applicable regulations.",
+        "sim": 0.159
+      },
+      {
+        "node_id": "BP.3",
+        "title": "Evidence Base and Source Governance",
+        "purpose": "Governs source audit, source classification, evidence inventory, source-use boundaries, conflict flagging, and evidence-",
+        "sim": 0.158
+      },
+      {
+        "node_id": "BP.9.2",
+        "title": "Pricing Hypothesis Governance",
+        "purpose": "Governs pricing model hypothesis, pricing strategy, packaging, discounting, and pricing acceptance without validating WT",
+        "sim": 0.147
+      },
+      {
+        "node_id": "BP.4.6.5",
+        "title": "ICP Architecture Audit",
+        "purpose": "Audit BP.4.4 for internal coherence, completeness, and absence of prohibited inferences.",
+        "sim": 0.145
+      }
+    ]
+  },
+  {
+    "text": "Reduce avoidable rejection risk and improve reviewer-readiness by diagnosing claim-level weaknesses before submission",
+    "source": "value_proposition",
+    "candidates": [
+      {
+        "node_id": "BP.3.4.9",
+        "title": "Claim-Support Acceptance Check",
+        "purpose": "Confirm that the claim-support map is complete, sufficiency-assessed, and gap-documented before downstream use.",
+        "sim": 0.377
+      },
+      {
+        "node_id": "BP.1.1.3",
+        "title": "Core Diagnostic Function",
+        "purpose": "Define the product\u2019s core functional role.",
+        "sim": 0.301
+      },
+      {
+        "node_id": "BP.3.4.8",
+        "title": "Unsupported Claim Controls",
+        "purpose": "Define controls to detect and flag BP claims that lack sufficient source support.",
+        "sim": 0.273
+      },
+      {
+        "node_id": "BP.11.3.9",
+        "title": "Claim Clearance Acceptance Check",
+        "purpose": "Confirm that all BP.11.3 nodes are present, internally coherent, and ready for controller review.",
+        "sim": 0.269
+      },
+      {
+        "node_id": "BP.3.2.9",
+        "title": "Evidence Tier Acceptance Check",
+        "purpose": "Confirm that evidence tier definitions, rules, and controls are complete and coherent before classification is applied.",
+        "sim": 0.264
+      },
+      {
+        "node_id": "BP.2.6.9",
+        "title": "Evidence Standards Acceptance Check",
+        "purpose": "Confirm that BP.2.6 evidence standards architecture is internally coherent, complete, and correctly aligned with BP.3 so",
+        "sim": 0.263
+      },
+      {
+        "node_id": "BP.11.3.1",
+        "title": "Claim Classification Framework",
+        "purpose": "Define the four-way classification framework (cleared / qualified / unknown / blocked) used to sort every claim before i",
+        "sim": 0.262
+      },
+      {
+        "node_id": "BP.10.4.3",
+        "title": "Revise Criteria",
+        "purpose": "Define the specific criteria under which validation evidence indicates the hypothesis, design, or model should be revise",
+        "sim": 0.257
+      }
+    ]
+  },
+  {
+    "text": "Extracts claims, maps evidence, checks inference, flags method-claim mismatch, detects citation-support gaps",
+    "source": "value_proposition",
+    "candidates": [
+      {
+        "node_id": "BP.11.1.4",
+        "title": "Evidence-to-Claim Mapping",
+        "purpose": "Map each inventoried narrative claim to the specific BP.1\u2013BP.10 evidence tier and source family that supports it, so nar",
+        "sim": 0.463
+      },
+      {
+        "node_id": "BP.3.4",
+        "title": "Evidence Inventory and Claim-Support Map",
+        "purpose": "Defines how evidence is linked to BP claims and where gaps remain.",
+        "sim": 0.458
+      },
+      {
+        "node_id": "BP.3.4.9",
+        "title": "Claim-Support Acceptance Check",
+        "purpose": "Confirm that the claim-support map is complete, sufficiency-assessed, and gap-documented before downstream use.",
+        "sim": 0.417
+      },
+      {
+        "node_id": "BP.3.4.2",
+        "title": "Source-to-Claim Mapping",
+        "purpose": "Map each governed source to the specific BP claims it supports, with tier and boundary.",
+        "sim": 0.382
+      },
+      {
+        "node_id": "BP.3.4.4",
+        "title": "Evidence Gap Identification",
+        "purpose": "Identify all BP claims that lack sufficient source support and document the gap.",
+        "sim": 0.378
+      },
+      {
+        "node_id": "BP.3.4.3",
+        "title": "Evidence Sufficiency Mapping",
+        "purpose": "Assess whether each mapped source-to-claim link meets the required evidence sufficiency threshold.",
+        "sim": 0.373
+      },
+      {
+        "node_id": "BP.2.6.9",
+        "title": "Evidence Standards Acceptance Check",
+        "purpose": "Confirm that BP.2.6 evidence standards architecture is internally coherent, complete, and correctly aligned with BP.3 so",
+        "sim": 0.369
+      },
+      {
+        "node_id": "BP.1.7.6",
+        "title": "Product Evidence Acceptance Check",
+        "purpose": "Confirm that BP.1 evidence standards are internally coherent, complete, and correctly aligned with BP.3 source governanc",
+        "sim": 0.35
+      }
+    ]
+  },
+  {
+    "text": "Supports research quality control, publication competitiveness, doctoral supervision, governance",
+    "source": "value_proposition",
+    "candidates": [
+      {
+        "node_id": "BP.3.3.1",
+        "title": "Academic Source Inventory",
+        "purpose": "Compile the inventory of academic sources used to support BP planning logic.",
+        "sim": 0.275
+      },
+      {
+        "node_id": "BP.3",
+        "title": "Evidence Base and Source Governance",
+        "purpose": "Governs source audit, source classification, evidence inventory, source-use boundaries, conflict flagging, and evidence-",
+        "sim": 0.246
+      },
+      {
+        "node_id": "BP.3.3.8",
+        "title": "Academic Misuse Controls",
+        "purpose": "Define controls to detect and prevent misuse of academic sources in BP claim support.",
+        "sim": 0.244
+      },
+      {
+        "node_id": "BP.9.6.8",
+        "title": "Controller Review and Decision Logic",
+        "purpose": "Governs controller review and decision logic without validating downstream commercial success.",
+        "sim": 0.231
+      },
+      {
+        "node_id": "BP.8.1.3",
+        "title": "Competitor Registry",
+        "purpose": "Maintain inventory of identified competitors.",
+        "sim": 0.226
+      },
+      {
+        "node_id": "BP.3.6.7",
+        "title": "Controller Review",
+        "purpose": "Record the controller review of BP.3 evidence governance architecture prior to acceptance.",
+        "sim": 0.225
+      },
+      {
+        "node_id": "BP.7.3.1",
+        "title": "AI Governance Framework",
+        "purpose": "Define governance framework for AI and ML components.",
+        "sim": 0.224
+      },
+      {
+        "node_id": "BP.7.4.2",
+        "title": "Research Data Classification",
+        "purpose": "Classify research data by sensitivity and handling requirements.",
+        "sim": 0.219
+      }
+    ]
+  },
+  {
+    "text": "Reduces unsupported claims, causal overreach, weak inference, AI-induced epistemic risk",
+    "source": "value_proposition",
+    "candidates": [
+      {
+        "node_id": "BP.2.5.8",
+        "title": "Prohibited Hypothesis Claims and Inference Patterns",
+        "purpose": "Define all conclusions that governing hypothesis architecture must never support, regardless of evidence quantity or sou",
+        "sim": 0.298
+      },
+      {
+        "node_id": "BP.1.7.4",
+        "title": "Prohibited Claims and Inference Patterns",
+        "purpose": "Define which conclusions BP.1 evidence may never support, regardless of evidence quantity.",
+        "sim": 0.288
+      },
+      {
+        "node_id": "BP.11.3.8",
+        "title": "Prohibited Claim Clearance Inferences",
+        "purpose": "Define the specific inferences that must never be drawn from claim clearance architecture, regardless of how complete it",
+        "sim": 0.285
+      },
+      {
+        "node_id": "BP.2.6.8",
+        "title": "Evidence Standards Assumptions and Gaps",
+        "purpose": "State all unvalidated assumptions underpinning the BP.2 evidence standards architecture, and document known gaps in the ",
+        "sim": 0.279
+      },
+      {
+        "node_id": "BP.8.6.2",
+        "title": "Credibility Mechanisms",
+        "purpose": "Define mechanisms establishing EpistemicOS credibility.",
+        "sim": 0.278
+      },
+      {
+        "node_id": "BP.10.1.8",
+        "title": "Prohibited Validation Inferences",
+        "purpose": "Define all conclusions that validation strategy and pilot design architecture must never support, regardless of evidence",
+        "sim": 0.276
+      },
+      {
+        "node_id": "BP.2.5.9",
+        "title": "Hypothesis Acceptance Check",
+        "purpose": "Confirm that BP.2.5 is internally coherent, complete, and free of prohibited inferences before downstream validation des",
+        "sim": 0.275
+      },
+      {
+        "node_id": "BP.7.3.8",
+        "title": "Prohibited AI Governance Inferences",
+        "purpose": "Define inferences that must not be made from AI governance claims.",
+        "sim": 0.273
+      }
+    ]
+  },
+  {
+    "text": "spoke to one research dean at IESE, confirmed awareness of claim validation problem but no budget discussion yet",
+    "source": "buyers_icp",
+    "candidates": [
+      {
+        "node_id": "BP.5.3.5",
+        "title": "Funding Source Assumptions",
+        "purpose": "State the assumptions about which budget line or funding source would cover this product, labelled as unvalidated.",
+        "sim": 0.292
+      },
+      {
+        "node_id": "BP.5.5.6",
+        "title": "Budget Timing Assumptions",
+        "purpose": "State all unvalidated assumptions underpinning the budget cycle and timing architecture with explicit falsification cond",
+        "sim": 0.28
+      },
+      {
+        "node_id": "BP.3.4.8",
+        "title": "Unsupported Claim Controls",
+        "purpose": "Define controls to detect and flag BP claims that lack sufficient source support.",
+        "sim": 0.243
+      },
+      {
+        "node_id": "BP.5.3.6",
+        "title": "Budget Constraints",
+        "purpose": "Identify known or hypothesised budget constraints that may limit or delay purchasing.",
+        "sim": 0.221
+      },
+      {
+        "node_id": "BP.11.3",
+        "title": "Claim Clearance and Unknowns Disclosure",
+        "purpose": "Defines which claims drawn from BP.1\u2013BP.10 are cleared for external use, which are qualified, which remain unknown, and ",
+        "sim": 0.219
+      },
+      {
+        "node_id": "BP.10.6.6",
+        "title": "Outstanding Validation Assumptions",
+        "purpose": "Document all known unvalidated assumptions across BP.10 that remain open, with routing to BP.12.",
+        "sim": 0.218
+      },
+      {
+        "node_id": "BP.3.4.9",
+        "title": "Claim-Support Acceptance Check",
+        "purpose": "Confirm that the claim-support map is complete, sufficiency-assessed, and gap-documented before downstream use.",
+        "sim": 0.217
+      },
+      {
+        "node_id": "BP.2.6.8",
+        "title": "Evidence Standards Assumptions and Gaps",
+        "purpose": "State all unvalidated assumptions underpinning the BP.2 evidence standards architecture, and document known gaps in the ",
+        "sim": 0.216
+      }
+    ]
+  },
+  {
+    "text": "We assume primary monetization model is institutional SaaS subscription",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.327
+      },
+      {
+        "node_id": "BP.8.2.4",
+        "title": "Institutional Alternatives",
+        "purpose": "Map institutional or organizational alternatives to workflow.",
+        "sim": 0.276
+      },
+      {
+        "node_id": "BP.6.5.4",
+        "title": "Institutional Politics",
+        "purpose": "Identify political, authority, or stakeholder-alignment factors that affect institutional adoption.",
+        "sim": 0.273
+      },
+      {
+        "node_id": "BP.4.2.3",
+        "title": "SOM Model",
+        "purpose": "Define the Serviceable Obtainable Market model reflecting realistic near-term capture assumptions.",
+        "sim": 0.27
+      },
+      {
+        "node_id": "BP.6.6.4",
+        "title": "Institutional Adoption Sequence",
+        "purpose": "Define the hypothesised sequence in which institutions approve and embed the product.",
+        "sim": 0.267
+      },
+      {
+        "node_id": "BP.9.5.1",
+        "title": "Revenue Model",
+        "purpose": "Governs revenue model without validating downstream commercial success.",
+        "sim": 0.263
+      },
+      {
+        "node_id": "BP.9.1.3",
+        "title": "Value Delivery Logic",
+        "purpose": "Define how the value is made accessible to users (delivery modality, integration path, user responsibility).",
+        "sim": 0.257
+      },
+      {
+        "node_id": "BP.7.5.3",
+        "title": "Institution-Specific Requirements",
+        "purpose": "Define compliance requirements by institution type.",
+        "sim": 0.246
+      }
+    ]
+  },
+  {
+    "text": "We believe target users are academic researchers in European universities",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.3.3.8",
+        "title": "Academic Misuse Controls",
+        "purpose": "Define controls to detect and prevent misuse of academic sources in BP claim support.",
+        "sim": 0.271
+      },
+      {
+        "node_id": "BP.6.1.2",
+        "title": "Target Participants",
+        "purpose": "Define who must participate in discovery to generate evidence sufficient for governed claims.",
+        "sim": 0.263
+      },
+      {
+        "node_id": "BP.3.3.6",
+        "title": "Academic Boundary Rules",
+        "purpose": "Define what academic sources may and may not be used to support within the BP architecture.",
+        "sim": 0.255
+      },
+      {
+        "node_id": "BP.3.3.1",
+        "title": "Academic Source Inventory",
+        "purpose": "Compile the inventory of academic sources used to support BP planning logic.",
+        "sim": 0.241
+      },
+      {
+        "node_id": "BP.5.1.1",
+        "title": "End User Definition",
+        "purpose": "Define the end user in one bounded statement without implying buyer authority or purchase intent.",
+        "sim": 0.23
+      },
+      {
+        "node_id": "BP.6.6.1",
+        "title": "Initial Adoption Target",
+        "purpose": "Define the first actor, role, or context targeted for product adoption.",
+        "sim": 0.227
+      },
+      {
+        "node_id": "BP.3.3",
+        "title": "Academic Foundation and Methodology Synthesis",
+        "purpose": "Defines how academic sources support planning logic without becoming business validation.",
+        "sim": 0.205
+      },
+      {
+        "node_id": "BP.3.3.7",
+        "title": "Academic Evidence Requirements",
+        "purpose": "Define minimum evidence requirements for academic sources to be used in BP claim support.",
+        "sim": 0.204
+      }
+    ]
+  },
+  {
+    "text": "It is confirmed that CIO and IT Security have veto power over procurement",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.5",
+        "title": "Users, Buyers, Procurement, and Buying System",
+        "purpose": "Governs user, buyer, economic decision-maker, procurement, influencer, blocker, approver, stakeholder power, and budget-",
+        "sim": 0.351
+      },
+      {
+        "node_id": "BP.5.4.8",
+        "title": "Prohibited Procurement Inferences",
+        "purpose": "Define all conclusions that procurement path evidence must never support, regardless of evidence quantity.",
+        "sim": 0.345
+      },
+      {
+        "node_id": "BP.5.4.4",
+        "title": "Procurement Blockers",
+        "purpose": "Identify conditions, actors, or processes that can block or stall a procurement decision.",
+        "sim": 0.335
+      },
+      {
+        "node_id": "BP.9.4.3",
+        "title": "Procurement-to-Revenue Workflow",
+        "purpose": "Governs procurement-to-revenue workflow without validating downstream commercial success.",
+        "sim": 0.307
+      },
+      {
+        "node_id": "BP.5.4",
+        "title": "Procurement Path and Approval Logic",
+        "purpose": "Defines steps, blockers, and approvals required to buy or deploy without implying procurement readiness.",
+        "sim": 0.306
+      },
+      {
+        "node_id": "BP.5.6.5",
+        "title": "Procurement Architecture Audit",
+        "purpose": "Audit BP.5.4 and BP.5.5 for completeness, process coherence, and absence of prohibited procurement and timing inferences",
+        "sim": 0.303
+      },
+      {
+        "node_id": "BP.5.4.9",
+        "title": "Procurement Path Acceptance Check",
+        "purpose": "Confirm that BP.5.4 is internally coherent, complete, and free of prohibited inferences before budget cycle architecture",
+        "sim": 0.302
+      },
+      {
+        "node_id": "BP.5.3",
+        "title": "Economic Buyer and Budget Authority",
+        "purpose": "Defines who controls budget or can initiate purchasing without implying WTP or procurement readiness.",
+        "sim": 0.299
+      }
+    ]
+  },
+  {
+    "text": "We confirmed with IESE research dean that awareness exists",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.11.4.9",
+        "title": "Data Room Acceptance Check",
+        "purpose": "Confirm that all BP.11.4 nodes are present, internally coherent, and ready for controller review.",
+        "sim": 0.229
+      },
+      {
+        "node_id": "BP.2.6.9",
+        "title": "Evidence Standards Acceptance Check",
+        "purpose": "Confirm that BP.2.6 evidence standards architecture is internally coherent, complete, and correctly aligned with BP.3 so",
+        "sim": 0.214
+      },
+      {
+        "node_id": "BP.6.7",
+        "title": "BP.6 Discovery and Adoption Acceptance Check",
+        "purpose": "Determines whether BP.6 is coherent enough to support positioning, GTM, and validation design.",
+        "sim": 0.212
+      },
+      {
+        "node_id": "BP.11.5.9",
+        "title": "Stakeholder Communication Acceptance Check",
+        "purpose": "Confirm that all BP.11.5 nodes are present, internally coherent, and ready for controller review.",
+        "sim": 0.207
+      },
+      {
+        "node_id": "BP.3.3.9",
+        "title": "Academic Foundation Acceptance Check",
+        "purpose": "Confirm that the academic foundation is complete, mapped, and bounded before use in planning logic.",
+        "sim": 0.197
+      },
+      {
+        "node_id": "BP.1.7.6",
+        "title": "Product Evidence Acceptance Check",
+        "purpose": "Confirm that BP.1 evidence standards are internally coherent, complete, and correctly aligned with BP.3 source governanc",
+        "sim": 0.193
+      },
+      {
+        "node_id": "BP.3.3.8",
+        "title": "Academic Misuse Controls",
+        "purpose": "Define controls to detect and prevent misuse of academic sources in BP claim support.",
+        "sim": 0.18
+      },
+      {
+        "node_id": "BP.10.2.9",
+        "title": "Behavioural Evidence Acceptance Check",
+        "purpose": "Confirm that BP.10.2 is internally coherent, complete, and free of prohibited inferences before PMF evidence path archit",
+        "sim": 0.177
+      }
+    ]
+  },
+  {
+    "text": "I think pricing should be per-department bundles",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.9.2.2",
+        "title": "Pricing Structure",
+        "purpose": "Governs pricing structure without validating downstream commercial success.",
+        "sim": 0.194
+      },
+      {
+        "node_id": "BP.9.2.6",
+        "title": "Pricing Dependencies",
+        "purpose": "Governs pricing dependencies without validating downstream commercial success.",
+        "sim": 0.178
+      },
+      {
+        "node_id": "BP.5.3",
+        "title": "Economic Buyer and Budget Authority",
+        "purpose": "Defines who controls budget or can initiate purchasing without implying WTP or procurement readiness.",
+        "sim": 0.17
+      },
+      {
+        "node_id": "BP.9.2.1",
+        "title": "Pricing Model Definition",
+        "purpose": "Governs pricing model definition without validating downstream commercial success.",
+        "sim": 0.169
+      },
+      {
+        "node_id": "BP.9.2",
+        "title": "Pricing Hypothesis Governance",
+        "purpose": "Governs pricing model hypothesis, pricing strategy, packaging, discounting, and pricing acceptance without validating WT",
+        "sim": 0.16
+      },
+      {
+        "node_id": "BP.11.4.1",
+        "title": "Data Room Structure",
+        "purpose": "Define the folder and category structure of the diligence data room so artifacts are organised consistently with BP.1\u2013BP",
+        "sim": 0.154
+      },
+      {
+        "node_id": "BP.9.2.3",
+        "title": "Pricing Assumptions",
+        "purpose": "Governs pricing assumptions without validating downstream commercial success.",
+        "sim": 0.152
+      },
+      {
+        "node_id": "BP.5.2.1",
+        "title": "Buying Centre Composition",
+        "purpose": "Define who participates in the buying decision and in what capacity within the target institution type.",
+        "sim": 0.146
+      }
+    ]
+  },
+  {
+    "text": "The product contradicts what we said about MVP readiness",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.1.1.7.4",
+        "title": "MVP State Criteria",
+        "purpose": "Defines minimum evidence for calling EpistemicOS an MVP.",
+        "sim": 0.417
+      },
+      {
+        "node_id": "BP.1.1.7",
+        "title": "Product State Label",
+        "purpose": "Governs the criteria for assigning a product maturity state without implying readiness, effectiveness, adoption, or vali",
+        "sim": 0.356
+      },
+      {
+        "node_id": "BP.1.1.7.7",
+        "title": "Product State Acceptance Check",
+        "purpose": "Confirms selected state label is supported and not overclaimed.",
+        "sim": 0.326
+      },
+      {
+        "node_id": "BP.1.3.6",
+        "title": "MVP Diagnostic Workflow",
+        "purpose": "",
+        "sim": 0.297
+      },
+      {
+        "node_id": "BP.1.1.7.5",
+        "title": "Pilot-Ready State Criteria",
+        "purpose": "Defines minimum evidence for calling EpistemicOS pilot-ready.",
+        "sim": 0.252
+      },
+      {
+        "node_id": "BP.1.2",
+        "title": "Product Non-Scope",
+        "purpose": "Define what EpistemicOS is not.",
+        "sim": 0.238
+      },
+      {
+        "node_id": "BP.1.1.7.2",
+        "title": "Prototype State Criteria",
+        "purpose": "Defines minimum evidence for calling EpistemicOS a prototype.",
+        "sim": 0.22
+      },
+      {
+        "node_id": "BP.1.1.7.3",
+        "title": "Demo State Criteria",
+        "purpose": "Defines minimum evidence for calling EpistemicOS demo-ready.",
+        "sim": 0.215
+      }
+    ]
+  },
+  {
+    "text": "We assume annual institutional contracts align with academic procurement cycles",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.6.6.4",
+        "title": "Institutional Adoption Sequence",
+        "purpose": "Define the hypothesised sequence in which institutions approve and embed the product.",
+        "sim": 0.309
+      },
+      {
+        "node_id": "BP.7.6.3",
+        "title": "Institutional Deployment Constraints",
+        "purpose": "Define institutional governance constraints on deployment.",
+        "sim": 0.299
+      },
+      {
+        "node_id": "BP.5.5.9",
+        "title": "Budget Cycle Acceptance Check",
+        "purpose": "Confirm that BP.5.5 is internally coherent, complete, and free of prohibited timing inferences before buying-system acce",
+        "sim": 0.292
+      },
+      {
+        "node_id": "BP.5.5.1",
+        "title": "Budget Cycle Definition",
+        "purpose": "Define the institutional budget cycle relevant to this product category and target institution type.",
+        "sim": 0.292
+      },
+      {
+        "node_id": "BP.7.5.3",
+        "title": "Institution-Specific Requirements",
+        "purpose": "Define compliance requirements by institution type.",
+        "sim": 0.275
+      },
+      {
+        "node_id": "BP.9.4.5",
+        "title": "Sales Cycle Assumptions",
+        "purpose": "Governs sales cycle assumptions without validating downstream commercial success.",
+        "sim": 0.271
+      },
+      {
+        "node_id": "BP.6.5.1",
+        "title": "Institutional Legitimacy Requirements",
+        "purpose": "Define the legitimacy standards that the product must meet to be adopted within institutional contexts.",
+        "sim": 0.268
+      },
+      {
+        "node_id": "BP.3.3.1",
+        "title": "Academic Source Inventory",
+        "purpose": "Compile the inventory of academic sources used to support BP planning logic.",
+        "sim": 0.26
+      }
+    ]
+  },
+  {
+    "text": "We verified that competitor Iris.ai uses per-researcher pricing model",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.239
+      },
+      {
+        "node_id": "BP.9.2.1",
+        "title": "Pricing Model Definition",
+        "purpose": "Governs pricing model definition without validating downstream commercial success.",
+        "sim": 0.213
+      },
+      {
+        "node_id": "BP.9.2.8",
+        "title": "Prohibited Pricing Inferences",
+        "purpose": "Governs prohibited pricing inferences without validating downstream commercial success.",
+        "sim": 0.194
+      },
+      {
+        "node_id": "BP.9.2.2",
+        "title": "Pricing Structure",
+        "purpose": "Governs pricing structure without validating downstream commercial success.",
+        "sim": 0.183
+      },
+      {
+        "node_id": "BP.9.5.1",
+        "title": "Revenue Model",
+        "purpose": "Governs revenue model without validating downstream commercial success.",
+        "sim": 0.177
+      },
+      {
+        "node_id": "BP.9.2.9",
+        "title": "Pricing Acceptance Check",
+        "purpose": "Governs pricing acceptance check without validating downstream commercial success.",
+        "sim": 0.174
+      },
+      {
+        "node_id": "BP.9",
+        "title": "Business Model, Revenue, and GTM Logic",
+        "purpose": "Governs the business model hypothesis, pricing, GTM motion, sales cycle, unit economics, and financial viability without",
+        "sim": 0.174
+      },
+      {
+        "node_id": "BP.9.2",
+        "title": "Pricing Hypothesis Governance",
+        "purpose": "Governs pricing model hypothesis, pricing strategy, packaging, discounting, and pricing acceptance without validating WT",
+        "sim": 0.163
+      }
+    ]
+  },
+  {
+    "text": "We hypothesize that department heads control the budget",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.5.3.2",
+        "title": "Budget Ownership",
+        "purpose": "Define which role or function owns the budget line relevant to this product without implying purchase intent.",
+        "sim": 0.446
+      },
+      {
+        "node_id": "BP.5.3",
+        "title": "Economic Buyer and Budget Authority",
+        "purpose": "Defines who controls budget or can initiate purchasing without implying WTP or procurement readiness.",
+        "sim": 0.417
+      },
+      {
+        "node_id": "BP.5.3.9",
+        "title": "Budget Authority Acceptance Check",
+        "purpose": "Confirm that BP.5.3 is internally coherent, complete, and free of prohibited inferences before procurement path architec",
+        "sim": 0.358
+      },
+      {
+        "node_id": "BP.5.3.6",
+        "title": "Budget Constraints",
+        "purpose": "Identify known or hypothesised budget constraints that may limit or delay purchasing.",
+        "sim": 0.329
+      },
+      {
+        "node_id": "BP.5.3.8",
+        "title": "Prohibited Budget Authority Inferences",
+        "purpose": "Define all conclusions that budget authority evidence must never support, regardless of evidence quantity.",
+        "sim": 0.326
+      },
+      {
+        "node_id": "BP.5.3.4",
+        "title": "Budget Approval Logic",
+        "purpose": "Define the approval logic governing expenditure decisions within the target institution type.",
+        "sim": 0.303
+      },
+      {
+        "node_id": "BP.5.3.7",
+        "title": "Budget Authority Evidence Requirements",
+        "purpose": "Define evidence type, tier, source family, and sufficiency threshold required before strengthening budget authority clai",
+        "sim": 0.287
+      },
+      {
+        "node_id": "BP.5.5.2",
+        "title": "Budget Planning Window",
+        "purpose": "Define the window within the budget cycle during which new budget allocations are typically planned and approved.",
+        "sim": 0.27
+      }
+    ]
+  },
+  {
+    "text": "The contract states GDPR compliance requires data residency in EU",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.7.2.6",
+        "title": "Data Governance Dependencies",
+        "purpose": "Identify dependencies on privacy frameworks or user consent.",
+        "sim": 0.318
+      },
+      {
+        "node_id": "BP.7.2",
+        "title": "Data Processing and Privacy Governance",
+        "purpose": "Governs data classification, processing activities, personal data handling, and privacy assumptions.",
+        "sim": 0.263
+      },
+      {
+        "node_id": "BP.7.5.2",
+        "title": "Geographic Compliance Requirements",
+        "purpose": "Define region-specific compliance requirements.",
+        "sim": 0.254
+      },
+      {
+        "node_id": "BP.7",
+        "title": "Legal, Regulatory, Data, and Deployability Governance",
+        "purpose": "Governs legal frameworks, regulatory jurisdictions, data processing, privacy, AI governance, confidentiality, compliance",
+        "sim": 0.249
+      },
+      {
+        "node_id": "BP.7.4.4",
+        "title": "Data Handling Requirements",
+        "purpose": "Define secure handling requirements for confidential data.",
+        "sim": 0.245
+      },
+      {
+        "node_id": "BP.7.2.9",
+        "title": "Data Governance Acceptance Check",
+        "purpose": "Confirm data governance scope is complete and coherent.",
+        "sim": 0.244
+      },
+      {
+        "node_id": "BP.7.1.2",
+        "title": "Regulatory Jurisdictions",
+        "purpose": "Identify regulatory jurisdictions under which EpistemicOS operates or may operate.",
+        "sim": 0.238
+      },
+      {
+        "node_id": "BP.7.2.4",
+        "title": "Data Storage and Retention",
+        "purpose": "Define data storage requirements and retention policies.",
+        "sim": 0.236
+      }
+    ]
+  },
+  {
+    "text": "Maybe we should consider freemium for individual researchers",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.7.4",
+        "title": "Confidentiality and Research Data Risk",
+        "purpose": "Governs confidential data types, research data classification, and confidentiality risks.",
+        "sim": 0.171
+      },
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.166
+      },
+      {
+        "node_id": "BP.3.3.6",
+        "title": "Academic Boundary Rules",
+        "purpose": "Define what academic sources may and may not be used to support within the BP architecture.",
+        "sim": 0.161
+      },
+      {
+        "node_id": "BP.7.4.2",
+        "title": "Research Data Classification",
+        "purpose": "Classify research data by sensitivity and handling requirements.",
+        "sim": 0.15
+      },
+      {
+        "node_id": "BP.3.3.1",
+        "title": "Academic Source Inventory",
+        "purpose": "Compile the inventory of academic sources used to support BP planning logic.",
+        "sim": 0.137
+      },
+      {
+        "node_id": "BP.1.1.1",
+        "title": "Product Identity",
+        "purpose": "Define the product in one controlled statement.",
+        "sim": 0.127
+      },
+      {
+        "node_id": "BP.6.4.3",
+        "title": "Willingness-to-Pay Signals",
+        "purpose": "Collect and classify WTP signals from discovery without treating them as pricing validation.",
+        "sim": 0.121
+      },
+      {
+        "node_id": "BP.8.7.3",
+        "title": "Publisher Threats",
+        "purpose": "Assess threats from academic publishers and platform consolidation.",
+        "sim": 0.114
+      }
+    ]
+  },
+  {
+    "text": "It is documented that the epistemic layer has 11 knowledge categories",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.1.5.1.1",
+        "title": "Category Hypothesis Formulation",
+        "purpose": "State the provisional category that EpistemicOS is hypothesized to belong to.",
+        "sim": 0.394
+      },
+      {
+        "node_id": "BP.1.5.2.1",
+        "title": "Alternative Category Labels",
+        "purpose": "List plausible alternative category labels that EpistemicOS could belong to.",
+        "sim": 0.356
+      },
+      {
+        "node_id": "BP.7.2.1",
+        "title": "Data Classification",
+        "purpose": "Classify data types processed by EpistemicOS.",
+        "sim": 0.305
+      },
+      {
+        "node_id": "BP.3.2",
+        "title": "Evidence Tier Classification",
+        "purpose": "Defines how sources are classified by evidence tier and permitted use.",
+        "sim": 0.292
+      },
+      {
+        "node_id": "BP.2.6.1",
+        "title": "BP.2 Claim Classification",
+        "purpose": "Define the classes of claims made within BP.2 and assign each claim type to a governed evidence category, distinguishing",
+        "sim": 0.283
+      },
+      {
+        "node_id": "BP.11.3.1",
+        "title": "Claim Classification Framework",
+        "purpose": "Define the four-way classification framework (cleared / qualified / unknown / blocked) used to sort every claim before i",
+        "sim": 0.277
+      },
+      {
+        "node_id": "BP.1.7.1",
+        "title": "BP.1 Claim Classification",
+        "purpose": "Define the classes of claims made within BP.1 and assign each claim to a governed evidence category.",
+        "sim": 0.267
+      },
+      {
+        "node_id": "BP.3.2.1",
+        "title": "Evidence Tier Definitions",
+        "purpose": "Define each evidence tier (E1\u2013E7) and its meaning within the Evidence Ladder.",
+        "sim": 0.263
+      }
+    ]
+  },
+  {
+    "text": "Our assumption is that researchers need diagnostic tools",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.1.1.4",
+        "title": "Diagnostic Object",
+        "purpose": "Define the artifact or material the system processes.",
+        "sim": 0.323
+      },
+      {
+        "node_id": "BP.1.1.5",
+        "title": "Diagnostic Output Object",
+        "purpose": "Define what the product produces.",
+        "sim": 0.28
+      },
+      {
+        "node_id": "BP.6.1.1",
+        "title": "Discovery Objectives",
+        "purpose": "Define the specific questions and claims that the discovery protocol must test.",
+        "sim": 0.275
+      },
+      {
+        "node_id": "BP.7.4.2",
+        "title": "Research Data Classification",
+        "purpose": "Classify research data by sensitivity and handling requirements.",
+        "sim": 0.266
+      },
+      {
+        "node_id": "BP.1.1.3",
+        "title": "Core Diagnostic Function",
+        "purpose": "Define the product\u2019s core functional role.",
+        "sim": 0.253
+      },
+      {
+        "node_id": "BP.1.3.6",
+        "title": "MVP Diagnostic Workflow",
+        "purpose": "",
+        "sim": 0.236
+      },
+      {
+        "node_id": "BP.11.4.7",
+        "title": "Data Room Evidence Requirements",
+        "purpose": "Define the evidence tier, source family, and sufficiency threshold required before any data room claim may be strengthen",
+        "sim": 0.236
+      },
+      {
+        "node_id": "BP.6.1",
+        "title": "JTBD and Discovery Protocol",
+        "purpose": "Defines what discovery must test about jobs, context, and current behaviour.",
+        "sim": 0.234
+      }
+    ]
+  },
+  {
+    "text": "Data shows 73% of academics distrust automated reviews",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.1.2.7",
+        "title": "Autonomous Decision Exclusion",
+        "purpose": "Exclude autonomous approval, rejection, escalation, or editorial decision-making.",
+        "sim": 0.224
+      },
+      {
+        "node_id": "BP.3.3.8",
+        "title": "Academic Misuse Controls",
+        "purpose": "Define controls to detect and prevent misuse of academic sources in BP claim support.",
+        "sim": 0.216
+      },
+      {
+        "node_id": "BP.1.1.6",
+        "title": "Human Judgment Role",
+        "purpose": "Define the decision boundary between system output and human action.",
+        "sim": 0.188
+      },
+      {
+        "node_id": "BP.2.4.4",
+        "title": "Why-Now Assumptions",
+        "purpose": "State all unvalidated assumptions underpinning the why-now hypothesis, labelled as unvalidated with falsification condit",
+        "sim": 0.178
+      },
+      {
+        "node_id": "BP.6.5",
+        "title": "Institutional Legitimacy and Trust Friction",
+        "purpose": "Defines trust, legitimacy, politics, and perception risks affecting adoption.",
+        "sim": 0.174
+      },
+      {
+        "node_id": "BP.8.6.3",
+        "title": "Institutional Trust Factors",
+        "purpose": "Define institutional factors affecting trust.",
+        "sim": 0.168
+      },
+      {
+        "node_id": "BP.3.3.6",
+        "title": "Academic Boundary Rules",
+        "purpose": "Define what academic sources may and may not be used to support within the BP architecture.",
+        "sim": 0.162
+      },
+      {
+        "node_id": "BP.6.2.5",
+        "title": "Behavioural Assumptions",
+        "purpose": "State all unvalidated assumptions underpinning the current workflow and alternatives mapping.",
+        "sim": 0.156
+      }
+    ]
+  },
+  {
+    "text": "We assume institutions will pay but need to validate",
+    "source": "pilot",
+    "candidates": [
+      {
+        "node_id": "BP.6.5.1",
+        "title": "Institutional Legitimacy Requirements",
+        "purpose": "Define the legitimacy standards that the product must meet to be adopted within institutional contexts.",
+        "sim": 0.333
+      },
+      {
+        "node_id": "BP.7.5.3",
+        "title": "Institution-Specific Requirements",
+        "purpose": "Define compliance requirements by institution type.",
+        "sim": 0.314
+      },
+      {
+        "node_id": "BP.6.6.4",
+        "title": "Institutional Adoption Sequence",
+        "purpose": "Define the hypothesised sequence in which institutions approve and embed the product.",
+        "sim": 0.309
+      },
+      {
+        "node_id": "BP.5.3.5",
+        "title": "Funding Source Assumptions",
+        "purpose": "State the assumptions about which budget line or funding source would cover this product, labelled as unvalidated.",
+        "sim": 0.277
+      },
+      {
+        "node_id": "BP.7.6.3",
+        "title": "Institutional Deployment Constraints",
+        "purpose": "Define institutional governance constraints on deployment.",
+        "sim": 0.267
+      },
+      {
+        "node_id": "BP.3.3.9",
+        "title": "Academic Foundation Acceptance Check",
+        "purpose": "Confirm that the academic foundation is complete, mapped, and bounded before use in planning logic.",
+        "sim": 0.263
+      },
+      {
+        "node_id": "BP.9.2.3",
+        "title": "Pricing Assumptions",
+        "purpose": "Governs pricing assumptions without validating downstream commercial success.",
+        "sim": 0.262
+      },
+      {
+        "node_id": "BP.9.1.4",
+        "title": "Value Capture Logic",
+        "purpose": "Define how the business captures economic return from the value created (revenue source, payment trigger, buyer identifi",
+        "sim": 0.258
+      }
+    ]
+  }
+]

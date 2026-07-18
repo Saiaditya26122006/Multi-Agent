@@ -290,6 +290,29 @@ def update_session_state(session_id: str, new_state: str) -> Optional[Dict[str, 
         return None
 
 
+import uuid as _uuid
+
+_SESSION_UUID_NAMESPACE = _uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")  # DNS namespace
+
+
+def coerce_session_uuid(session_id) -> Optional[str]:
+    """Return a valid UUID string for a session identifier.
+
+    events_logs/messages.session_id are UUID columns, but session keys are often
+    non-UUID strings (web session keys, telegram chat ids, test ids). Passing
+    those raised 'invalid input syntax for type uuid' and dropped the log. Real
+    UUIDs pass through unchanged; any other string maps deterministically via
+    uuid5 so the same session key always yields the same UUID (correlation kept).
+    """
+    if session_id is None:
+        return None
+    s = str(session_id)
+    try:
+        return str(_uuid.UUID(s))
+    except (ValueError, AttributeError, TypeError):
+        return str(_uuid.uuid5(_SESSION_UUID_NAMESPACE, s))
+
+
 def log_event(
     agent_id: str,
     action: str,
@@ -320,7 +343,7 @@ def log_event(
             .insert({
                 "agent_id": agent_id,
                 "action": action,
-                "session_id": session_id,
+                "session_id": coerce_session_uuid(session_id),
                 "state_before": state_before,
                 "state_after": state_after,
                 "input_ref": input_ref,
@@ -334,41 +357,90 @@ def log_event(
         return None
 
     except Exception as e:
-        print(f"Error logging event for agent {agent_id}: {e}")
+        # events_logs.session_id has a FK to sessions; a session key with no
+        # sessions row (web-default, synthetic, test) would drop the log. Never
+        # lose the event — retry unlinked (session_id=None) and note the origin.
+        try:
+            response = (
+                supabase.table("events_logs")
+                .insert({
+                    "agent_id": agent_id,
+                    "action": action,
+                    "session_id": None,
+                    "state_before": state_before,
+                    "state_after": state_after,
+                    "input_ref": (f"[session:{session_id}] {input_ref}" if input_ref
+                                  else f"[session:{session_id}]"),
+                    "output_ref": output_ref,
+                })
+                .execute()
+            )
+            return response.data[0] if response.data else None
+        except Exception as e2:
+            logger.error("Error logging event for agent %s: %s / %s", agent_id, e, e2)
+            return None
+
+
+import hashlib as _hashlib
+
+
+def _message_id_to_bigint(message_id) -> Optional[int]:
+    """Map any message id to a stable BIGINT for the dedup column.
+
+    The messages.telegram_message_id column is BIGINT, but web ids are strings
+    ("web_<uuid>"). Numeric ids pass through; anything else hashes to a stable
+    positive bigint so dedup works channel-agnostically without a schema change.
+    """
+    if message_id is None:
         return None
+    try:
+        return int(message_id)
+    except (ValueError, TypeError):
+        digest = _hashlib.sha1(str(message_id).encode()).hexdigest()
+        return int(digest[:15], 16)  # < 2^60, safely within BIGINT
 
 
 def log_message(
-    telegram_message_id,
+    message_id,
     content: str,
     session_id: str,
-    channel: str = "telegram"
+    channel: str = "web",
+    telegram_message_id=None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Inserts a row into messages table.
+    Inserts a row into messages table, deduplicating on the message id.
+
+    Web is the only channel. `message_id` is the unique per-message id (e.g.
+    "web_<uuid>"); it is stored in the (legacy-named) message_id column and used
+    for dedup regardless of channel. `telegram_message_id` is accepted only as a
+    backward-compatible alias.
 
     Args:
-        telegram_message_id: Unique Telegram message ID (int) or web message ID (str)
-        content: Message content
-        session_id: UUID of the session
-        channel: 'telegram' or 'web'
+        message_id: Unique message id (any channel).
+        content: Message content.
+        session_id: UUID of the session.
+        channel: Channel label (defaults to 'web').
 
     Returns:
-        Dict containing the inserted message row or None if duplicate or on failure
+        Dict of the inserted row, or None if duplicate or on failure.
     """
+    if message_id is None:
+        message_id = telegram_message_id
     try:
+        # Dedup on the message id for ANY channel. Previously this only ran for
+        # channel=='telegram' AND the caller passed the wrong kwarg, so the id
+        # was never stored and duplicates were never detected.
+        if message_id is not None and check_message_exists(message_id):
+            logger.info("Message %s already exists (duplicate) — skipping", message_id)
+            return None
+
         row = {
             "content": content,
             "session_id": session_id,
             "channel": channel,
         }
-
-        if channel == "telegram":
-            if check_message_exists(telegram_message_id):
-                print(f"Message {telegram_message_id} already exists (duplicate)")
-                return None
-            row["telegram_message_id"] = telegram_message_id
-        # Web messages have no telegram_message_id — leave it NULL
+        if message_id is not None:
+            row["telegram_message_id"] = _message_id_to_bigint(message_id)  # legacy col = external msg id
 
         response = (
             supabase.table("messages")
@@ -381,34 +453,34 @@ def log_message(
         return None
 
     except Exception as e:
-        print(f"Error logging message {telegram_message_id}: {e}")
+        logger.error("Error logging message %s: %s", message_id, e)
         return None
 
 
-def check_message_exists(telegram_message_id: int) -> bool:
+def check_message_exists(message_id) -> bool:
     """
-    Checks if a message with this telegram_message_id already exists.
+    Checks if a message with this id already exists (dedup), any channel.
 
     Args:
-        telegram_message_id: Unique Telegram message ID
+        message_id: Unique message id.
 
     Returns:
-        True if message exists, False otherwise
+        True if a message with this id exists, False otherwise.
     """
+    if message_id is None:
+        return False
     try:
         response = (
             supabase.table("messages")
             .select("id")
-            .eq("telegram_message_id", telegram_message_id)
+            .eq("telegram_message_id", _message_id_to_bigint(message_id))
             .limit(1)
             .execute()
         )
-
-        exists = bool(response.data and len(response.data) > 0)
-        return exists
+        return bool(response.data and len(response.data) > 0)
 
     except Exception as e:
-        print(f"Error checking if message {telegram_message_id} exists: {e}")
+        logger.error("Error checking if message %s exists: %s", message_id, e)
         return False
 
 
@@ -462,9 +534,42 @@ def get_messages_for_session(session_id: str) -> list:
         return []
 
 
+# Valid business_plan_sections.status values (mirrors the DB CHECK constraint).
+# 'approved' is the terminal state of the governance chain and must be earned,
+# never assigned by default — see set_section_status().
+VALID_SECTION_STATUSES = (
+    "not_started",
+    "in_progress",
+    "blocked",
+    "ready_for_draft",
+    "approved",
+)
+
+# Ordering for open sections: most-actionable first, so callers that show only
+# the top few (e.g. L1's `open_sections[:5]`) surface sections actually being
+# worked rather than an arbitrary slice of not_started nodes.
+_SECTION_STATUS_PRIORITY = {
+    "in_progress": 0,
+    "blocked": 1,
+    "ready_for_draft": 2,
+    "not_started": 3,
+}
+
+
+def _sort_open_sections(sections: list) -> list:
+    """Order open sections most-actionable first, then by section_id."""
+    return sorted(
+        sections,
+        key=lambda s: (
+            _SECTION_STATUS_PRIORITY.get(s.get("status"), 99),
+            s.get("section_id") or "",
+        ),
+    )
+
+
 def get_open_business_plan_sections(session_id: Optional[str] = None) -> list:
     """
-    Gets business plan sections that are NOT approved.
+    Gets business plan sections that are NOT approved, most-actionable first.
 
     If session_id is provided, only returns sections referenced by decisions
     in that session (plus any not_started sections for planning context).
@@ -473,7 +578,8 @@ def get_open_business_plan_sections(session_id: Optional[str] = None) -> list:
         session_id: If provided, scope to sections relevant to this session.
 
     Returns:
-        List of business plan section dicts
+        List of business plan section dicts, ordered so in_progress and
+        session-relevant sections come before untouched not_started ones.
     """
     try:
         if session_id:
@@ -498,11 +604,12 @@ def get_open_business_plan_sections(session_id: Optional[str] = None) -> list:
             if not response.data:
                 return []
 
-            return [
+            scoped = [
                 s for s in response.data
                 if s.get("section_id") in session_section_ids
-                or s.get("status") == "not_started"
+                or s.get("status") in ("in_progress", "not_started")
             ]
+            return _sort_open_sections(scoped)
 
         response = (
             supabase.table("business_plan_sections")
@@ -511,11 +618,74 @@ def get_open_business_plan_sections(session_id: Optional[str] = None) -> list:
             .execute()
         )
 
-        return response.data if response.data else []
+        return _sort_open_sections(response.data) if response.data else []
 
     except Exception as e:
-        print(f"Error fetching open business plan sections: {e}")
+        logger.error("Error fetching open business plan sections: %s", e)
         return []
+
+
+def set_section_status(
+    section_id: str,
+    new_status: str,
+    controller_approved: bool = False,
+    reason: Optional[str] = None,
+) -> bool:
+    """Set a business_plan_sections node's status — the only sanctioned writer.
+
+    Enforces the governance rule that AI cannot approve a section on its own:
+    moving a node to 'approved' requires an explicit controller decision, passed
+    as controller_approved=True. Any other status is a normal workflow update.
+
+    Args:
+        section_id: The BP node ID (e.g. "BP.1.1").
+        new_status: One of VALID_SECTION_STATUSES.
+        controller_approved: Must be True to set status='approved'. Ignored for
+            every other status.
+        reason: Optional human-readable note for the log (why the transition).
+
+    Returns:
+        True if the row was updated, False otherwise.
+    """
+    if new_status not in VALID_SECTION_STATUSES:
+        logger.error(
+            "Refusing to set section %s to invalid status %r (valid: %s)",
+            section_id,
+            new_status,
+            ", ".join(VALID_SECTION_STATUSES),
+        )
+        return False
+
+    if new_status == "approved" and not controller_approved:
+        logger.error(
+            "Refusing to approve section %s without a controller decision "
+            "(call set_section_status(..., controller_approved=True))",
+            section_id,
+        )
+        return False
+
+    try:
+        result = (
+            supabase.table("business_plan_sections")
+            .update({"status": new_status})
+            .eq("section_id", section_id)
+            .execute()
+        )
+        if not result.data:
+            logger.warning(
+                "set_section_status: no row matched section_id=%s", section_id
+            )
+            return False
+        logger.info(
+            "Section %s -> %s%s",
+            section_id,
+            new_status,
+            f" ({reason})" if reason else "",
+        )
+        return True
+    except Exception as e:
+        logger.error("Error setting status for section %s: %s", section_id, e)
+        return False
 
 
 def get_unresolved_assumptions(session_id: Optional[str] = None) -> list:

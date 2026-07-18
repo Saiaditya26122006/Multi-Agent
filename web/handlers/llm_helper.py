@@ -29,6 +29,64 @@ def _get_client():
     return _bedrock_client
 
 
+CONTRADICTION_JUDGE_SYSTEM_PROMPT = (
+    "You judge whether two statements about the same business plan make "
+    "INCOMPATIBLE claims — statements that cannot both be true at once "
+    "(conflicting values, mutually exclusive decisions, or one asserting what "
+    "the other denies). Two statements are NOT a contradiction merely because "
+    "they differ in topic, certainty, or detail, or because one is an assumption "
+    "and the other is confirmed. Only flag a genuine factual conflict.\n\n"
+    "Respond with ONLY a JSON object, no markdown:\n"
+    '{"contradicts": true|false, "reason": "<one short sentence>"}'
+)
+
+
+def judge_contradiction(fact_a: str, fact_b: str) -> dict:
+    """Ask Claude whether two statements make incompatible claims.
+
+    Replaces the old similarity-threshold heuristic (which never fired because
+    Titan similarities are compressed) and the circular "must already be tagged
+    CONTRADICTION" precondition. Uses Haiku — cheap enough to run per candidate.
+
+    Args:
+        fact_a: The newly stored fact.
+        fact_b: An existing, semantically related fact.
+
+    Returns:
+        Dict with: contradicts (bool), reason (str). Falls back to
+        {"contradicts": False} if the call fails — never raises, never
+        false-positives on error (governance items are only created on a
+        positive judgment, so a failure simply skips rather than mis-files).
+    """
+    try:
+        client = _get_client()
+        model_id = os.getenv(
+            "CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        )
+        user_message = (
+            f'STATEMENT A (new):\n"{fact_a}"\n\n'
+            f'STATEMENT B (existing):\n"{fact_b}"\n\n'
+            "Do these make incompatible claims? Return the JSON object now."
+        )
+        response = client.converse(
+            modelId=model_id,
+            system=[{"text": CONTRADICTION_JUDGE_SYSTEM_PROMPT}],
+            messages=[{"role": "user", "content": [{"text": user_message}]}],
+            inferenceConfig={"maxTokens": 120},
+        )
+        raw = response["output"]["message"]["content"][0]["text"].strip()
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
+        raw = re.sub(r"```\s*$", "", raw, flags=re.MULTILINE)
+        parsed = json.loads(raw)
+        return {
+            "contradicts": bool(parsed.get("contradicts", False)),
+            "reason": str(parsed.get("reason", "")),
+        }
+    except Exception as e:
+        logger.error("[LLMHelper] Contradiction judge failed: %s", e)
+        return {"contradicts": False, "reason": ""}
+
+
 def generate_answer(question: str, chunks: list, system_prompt: str = "") -> str:
     """Call Claude Haiku to synthesize an answer from RAG chunks.
 
@@ -249,7 +307,11 @@ def classify_fact_to_domain(
             inferenceConfig={"maxTokens": 150},
         )
 
-        raw = response["output"]["message"]["content"][0]["text"].strip()
+        content = response.get("output", {}).get("message", {}).get("content", [])
+        if not content or not content[0].get("text"):
+            logger.warning("[LLMHelper] Domain classifier returned empty content, using BP.1 fallback")
+            return ["BP.1"]
+        raw = content[0]["text"].strip()
         # Strip markdown code blocks if present
         raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.MULTILINE)
         raw = re.sub(r"```\s*$", "", raw, flags=re.MULTILINE)

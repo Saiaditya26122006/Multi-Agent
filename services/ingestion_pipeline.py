@@ -579,10 +579,26 @@ def ingest_raw_text(
 
 
 if __name__ == "__main__":
+    import sys
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
     )
-    logger.info("Starting CEO data ingestion...")
+    # DEPRECATED (Path B). This ingests ceo_data/*.json using the hardcoded
+    # file->flat-section SECTION_MAP — NOT the 840-node classifier. Running it
+    # re-floods the knowledge base with facts assigned to coarse Phase-1 section
+    # numbers instead of real BP nodes, recreating the "unclassified" problem the
+    # canonical-registry classifier (web/handlers/feed_handler.classify_and_match_node)
+    # is meant to solve. Route ingestion through the Feed handler instead. Kept only
+    # for one-off recovery; requires an explicit --force-legacy flag.
+    if "--force-legacy" not in sys.argv:
+        logger.warning(
+            "services.ingestion_pipeline is DEPRECATED (Path B, flat-section map). "
+            "Ingest via the Feed handler (classify_and_match_node) instead. "
+            "Re-run with --force-legacy only for deliberate one-off recovery."
+        )
+        sys.exit(1)
+    logger.info("Starting LEGACY CEO data ingestion (--force-legacy)...")
     result = ingest_all_ceo_data()
     print(json.dumps(result, indent=2))

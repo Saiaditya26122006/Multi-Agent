@@ -1,6 +1,6 @@
 """
 Multi-Agent AI System - Main Pipeline
-Wires together L0, L1, and L3 agents with Telegram + Web integration.
+Wires together L0, L1, and L3 agents with the Web interface (web-only).
 """
 
 import os
@@ -199,7 +199,7 @@ def generate_preview_tasks(session_id: str) -> list:
 
 
 def format_task_preview(tasks: list) -> str:
-    """Format preview tasks into a readable Telegram message."""
+    """Format preview tasks into a readable web message."""
     if not tasks:
         return ""
 
@@ -252,7 +252,7 @@ def format_task_preview(tasks: list) -> str:
 
     # Plain-text fallback for web chat (no inline keyboard support)
     lines.append(
-        "Actions (use buttons on Telegram, or reply with command):\n"
+        "Actions (use the buttons, or reply with a command):\n"
         "  approve all / kill all\n"
         "  approve [task_id] / adjust [task_id] / "
         "kill [task_id] / challenge [task_id]"
@@ -317,7 +317,7 @@ def verify_system():
 
 async def handle_message(message_data):
     """
-    Main message handler - processes every incoming Telegram message through the pipeline.
+    Main message handler - processes every incoming web message through the pipeline.
 
     Pipeline flow:
     1. Drop unknown senders silently

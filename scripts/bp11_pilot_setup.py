@@ -88,6 +88,12 @@ def get_bp11_chunks() -> list[dict]:
             metadata = chunk.get('metadata', {})
             if not isinstance(metadata, dict):
                 continue
+            # Only real evidence (content) chunks — never the architecture node
+            # definitions themselves (layer=bp_architecture), which are the
+            # registry, not evidence. Linking arch chunks as evidence was the
+            # original modeling bug and made these links die on the arch re-embed.
+            if metadata.get('layer') == 'bp_architecture':
+                continue
             node_id = str(metadata.get('node_id', ''))
             if node_id == 'BP.1.1' or node_id.startswith('BP.1.1.'):
                 bp11_chunks.append(chunk)

@@ -73,6 +73,13 @@ class PipelineOrchestrator:
         # Resume incomplete pipelines from Redis (on server restart)
         self._resume_pending_pipelines()
 
+        # Close any runs orphaned by a prior crash so the plan doesn't look
+        # perpetually in-progress.
+        try:
+            self.close_stale_runs(max_age_minutes=60)
+        except Exception as e:
+            logger.error("[PipelineOrchestrator] startup stale-run close failed: %s", e)
+
         logger.info("[PipelineOrchestrator] Initialized")
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -776,7 +783,8 @@ class PipelineOrchestrator:
         try:
             self.db.client.table("pipeline_runs").update({
                 "status": "failed",
-                "error": reason,
+                "failure_reason": reason,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
             }).eq("id", run_id).execute()
         except Exception as e:
             logger.error(f"[PipelineOrchestrator] Failed to update pipeline status: {e}")
@@ -788,6 +796,19 @@ class PipelineOrchestrator:
         self.redis.client.delete(f"build:state:{session_id}")
 
         emit_trace(session_id, "Build", "pipeline_failed", reason, {"run_id": run_id})
+
+    def close_stale_runs(self, max_age_minutes: int = 60) -> int:
+        """Close pipeline runs stuck in 'running' past max_age_minutes.
+
+        A run that never reaches _complete_pipeline / _fail_pipeline (process
+        crash, kill, lost worker) sits in 'running' forever, making the plan look
+        perpetually in-progress. This marks them failed with a stale reason.
+        Safe to call on startup and on a schedule.
+
+        Returns:
+            Number of runs closed.
+        """
+        return close_stale_pipeline_runs(self.db.client, max_age_minutes)
 
     def _complete_pipeline(self, run_id: str, session_id: str, outputs: Dict):
         """Mark pipeline as complete."""
@@ -823,3 +844,40 @@ class PipelineOrchestrator:
         if state_json:
             return json.loads(state_json)
         return None
+
+
+def close_stale_pipeline_runs(client, max_age_minutes: int = 60) -> int:
+    """Mark 'running' pipeline_runs older than max_age_minutes as failed.
+
+    Standalone so it can run from startup, a cron, or the orchestrator. A run
+    with no completion signal past the cutoff is treated as crashed.
+
+    Args:
+        client: A Supabase client.
+        max_age_minutes: Age past which a still-running run is considered stale.
+
+    Returns:
+        Number of runs closed.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)).isoformat()
+    try:
+        stale = (
+            client.table("pipeline_runs")
+            .select("id")
+            .eq("status", "running")
+            .lt("created_at", cutoff)
+            .execute()
+            .data
+        )
+        for row in stale:
+            client.table("pipeline_runs").update({
+                "status": "failed",
+                "failure_reason": f"stale: no completion signal within {max_age_minutes}min",
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", row["id"]).execute()
+        if stale:
+            logger.info("[PipelineOrchestrator] Closed %d stale pipeline run(s)", len(stale))
+        return len(stale)
+    except Exception as e:
+        logger.error("[PipelineOrchestrator] close_stale_pipeline_runs failed: %s", e)
+        return 0

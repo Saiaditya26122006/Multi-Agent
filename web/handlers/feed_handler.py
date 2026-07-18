@@ -604,11 +604,15 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
     try:
         from services.rag_service import retrieve
 
+        # Threshold 0.2 (below DEFAULT_THRESHOLD): short fragments like "Data
+        # transfer" score low against verbose node text and returned an EMPTY
+        # pool at 0.3, killing the cross-domain safety net. top_k still caps the
+        # count and the LLM filters the candidates, so lower recall > empty pool.
         chunks = retrieve(
             query=text,
             source_types=["ceo_doc"],
             top_k=top_k,
-            threshold=0.3,
+            threshold=0.2,
             metadata_filter={"layer": "bp_architecture"},
         )
 
@@ -1240,6 +1244,33 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
             except Exception as e:
                 logger.error("[FeedHandler] Step B classification failed, using Step A result: %s", e)
                 result = step_a_result
+
+    # Rescue over-eager none_fit: if the LLM declined but a candidate node is a
+    # STRONG semantic match (Titan sim >= 0.5 is high — same-idea range is
+    # ~0.39-0.65), file it there at low confidence rather than returning None.
+    # The feed's human approval step catches a wrong low-confidence guess; a None
+    # gives the reviewer nothing. (Diagnosed: "product contradicts MVP readiness"
+    # had its correct node BP.1.1.7.4 as the top candidate yet returned None.)
+    if result.get("none_fit") or not result.get("node_id"):
+        strong = next(
+            (c for c in embedding_candidates if c.get("similarity", 0) >= 0.5), None
+        )
+        if strong:
+            logger.info(
+                "[FeedHandler] none_fit rescued via strong embedding match %s (sim=%.2f)",
+                strong["node_id"], strong.get("similarity", 0),
+            )
+            result = {
+                "node_id": strong["node_id"],
+                "node_title": strong.get("node_title", ""),
+                "confidence": "low",
+                "reasoning": (
+                    "LLM returned none_fit but this node is a strong semantic match "
+                    "— filed at low confidence for human review."
+                ),
+                "none_fit": False,
+                "rescued_none_fit": True,
+            }
 
     if result.get("none_fit") or not result.get("node_id"):
         result["suggested_parent"] = _get_suggested_parent(step_a_candidates, text=text)
@@ -2803,6 +2834,61 @@ def _execute_approval(fact_data: dict, session_id: str) -> dict:
     }
 
 
+_SUPERSESSION_LANGUAGE = re.compile(
+    r"\b(no longer|used to be|previously|changed (?:to|from)|updated?:|correction:|"
+    r"now it'?s|now the|replaces?|supersedes?|instead of|revised to|as of now)\b",
+    re.IGNORECASE,
+)
+
+
+def _flag_supersession_candidates(content: str, chunk_id: str, node_id: Optional[str], session_id: str) -> None:
+    """Flag a prior fact as a supersession CANDIDATE when a new fact updates it.
+
+    Governance-safe: a new fact carrying explicit update language ("no longer",
+    "changed to", "now it's", ...) likely replaces an existing fact, but the AI
+    must NOT invalidate it unilaterally. We mark the most-similar prior same-topic
+    fact as a candidate requiring controller review; a controller confirms via
+    confirm_supersession() (which calls rag_service.supersede). Corrections that
+    the CEO makes explicitly still auto-supersede through conversation_store.
+    """
+    if not _SUPERSESSION_LANGUAGE.search(content or ""):
+        return
+    try:
+        from services.rag_service import retrieve, update_metadata
+
+        prior = retrieve(
+            query=content,
+            source_types=["ceo_doc", "conversation", "decision"],
+            top_k=3,
+            threshold=0.4,
+        )
+        for chunk in prior:
+            if chunk.id == chunk_id:
+                continue
+            # prefer a match on the same node; otherwise take the top semantic match
+            same_node = (chunk.metadata or {}).get("node_id") == node_id if node_id else False
+            update_metadata(chunk.id, {
+                "supersession_candidate_by": chunk_id,
+                "supersession_detected_at": datetime.now(timezone.utc).isoformat(),
+                "requires_controller_review": True,
+            })
+            emit_trace(
+                session_id, "Governance", "supersession_candidate",
+                "New fact may supersede an existing one — flagged for controller review",
+                data={"old_chunk_id": chunk.id, "new_chunk_id": chunk_id,
+                      "same_node": same_node, "old_text": chunk.content[:100]},
+            )
+            break  # one candidate per update
+    except Exception as e:
+        logger.error("[FeedHandler] supersession-candidate detection failed: %s", e)
+
+
+def confirm_supersession(old_chunk_id: str, new_chunk_id: str) -> bool:
+    """Controller action: confirm a flagged supersession (old <- new)."""
+    from services.rag_service import supersede
+    return supersede(old_chunk_id, new_chunk_id)
+
+
 def _run_post_store_hooks(
     content: str,
     chunk_id: str,
@@ -2811,23 +2897,35 @@ def _run_post_store_hooks(
     content_type: str = "fact",
     node_id: Optional[str] = None,
 ) -> None:
-    """Run post-storage hooks: contradiction check, BP.12 register, temporal scoring, multi-node linking, evidence links."""
+    """Run post-storage hooks: contradiction check, BP.12 register, supersession candidates, temporal scoring, multi-node linking, evidence links."""
     try:
+        _flag_supersession_candidates(content, chunk_id, node_id, session_id)
         from services.rag_service import retrieve, update_metadata
         from services.temporal_decay import compute_final_score
         from services.bp12_register import create_register_item
 
+        # Retrieve same-topic candidates at Titan's REAL similarity range.
+        # Titan v2 compresses similarities — rephrasings of the same idea measure
+        # ~0.39-0.65, so the old threshold=0.75 + `similarity > 0.85` gate never
+        # fired. We pull candidates at ~0.4 (same-topic) and let an LLM judge
+        # actual incompatibility, instead of guessing from similarity or from a
+        # pre-existing CONTRADICTION tag (which nothing ever set).
+        from web.handlers.llm_helper import judge_contradiction
+
         contradictions = retrieve(
             query=content,
             source_types=["ceo_doc", "conversation", "decision"],
-            top_k=3,
-            threshold=0.75,
+            top_k=5,
+            threshold=0.4,
         )
 
+        contradiction_filed_ids: set = set()
         for chunk in contradictions:
             if chunk.id == chunk_id:
                 continue
-            if chunk.similarity > 0.85 and chunk.epistemic_status != epistemic_status:
+            verdict = judge_contradiction(content, chunk.content)
+            if verdict.get("contradicts"):
+                contradiction_filed_ids.add(chunk.id)
                 # Link the contradiction — do NOT auto-resolve.
                 # Per governance: contradictions must remain visible and linked
                 # until controller review. Store the link on BOTH chunks.
@@ -2849,8 +2947,10 @@ def _run_post_store_hooks(
                     title=f"Contradiction: new '{content[:50]}' vs existing '{chunk.content[:50]}'",
                     description=(
                         f"New fact (status={epistemic_status}) conflicts with existing "
-                        f"fact (status={chunk.epistemic_status}). Requires controller "
-                        f"decision: which one to keep, reclassify, or accept both."
+                        f"fact (status={chunk.epistemic_status}). Reason: "
+                        f"{verdict.get('reason','') or 'incompatible claims'}. "
+                        f"Requires controller decision: which one to keep, "
+                        f"reclassify, or accept both."
                     ),
                     affected_chunk_ids=[chunk_id, chunk.id],
                     affected_node_ids=[n for n in [node_id, old_node_id] if n],
@@ -2879,15 +2979,20 @@ def _run_post_store_hooks(
                 break
 
         if epistemic_status == "CONFIRMED":
+            # New CONFIRMED evidence may invalidate an existing ASSUMPTION.
+            # Same Titan-real threshold + LLM judge as above (the old 0.8 gate
+            # never fired). Skip pairs the contradiction loop already filed.
             conflicting_assumptions = retrieve(
                 query=content,
                 source_types=["ceo_doc", "agent_insight"],
                 epistemic_status=["ASSUMPTION"],
                 top_k=3,
-                threshold=0.8,
+                threshold=0.4,
             )
             for chunk in conflicting_assumptions:
-                if chunk.id == chunk_id:
+                if chunk.id == chunk_id or chunk.id in contradiction_filed_ids:
+                    continue
+                if not judge_contradiction(content, chunk.content).get("contradicts"):
                     continue
                 # DO NOT auto-kill the assumption. Link it as a potential
                 # contradiction and flag for controller review. Per governance:

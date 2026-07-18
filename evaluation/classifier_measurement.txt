@@ -1,0 +1,45 @@
+  [xexact][xdom]      exp=BP.1.1.2     got=BP.1.1.2       | Claim is the atomic unit of validation
+  [ exact][ dom]      exp=BP.6.6.1     got=BP.4.3.4       | Business schools are easiest first pilots
+  [ exact][xdom]      exp=BP.8.5.5     got=BP.8.5.1       | Journals are harder but more defensible long ter
+  [ exact][xdom]      exp=BP.2         got=BP.2.2.1       | Researchers feel AI-induced epistemic risk
+  [ exact][ dom]      exp=BP.9.1.4     got=None           | Advanced researchers pay for risk containment, n
+  [ exact][ dom]      exp=BP.8.6.3     got=BP.5.2.3       | Institutional buyers value auditability
+  [xexact][xdom]      exp=BP.9.1.4     got=BP.9.1.4       | Primary monetization hypothesis: Institutional S
+  [ exact][xdom]      exp=BP.9.5.3     got=BP.9.1.4       | Unit of sale: Institution, school, department, r
+  [xexact][xdom]      exp=BP.9.1.4     got=BP.9.1.4       | Value unit: Claim appears to be unit of validati
+  [ exact][xdom]      exp=BP.9.2.1     got=BP.9.2.2       | Individual researcher pricing: Possible premium 
+  [xexact][xdom]      exp=BP.9.2.1     got=BP.9.2.1       | Doctoral student pricing: Possible individual or
+  [xexact][xdom]      exp=BP.1.5.1.1   got=BP.1.5.1.1     | Market category hypothesis: Manuscript diagnosti
+  [ exact][xdom]      exp=BP.8.2.4     got=BP.8.3.3       | Comparable model: Turnitin/iThenticate used as a
+  [xexact][xdom]      exp=BP.8.1.3     got=BP.8.1.3       | Direct competitors: Need to identify claim-level
+  [xexact][xdom]      exp=BP.8.1.5     got=BP.8.1.5       | Adjacent tools: AI writing tools, academic writi
+  [xexact][xdom]      exp=BP.7.2       got=BP.7.2         | GDPR manuscript data handling
+  [ exact][ dom]      exp=BP.7.3.4     got=BP.1.8.7       | Third-party LLM API use
+  [ exact][xdom]      exp=BP.7.5.2     got=BP.7.2.10      | Data transfer
+  [ exact][xdom]      exp=BP.7.4.5     got=BP.7.4         | Manuscript confidentiality
+  [ exact][xdom]      exp=BP.7.1.4     got=BP.7.1.1       | Copyright/IP ownership
+  [ exact][ dom]      exp=BP.9.1.1     got=BP.1.1.3       | Reduce avoidable rejection risk and improve revi
+  [ exact][xdom]      exp=BP.1.1.3     got=BP.1.8.4       | Extracts claims, maps evidence, checks inference
+  [xexact][xdom]      exp=BP.1.3       got=BP.1.3         | Supports research quality control, publication c
+  [ exact][ dom]      exp=BP.9.1.1     got=BP.1.1.3       | Reduces unsupported claims, causal overreach, we
+  [ exact][ dom]      exp=BP.6.1       got=BP.5.3.1       | spoke to one research dean at IESE, confirmed aw
+  [ exact][xdom]      exp=BP.9.1.4     got=BP.9.5.1       | We assume primary monetization model is institut
+  [xexact][xdom]      exp=BP.5.1.1     got=BP.5.1.1       | We believe target users are academic researchers
+  [ exact][xdom]      exp=BP.5.4.4     got=BP.5.4.3       | It is confirmed that CIO and IT Security have ve
+  [ exact][ dom]      exp=BP.6.1       got=BP.10.3.8      | We confirmed with IESE research dean that awaren
+  [ exact][xdom]      exp=BP.9.2.2     got=BP.9.2.4       | I think pricing should be per-department bundles
+  [ exact][xdom]      exp=BP.1.1.7.4   got=BP.1.1.7.7     | The product contradicts what we said about MVP r
+  [ exact][ dom]      exp=BP.5.5.1     got=BP.9.4.5       | We assume annual institutional contracts align w
+  [xexact][xdom]      exp=BP.8.1.3     got=BP.8.1.3       | We verified that competitor Iris.ai uses per-res
+  [ exact][xdom]      exp=BP.5.3.2     got=BP.5.3.1       | We hypothesize that department heads control the
+  [xexact][xdom]      exp=BP.7.5.2     got=BP.7.5.2       | The contract states GDPR compliance requires dat
+  [xexact][xdom]      exp=BP.9.2.1     got=BP.9.2.1       | Maybe we should consider freemium for individual
+  [ exact][xdom]      exp=BP.1.1.3     got=BP.1.1.9       | It is documented that the epistemic layer has 11
+  [xexact][xdom]      exp=BP.2.5.5     got=BP.2.5.5       | Our assumption is that researchers need diagnost
+  [xexact][xdom]      exp=BP.6.5.3     got=BP.6.5.3       | Data shows 73% of academics distrust automated r
+  [ exact][ dom]      exp=BP.5.3.5     got=BP.9.5.5       | We assume institutions will pay but need to vali
+
+CLASSIFIER MEASUREMENT vs canonical gold (40 facts):
+  exact node match : 15/40 = 38%
+  domain match     : 30/40 = 75%
+  exact on high-confidence (non-review) subset: 15/40 = 38%

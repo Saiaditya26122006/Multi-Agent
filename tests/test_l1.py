@@ -18,6 +18,21 @@ from memory.supabase_client import (
 )
 
 
+def _reset_session_clarifications(session_id):
+    """Clear a session's assumptions so the L1 question-cap starts fresh.
+
+    L1 caps clarifying questions at MAX_QUESTIONS per session (counting active
+    assumptions). These tests reuse a long-lived active session against the live
+    DB, so assumptions from prior runs accumulate and saturate the cap — L1 then
+    correctly returns question=None and the test sees an empty question. Resetting
+    isolates each run so it exercises the real vague-message->question behavior.
+    """
+    try:
+        supabase.table("assumptions").delete().eq("session_id", session_id).execute()
+    except Exception as e:
+        print(f"[test] could not reset assumptions: {e}")
+
+
 def test_vague_message_produces_question():
     """
     Test 1: A vague CEO message produces one focused question
@@ -47,6 +62,9 @@ def test_vague_message_produces_question():
 
     session_id = session.get("id")
     print(f"Using session: {session_id}")
+
+    # Isolate: clear accumulated assumptions so the question-cap starts fresh.
+    _reset_session_clarifications(session_id)
 
     # Test with a vague message
     vague_message = "I want to grow the business"
