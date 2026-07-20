@@ -608,13 +608,32 @@ def match_bp_node(text: str, top_k: int = 3) -> list[dict]:
         # transfer" score low against verbose node text and returned an EMPTY
         # pool at 0.3, killing the cross-domain safety net. top_k still caps the
         # count and the LLM filters the candidates, so lower recall > empty pool.
+        #
+        # Query the AUGMENTED node index first (layer=bp_architecture_aug):
+        # embeds "title. purpose. required_output", measured to lift exact-node
+        # retrieval 45%->68% and section 50%->75% vs the plain layer
+        # (evaluation/compare_indexes.py). Fall back to the plain layer if the
+        # aug layer is absent/empty so this never returns fewer candidates than
+        # before. Build the aug layer with: python -m scripts.ingest_bp_aug
+        # Over-fetch: retrieve() applies metadata_filter in Python AFTER the RPC
+        # returns match_count rows. With ~2.7k ceo_doc rows, the aug-layer rows
+        # get crowded out of a small window, so ask for a wide window and trim.
+        fetch_k = max(top_k * 4, 60)
         chunks = retrieve(
             query=text,
             source_types=["ceo_doc"],
-            top_k=top_k,
-            threshold=0.2,
-            metadata_filter={"layer": "bp_architecture"},
+            top_k=fetch_k,
+            threshold=0.05,
+            metadata_filter={"layer": "bp_architecture_aug"},
         )
+        if not chunks:
+            chunks = retrieve(
+                query=text,
+                source_types=["ceo_doc"],
+                top_k=fetch_k,
+                threshold=0.2,
+                metadata_filter={"layer": "bp_architecture"},
+            )
 
         results = []
         if chunks:
