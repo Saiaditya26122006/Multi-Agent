@@ -898,6 +898,148 @@ def get_decisions_for_session(session_id: str) -> list:
         return []
 
 
+# ============================================================================
+# SESSION STATE MANAGEMENT (replaces Redis)
+# ============================================================================
+
+def set_session_flag(session_id: str, flag_name: str, value: bool) -> bool:
+    """
+    Set a boolean flag on the session (awaiting_clarification, awaiting_approval, etc).
+
+    Args:
+        session_id: UUID of the session
+        flag_name: Name of the flag (awaiting_clarification, awaiting_approval, gate2_active)
+        value: Boolean value
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        update_data = {flag_name: value}
+        response = (
+            supabase.table("sessions")
+            .update(update_data)
+            .eq("id", session_id)
+            .execute()
+        )
+        logger.info(f"[SESSION] Set {flag_name}={value} for session {session_id[:8]}")
+        return bool(response.data)
+    except Exception as e:
+        logger.error(f"Error setting flag {flag_name} on session {session_id}: {e}")
+        return False
+
+
+def get_session_flag(session_id: str, flag_name: str) -> Optional[bool]:
+    """
+    Get a boolean flag from the session.
+
+    Args:
+        session_id: UUID of the session
+        flag_name: Name of the flag
+
+    Returns:
+        Boolean value or None if session not found
+    """
+    try:
+        response = (
+            supabase.table("sessions")
+            .select(flag_name)
+            .eq("id", session_id)
+            .execute()
+        )
+        if response.data and len(response.data) > 0:
+            return response.data[0].get(flag_name)
+        return None
+    except Exception as e:
+        logger.error(f"Error getting flag {flag_name} from session {session_id}: {e}")
+        return None
+
+
+def set_session_data(session_id: str, data_key: str, data_value: Any) -> bool:
+    """
+    Set a data field on the session (clarification_data, challenge_pending_task_id, etc).
+
+    Args:
+        session_id: UUID of the session
+        data_key: Name of the field
+        data_value: Value (string, int, dict, etc)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        update_data = {data_key: data_value}
+        response = (
+            supabase.table("sessions")
+            .update(update_data)
+            .eq("id", session_id)
+            .execute()
+        )
+        logger.info(f"[SESSION] Set {data_key} for session {session_id[:8]}")
+        return bool(response.data)
+    except Exception as e:
+        logger.error(f"Error setting data {data_key} on session {session_id}: {e}")
+        return False
+
+
+def get_session_data(session_id: str, data_key: str) -> Optional[Any]:
+    """
+    Get a data field from the session.
+
+    Args:
+        session_id: UUID of the session
+        data_key: Name of the field
+
+    Returns:
+        Value or None if not found
+    """
+    try:
+        response = (
+            supabase.table("sessions")
+            .select(data_key)
+            .eq("id", session_id)
+            .execute()
+        )
+        if response.data and len(response.data) > 0:
+            return response.data[0].get(data_key)
+        return None
+    except Exception as e:
+        logger.error(f"Error getting data {data_key} from session {session_id}: {e}")
+        return None
+
+
+def clear_session_flags(session_id: str) -> bool:
+    """
+    Clear all temporary flags on a session (for /reset command).
+
+    Args:
+        session_id: UUID of the session
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        response = (
+            supabase.table("sessions")
+            .update({
+                "awaiting_clarification": False,
+                "awaiting_approval": False,
+                "gate2_active": False,
+                "challenge_pending_task_id": None,
+                "adjust_pending_task_id": None,
+                "last_question": None,
+                "clarification_data": None
+            })
+            .eq("id", session_id)
+            .execute()
+        )
+        logger.info(f"[SESSION] Cleared all flags for session {session_id[:8]}")
+        return bool(response.data)
+    except Exception as e:
+        logger.error(f"Error clearing flags on session {session_id}: {e}")
+        return False
+
+
 def create_decision(
     decision_id: str,
     decision: str,

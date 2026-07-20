@@ -42,13 +42,15 @@ from memory.supabase_client import (
     create_session,
     _has_explicit_topic_change_trigger,
 )
-from memory.redis_client import redis_client
 
 # Import reply handler (web interface)
 from tools.reply_handler import send_reply, create_decision_keyboard, create_task_preview_keyboard
 
 # Import router agent
 from agents.phase1.router_agent import classify_message, handle_general_chat, handle_query
+
+# Import message bus (replaces Redis)
+from services.message_bus import message_bus
 
 # Phase 2 task preview (for EPI-35 transparency at approval time)
 import yaml
@@ -62,39 +64,39 @@ AGENT_ROSTER = yaml.safe_load(
 
 
 # ==========================================================================
-# REDIS RESILIENCE HELPERS
+# SESSION STATE HELPERS (using Supabase instead of Redis)
 # ==========================================================================
 
-def safe_redis_get(key: str, fallback=None):
-    """Redis GET with graceful fallback on connection errors."""
-    try:
-        return redis_client.get(key)
-    except Exception as e:
-        logger.warning(f"[REDIS] Unavailable on GET '{key}', falling back to DB state: {e}")
-        return fallback
+def get_session_flag(session_id: str, flag_name: str, default=False):
+    """Get a boolean flag from session state."""
+    from memory.supabase_client import get_session_flag as db_get_flag
+    value = db_get_flag(session_id, flag_name)
+    return value if value is not None else default
 
 
-def safe_redis_set(key: str, value, ex: int = None) -> bool:
-    """Redis SET with graceful fallback — returns False on failure."""
-    try:
-        if ex:
-            redis_client.set(key, value, ex=ex)
-        else:
-            redis_client.set(key, value)
-        return True
-    except Exception as e:
-        logger.warning(f"[REDIS] Unavailable on SET '{key}', skipping cache write: {e}")
-        return False
+def set_session_flag(session_id: str, flag_name: str, value: bool) -> bool:
+    """Set a boolean flag on session state."""
+    from memory.supabase_client import set_session_flag as db_set_flag
+    return db_set_flag(session_id, flag_name, value)
 
 
-def safe_redis_delete(key: str) -> bool:
-    """Redis DELETE with graceful fallback — returns False on failure."""
-    try:
-        redis_client.delete(key)
-        return True
-    except Exception as e:
-        logger.warning(f"[REDIS] Unavailable on DELETE '{key}', skipping: {e}")
-        return False
+def get_session_data(session_id: str, data_key: str, default=None):
+    """Get data from session state."""
+    from memory.supabase_client import get_session_data as db_get_data
+    value = db_get_data(session_id, data_key)
+    return value if value is not None else default
+
+
+def set_session_data(session_id: str, data_key: str, value) -> bool:
+    """Set data on session state."""
+    from memory.supabase_client import set_session_data as db_set_data
+    return db_set_data(session_id, data_key, value)
+
+
+def clear_session_flags(session_id: str) -> bool:
+    """Clear all temporary flags on session."""
+    from memory.supabase_client import clear_session_flags as db_clear_flags
+    return db_clear_flags(session_id)
 
 
 def generate_preview_tasks(session_id: str) -> list:
