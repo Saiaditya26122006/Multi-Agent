@@ -21,9 +21,6 @@ import os
 from typing import Optional
 
 from agents.phase2.base_child_agent import get_shared_bedrock_client
-from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour, OneShotBehaviour
-from spade.message import Message
 
 from memory.redis_client import RedisClient
 from memory.supabase_client import SupabaseClient

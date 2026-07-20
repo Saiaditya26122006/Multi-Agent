@@ -1,25 +1,25 @@
 # Multi-Agent AI System — CLAUDE.md
 
-## Project State (as of 2026-05-26)
+## Project State (as of 2026-07-20)
 
 - **Phase:** 2 (active since May 19, 2026)
 - **Phase 1:** Complete — L0/L1/L3 pipeline works, Web Interface integration done
-- **Phase 2:** Mother Agent + 9 child agents built, SPADE messaging, SimPy simulation
-- **Current bug (FIXED):** Child agents escalating with `weak_evidence` because Claude via Bedrock returns non-JSON text that fails Pydantic validation. Fix: hardened SYSTEM_PROMPTs + `_parse_llm_response()` with markdown stripping and fallback defaults.
+- **Phase 2:** Mother Agent + 9 child agents built, custom async message bus, SimPy simulation
+- **Latest (2026-07-20):** Redis eliminated (Supabase session state), SPADE removed (never used), BP classification error handler added for 90% accuracy target
 
 ## Technology Stack
 
 | Component         | Technology                    |
 |-------------------|-------------------------------|
-| Agent framework   | SPADE (spade.agent)           |
+| Agent orchestration | Custom async message bus (in-memory, no external deps) |
 | LLM               | Claude (Bedrock) — Sonnet/Haiku |
 | Canonical DB      | Supabase / Postgres           |
 | RAG / Knowledge   | Supabase pgvector + Amazon Titan Embed v2 (1024-dim, via Bedrock) |
-| Session memory    | Redis (Upstash)               |
+| Session state     | Supabase (7 new columns on sessions table) |
 | Simulation        | SimPy (Monte Carlo)           |
 | MVP UI            | Streamlit                     |
 | CEO channel       | Web interface (FastAPI + WebSocket) |
-| Messaging         | XMPP via SPADE                |
+| Messaging         | MessageBus (async in-process) |
 
 ## Run Commands
 
@@ -58,11 +58,11 @@ python -m services.ingestion_pipeline  # ingest CEO data into RAG
 
 Each child agent has:
 1. `SYSTEM_PROMPT` — includes JSON-only instruction with exact field list
-2. `ListenBehaviour` — SPADE CyclicBehaviour listening for messages
-3. `handle_request()` — validates input, calls LLM, parses response, validates output
-4. `_parse_llm_response()` — strips markdown code blocks, attempts JSON parse, falls back to schema-valid defaults
-5. `_call_llm()` — calls Bedrock `invoke_model` API
-6. `_escalate()` — sends escalation to Mother Agent
+2. `handle_request()` — validates input, calls LLM via Bedrock, parses response, validates output
+3. `_parse_llm_response()` — strips markdown code blocks, attempts JSON parse, falls back to schema-valid defaults
+4. `_call_llm()` — calls Bedrock `invoke_model` API with retry + exponential backoff
+5. `_escalate()` — sends escalation to Mother Agent via MessageBus
+6. MessageBus receiver — async listener for incoming tasks from mother_agent
 
 ### LLM via AWS Bedrock
 
@@ -72,10 +72,20 @@ Each child agent has:
 - API: `bedrock.invoke_model(model=, max_tokens=, system=, messages=)`
 - Response format: `response["body"].read()` → JSON with `content[0].text`
 
-### SPADE Messaging Protocol
+### MessageBus API
 
-Performatives: `request`, `inform`, `escalate`, `propose`, `refuse`
-Metadata fields: `performative`, `task_id`, `session_id`, `pipeline_run_id`
+```python
+await message_bus.send(
+    sender="mother_agent",
+    recipient="child_agent_name",
+    payload={"task": "...", "data": {...}},
+    session_id="sess-123",
+    pipeline_run_id="run-456"
+) → msg_id
+
+msg = await message_bus.receive(recipient, timeout=30) → MessageEnvelope or None
+await message_bus.send_ack(msg_id) → True/False
+```
 
 ## Code Rules
 

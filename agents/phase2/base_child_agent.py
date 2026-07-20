@@ -1,9 +1,7 @@
 """
 Base class for all Phase 2 child agents.
 
-Supports dual-mode communication:
-- SPADE/XMPP (legacy, being phased out)
-- MessageBus (new, in-process async — preferred)
+Uses MessageBus for in-process async communication (SPADE removed).
 
 Eliminates duplicated boilerplate across 10 agents by providing:
 - Bedrock LLM calls with retry + exponential backoff
@@ -44,20 +42,6 @@ from typing import Any, Optional
 
 import boto3
 from botocore.config import Config as BotoConfig
-
-try:
-    from spade.agent import Agent as _SpadeAgent
-    from spade.behaviour import CyclicBehaviour, OneShotBehaviour
-    from spade.message import Message
-    SPADE_AVAILABLE = True
-except ImportError:
-    SPADE_AVAILABLE = False
-    _SpadeAgent = object
-    CyclicBehaviour = object
-    OneShotBehaviour = object
-    Message = None
-
-from memory.redis_client import RedisClient
 from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
 from agents.phase2.intelligence_engine import IntelligenceEngine
 from agents.phase2.message_bus import MessageBus, ACLMessage

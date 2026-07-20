@@ -583,19 +583,16 @@ if grounding_score < 0.5 and not revision_required:
 
     claim_check = """
 async def _check_claim_grounding(claim: str, rag_evidence: list[dict]) -> bool:
-    # 1. Embed the claim
-    claim_embedding = embed(claim, input_type="search_query")  # 1024-dim vector
+    # 1. Query RAG for grounding evidence
+    grounding_chunks = retrieve(
+        query=claim,
+        source_types=["ceo_doc", "conversation"],
+        top_k=3,
+        threshold=0.4
+    )
 
-    # 2. Compare against all evidence chunks
-    best_similarity = 0.0
-    for evidence in rag_evidence:
-        evidence_embedding = embed(evidence["content"], input_type="search_document")
-        similarity = cosine_similarity(claim_embedding, evidence_embedding)
-        if similarity > best_similarity:
-            best_similarity = similarity
-
-    # 3. Threshold: 0.6 means 60% similarity required
-    return best_similarity >= 0.6
+    # 2. Found grounding evidence? Claim is supported
+    return len(grounding_chunks) > 0  # Existence check, not similarity threshold
 """
 
     add_code_block(doc, claim_check.strip(), "python")
