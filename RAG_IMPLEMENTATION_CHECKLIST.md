@@ -119,7 +119,7 @@ knowledge_base:
 | # | Task | Status | File | Notes |
 |---|------|--------|------|-------|
 | 2.2.1 | Create `services/conversation_store.py` | [x] | `services/conversation_store.py` | All store functions + has_been_asked/has_been_killed |
-| 2.2.2 | Hook into Telegram webhook: store every Alex message | [ ] | Modify `telegram/webhook.py` | Need to add 1 line call |
+| 2.2.2 | Hook into Web Interface webhook: store every Alex message | [ ] | Modify `Web Interface/webhook.py` | Need to add 1 line call |
 | 2.2.3 | Hook into web interface: store every Alex input | [ ] | Modify `web/server.py` | Need to add 1 line call |
 | 2.2.4 | Store system questions to Alex (L1 clarification) | [x] | `services/conversation_store.py` | `store_system_question()` ready |
 | 2.2.5 | Store Alex's answers to system questions | [x] | `services/conversation_store.py` | `store_ceo_answer()` ready |
@@ -300,7 +300,7 @@ knowledge_base:
 
 Use these to verify the implementation is complete:
 
-1. "If Alex types 'I changed my mind, pricing should be €5k not €8k' in Telegram — does the system remember this next pipeline run?"
+1. "If Alex types 'I changed my mind, pricing should be €5k not €8k' in Web Interface — does the system remember this next pipeline run?"
 2. "If Alex killed per-claim pricing last week — will any agent ever suggest it again?"
 3. "If I query 'what are Alex's compliance concerns' — does it return the 15 risks from Section 13?"
 4. "If the Financial agent discovers break-even = 47 clients in Run 3 — does the SWOT agent know this in Run 4?"

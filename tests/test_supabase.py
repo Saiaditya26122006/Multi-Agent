@@ -44,7 +44,7 @@ def test_get_ceo_context():
         return None
 
 
-def test_create_session(ceo_id, telegram_chat_id=123456):
+def test_create_session(ceo_id, chat_id=123456):
     """Test 2: Create a new session"""
     print("\n" + "="*60)
     print("TEST 2: create_session()")
@@ -55,12 +55,12 @@ def test_create_session(ceo_id, telegram_chat_id=123456):
         return None
 
     try:
-        result = create_session(ceo_id, telegram_chat_id)
+        result = create_session(ceo_id, chat_id)
         if result:
             print(f"✓ PASS - Session created:")
             print(f"  - Session ID: {result.get('id')}")
             print(f"  - State: {result.get('state')}")
-            print(f"  - Telegram Chat ID: {result.get('telegram_chat_id')}")
+            print(f"  - Telegram Chat ID: {result.get('chat_id')}")
             print(f"  - Awaiting Research: {result.get('awaiting_research')}")
             return result
         else:
@@ -71,14 +71,14 @@ def test_create_session(ceo_id, telegram_chat_id=123456):
         return None
 
 
-def test_get_active_session(telegram_chat_id=123456):
+def test_get_active_session(chat_id=123456):
     """Test 3: Get active session"""
     print("\n" + "="*60)
     print("TEST 3: get_active_session()")
     print("="*60)
 
     try:
-        result = get_active_session(telegram_chat_id)
+        result = get_active_session(chat_id)
         if result:
             print(f"✓ PASS - Active session found:")
             print(f"  - Session ID: {result.get('id')}")
@@ -126,26 +126,26 @@ def test_log_event(session_id):
         return None
 
 
-def test_check_message_exists_before(telegram_message_id=999):
+def test_check_message_exists_before(message_id=999):
     """Test 5: Check if message exists (should be False)"""
     print("\n" + "="*60)
     print("TEST 5: check_message_exists() - Before Insert")
     print("="*60)
 
     try:
-        result = check_message_exists(telegram_message_id)
+        result = check_message_exists(message_id)
         if result == False or result is False:
-            print(f"✓ PASS - Message {telegram_message_id} does not exist (as expected)")
+            print(f"✓ PASS - Message {message_id} does not exist (as expected)")
             return True
         else:
-            print(f"✗ FAIL - Message {telegram_message_id} already exists (unexpected)")
+            print(f"✗ FAIL - Message {message_id} already exists (unexpected)")
             return False
     except Exception as e:
         print(f"✗ FAIL - Exception: {e}")
         return False
 
 
-def test_log_message(telegram_message_id=999, session_id=None):
+def test_log_message(message_id=999, session_id=None):
     """Test 6: Log a message"""
     print("\n" + "="*60)
     print("TEST 6: log_message()")
@@ -156,11 +156,11 @@ def test_log_message(telegram_message_id=999, session_id=None):
         return None
 
     try:
-        result = log_message(telegram_message_id, "test message", session_id)
+        result = log_message(message_id, "test message", session_id)
         if result:
             print(f"✓ PASS - Message logged:")
             print(f"  - Message ID: {result.get('id')}")
-            print(f"  - Telegram Message ID: {result.get('telegram_message_id')}")
+            print(f"  - Telegram Message ID: {result.get('message_id')}")
             print(f"  - Content: {result.get('content')}")
             print(f"  - Session ID: {result.get('session_id')}")
             return result
@@ -172,19 +172,19 @@ def test_log_message(telegram_message_id=999, session_id=None):
         return None
 
 
-def test_check_message_exists_after(telegram_message_id=999):
+def test_check_message_exists_after(message_id=999):
     """Test 7: Check if message exists (should be True)"""
     print("\n" + "="*60)
     print("TEST 7: check_message_exists() - After Insert")
     print("="*60)
 
     try:
-        result = check_message_exists(telegram_message_id)
+        result = check_message_exists(message_id)
         if result is True:
-            print(f"✓ PASS - Message {telegram_message_id} exists (as expected)")
+            print(f"✓ PASS - Message {message_id} exists (as expected)")
             return True
         else:
-            print(f"✗ FAIL - Message {telegram_message_id} does not exist (unexpected)")
+            print(f"✗ FAIL - Message {message_id} does not exist (unexpected)")
             return False
     except Exception as e:
         print(f"✗ FAIL - Exception: {e}")
@@ -199,15 +199,15 @@ def cleanup_test_data():
 
     try:
         # Delete test messages FIRST (before sessions)
-        result = supabase.table("messages").delete().eq("telegram_message_id", 999).execute()
-        print(f"✓ Deleted test messages (telegram_message_id=999) - {len(result.data) if result.data else 0} rows")
+        result = supabase.table("messages").delete().eq("message_id", 999).execute()
+        print(f"✓ Deleted test messages (message_id=999) - {len(result.data) if result.data else 0} rows")
     except Exception as e:
         print(f"  Note: Could not delete test messages: {e}")
 
     try:
         # Delete test sessions SECOND (this will cascade delete related events)
-        result = supabase.table("sessions").delete().eq("telegram_chat_id", 123456).execute()
-        print(f"✓ Deleted test sessions (telegram_chat_id=123456) - {len(result.data) if result.data else 0} rows")
+        result = supabase.table("sessions").delete().eq("chat_id", 123456).execute()
+        print(f"✓ Deleted test sessions (chat_id=123456) - {len(result.data) if result.data else 0} rows")
     except Exception as e:
         print(f"  Note: Could not delete test sessions: {e}")
 
@@ -229,23 +229,23 @@ def run_all_tests():
     ceo_id = ceo_context.get('id') if ceo_context else None
 
     # Test 2: Create session
-    session = test_create_session(ceo_id, telegram_chat_id=123456)
+    session = test_create_session(ceo_id, chat_id=123456)
     session_id = session.get('id') if session else None
 
     # Test 3: Get active session
-    active_session = test_get_active_session(telegram_chat_id=123456)
+    active_session = test_get_active_session(chat_id=123456)
 
     # Test 4: Log event
     event = test_log_event(session_id)
 
     # Test 5: Check message exists (before)
-    message_exists_before = test_check_message_exists_before(telegram_message_id=999)
+    message_exists_before = test_check_message_exists_before(message_id=999)
 
     # Test 6: Log message
-    message = test_log_message(telegram_message_id=999, session_id=session_id)
+    message = test_log_message(message_id=999, session_id=session_id)
 
     # Test 7: Check message exists (after)
-    message_exists_after = test_check_message_exists_after(telegram_message_id=999)
+    message_exists_after = test_check_message_exists_after(message_id=999)
 
     # Summary
     print("\n" + "="*60)

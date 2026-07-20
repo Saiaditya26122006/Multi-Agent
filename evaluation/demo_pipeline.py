@@ -92,7 +92,7 @@ async def run_demo_pipeline(session_id: str):
             return
 
         session_data = session.data[0]
-        chat_id = session_data.get("chat_id") or session_data.get("telegram_chat_id")
+        chat_id = session_data.get("chat_id") or session_data.get("chat_id")
 
         if not chat_id:
             logger.error("[DemoPipeline] No chat_id for session %s", session_id)

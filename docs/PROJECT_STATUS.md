@@ -193,7 +193,7 @@ Section 13 (Launch & Contingency) failed due to Bedrock connection-closed error.
 
 ### Phase 1 Migration
 
-**L0/L1/L3 pipeline:** Built for Gemini API (deprecated). Needs migration to Bedrock or archival. Telegram integration exists but not wired to Phase 2.
+**L0/L1/L3 pipeline:** Built for Gemini API (deprecated). Needs migration to Bedrock or archival. Web Interface integration exists but not wired to Phase 2.
 
 ### Data Layer
 
@@ -277,7 +277,7 @@ Section 13 (Launch & Contingency) failed due to Bedrock connection-closed error.
 
 11. **Multi-idea batch evaluation** — process 10+ business ideas in parallel to validate system scalability and scorer consistency.
 
-12. **CEO feedback loop** — integrate Telegram notifications for completed runs; support interactive clarification during pipeline execution.
+12. **CEO feedback loop** — integrate Web Interface notifications for completed runs; support interactive clarification during pipeline execution.
 
 13. **Performance optimization** — reduce latency (28 min → target <10 min for 9 sections); optimize token usage; explore model routing (Haiku-first with Sonnet escalation).
 

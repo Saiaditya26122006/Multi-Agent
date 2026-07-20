@@ -63,7 +63,7 @@ def validate_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     ceo_id = ceo_context.get("id")
-    ceo_chat_id = ceo_context.get("chat_id") or ceo_context.get("telegram_chat_id")
+    ceo_chat_id = ceo_context.get("chat_id")
 
     # Step 2: Validate sender is the CEO
     emit_trace(session_key, "L0", "validating_sender", "Checking sender identity")

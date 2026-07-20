@@ -2,7 +2,7 @@
 
 ## Summary
 
-This session implemented the full RAG (Retrieval-Augmented Generation) system for the multi-agent business plan generator, and removed Telegram completely (web-only interface now).
+This session implemented the full RAG (Retrieval-Augmented Generation) system for the multi-agent business plan generator, and removed Web Interface completely (web-only interface now).
 
 \---
 
@@ -92,27 +92,27 @@ Built a 12-layer RAG knowledge base that gives every agent access to Alex's data
 
 \---
 
-### 2\. Telegram Removal (Web-Only Interface)
+### 2\. Web Interface Removal (Web-Only Interface)
 
-Completely removed Telegram from the project. The only CEO interface is now the web UI (FastAPI + WebSocket).
+Completely removed Web Interface from the project. The only CEO interface is now the web UI (FastAPI + WebSocket).
 
 **Deleted files:**
 
-* `tools/telegram\\\\\\\_handler.py`
-* `tests/test\\\\\\\_telegram.py`
-* `tests/test\\\\\\\_telegram\\\\\\\_polling.py`
-* `tests/demo\\\\\\\_telegram.py`
-* `database/migrations/migration\\\\\\\_add\\\\\\\_telegram\\\\\\\_chat\\\\\\\_id.sql`
+* `tools/Web Interface\\\\\\\_handler.py`
+* `tests/test\\\\\\\_Web Interface.py`
+* `tests/test\\\\\\\_Web Interface\\\\\\\_polling.py`
+* `tests/demo\\\\\\\_Web Interface.py`
+* `database/migrations/migration\\\\\\\_add\\\\\\\_Web Interface\\\\\\\_chat\\\\\\\_id.sql`
 
 **Modified files:**
 
-* `main.py` — removed telegram imports, renamed `handle\\\\\\\_telegram\\\\\\\_message` → `handle\\\\\\\_message`, renamed `handle\\\\\\\_telegram\\\\\\\_callback` → `handle\\\\\\\_callback`, removed `start\\\\\\\_polling()`, removed `TELEGRAM\\\\\\\_BOT\\\\\\\_TOKEN` from required env vars, simplified `main()` to web-only
+* `main.py` — removed Web Interface imports, renamed `handle\\\\\\\_Web Interface\\\\\\\_message` → `handle\\\\\\\_message`, renamed `handle\\\\\\\_Web Interface\\\\\\\_callback` → `handle\\\\\\\_callback`, removed `start\\\\\\\_polling()`, removed `TELEGRAM\\\\\\\_BOT\\\\\\\_TOKEN` from required env vars, simplified `main()` to web-only
 * `tools/reply\\\\\\\_handler.py` — fully rewritten: web-only via WebSocket, added `create\\\\\\\_decision\\\\\\\_keyboard()` and `create\\\\\\\_task\\\\\\\_preview\\\\\\\_keyboard()` (return button data for web UI)
-* `agents/phase1/l0\\\\\\\_input\\\\\\\_guard.py` — default channel changed to "web", `telegram\\\\\\\_chat\\\\\\\_id` → `chat\\\\\\\_id`, removed Telegram-only dedup check
-* `web/server.py` — `telegram\\\\\\\_chat\\\\\\\_id` → `chat\\\\\\\_id` throughout
-* `evaluation/demo\\\\\\\_pipeline.py` — replaced telegram\_handler import with reply\_handler
-* `requirements.txt` — removed `python-telegram-bot==22.7`
-* `CLAUDE.md` — CEO channel updated to "Web interface (FastAPI + WebSocket)", removed `python telegram/webhook.py` from run commands
+* `agents/phase1/l0\\\\\\\_input\\\\\\\_guard.py` — default channel changed to "web", `Web Interface\\\\\\\_chat\\\\\\\_id` → `chat\\\\\\\_id`, removed Web Interface-only dedup check
+* `web/server.py` — `Web Interface\\\\\\\_chat\\\\\\\_id` → `chat\\\\\\\_id` throughout
+* `evaluation/demo\\\\\\\_pipeline.py` — replaced Web Interface\_handler import with reply\_handler
+* `requirements.txt` — removed `python-Web Interface-bot==22.7`
+* `CLAUDE.md` — CEO channel updated to "Web interface (FastAPI + WebSocket)", removed `python Web Interface/webhook.py` from run commands
 
 \---
 
@@ -127,7 +127,7 @@ Completely removed Telegram from the project. The only CEO interface is now the 
 |Individual RAG import per agent (not BaseChildAgent refactor)|Lower risk — each agent can be fixed independently without breaking the pipeline|
 |Similarity threshold 0.4 (not 0.5)|MiniLM gives \~0.35-0.45 for semantically related but differently-worded text|
 |Latency limit 500ms (not 200ms)|Remote Supabase adds network overhead; 427ms avg is acceptable|
-|Remove Telegram completely|Single interface simplifies code, no dual-channel complexity|
+|Remove Web Interface completely|Single interface simplifies code, no dual-channel complexity|
 
 \---
 
@@ -151,7 +151,7 @@ Completely removed Telegram from the project. The only CEO interface is now the 
 |Topic|Status|
 |-|-|
 |BaseChildAgent refactor (P0 structural fix)|Discussed risk analysis, decided to skip for now — individual RAG imports are lower risk|
-|Hook conversation\_store into Telegram webhook|N/A — Telegram removed|
+|Hook conversation\_store into Web Interface webhook|N/A — Web Interface removed|
 |Hook conversation\_store into web server|**NOT YET DONE** — `web/server.py` needs 1-line call to `store\\\\\\\_ceo\\\\\\\_message()` after receiving messages|
 |Phase 3 P0-P3 structural fixes from earlier checklist|Not touched this session — separate scope|
 
@@ -227,13 +227,13 @@ agents/phase2/organisation\\\\\\\_designer.py (RAG import + enrichment)
 agents/phase2/launch\\\\\\\_contingency.py (RAG import + enrichment)
 agents/phase2/summary\\\\\\\_agent.py (RAG import + enrichment)
 agents/phase2/devils\\\\\\\_advocate.py (RAG import + contradiction checks)
-main.py (removed Telegram, web-only, renamed handlers)
+main.py (removed Web Interface, web-only, renamed handlers)
 tools/reply\\\\\\\_handler.py (rewritten — web-only)
-agents/phase1/l0\\\\\\\_input\\\\\\\_guard.py (telegram\\\\\\\_chat\\\\\\\_id → chat\\\\\\\_id)
-web/server.py (telegram\\\\\\\_chat\\\\\\\_id → chat\\\\\\\_id)
-evaluation/demo\\\\\\\_pipeline.py (removed telegram import)
-requirements.txt (removed python-telegram-bot)
-CLAUDE.md (added RAG section, removed Telegram refs)
+agents/phase1/l0\\\\\\\_input\\\\\\\_guard.py (Web Interface\\\\\\\_chat\\\\\\\_id → chat\\\\\\\_id)
+web/server.py (Web Interface\\\\\\\_chat\\\\\\\_id → chat\\\\\\\_id)
+evaluation/demo\\\\\\\_pipeline.py (removed Web Interface import)
+requirements.txt (removed python-Web Interface-bot)
+CLAUDE.md (added RAG section, removed Web Interface refs)
 RAG\\\\\\\_IMPLEMENTATION\\\\\\\_CHECKLIST.md (updated throughout)
 ```
 
@@ -242,11 +242,11 @@ RAG\\\\\\\_IMPLEMENTATION\\\\\\\_CHECKLIST.md (updated throughout)
 ## Files Deleted This Session
 
 ```
-tools/telegram\\\\\\\_handler.py
-tests/test\\\\\\\_telegram.py
-tests/test\\\\\\\_telegram\\\\\\\_polling.py
-tests/demo\\\\\\\_telegram.py
-database/migrations/migration\\\\\\\_add\\\\\\\_telegram\\\\\\\_chat\\\\\\\_id.sql
+tools/Web Interface\\\\\\\_handler.py
+tests/test\\\\\\\_Web Interface.py
+tests/test\\\\\\\_Web Interface\\\\\\\_polling.py
+tests/demo\\\\\\\_Web Interface.py
+database/migrations/migration\\\\\\\_add\\\\\\\_Web Interface\\\\\\\_chat\\\\\\\_id.sql
 ```
 
 \---
@@ -357,7 +357,7 @@ lcome to Ubuntu 24.04.2 LTS (GNU/Linux 6.6.87.2-microsoft-standard-WSL2 x86\_64)
 
 &#x20; *have RAG access via rag\_mixin.py or base\_child\_agent.py.*
 
-&#x20; *2. Telegram removed entirely — web-only interface now (FastAPI + WebSocket).*
+&#x20; *2. Web Interface removed entirely — web-only interface now (FastAPI + WebSocket).*
 
 
 

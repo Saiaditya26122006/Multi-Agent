@@ -68,7 +68,7 @@ def generate_clarifying_question(
     print(f"[L1] Processing message for session {session_id}")
 
     ceo_ctx = get_ceo_context()
-    session_key = str(ceo_ctx.get("telegram_chat_id")) if ceo_ctx else ""
+    session_key = str(ceo_ctx.get("chat_id")) if ceo_ctx else ""
 
     # CRITICAL: Check question counter - maximum MAX_QUESTIONS per session
     existing_assumptions = get_assumptions_for_session(session_id)

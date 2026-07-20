@@ -84,7 +84,7 @@ def _is_topic_change(new_message: str, idea_text: str) -> bool:
 
 
 def get_active_session(
-    telegram_chat_id: int,
+    chat_id: str,
     message_text: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -95,7 +95,7 @@ def get_active_session(
     so a new session gets created.
 
     Args:
-        telegram_chat_id: Telegram chat ID to filter by
+        chat_id: Chat ID to filter by
         message_text: Incoming message text for topic-change detection (optional)
 
     Returns:
@@ -105,7 +105,7 @@ def get_active_session(
         response = (
             supabase.table("sessions")
             .select("*")
-            .eq("telegram_chat_id", telegram_chat_id)
+            .eq("chat_id", chat_id)
             .neq("state", "COMPLETED")
             .order("started_at", desc=True)
             .limit(1)
@@ -173,7 +173,7 @@ def get_active_session(
                     from memory.redis_client import redis_client
 
                     redis_client.set(
-                        f"topic_change_notify:{telegram_chat_id}",
+                        f"topic_change_notify:{chat_id}",
                         old_idea_text,
                         ex=300,
                     )
@@ -189,13 +189,13 @@ def get_active_session(
         return session
 
     except Exception as e:
-        print(f"Error fetching active session for chat {telegram_chat_id}: {e}")
+        print(f"Error fetching active session for chat {chat_id}: {e}")
         return None
 
 
 def create_session(
     ceo_id: str,
-    telegram_chat_id: int,
+    chat_id: str,
     idea_text: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
@@ -203,7 +203,7 @@ def create_session(
 
     Args:
         ceo_id: UUID of the CEO context
-        telegram_chat_id: Telegram chat ID
+        chat_id: Chat ID
         idea_text: The CEO's first message text (for topic-change detection)
 
     Returns:
@@ -212,7 +212,7 @@ def create_session(
     try:
         row = {
             "ceo_id": ceo_id,
-            "telegram_chat_id": telegram_chat_id,
+            "chat_id": chat_id,
             "state": "NEEDS_CLARIFICATION",
             "awaiting_research": False,
         }
@@ -237,7 +237,7 @@ def create_session(
             )
             row_without = {
                 "ceo_id": ceo_id,
-                "telegram_chat_id": telegram_chat_id,
+                "chat_id": chat_id,
                 "state": "NEEDS_CLARIFICATION",
                 "awaiting_research": False,
             }
@@ -256,7 +256,7 @@ def create_session(
             return None
         logger.error(
             "Error creating session for chat %s: %s",
-            telegram_chat_id,
+            chat_id,
             e,
         )
         return None
@@ -387,7 +387,7 @@ import hashlib as _hashlib
 def _message_id_to_bigint(message_id) -> Optional[int]:
     """Map any message id to a stable BIGINT for the dedup column.
 
-    The messages.telegram_message_id column is BIGINT, but web ids are strings
+    The messages.message_id column is BIGINT, but web ids are strings
     ("web_<uuid>"). Numeric ids pass through; anything else hashes to a stable
     positive bigint so dedup works channel-agnostically without a schema change.
     """
@@ -405,14 +405,14 @@ def log_message(
     content: str,
     session_id: str,
     channel: str = "web",
-    telegram_message_id=None,
+    message_id=None,
 ) -> Optional[Dict[str, Any]]:
     """
     Inserts a row into messages table, deduplicating on the message id.
 
     Web is the only channel. `message_id` is the unique per-message id (e.g.
     "web_<uuid>"); it is stored in the (legacy-named) message_id column and used
-    for dedup regardless of channel. `telegram_message_id` is accepted only as a
+    for dedup regardless of channel. `message_id` is accepted only as a
     backward-compatible alias.
 
     Args:
@@ -425,7 +425,7 @@ def log_message(
         Dict of the inserted row, or None if duplicate or on failure.
     """
     if message_id is None:
-        message_id = telegram_message_id
+        message_id = message_id
     try:
         # Dedup on the message id for ANY channel. Previously this only ran for
         # channel=='telegram' AND the caller passed the wrong kwarg, so the id
@@ -440,7 +440,7 @@ def log_message(
             "channel": channel,
         }
         if message_id is not None:
-            row["telegram_message_id"] = _message_id_to_bigint(message_id)  # legacy col = external msg id
+            row["message_id"] = _message_id_to_bigint(message_id)  # legacy col = external msg id
 
         response = (
             supabase.table("messages")
@@ -473,7 +473,7 @@ def check_message_exists(message_id) -> bool:
         response = (
             supabase.table("messages")
             .select("id")
-            .eq("telegram_message_id", _message_id_to_bigint(message_id))
+            .eq("message_id", _message_id_to_bigint(message_id))
             .limit(1)
             .execute()
         )
@@ -1208,12 +1208,12 @@ def get_recent_sessions(ceo_id: str, limit: int = 5) -> list:
         return []
 
 
-def get_last_message_time(telegram_chat_id: int) -> Optional[str]:
+def get_last_message_time(chat_id: int) -> Optional[str]:
     """
     Get the timestamp of the last message from this CEO.
 
     Args:
-        telegram_chat_id: Telegram chat ID
+        chat_id: Telegram chat ID
 
     Returns:
         ISO timestamp string or None
@@ -1223,7 +1223,7 @@ def get_last_message_time(telegram_chat_id: int) -> Optional[str]:
         sessions_response = (
             supabase.table("sessions")
             .select("id")
-            .eq("telegram_chat_id", telegram_chat_id)
+            .eq("chat_id", chat_id)
             .execute()
         )
 

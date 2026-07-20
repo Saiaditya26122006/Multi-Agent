@@ -60,7 +60,7 @@ def generate_feedback(
             - summary (str): Full summary with context, risk, and decision
             - decision_id (str): ID of the created decision
             - session_id (str): UUID of the session
-            - telegram_message (str): Clean formatted message for Telegram
+            - message (str): Clean formatted message
     """
 
     print(f"[L3] Processing feedback for session {session_id}")
@@ -72,7 +72,7 @@ def generate_feedback(
         print("[L3] ✗ No CEO context found")
         raise ValueError("CEO context not found in database")
 
-    session_key = str(ceo_context.get("telegram_chat_id"))
+    session_key = str(ceo_context.get("chat_id"))
     emit_trace(session_key, "L3", "loading_context", "Loading CEO context")
     print(f"[L3] ✓ Loaded CEO context: {ceo_context.get('name')}")
 
@@ -213,12 +213,12 @@ OUTPUT:"""
 
     # Step 7: Create telegram message (clean version without markdown)
     emit_trace(session_key, "L3", "cleaning_response", "Formatting for Telegram")
-    telegram_message = summary
+    message = summary
 
     # Clean up any markdown that slipped through
-    telegram_message = telegram_message.replace('**', '')
-    telegram_message = telegram_message.replace('##', '')
-    telegram_message = telegram_message.replace('###', '')
+    message = message.replace('**', '')
+    message = message.replace('##', '')
+    message = message.replace('###', '')
 
     # Step 8: Update session state to AWAITING_APPROVAL
     emit_trace(session_key, "L3", "updating_session", "Updating session to AWAITING_APPROVAL")
@@ -294,7 +294,7 @@ OUTPUT:"""
         "summary": summary,
         "decision_id": decision_id,
         "session_id": session_id,
-        "telegram_message": telegram_message
+        "message": message
     }
 
 
@@ -343,5 +343,5 @@ if __name__ == "__main__":
     print(f"Decision ID: {result['decision_id']}")
     print(f"Session ID: {result['session_id']}")
     print(f"\nSummary:\n{result['summary']}")
-    print(f"\nTelegram Message:\n{result['telegram_message']}")
+    print(f"\nTelegram Message:\n{result['message']}")
     print("=" * 60)

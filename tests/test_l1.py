@@ -49,7 +49,7 @@ def test_vague_message_produces_question():
         return False
 
     ceo_id = ceo_context.get("id")
-    ceo_chat_id = ceo_context.get("telegram_chat_id", 8866294087)
+    ceo_chat_id = ceo_context.get("chat_id", 8866294087)
 
     # Get or create a session
     session = get_active_session(ceo_chat_id)
@@ -110,7 +110,7 @@ def test_assumption_written_to_supabase():
         return False
 
     ceo_id = ceo_context.get("id")
-    ceo_chat_id = ceo_context.get("telegram_chat_id", 8866294087)
+    ceo_chat_id = ceo_context.get("chat_id", 8866294087)
 
     session = get_active_session(ceo_chat_id)
     if not session:
@@ -185,7 +185,7 @@ def test_session_state_updated():
         return False
 
     ceo_id = ceo_context.get("id")
-    ceo_chat_id = ceo_context.get("telegram_chat_id", 8866294087)
+    ceo_chat_id = ceo_context.get("chat_id", 8866294087)
 
     session = get_active_session(ceo_chat_id)
     if not session:

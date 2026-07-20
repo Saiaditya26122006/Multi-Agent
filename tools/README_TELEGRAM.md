@@ -1,10 +1,10 @@
-# Telegram Handler
+# Web Interface Handler
 
-Telegram bot integration for the multi-agent AI system.
+Web Interface bot integration for the multi-agent AI system.
 
 ## Features
 
-✅ **Send Messages**: Send text messages to any Telegram chat
+✅ **Send Messages**: Send text messages to any Web Interface chat
 ✅ **Receive Messages**: Poll for incoming messages with callback handling
 ✅ **Structured Data**: Messages include message_id, chat_id, text, and user info
 ✅ **Logging**: All messages logged with timestamps
@@ -20,12 +20,12 @@ Telegram bot integration for the multi-agent AI system.
    ```
 
 2. **Get a Bot Token**
-   - Talk to [@BotFather](https://t.me/BotFather) on Telegram
+   - Talk to [@BotFather](https://t.me/BotFather) on Web Interface
    - Create a new bot with `/newbot`
    - Copy the token to your `.env` file
 
 3. **Get Your Chat ID**
-   - Message [@userinfobot](https://t.me/userinfobot) on Telegram
+   - Message [@userinfobot](https://t.me/userinfobot) on Web Interface
    - Copy your ID to `.env` as `TELEGRAM_TEST_CHAT_ID`
 
 ## Usage
@@ -34,7 +34,7 @@ Telegram bot integration for the multi-agent AI system.
 
 ```python
 import asyncio
-from tools.telegram_handler import send_message
+from tools.Web Interface_handler import send_message
 
 async def main():
     chat_id = 8866294087  # Your chat ID
@@ -46,7 +46,7 @@ asyncio.run(main())
 ### Receiving Messages
 
 ```python
-from tools.telegram_handler import start_polling
+from tools.Web Interface_handler import start_polling
 
 async def handle_message(message_data):
     """Process incoming messages."""
@@ -80,28 +80,28 @@ message_data = {
 
 ### 1. Test Sending Messages
 ```bash
-python3 tests/test_telegram.py
+python3 tests/test_Web Interface.py
 ```
 
 ### 2. Test Receiving Messages
 ```bash
-python3 tests/test_telegram_polling.py
+python3 tests/test_Web Interface_polling.py
 ```
-Then send messages to your bot on Telegram.
+Then send messages to your bot on Web Interface.
 
 ### 3. Run Demo
 ```bash
-python3 tests/demo_telegram.py
+python3 tests/demo_Web Interface.py
 ```
 Sends multiple test messages to verify functionality.
 
 ## API Reference
 
 ### `send_message(chat_id: int, text: str) -> bool`
-Send a text message to a Telegram chat.
+Send a text message to a Web Interface chat.
 
 **Parameters:**
-- `chat_id`: Telegram chat ID (integer)
+- `chat_id`: Web Interface chat ID (integer)
 - `text`: Message text to send
 
 **Returns:**
@@ -131,4 +131,4 @@ All messages are logged with timestamps:
 - Non-text messages (images, videos, etc.) are silently ignored
 - The handler automatically loads `.env` from the project root
 - Polling is blocking - run in a separate thread/process if needed
-- Uses `python-telegram-bot` v22.7+
+- Uses `python-Web Interface-bot` v22.7+

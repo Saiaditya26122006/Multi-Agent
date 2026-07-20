@@ -28,10 +28,10 @@ try:
         print(f"✓ Found {len(result.data)} CEO context record(s)")
         for ceo in result.data:
             print(f"  - {ceo.get('name')} at {ceo.get('company')}")
-            if 'telegram_chat_id' in ceo:
-                print(f"    telegram_chat_id: {ceo.get('telegram_chat_id')}")
+            if 'chat_id' in ceo:
+                print(f"    chat_id: {ceo.get('chat_id')}")
             else:
-                print(f"    telegram_chat_id: NOT SET (column may not exist)")
+                print(f"    chat_id: NOT SET (column may not exist)")
     else:
         print("⚠ No CEO context found")
 except Exception as e:
@@ -41,20 +41,20 @@ print("\n" + "=" * 60)
 print("Migration Instructions:")
 print("=" * 60)
 print("""
-To add telegram_chat_id field to ceo_context:
+To add chat_id field to ceo_context:
 
 1. Go to your Supabase Dashboard
 2. Navigate to: SQL Editor
 3. Run this SQL:
 
 ALTER TABLE ceo_context
-ADD COLUMN IF NOT EXISTS telegram_chat_id BIGINT;
+ADD COLUMN IF NOT EXISTS chat_id TEXT;
 
-CREATE INDEX IF NOT EXISTS idx_ceo_context_telegram_chat_id
-ON ceo_context(telegram_chat_id);
+CREATE INDEX IF NOT EXISTS idx_ceo_context_chat_id
+ON ceo_context(chat_id);
 
 UPDATE ceo_context
-SET telegram_chat_id = 8866294087
+SET chat_id = 'your-unique-chat-id'
 WHERE name = 'Alex Chen';
 
 4. Then re-run this script to verify

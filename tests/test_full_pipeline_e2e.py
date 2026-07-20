@@ -150,7 +150,6 @@ os.environ.setdefault("SUPABASE_ANON_KEY", "fake-anon-key")
 os.environ.setdefault("AWS_BEDROCK_REGION", "us-east-1")
 os.environ.setdefault("CLAUDE_SONNET_MODEL", "claude-sonnet-4-20250514")
 os.environ.setdefault("CLAUDE_HAIKU_MODEL", "claude-haiku-4-5-20251001")
-os.environ.setdefault("TELEGRAM_BOT_TOKEN", "fake-bot-token")
 os.environ.setdefault("MOTHER_AGENT_JID", "mother@xmpp.local")
 os.environ.setdefault("MOTHER_AGENT_PASSWORD", "pass")
 os.environ.setdefault("OPPORTUNITY_ANALYST_JID", "opp@xmpp.local")
@@ -295,7 +294,7 @@ PHASE1_SESSION_DATA = {
     },
     "business_type": "saas",
     "market_scope": "Freelance CRM tools for solo practitioners",
-    "telegram_chat_id": "12345",
+    "chat_id": "12345",
 }
 
 OPPORTUNITY_ANALYST_OUTPUT = {
@@ -652,7 +651,7 @@ def test_full_pipeline_orchestration():
     agent.bedrock = mock_bedrock
 
     # Mock Telegram
-    agent._send_telegram = MagicMock()
+    agent._send_message = MagicMock()
 
     # Mock _read_phase1_session to return our test data
     agent._read_phase1_session = MagicMock(return_value=PHASE1_SESSION_DATA)
@@ -801,7 +800,7 @@ def test_gate2_kill_stops_pipeline():
     agent.learning.record_rejection = MagicMock()
     agent.compiler = MagicMock()
     agent.bedrock = MagicMock()
-    agent._send_telegram = MagicMock()
+    agent._send_message = MagicMock()
     agent._read_phase1_session = MagicMock(return_value=PHASE1_SESSION_DATA)
     agent._determine_applicable_sections = MagicMock(return_value=["1", "3", "4", "5", "8", "10", "12", "13", "executive_summary"])
     agent._create_pipeline_run = MagicMock(return_value="run-kill-001")
@@ -1033,7 +1032,7 @@ def test_coherence_audit_with_issues():
     with open(config_dir / "dependency_map.yaml") as f:
         agent.dependency_map = yaml.safe_load(f)
 
-    agent._send_telegram = MagicMock()
+    agent._send_message = MagicMock()
     agent._get_trace_key = MagicMock(return_value="trace:audit")
     agent._deduplicate_assumptions = MagicMock(return_value={"duplicates": [], "conflicts": []})
 
@@ -1067,9 +1066,9 @@ def test_coherence_audit_with_issues():
     assert "outputs" in delivered, "Plan not delivered after audit with issues"
 
     # Should notify Alex about issues
-    agent._send_telegram.assert_called()
-    telegram_calls = [str(c) for c in agent._send_telegram.call_args_list]
-    assert any("revenue_mismatch" in c or "issue" in c.lower() for c in telegram_calls), (
+    agent._send_message.assert_called()
+    message_calls = [str(c) for c in agent._send_message.call_args_list]
+    assert any("revenue_mismatch" in c or "issue" in c.lower() for c in message_calls), (
         "Alex not notified about coherence issues"
     )
 
@@ -1141,7 +1140,7 @@ def test_gate2_edit_modifies_tasks():
     agent.compiler = MagicMock()
     agent.bedrock = MagicMock()
     agent.bedrock.converse.return_value = make_bedrock_response(COHERENCE_AUDIT_PASS)
-    agent._send_telegram = MagicMock()
+    agent._send_message = MagicMock()
     agent._read_phase1_session = MagicMock(return_value=PHASE1_SESSION_DATA)
     agent._determine_applicable_sections = MagicMock(return_value=["1", "4"])
     agent._create_pipeline_run = MagicMock(return_value="run-edit-001")
@@ -1232,7 +1231,7 @@ def test_pipeline_resume_from_group():
     agent.compiler = MagicMock()
     agent.bedrock = MagicMock()
     agent.bedrock.converse.return_value = make_bedrock_response(COHERENCE_AUDIT_PASS)
-    agent._send_telegram = MagicMock()
+    agent._send_message = MagicMock()
     agent._get_trace_key = MagicMock(return_value="trace:resume")
     agent._write_tasks = MagicMock(side_effect=lambda tasks, *a, **kw: {t["task_name"]: f"tid-{t['bp_section']}" for t in tasks})
     agent._run_pre_simulation = MagicMock(return_value={})

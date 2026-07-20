@@ -136,7 +136,7 @@ async def _escalate_max_revisions(
     critique_summary = "\n".join(critique_lines[:5])
     
     # Notify CEO with urgency
-    self._send_telegram(
+    self._send_Web Interface(
         session_id,
         f"🚨 CRITICAL: {section_name} failed Council review {MAX_COUNCIL_REVISIONS} times\n\n"
         f"Score: {verdict.score:.1f}/10\n"
@@ -187,7 +187,7 @@ async def _escalate_max_revisions(
 
 When escalation occurs:
 
-1. **Telegram message sent to CEO**:
+1. **Web Interface message sent to CEO**:
 ```
 🚨 CRITICAL: Financial Modelling failed Council review 2 times
 
@@ -467,7 +467,7 @@ Child Agent
 - [x] Modified max revisions logic to check `verdict.decision == "revise"`
 - [x] Added `_escalate_max_revisions()` method
 - [x] Escalation sends to Mother with `quality_gate_failure` trigger
-- [x] CEO receives Telegram alert with 3 options
+- [x] CEO receives Web Interface alert with 3 options
 - [ ] Integration test: Force Council to hit max revisions
 
 ### P0-3: Confidence Calibration

@@ -19,7 +19,7 @@
 **EpistemicOS** is an AI-powered business plan generation system that works like a **virtual consulting team**. 
 
 Instead of one AI doing everything, this system uses **multiple specialized AI agents** that:
-- Talk to the CEO (via Telegram)
+- Talk to the CEO (via Web Interface)
 - Ask clarifying questions
 - Research the business idea
 - Generate different sections of a business plan (market analysis, financials, marketing, etc.)
@@ -58,7 +58,7 @@ A CEO (named Alex) wants to validate a business idea. Instead of:
 - Getting a plan with unverified assumptions
 
 They can:
-- Send the idea via Telegram
+- Send the idea via Web Interface
 - Answer a few clarifying questions
 - Get a full business plan in 30 minutes
 - See exactly what data is missing and where to find it
@@ -113,7 +113,7 @@ They can:
                              ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                      OUTPUT DELIVERY                         │
-│  • Text summary via Telegram                                 │
+│  • Text summary via Web Interface                                 │
 │  • Professional DOCX with styling                            │
 │  • Confidence scores + gap analysis                          │
 └─────────────────────────────────────────────────────────────┘
@@ -147,7 +147,7 @@ Extract the business idea, clarify vague inputs, and gather CEO context (backgro
 
 **Example flow**:
 ```
-Telegram message arrives → L0 checks sender → Creates session UUID → 
+Web Interface message arrives → L0 checks sender → Creates session UUID → 
 Logs to Supabase → Passes to L1
 ```
 
@@ -242,7 +242,7 @@ L3: ✅ Triggers Phase 2 pipeline
 
 **Supabase Tables**:
 - `sessions`: Stores session state (NEEDS_CLARIFICATION → AWAITING_APPROVAL → APPROVED)
-- `messages`: Every Telegram message logged with timestamp
+- `messages`: Every Web Interface message logged with timestamp
 - `assumptions`: Q&A pairs stored as structured data
 - `decisions`: CEO's Yes/Adjust/Kill decision with reasoning
 - `events_logs`: Audit trail of every agent action
@@ -739,10 +739,10 @@ model = "claude-haiku-4-5-20251001"  # Environment, Operations, Launch
 **Schema design**:
 ```sql
 -- Sessions: one per conversation
-sessions(id, ceo_id, state, telegram_chat_id, created_at)
+sessions(id, ceo_id, state, Web Interface_chat_id, created_at)
 
--- Messages: every Telegram message logged
-messages(id, session_id, content, telegram_message_id, received_at)
+-- Messages: every Web Interface message logged
+messages(id, session_id, content, Web Interface_message_id, received_at)
 
 -- Assumptions: Q&A from L1 agent
 assumptions(id, session_id, question, answer, status)
@@ -777,8 +777,8 @@ redis.set("proceed_response:uuid-123", "proceed", ex=7200)  # 2 hour timeout
 
 ---
 
-### **5. Telegram Bot API**
-**Why Telegram?**
+### **5. Web Interface Bot API**
+**Why Web Interface?**
 - CEO-friendly (mobile + desktop)
 - Webhook support (instant delivery)
 - Rich formatting (markdown, buttons)
@@ -786,8 +786,8 @@ redis.set("proceed_response:uuid-123", "proceed", ex=7200)  # 2 hour timeout
 
 **Webhook pattern**:
 ```python
-# Telegram sends POST to your server
-@app.post("/telegram/webhook")
+# Web Interface sends POST to your server
+@app.post("/Web Interface/webhook")
 async def handle_webhook(request):
     data = await request.json()
     message = data["message"]
@@ -853,14 +853,14 @@ results = run_simulation(
 
 Let me trace a complete flow from CEO message to final business plan:
 
-### **Step 1: CEO sends idea via Telegram**
+### **Step 1: CEO sends idea via Web Interface**
 ```
 CEO: "I want to build an AI tool that helps researchers avoid manuscript 
       rejection by pre-checking formatting and methodology errors"
 ```
 
 **What happens**:
-1. Telegram webhook receives message
+1. Web Interface webhook receives message
 2. L0 Input Guard validates sender, creates session UUID
 3. Message logged to Supabase `messages` table
 4. Session created with state = `NEEDS_CLARIFICATION`
@@ -877,7 +877,7 @@ L1: "Who is your target customer — individual researchers or institutions?"
 1. L1 reads CEO profile from Supabase (knows CEO's background)
 2. Checks existing assumptions (have we asked this before?)
 3. Generates ONE question using Claude Haiku
-4. Sends via Telegram
+4. Sends via Web Interface
 5. Stores question in `assumptions` table with status = `pending`
 
 **CEO responds**:
@@ -944,7 +944,7 @@ Reply PROCEED to start, or SKIP to run with current data.
 **What happens**:
 1. Demo pipeline calls `_build_data_declaration()` with LLM
 2. LLM analyzes the idea and generates specific data requests
-3. Sends message via Telegram
+3. Sends message via Web Interface
 4. Waits for PROCEED/SKIP response (polls Redis key `proceed_response:uuid-123`)
 5. Timeout = 2 hours (auto-proceed if no response)
 
@@ -1027,7 +1027,7 @@ medium_gaps = [g for g in all_gaps if g["severity"] == "medium"]
 
 ### **Step 8: Output delivery**
 
-**Text summary via Telegram**:
+**Text summary via Web Interface**:
 ```
 ✅ BUSINESS PLAN READY
 
@@ -1048,7 +1048,7 @@ Key Findings:
 # Generate styled document
 docx_path = export_to_docx(results)
 
-# Upload to Telegram
+# Upload to Web Interface
 await send_document(
     chat_id=chat_id,
     file_path=docx_path,
@@ -1131,7 +1131,7 @@ await send_document(
 - Expensive to iterate or adjust
 
 ### **With this system**:
-- CEO sends idea via Telegram: Free, 30 minutes
+- CEO sends idea via Web Interface: Free, 30 minutes
 - Gets a plan with explicit confidence levels
 - Every assumption documented and sourced
 - Can re-run with updated data instantly
@@ -1185,7 +1185,7 @@ multi-agent-system/
 │   ├── supabase_client.py          # PostgreSQL queries
 │   └── redis_client.py             # Session cache
 ├── tools/
-│   ├── telegram_handler.py         # Send/receive messages
+│   ├── Web Interface_handler.py         # Send/receive messages
 │   └── search_service.py           # Web search via Tavily
 ├── database/
 │   └── schema.sql                  # Supabase table definitions

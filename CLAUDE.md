@@ -3,7 +3,7 @@
 ## Project State (as of 2026-05-26)
 
 - **Phase:** 2 (active since May 19, 2026)
-- **Phase 1:** Complete — L0/L1/L3 pipeline works, Telegram integration done
+- **Phase 1:** Complete — L0/L1/L3 pipeline works, Web Interface integration done
 - **Phase 2:** Mother Agent + 9 child agents built, SPADE messaging, SimPy simulation
 - **Current bug (FIXED):** Child agents escalating with `weak_evidence` because Claude via Bedrock returns non-JSON text that fails Pydantic validation. Fix: hardened SYSTEM_PROMPTs + `_parse_llm_response()` with markdown stripping and fallback defaults.
 

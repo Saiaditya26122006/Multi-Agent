@@ -823,7 +823,7 @@ async def handle_request(self, ...):
 
 ### Problem
 
-Mother Agent contains ALL intelligence: orchestration, quality gates, coherence audit, backward pass, confidence ceilings, constitution enforcement, evidence grading, task retry, delivery, Telegram notifications.
+Mother Agent contains ALL intelligence: orchestration, quality gates, coherence audit, backward pass, confidence ceilings, constitution enforcement, evidence grading, task retry, delivery, Web Interface notifications.
 
 2509 lines, 69 methods, untestable, impossible to modify safely.
 
@@ -837,7 +837,7 @@ mother_agent.py (slim orchestrator — ~300 lines)
 ├── quality_gate.py           — DA routing, council routing, so-what filter
 ├── coherence_auditor.py      — cross-section consistency checks
 ├── conflict_resolver.py      — backward pass, negotiation, escalation
-├── delivery_manager.py       — document compilation, Telegram, Supabase writes
+├── delivery_manager.py       — document compilation, Web Interface, Supabase writes
 └── task_retry_manager.py     — retry logic, circuit breaker, fallback decisions
 ```
 

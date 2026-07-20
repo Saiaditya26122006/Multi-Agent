@@ -1,21 +1,21 @@
 # Database Migration Guide
 
-## Adding telegram_chat_id to ceo_context
+## Adding Web Interface_chat_id to ceo_context
 
-The L0 Input Guard agent requires the `telegram_chat_id` field in the `ceo_context` table to validate message senders.
+The L0 Input Guard agent requires the `Web Interface_chat_id` field in the `ceo_context` table to validate message senders.
 
 ### Step 1: Run Migration SQL
 
 Go to your Supabase Dashboard SQL Editor and run:
 
 ```sql
--- Add telegram_chat_id column to ceo_context
+-- Add Web Interface_chat_id column to ceo_context
 ALTER TABLE ceo_context
-ADD COLUMN IF NOT EXISTS telegram_chat_id BIGINT;
+ADD COLUMN IF NOT EXISTS Web Interface_chat_id BIGINT;
 
 -- Add index for performance
-CREATE INDEX IF NOT EXISTS idx_ceo_context_telegram_chat_id
-ON ceo_context(telegram_chat_id);
+CREATE INDEX IF NOT EXISTS idx_ceo_context_Web Interface_chat_id
+ON ceo_context(Web Interface_chat_id);
 ```
 
 ### Step 2: Update CEO Record
@@ -26,21 +26,21 @@ Find your CEO's UUID:
 SELECT id, name, company FROM ceo_context;
 ```
 
-Then update with the CEO's Telegram chat ID:
+Then update with the CEO's Web Interface chat ID:
 
 ```sql
 UPDATE ceo_context
-SET telegram_chat_id = 8866294087  -- Replace with actual CEO's chat ID
+SET Web Interface_chat_id = 8866294087  -- Replace with actual CEO's chat ID
 WHERE id = 'YOUR-CEO-UUID-HERE';
 ```
 
 ### Step 3: Verify Migration
 
 ```sql
-SELECT id, name, telegram_chat_id FROM ceo_context;
+SELECT id, name, Web Interface_chat_id FROM ceo_context;
 ```
 
-You should see the `telegram_chat_id` populated.
+You should see the `Web Interface_chat_id` populated.
 
 ### Step 4: Test
 
@@ -54,14 +54,14 @@ All 3 tests should pass.
 
 ## Development Mode
 
-If `telegram_chat_id` is NULL in the database, the L0 agent runs in **development mode**:
+If `Web Interface_chat_id` is NULL in the database, the L0 agent runs in **development mode**:
 - ✅ All messages are accepted (no sender validation)
 - ⚠️ Warning logged for each message
 - 🔧 Useful for local testing
 
 ## Production Mode
 
-Once `telegram_chat_id` is set:
+Once `Web Interface_chat_id` is set:
 - ✅ Only messages from CEO's chat ID are accepted
 - ❌ Unauthorized senders are rejected with clear error message
 - 🔒 Full security validation enabled

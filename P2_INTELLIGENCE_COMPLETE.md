@@ -326,7 +326,7 @@ async def handle_negotiation_outcome(
     
     # Notify CEO of negotiation result (non-blocking, informational only)
     if outcome == "deadlock":
-        self._send_telegram(
+        self._send_Web Interface(
             session_id,
             f"⚠️ Negotiation deadlock: {initiator} vs {responder}\n\n"
             f"Claim: {claim[:200]}\n\n"

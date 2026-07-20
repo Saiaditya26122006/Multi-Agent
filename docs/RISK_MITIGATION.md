@@ -139,7 +139,7 @@ if trigger == "quality_gate_failure":
     self.redis.client.set(f"pipeline:{run_id}:status", "paused_quality_gate")
     
     # Notify CEO with urgency
-    self._send_telegram(session_id, 
+    self._send_Web Interface(session_id, 
         "🚨 CRITICAL: Quality gate failed for Section {section}\n"
         "Pipeline PAUSED. Manual review required.\n"
         "Reply 'continue' to override, or 'abort' to stop."
@@ -157,7 +157,7 @@ if trigger == "quality_gate_failure":
 
 Added `_wait_for_ceo_override()` method that polls Redis for CEO response.
 
-#### 4. CEO Telegram Integration
+#### 4. CEO Web Interface Integration
 When Devil's Advocate fails, CEO receives:
 ```
 🚨 CRITICAL: Quality gate failed for Section 12
@@ -202,7 +202,7 @@ All identified risks are now resolved or proven non-existent.
 - [ ] Force Devil's Advocate LLM failure (invalid API key)
 - [ ] Verify escalation is sent to Mother
 - [ ] Check pipeline status = `"paused_quality_gate"`
-- [ ] Verify CEO receives Telegram notification
+- [ ] Verify CEO receives Web Interface notification
 - [ ] Test CEO override: reply "continue"
 - [ ] Test CEO abort: reply "abort"
 - [ ] Test timeout: no reply within 24h

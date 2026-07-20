@@ -58,7 +58,7 @@ def consolidate_session_memory(session_id: str, ceo_id: str) -> List[Dict[str, A
     print(f"\n[MEMORY] Consolidating session {session_id}...")
 
     ceo_ctx = get_ceo_context()
-    session_key = str(ceo_ctx.get("telegram_chat_id")) if ceo_ctx else ""
+    session_key = str(ceo_ctx.get("chat_id")) if ceo_ctx else ""
 
     # Step 1: Load session data
     emit_trace(session_key, "Memory", "loading_assumptions", "Loading session assumptions")
@@ -228,7 +228,7 @@ def generate_welcome_back(ceo_id: str, chat_id: int) -> Optional[str]:
 
     Args:
         ceo_id: UUID of the CEO
-        chat_id: Telegram chat ID
+        chat_id: Chat ID
 
     Returns:
         Welcome message string or None
@@ -352,7 +352,7 @@ def should_send_welcome_back(chat_id: int) -> bool:
     Criteria: More than 2 hours since last message OR first message of the day.
 
     Args:
-        chat_id: Telegram chat ID
+        chat_id: Chat ID
 
     Returns:
         True if should send welcome back, False otherwise

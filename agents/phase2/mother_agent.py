@@ -1032,10 +1032,10 @@ class MotherAgent(Agent):
         # Set Redis key for clarification routing (TASK 6)
         try:
             sess = self.db.client.table("sessions") \
-                .select("telegram_chat_id") \
+                .select("chat_id") \
                 .eq("id", session_id).execute()
             if sess.data:
-                chat_id = sess.data[0].get("telegram_chat_id")
+                chat_id = sess.data[0].get("chat_id")
                 if chat_id:
                     self.redis.client.set(
                         f"awaiting_clarification:{chat_id}",
@@ -1983,10 +1983,10 @@ Only include sections where the condition clearly applies based on the business 
         try:
             from tools.telegram_handler import send_message
             session = self.db.client.table("sessions") \
-                .select("telegram_chat_id") \
+                .select("chat_id") \
                 .eq("id", session_id).execute()
             if session.data:
-                chat_id = session.data[0].get("telegram_chat_id")
+                chat_id = session.data[0].get("chat_id")
                 if chat_id:
                     asyncio.create_task(send_message(chat_id, message))
         except Exception as e:
@@ -2090,10 +2090,10 @@ Only include sections where the condition clearly applies based on the business 
         # Store active group for this chat so Telegram handler can route responses
         try:
             session = self.db.client.table("sessions") \
-                .select("telegram_chat_id") \
+                .select("chat_id") \
                 .eq("id", session_id).execute()
             if session.data:
-                chat_id = session.data[0].get("telegram_chat_id")
+                chat_id = session.data[0].get("chat_id")
                 if chat_id:
                     self.redis.client.set(
                         f"gate2_active_group:{chat_id}", group_id, ex=14400
@@ -2443,10 +2443,10 @@ Only include sections where the condition clearly applies based on the business 
         """Get the WebSocket session key (telegram chat_id) for trace emission."""
         try:
             session = self.db.client.table("sessions") \
-                .select("telegram_chat_id") \
+                .select("chat_id") \
                 .eq("id", session_id).execute()
             if session.data:
-                chat_id = session.data[0].get("telegram_chat_id")
+                chat_id = session.data[0].get("chat_id")
                 if chat_id:
                     return str(chat_id)
         except Exception:

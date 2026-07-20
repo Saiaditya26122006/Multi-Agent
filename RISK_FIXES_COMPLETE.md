@@ -28,7 +28,7 @@ All 3 identified risks have been analyzed and resolved.
 **Fix**:
 1. Devil's Advocate now **escalates** instead of passes on failure
 2. Mother pauses pipeline immediately on quality gate failure
-3. CEO receives urgent Telegram notification
+3. CEO receives urgent Web Interface notification
 4. CEO can override ("continue") or abort ("abort")
 5. Default = paused (safe)
 
@@ -85,7 +85,7 @@ All 3 identified risks have been analyzed and resolved.
   - Set invalid AWS credentials to break Devil's Advocate LLM
   - Verify escalation is sent to Mother
   - Check pipeline status = `"paused_quality_gate"`
-  - Verify CEO receives Telegram: "🚨 CRITICAL: Quality gate failed"
+  - Verify CEO receives Web Interface: "🚨 CRITICAL: Quality gate failed"
   - Test CEO override: reply "continue" → pipeline proceeds
   - Test CEO abort: reply "abort" → pipeline stops
   - Test timeout: no reply within 24h → pipeline stays paused

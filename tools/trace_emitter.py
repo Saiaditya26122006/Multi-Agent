@@ -64,7 +64,7 @@ def emit_trace(
     reaches connected WebSocket clients.
 
     Args:
-        session_key: str(telegram_chat_id) — the ConnectionManager key
+        session_key: str(chat_id) — the ConnectionManager key
         agent: Agent identifier (e.g. "L0", "L1", "L3", "Router", "Memory")
         step: Machine-readable step name (e.g. "calling_llm")
         detail: Human-readable description (e.g. "Generating clarifying question...")

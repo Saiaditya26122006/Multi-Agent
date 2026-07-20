@@ -662,7 +662,7 @@ if attempt >= MAX_COUNCIL_REVISIONS:
     await self._forward_to_mother(...)  # Pass through with _council_warnings
 ```
 
-**Council Notifications to CEO** (via Telegram):
+**Council Notifications to CEO** (via Web Interface):
 ```
 🔍 Council is reviewing: Marketing Strategy
 

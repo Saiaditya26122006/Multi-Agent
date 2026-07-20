@@ -142,7 +142,7 @@ def classify_message(
     text_lower = message_text.lower().strip()
 
     ceo_ctx = get_ceo_context()
-    session_key = str(ceo_ctx.get("telegram_chat_id")) if ceo_ctx else ""
+    session_key = str(ceo_ctx.get("chat_id")) if ceo_ctx else ""
 
     emit_trace(session_key, "Router", "fast_path_check", "Checking fast-path rules")
     fast_result = _fast_classify(text_lower, session_state)

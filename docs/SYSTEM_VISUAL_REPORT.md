@@ -24,7 +24,7 @@
 │       │                                         │                       │            │
 │       │ validates                               │ asks 1-3             │ presents   │
 │       │ message                                 │ questions            │ decision   │
-│       │                                         │ via Telegram         │ Yes/Adj/Kill│
+│       │                                         │ via Web Interface         │ Yes/Adj/Kill│
 │                                                                                      │
 │  ┌──────────────┐                                                                    │
 │  │ Memory Agent │ ← consolidates sessions, generates welcome-back                    │
@@ -164,7 +164,7 @@
 │  └──────────────┘  └──────────────┘  └────────────────┘  └──────────────────────┘  │
 │                                                                                      │
 │  ┌──────────────────────┐  ┌────────────────────────────────────────────────────┐   │
-│  │ Telegram Bot         │  │ Streamlit Dashboard (internal monitoring)           │   │
+│  │ Web Interface Bot         │  │ Streamlit Dashboard (internal monitoring)           │   │
 │  │ • Webhook listener   │  │ • Pipeline status, eval scores, session viewer      │   │
 │  │ • CEO interaction    │  │                                                      │   │
 │  │ • Decision buttons   │  │                                                      │   │
@@ -420,11 +420,11 @@
 | Component | Status | Evidence |
 |-----------|--------|----------|
 | L0 Input Guard | Working | Validates message format, rejects spam |
-| L1 Clarity Agent | Working | Asks clarifying questions via Telegram |
+| L1 Clarity Agent | Working | Asks clarifying questions via Web Interface |
 | L3 Feedback Agent | Working | Presents Yes/Adjust/Kill decisions |
 | Router Agent | Working | Classifies message intent |
 | Memory Agent | Working | Session consolidation |
-| Telegram polling | Working | CEO can interact via bot |
+| Web Interface polling | Working | CEO can interact via bot |
 | Supabase reads/writes | Working | Sessions, decisions, events |
 | Redis session state | Working | TTL + archival |
 | Intelligence Engine (IE) | Working | 4-step chain runs, enforcement active |
@@ -458,7 +458,7 @@
 | Section 11 (HR Plan) | No code | `always_required: true` but no agent |
 | Sections 2, 6, 7, 9 | No code | Conditional — low priority |
 | Full SPADE pipeline test | Not run | Eval bypasses SPADE entirely |
-| Telegram end-to-end (Phase 2) | Not tested | Last tested in Phase 1 |
+| Web Interface end-to-end (Phase 2) | Not tested | Last tested in Phase 1 |
 | RAG Knowledge Base | Not built | Waiting for Alex's data |
 | CEO feedback loop | Not active | No CEO has used Phase 2 yet |
 | Scorer calibration | Broken | Sections 4,10,exec_summary score low despite good output |
@@ -580,7 +580,7 @@ The system has **4 layers of intelligence**, each at a different maturity level:
 │ End-to-end integration                      │  3/10 │ Eval works, SPADE doesn't│
 │ Performance                                 │  3/10 │ 30 min sequential        │
 │ Eval infrastructure                         │  8/10 │ Solid, needs calibration │
-│ CEO experience (Telegram)                   │  6/10 │ Phase 1 works, Phase 2 no│
+│ CEO experience (Web Interface)                   │  6/10 │ Phase 1 works, Phase 2 no│
 ├────────────────────────────────────────────┼───────┼─────────────────────────┤
 │ OVERALL                                     │ 5.3/10│ Structurally complete,   │
 │                                             │       │ intelligence is shallow  │

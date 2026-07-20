@@ -171,7 +171,7 @@
 **Phase 1 L0/L1/L3 pipeline:**
 - Built for Gemini API (deprecated)
 - Needs migration to Bedrock or archived
-- Telegram integration exists but not wired to Phase 2
+- Web Interface integration exists but not wired to Phase 2
 
 **RAG knowledge base:**
 - Planned but not built

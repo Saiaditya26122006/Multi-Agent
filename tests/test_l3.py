@@ -33,7 +33,7 @@ def test_research_brief_produces_summary():
         return False
 
     ceo_id = ceo_context.get("id")
-    ceo_chat_id = ceo_context.get("telegram_chat_id", 8866294087)
+    ceo_chat_id = ceo_context.get("chat_id", 8866294087)
 
     session = get_active_session(ceo_chat_id)
     if not session:
@@ -78,7 +78,7 @@ def test_research_brief_produces_summary():
     print("\nResult:")
     print(f"  Summary length: {len(result['summary'])} chars")
     print(f"  Decision ID: {result['decision_id']}")
-    print(f"  Telegram message length: {len(result['telegram_message'])} chars")
+    print(f"  Message length: {len(result.get('message', ''))} chars")
 
     # Assertions
     assert "summary" in result, "Result should contain 'summary'"
@@ -86,12 +86,13 @@ def test_research_brief_produces_summary():
     assert isinstance(result["summary"], str), "Summary should be a string"
     assert len(result["summary"]) > 50, "Summary should be substantial (>50 chars)"
 
-    assert "telegram_message" in result, "Result should contain 'telegram_message'"
-    assert result["telegram_message"], "Telegram message should not be empty"
+    assert "message" in result, "Result should contain 'message'"
+    assert result.get("message"), "Message should not be empty"
 
     # Check that markdown is cleaned up
-    assert "**" not in result["telegram_message"], "Telegram message should not contain ** markdown"
-    assert "##" not in result["telegram_message"], "Telegram message should not contain ## markdown"
+    msg = result.get("message", "")
+    assert "**" not in msg, "Message should not contain ** markdown"
+    assert "##" not in msg, "Message should not contain ## markdown"
 
     print("\nSummary preview:")
     print(result['summary'][:200] + "...")
@@ -116,7 +117,7 @@ def test_decision_created_in_supabase():
         return False
 
     ceo_id = ceo_context.get("id")
-    ceo_chat_id = ceo_context.get("telegram_chat_id", 8866294087)
+    ceo_chat_id = ceo_context.get("chat_id", 8866294087)
 
     session = get_active_session(ceo_chat_id)
     if not session:
@@ -212,7 +213,7 @@ def test_session_state_updated_to_awaiting_approval():
         return False
 
     ceo_id = ceo_context.get("id")
-    ceo_chat_id = ceo_context.get("telegram_chat_id", 8866294087)
+    ceo_chat_id = ceo_context.get("chat_id", 8866294087)
 
     session = get_active_session(ceo_chat_id)
     if not session:

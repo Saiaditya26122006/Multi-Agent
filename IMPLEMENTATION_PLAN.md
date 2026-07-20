@@ -162,7 +162,7 @@ STEP 4: Testing
 
 ```
 STEP 1: Add escalation alerting
-  - [ ] In `mother_agent.py handle_escalate()`: send Telegram alert
+  - [ ] In `mother_agent.py handle_escalate()`: send Web Interface alert
   - [ ] Message format: "⚠️ {agent_name} failed: {reason}"
   - [ ] Include session_id for debugging
 
@@ -195,7 +195,7 @@ STEP 5: Testing
 - ✅ Partial outputs clearly flagged
 
 ### Dependencies
-- Requires Telegram integration (already exists)
+- Requires Web Interface integration (already exists)
 
 ### Files to Modify
 - `agents/phase2/mother_agent.py`
@@ -245,7 +245,7 @@ STEP 3: Implement alerting rules
   - [ ] Alert if escalation rate > 10% in group
   - [ ] Alert if grounding score < 0.6 (average)
   - [ ] Alert if daily cost > $50 (or threshold)
-  - [ ] Send alerts to Telegram
+  - [ ] Send alerts to Web Interface
 
 STEP 4: Add metrics collection
   - [ ] Log start/end times for each group

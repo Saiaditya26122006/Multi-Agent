@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def store_ceo_message(
     message: str,
     session_id: Optional[str] = None,
-    channel: str = "telegram",
+    channel: str = "web",
     metadata: Optional[dict] = None,
 ) -> Optional[str]:
     """Store a message from the CEO (Alex) into the RAG knowledge base.
@@ -22,7 +22,7 @@ def store_ceo_message(
     Args:
         message: The raw message text from Alex.
         session_id: Current session ID.
-        channel: "telegram" or "web".
+        channel: "web" or "api".
         metadata: Additional context (chat_id, message_id, etc.).
 
     Returns:

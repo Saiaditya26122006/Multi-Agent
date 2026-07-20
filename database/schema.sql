@@ -17,7 +17,6 @@ CREATE TABLE ceo_context (
     output_style TEXT NOT NULL,
     strategic_priorities TEXT NOT NULL,
     known_constraints TEXT NOT NULL,
-    telegram_chat_id BIGINT,
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -38,16 +37,16 @@ CREATE TABLE sessions (
         )),
     awaiting_research BOOLEAN DEFAULT false,
     archived_state JSONB,
-    telegram_chat_id BIGINT NOT NULL,
+    chat_id TEXT NOT NULL,
     started_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Table 2: Messages
--- Stores incoming messages from Telegram
+-- Stores incoming messages
 CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    telegram_message_id BIGINT UNIQUE NOT NULL,
+    message_id TEXT UNIQUE NOT NULL,
     content TEXT NOT NULL,
     session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
     received_at TIMESTAMPTZ DEFAULT now()
@@ -223,11 +222,10 @@ CREATE TABLE section_research (
 
 -- Indexes for frequently queried fields
 CREATE INDEX idx_messages_session_id ON messages(session_id);
-CREATE INDEX idx_messages_telegram_id ON messages(telegram_message_id);
+CREATE INDEX idx_messages_message_id ON messages(message_id);
 CREATE INDEX idx_sessions_ceo_id ON sessions(ceo_id);
-CREATE INDEX idx_sessions_telegram_chat_id ON sessions(telegram_chat_id);
+CREATE INDEX idx_sessions_chat_id ON sessions(chat_id);
 CREATE INDEX idx_sessions_state ON sessions(state);
-CREATE INDEX idx_ceo_context_telegram_chat_id ON ceo_context(telegram_chat_id);
 CREATE INDEX idx_research_briefs_session_id ON research_briefs(session_id);
 CREATE INDEX idx_research_briefs_section_id ON research_briefs(section_id);
 CREATE INDEX idx_assumptions_session_id ON assumptions(session_id);

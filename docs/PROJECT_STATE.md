@@ -3,7 +3,7 @@
 **Last updated:** 2026-07-04
 **Phase:** 2 (Active). Phase 1 complete and stable.
 **Deployment:** Railway — web-production-9928d.up.railway.app (auto-deploys from main)
-**Interface:** Web-only (Telegram removed)
+**Interface:** Web-only (Web Interface removed)
 
 ---
 

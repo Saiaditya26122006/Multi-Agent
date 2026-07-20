@@ -469,10 +469,10 @@ class CouncilAgent(Agent):
         try:
             from tools.telegram_handler import send_message
             session = self.db.client.table("sessions") \
-                .select("telegram_chat_id") \
+                .select("chat_id") \
                 .eq("id", session_id).execute()
             if session.data:
-                chat_id = session.data[0].get("telegram_chat_id")
+                chat_id = session.data[0].get("chat_id")
                 if chat_id:
                     asyncio.create_task(send_message(chat_id, message))
         except Exception as e:

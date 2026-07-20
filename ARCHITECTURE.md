@@ -5,7 +5,7 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         CEO (Alex)                                   │
-│                    Telegram Mobile/Desktop                           │
+│                    Web Interface Mobile/Desktop                           │
 └────────────────────────────┬────────────────────────────────────────┘
                              │
                              │ Messages (HTTPS Webhook)
@@ -54,7 +54,7 @@
 ║  1. Read session data from Supabase                                  ║
 ║  2. Build idea dict (idea + CEO Q&A)                                 ║
 ║  3. Generate data declaration (LLM)                                  ║
-║  4. Send to CEO via Telegram                                         ║
+║  4. Send to CEO via Web Interface                                         ║
 ║  5. Wait for PROCEED/SKIP (2 hour timeout)                           ║
 ║  6. Run web searches (Tavily):                                       ║
 ║     • Market size                                                    ║
@@ -144,8 +144,8 @@
 │                        OUTPUT DELIVERY                               │
 │  1. Compile text summary                                             │
 │  2. Export to styled DOCX                                            │
-│  3. Send summary via Telegram                                        │
-│  4. Upload DOCX via Telegram                                         │
+│  3. Send summary via Web Interface                                        │
+│  4. Upload DOCX via Web Interface                                         │
 └─────────────────────────────────────────────────────────────────────┘
                              │
                              ▼
@@ -199,7 +199,7 @@ agent_outputs table
 │ id (UUID PK)       │ Unique session identifier               │
 │ ceo_id (UUID FK)   │ Links to profiles.id                    │
 │ state (ENUM)       │ NEEDS_CLARIFICATION, APPROVED, etc.     │
-│ telegram_chat_id   │ For sending replies                     │
+│ Web Interface_chat_id   │ For sending replies                     │
 │ created_at         │ Session start time                      │
 │ updated_at         │ Last activity                           │
 └────────────────────┴─────────────────────────────────────────┘
@@ -210,7 +210,7 @@ agent_outputs table
 │ id (UUID PK)       │ Unique message ID                       │
 │ session_id (FK)    │ Links to sessions.id                    │
 │ content (TEXT)     │ Message text                            │
-│ telegram_message_id│ For deduplication                       │
+│ Web Interface_message_id│ For deduplication                       │
 │ received_at        │ Timestamp                               │
 │ from_user (JSONB)  │ User metadata                           │
 └────────────────────┴─────────────────────────────────────────┘

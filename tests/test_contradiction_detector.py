@@ -38,7 +38,7 @@ def test_session_id(admin_db):
     session = admin_db.table("sessions").insert({
         "ceo_id": ceo_id,
         "state": "AWAITING_RESEARCH",
-        "telegram_chat_id": "999999999",
+        "chat_id": "999999999",
     }).execute()
     return session.data[0]["id"] if session.data else None
 

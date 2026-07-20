@@ -29,11 +29,11 @@ def test_valid_ceo_message():
         print("  Please seed the database first")
         return False
 
-    # Get the CEO's telegram_chat_id
-    ceo_chat_id = ceo_context.get("telegram_chat_id")
+    # Get the CEO's chat_id
+    ceo_chat_id = ceo_context.get("chat_id")
     if not ceo_chat_id:
-        print("✗ FAIL: CEO telegram_chat_id not set")
-        print("  Please configure telegram_chat_id in ceo_context")
+        print("✗ FAIL: CEO chat_id not set")
+        print("  Please configure chat_id in ceo_context")
         return False
 
     # Create a unique test message
@@ -80,9 +80,9 @@ def test_duplicate_message():
         print("✗ FAIL: No CEO context found in database")
         return False
 
-    ceo_chat_id = ceo_context.get("telegram_chat_id")
+    ceo_chat_id = ceo_context.get("chat_id")
     if not ceo_chat_id:
-        print("✗ FAIL: CEO telegram_chat_id not set")
+        print("✗ FAIL: CEO chat_id not set")
         return False
 
     # Send a message first time
@@ -136,11 +136,11 @@ def test_unknown_sender():
         print("✗ FAIL: No CEO context found in database")
         return False
 
-    ceo_chat_id = ceo_context.get("telegram_chat_id")
+    ceo_chat_id = ceo_context.get("chat_id")
 
     if not ceo_chat_id:
-        print("✗ FAIL: CEO telegram_chat_id not set")
-        print("  This test requires telegram_chat_id to be configured")
+        print("✗ FAIL: CEO chat_id not set")
+        print("  This test requires chat_id to be configured")
         return False
 
     # Use a different chat_id (not the CEO's)

@@ -1,21 +1,21 @@
 -- Migration: Add channel support to messages table
--- Allows tracking whether a message came from Telegram or Web
+-- Allows tracking message source
 
-CREATE TYPE message_channel AS ENUM ('telegram', 'web');
+CREATE TYPE message_channel AS ENUM ('web', 'api');
 
 ALTER TABLE messages
-    ADD COLUMN channel message_channel NOT NULL DEFAULT 'telegram';
+    ADD COLUMN channel message_channel NOT NULL DEFAULT 'web';
 
--- Make telegram_message_id nullable since web messages won't have one
+-- Ensure message_id is nullable for API messages
 ALTER TABLE messages
-    ALTER COLUMN telegram_message_id DROP NOT NULL;
+    ALTER COLUMN message_id DROP NOT NULL;
 
--- Add a unique index only for non-null telegram_message_id (dedup still works)
-ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_telegram_message_id_key;
-CREATE UNIQUE INDEX messages_telegram_message_id_unique
-    ON messages (telegram_message_id)
-    WHERE telegram_message_id IS NOT NULL;
+-- Add a unique index only for non-null message_id (dedup still works)
+ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_message_id_key;
+CREATE UNIQUE INDEX messages_message_id_unique
+    ON messages (message_id)
+    WHERE message_id IS NOT NULL;
 
 -- Add channel to events_logs for observability
 ALTER TABLE events_logs
-    ADD COLUMN channel message_channel DEFAULT 'telegram';
+    ADD COLUMN channel message_channel DEFAULT 'web';
