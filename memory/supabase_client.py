@@ -405,15 +405,12 @@ def log_message(
     content: str,
     session_id: str,
     channel: str = "web",
-    message_id=None,
 ) -> Optional[Dict[str, Any]]:
     """
     Inserts a row into messages table, deduplicating on the message id.
 
     Web is the only channel. `message_id` is the unique per-message id (e.g.
-    "web_<uuid>"); it is stored in the (legacy-named) message_id column and used
-    for dedup regardless of channel. `message_id` is accepted only as a
-    backward-compatible alias.
+    "web_<uuid>"); it is stored in the message_id column and used for dedup.
 
     Args:
         message_id: Unique message id (any channel).
@@ -424,8 +421,6 @@ def log_message(
     Returns:
         Dict of the inserted row, or None if duplicate or on failure.
     """
-    if message_id is None:
-        message_id = message_id
     try:
         # Dedup on the message id for ANY channel. Previously this only ran for
         # channel=='telegram' AND the caller passed the wrong kwarg, so the id
