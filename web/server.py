@@ -1310,6 +1310,14 @@ class ConfirmChunkRequest(BaseModel):
     token: str
 
 
+class ConfirmLeafRequest(BaseModel):
+    """Payload for POST /api/feed/confirm-leaf."""
+
+    chunk_id: str
+    leaf_id: str
+    token: str
+
+
 @app.post("/api/epistemic/confirm-chunk")
 async def post_confirm_chunk(req: ConfirmChunkRequest) -> dict:
     """Re-confirm a fact, resetting its staleness clock."""
@@ -1328,6 +1336,25 @@ async def post_confirm_chunk(req: ConfirmChunkRequest) -> dict:
     except Exception as e:
         logger.error(f"Error confirming chunk {req.chunk_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to confirm chunk")
+
+
+@app.post("/api/feed/confirm-leaf")
+async def post_confirm_leaf(req: ConfirmLeafRequest) -> dict:
+    """Confirm/refine the leaf of a section-filed Feed fact (one-click action).
+
+    Moves the stored chunk from its provisional section to the chosen leaf and
+    records the labeled correction. `leaf_id` may be the system's suggested leaf
+    (confirm) or any other node id (correct).
+    """
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    from web.handlers.feed_handler import promote_chunk_to_leaf
+
+    result = promote_chunk_to_leaf(req.chunk_id, req.leaf_id, _get_session_key())
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Confirm failed"))
+    return result
 
 
 def _get_session_key() -> str:

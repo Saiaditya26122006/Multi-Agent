@@ -1952,6 +1952,7 @@ def _format_auto_file_table(results: list[dict]) -> str:
     errors = [r for r in results if r["status"] == "error"]
 
     lines = []
+    section_filed = [r for r in stored if r.get("suggested_leaf_id")]
     if stored:
         lines.append(f"**Auto-filed {len(stored)} fact(s):**")
         lines.append("")
@@ -1959,12 +1960,21 @@ def _format_auto_file_table(results: list[dict]) -> str:
         lines.append("|------|--------|------------|------|")
         for r in stored:
             node = f"{r['node_id']} — {r['node_title']}" if r.get("node_id") else "Unmatched"
+            # Section-filed facts show the provisional section + the suggested
+            # leaf, so Alex sees it's placed at the reliable section level with a
+            # one-click leaf to confirm — not silently committed to a leaf.
+            if r.get("suggested_leaf_id"):
+                leaf = r["suggested_leaf_id"]
+                leaf_title = r.get("suggested_leaf_title") or ""
+                node = f"{node} → suggests {leaf}{(' — ' + leaf_title) if leaf_title else ''}"
             text = r["verbatim_text"].replace("|", "\\|").replace("\n", " ")
             if len(text) > 120:
                 text = text[:117] + "..."
             tier = r.get("tier", "")
             if r.get("validated"):
                 conf_indicator = "✓ verified"
+            elif r.get("suggested_leaf_id"):
+                conf_indicator = "section · confirm leaf"
             elif tier == "auto_file_flagged":
                 conf_indicator = "flagged"
             elif r.get("confidence") == "high":
@@ -1972,6 +1982,13 @@ def _format_auto_file_table(results: list[dict]) -> str:
             else:
                 conf_indicator = r.get("confidence", "?")
             lines.append(f"| {node} | [{r['epistemic_status']}] | {conf_indicator} | {text} |")
+        if section_filed:
+            lines.append("")
+            lines.append(
+                f"_{len(section_filed)} fact(s) placed at the section (reliable ~80%) with a "
+                "suggested leaf. Confirm or change the leaf in review — each confirmation also "
+                "trains the classifier._"
+            )
 
     if duplicates:
         lines.append("")
@@ -2223,6 +2240,7 @@ def handle_raw_text(
                 "node_id": node_id,
                 "node_title": node_title,
                 "suggested_leaf_id": target.get("suggested_leaf_id"),
+                "suggested_leaf_title": target.get("suggested_leaf_title"),
                 "epistemic_status": fact_data["epistemic_status"],
                 "status": result["status"],
                 "chunk_id": result.get("chunk_id"),
@@ -2831,6 +2849,62 @@ def _record_correction(
             f.write(json.dumps(rec) + "\n")
     except Exception as e:
         logger.warning("[FeedHandler] Could not record correction: %s", e)
+
+
+def promote_chunk_to_leaf(
+    chunk_id: str, leaf_id: str, session_id: Optional[str] = None
+) -> dict:
+    """Confirm/refine the leaf of a section-filed chunk (Alex's one-click action).
+
+    Moves a stored chunk from its provisional section placement to the chosen
+    leaf, clears the section-review flags, and records the labeled correction
+    (confirmed if it matches the system's suggestion, corrected otherwise).
+
+    Returns: {success, chunk_id, node_id, node_title} or {success: False, error}.
+    """
+    node = _get_node_details(leaf_id)
+    if not node:
+        return {"success": False, "error": f"No node '{leaf_id}' exists in the architecture."}
+    try:
+        from services.rag_service import _get_supabase, update_metadata
+
+        sb = _get_supabase()
+        row = sb.table("knowledge_base").select("content,metadata").eq(
+            "id", chunk_id
+        ).limit(1).execute()
+        if not row.data:
+            return {"success": False, "error": "Chunk not found."}
+        meta = row.data[0].get("metadata") or {}
+        content = row.data[0].get("content", "")
+        suggested = meta.get("suggested_leaf_id")
+
+        ok = update_metadata(chunk_id, {
+            "node_id": leaf_id,
+            "node_title": node.get("node_title", ""),
+            "filed_at_section": False,
+            "needs_review": False,
+            "leaf_confirmed_by_alex": True,
+            "leaf_confirmed_at": datetime.now(timezone.utc).isoformat(),
+        })
+        if not ok:
+            return {"success": False, "error": "Metadata update failed."}
+
+        _record_correction(
+            fact_text=content,
+            system_suggested=suggested,
+            alex_chosen=leaf_id,
+            action="confirmed" if leaf_id == suggested else "corrected",
+            session_id=session_id,
+        )
+        return {
+            "success": True,
+            "chunk_id": chunk_id,
+            "node_id": leaf_id,
+            "node_title": node.get("node_title", ""),
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.error("[FeedHandler] promote_chunk_to_leaf failed for %s: %s", chunk_id, e)
+        return {"success": False, "error": str(e)}
 
 
 def _store_fact_now(
