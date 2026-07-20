@@ -429,6 +429,11 @@ def _create_new_node(node_title: str, parent_id: str, verbatim_text: str = "") -
     global _node_embedding_cache
     _node_embedding_cache = None
 
+    # Keep the augmented retrieval layer (queried by match_bp_node) in sync, so
+    # the new node is retrievable immediately, not only after a full rebuild.
+    from services.bp_aug_index import index_node
+    index_node(new_node)
+
     logger.info("[FeedHandler] Created new node %s (%s) under %s", new_id, node_title, parent_id)
 
     return {"node_id": new_id, "node_title": node_title, "level": new_node["level"]}
@@ -2642,6 +2647,10 @@ def _create_new_domain(domain_name: str, verbatim_text: str = "") -> dict:
     # Invalidate embedding cache
     global _node_embedding_cache
     _node_embedding_cache = None
+
+    # Keep the augmented retrieval layer in sync (see _create_new_node).
+    from services.bp_aug_index import index_node
+    index_node(new_node)
 
     logger.info("[FeedHandler] Created new domain %s (%s)", new_id, domain_name)
     return {"node_id": new_id, "node_title": domain_name, "level": 1}
