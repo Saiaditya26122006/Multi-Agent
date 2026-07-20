@@ -2191,10 +2191,17 @@ def handle_raw_text(
         for item in flagged_batch:
             fact_data = item["fact"]
             classification = fact_data["classification"]
-            node_id = classification["node_id"]
-            node_title = classification.get("node_title", "")
+            # File at the SECTION (reliable ~77-82%), not the leaf (~35-55%),
+            # and carry the suggested leaf forward for one-click confirmation.
+            target = _resolve_filing_target(classification)
+            node_id = target["file_node_id"]
+            node_title = target["file_node_title"] or classification.get("node_title", "")
             audit = _build_audit_metadata(classification, source, "auto_file_flagged", fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
             audit["needs_review"] = True
+            if target["backed_off"]:
+                audit["filed_at_section"] = True
+                audit["suggested_leaf_id"] = target["suggested_leaf_id"]
+                audit["suggested_leaf_title"] = target["suggested_leaf_title"]
             result = _store_fact_now(
                 verbatim=fact_data["verbatim_text"],
                 content_type=fact_data["content_type"],
@@ -2210,6 +2217,7 @@ def handle_raw_text(
                 "verbatim_text": fact_data["verbatim_text"],
                 "node_id": node_id,
                 "node_title": node_title,
+                "suggested_leaf_id": target.get("suggested_leaf_id"),
                 "epistemic_status": fact_data["epistemic_status"],
                 "status": result["status"],
                 "chunk_id": result.get("chunk_id"),
@@ -2748,6 +2756,74 @@ def handle_new_node_name(response_text: str, session_id: str) -> dict:
     return _execute_approval(pending, session_id)
 
 
+def _resolve_filing_target(classification: dict) -> dict:
+    """Decide the node to FILE a router-committed fact at.
+
+    Measured (evaluation/phase0_scorecard.py, 2026-07-20): the leaf pick is only
+    ~35-55% correct even when the domain is right, but the SECTION (BP.x.y) is
+    ~77-82% correct. So file router-committed facts at the section and carry the
+    leaf forward as a one-click suggestion, rather than committing to a specific
+    leaf we get wrong most of the time. Nothing is lost — Alex confirms the leaf
+    in review, which also produces a labeled example (_record_correction).
+
+    Returns a dict: file_node_id, file_node_title, suggested_leaf_id,
+    suggested_leaf_title, backed_off (True if filed shallower than the leaf).
+    """
+    leaf = classification.get("node_id") or ""
+    parts = leaf.split(".")
+    # Already at/above section granularity (BP, BP.x, BP.x.y) -> file as-is.
+    if len(parts) <= 3:
+        return {
+            "file_node_id": leaf,
+            "file_node_title": classification.get("node_title", ""),
+            "suggested_leaf_id": None,
+            "suggested_leaf_title": None,
+            "backed_off": False,
+        }
+    section_id = ".".join(parts[:3])
+    section_details = _get_node_details(section_id) or {}
+    return {
+        "file_node_id": section_id,
+        "file_node_title": section_details.get("node_title") or "",
+        "suggested_leaf_id": leaf,
+        "suggested_leaf_title": classification.get("node_title", ""),
+        "backed_off": True,
+    }
+
+
+def _record_correction(
+    fact_text: str,
+    system_suggested: Optional[str],
+    alex_chosen: Optional[str],
+    action: str,
+    session_id: Optional[str] = None,
+) -> None:
+    """Append a labeled example from Alex's review to the corrections log.
+
+    Every confirm/adjust in review is a free labeled example: what the classifier
+    suggested vs what Alex accepted. This is the training/gold data that makes
+    real classifier improvement possible instead of tuning against a static
+    40-fact set. Append-only JSONL; never raises into the caller.
+    """
+    try:
+        from pathlib import Path
+
+        path = Path(__file__).parent.parent.parent / "evaluation" / "feed_corrections.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        rec = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "fact": (fact_text or "")[:500],
+            "system_suggested": system_suggested,
+            "alex_chosen": alex_chosen,
+            "action": action,  # "confirmed" | "corrected"
+            "session_id": session_id,
+        }
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec) + "\n")
+    except Exception as e:
+        logger.warning("[FeedHandler] Could not record correction: %s", e)
+
+
 def _store_fact_now(
     verbatim: str,
     content_type: str,
@@ -2873,6 +2949,18 @@ def _execute_approval(fact_data: dict, session_id: str) -> dict:
         }
 
     chunk_id = result["chunk_id"]
+
+    # Capture the labeled example: what the classifier suggested vs what Alex
+    # accepted. Free training/gold data for real classifier improvement.
+    system_node = classification.get("node_id")
+    _record_correction(
+        fact_text=verbatim,
+        system_suggested=system_node,
+        alex_chosen=node_id,
+        action="confirmed" if node_id == system_node else "corrected",
+        session_id=session_id,
+    )
+
     clear_pending_fact(session_id)
 
     remaining = fact_data.get("remaining_facts", [])
