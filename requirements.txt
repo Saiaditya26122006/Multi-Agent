@@ -8,7 +8,6 @@ python-dotenv==1.2.2
 
 # Database and storage
 supabase==2.30.0
-upstash-redis==1.7.0
 
 # AI/LLM packages
 google-genai==1.75.0

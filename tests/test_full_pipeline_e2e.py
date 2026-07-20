@@ -175,9 +175,7 @@ os.environ.setdefault("COUNCIL_AGENT_PASSWORD", "pass")
 os.environ.setdefault("DEVILS_ADVOCATE_JID", "da@xmpp.local")
 os.environ.setdefault("DEVILS_ADVOCATE_PASSWORD", "pass")
 
-# Patch Redis
-sys.modules["upstash_redis"] = MagicMock()
-sys.modules["upstash_redis"].Redis = lambda **kwargs: mock_redis
+# Note: Redis is no longer used - session state is stored in Supabase
 
 # Patch Supabase
 mock_supabase_module = MagicMock()
@@ -235,10 +233,6 @@ mock_boto3 = MagicMock()
 sys.modules["boto3"] = mock_boto3
 
 # Patch memory modules
-import memory.redis_client as redis_mod
-redis_mod.redis_client = mock_redis
-redis_mod.RedisClient = lambda: MagicMock(client=mock_redis)
-
 import memory.supabase_client as supa_mod
 supa_mod.supabase = mock_supabase
 supa_mod.SupabaseClient = lambda: MagicMock(client=mock_supabase)
