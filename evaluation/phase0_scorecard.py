@@ -52,6 +52,7 @@ def main():
     exact = section = domain = lenient = 0
     tier_counts = {"auto_file": 0, "auto_file_flagged": 0, "soft_ask": 0, "ask": 0}
     autofiled_total = autofiled_correct = 0
+    af_domain_ok = af_section_ok = af_wrong_domain = 0
     rows = []
     detail = []
 
@@ -81,6 +82,9 @@ def main():
         if tier in AUTO_FILED_TIERS:
             autofiled_total += 1
             autofiled_correct += is_exact  # correct = exact node (strict)
+            af_domain_ok += is_domain
+            af_section_ok += is_section
+            af_wrong_domain += (0 if is_domain else 1)
 
         rows.append(
             f"  [{'x' if is_exact else ' '}exact][{'x' if is_section else ' '}sec]"
@@ -109,9 +113,17 @@ def main():
         "  ── The three numbers that matter ──",
         f"  1. Domain accuracy      : {domain}/{n} = {100*domain/n:.0f}%",
         f"  2. Section accuracy     : {section}/{n} = {100*section/n:.0f}%",
-        f"  3. Auto-file precision  : "
-        + (f"{autofiled_correct}/{autofiled_total} = {autofile_precision:.0f}%"
-           if autofiled_total else "n/a (nothing auto-filed)"),
+        f"  3. Auto-file precision (of {autofiled_total} auto-filed):",
+        f"       domain  : "
+        + (f"{af_domain_ok}/{autofiled_total} = {100*af_domain_ok/autofiled_total:.0f}%  <- wrong-domain pollution metric"
+           if autofiled_total else "n/a"),
+        f"       section : "
+        + (f"{af_section_ok}/{autofiled_total} = {100*af_section_ok/autofiled_total:.0f}%"
+           if autofiled_total else "n/a"),
+        f"       exact   : "
+        + (f"{autofiled_correct}/{autofiled_total} = {autofile_precision:.0f}%  (leaf — Phase 1b)"
+           if autofiled_total else "n/a"),
+        f"       wrong-domain auto-files: {af_wrong_domain}",
         "",
         "  ── Supporting numbers ──",
         f"  Exact-leaf (strict)     : {exact}/{n} = {100*exact/n:.0f}%",

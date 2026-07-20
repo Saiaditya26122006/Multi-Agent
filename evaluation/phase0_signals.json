@@ -1,0 +1,1254 @@
+{
+  "run_at": "2026-07-20T07:54:06.308979+00:00",
+  "n": 40,
+  "records": [
+    {
+      "id": 1,
+      "fact": "Claim is the atomic unit of validation",
+      "expected": "BP.1.1.2",
+      "acceptable": [
+        "BP.1.1.2",
+        "BP.3.4.1",
+        "BP.3.4.9"
+      ],
+      "got": "BP.1.1.2",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.10",
+          "BP.2"
+        ],
+        "pick_domain": "BP.1",
+        "domain_agreement": false,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.352,
+        "embedding_top_id": "BP.3.4.9",
+        "embedding_top_sim": 0.362,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 2,
+      "fact": "Business schools are easiest first pilots",
+      "expected": "BP.6.6.1",
+      "acceptable": [
+        "BP.1.1.7.5",
+        "BP.10.1.3",
+        "BP.6.6.1"
+      ],
+      "got": "BP.4.3.4",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.4",
+          "BP.10",
+          "BP.6"
+        ],
+        "pick_domain": "BP.4",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.1.1.7.5",
+        "embedding_top_sim": 0.26,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 3,
+      "fact": "Journals are harder but more defensible long term",
+      "expected": "BP.8.5.5",
+      "acceptable": [
+        "BP.8.5.5",
+        "BP.8.5.7",
+        "BP.8.9.5"
+      ],
+      "got": "BP.8.5.1",
+      "exact": false,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.8",
+          "BP.6"
+        ],
+        "pick_domain": "BP.8",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": null,
+        "embedding_top_sim": 0.0,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 4,
+      "fact": "Researchers feel AI-induced epistemic risk",
+      "expected": "BP.2",
+      "acceptable": [
+        "BP.2",
+        "BP.7.3",
+        "BP.7.3.4",
+        "BP.8.7.4"
+      ],
+      "got": "BP.2.2.1",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.2",
+          "BP.6"
+        ],
+        "pick_domain": "BP.2",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.8.7.4",
+        "embedding_top_sim": 0.281,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 5,
+      "fact": "Advanced researchers pay for risk containment, not efficiency",
+      "expected": "BP.9.1.4",
+      "acceptable": [
+        "BP.3.3.6",
+        "BP.7.4",
+        "BP.9.1.4"
+      ],
+      "got": null,
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.1"
+        ],
+        "pick_domain": null,
+        "domain_agreement": false,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.7.4",
+        "embedding_top_sim": 0.213,
+        "validated": false,
+        "confidence": "low",
+        "none_fit": true,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 6,
+      "fact": "Institutional buyers value auditability",
+      "expected": "BP.8.6.3",
+      "acceptable": [
+        "BP.5.3.1",
+        "BP.5.6.3",
+        "BP.8.6.3"
+      ],
+      "got": "BP.5.2.3",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.5",
+          "BP.6"
+        ],
+        "pick_domain": "BP.5",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.8.6.3",
+        "embedding_top_sim": 0.348,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 7,
+      "fact": "Primary monetization hypothesis: Institutional SaaS subscription",
+      "expected": "BP.9.1.4",
+      "acceptable": [
+        "BP.6.5.4",
+        "BP.8.2.4",
+        "BP.9.1.4"
+      ],
+      "got": "BP.9.1.4",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.281,
+        "embedding_top_id": "BP.9.1.4",
+        "embedding_top_sim": 0.281,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 8,
+      "fact": "Unit of sale: Institution, school, department, researcher seat, manuscript, claim, or journal workflow",
+      "expected": "BP.9.5.3",
+      "acceptable": [
+        "BP.1.1.2",
+        "BP.9.5",
+        "BP.9.5.3"
+      ],
+      "got": "BP.9.1.4",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9",
+          "BP.4"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.23,
+        "embedding_top_id": "BP.1.1.2",
+        "embedding_top_sim": 0.474,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 9,
+      "fact": "Value unit: Claim appears to be unit of validation; institution or manuscript may be unit of purchase",
+      "expected": "BP.9.1.4",
+      "acceptable": [
+        "BP.1.1.2",
+        "BP.9.1.1",
+        "BP.9.1.4"
+      ],
+      "got": "BP.9.1.4",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9",
+          "BP.5"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.319,
+        "embedding_top_id": "BP.1.1.2",
+        "embedding_top_sim": 0.371,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 10,
+      "fact": "Individual researcher pricing: Possible premium researcher subscription",
+      "expected": "BP.9.2.1",
+      "acceptable": [
+        "BP.5.3.1",
+        "BP.9.1.4",
+        "BP.9.2.1",
+        "BP.9.2.8"
+      ],
+      "got": "BP.9.2.2",
+      "exact": false,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.1.9.1",
+        "embedding_top_sim": 0.274,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 11,
+      "fact": "Doctoral student pricing: Possible individual or programme-paid model",
+      "expected": "BP.9.2.1",
+      "acceptable": [
+        "BP.3.3.6",
+        "BP.9.1.4",
+        "BP.9.2.1"
+      ],
+      "got": "BP.9.2.1",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9",
+          "BP.5"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.1.9.2",
+        "embedding_top_sim": 0.296,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 12,
+      "fact": "Market category hypothesis: Manuscript diagnostics, research integrity infrastructure, reviewer-readiness, epistemic validation software",
+      "expected": "BP.1.5.1.1",
+      "acceptable": [
+        "BP.1.1.1",
+        "BP.1.5",
+        "BP.1.5.1.1"
+      ],
+      "got": "BP.1.5.1.1",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.4",
+          "BP.8"
+        ],
+        "pick_domain": "BP.1",
+        "domain_agreement": false,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.32,
+        "embedding_top_id": "BP.1.1.1",
+        "embedding_top_sim": 0.355,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 13,
+      "fact": "Comparable model: Turnitin/iThenticate used as analogy for institutional risk infrastructure",
+      "expected": "BP.8.2.4",
+      "acceptable": [
+        "BP.6.5",
+        "BP.8.2.4",
+        "BP.8.5.4",
+        "BP.8.6.3"
+      ],
+      "got": "BP.8.3.3",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.8",
+          "BP.6"
+        ],
+        "pick_domain": "BP.8",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.8.6.3",
+        "embedding_top_sim": 0.33,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 14,
+      "fact": "Direct competitors: Need to identify claim-level or manuscript-level validation tools",
+      "expected": "BP.8.1.3",
+      "acceptable": [
+        "BP.10.1.7",
+        "BP.3.4.9",
+        "BP.8.1.3",
+        "BP.8.1.7"
+      ],
+      "got": "BP.8.1.3",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.8"
+        ],
+        "pick_domain": "BP.8",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.8.1.7",
+        "embedding_top_sim": 0.357,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 15,
+      "fact": "Adjacent tools: AI writing tools, academic writing assistants, literature review tools, citation tools, peer-review support, research integrity tools, plagiarism/AI detection, gene",
+      "expected": "BP.8.1.5",
+      "acceptable": [
+        "BP.6.2.2",
+        "BP.8.1.5",
+        "BP.8.8.3"
+      ],
+      "got": "BP.8.1.5",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.8",
+          "BP.4"
+        ],
+        "pick_domain": "BP.8",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.235,
+        "embedding_top_id": "BP.8.1.5",
+        "embedding_top_sim": 0.235,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 16,
+      "fact": "GDPR manuscript data handling",
+      "expected": "BP.7.2",
+      "acceptable": [
+        "BP.7.2",
+        "BP.7.4",
+        "BP.7.4.4"
+      ],
+      "got": "BP.7.2",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.7"
+        ],
+        "pick_domain": "BP.7",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.322,
+        "embedding_top_id": "BP.7.2",
+        "embedding_top_sim": 0.322,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 17,
+      "fact": "Third-party LLM API use",
+      "expected": "BP.7.3.4",
+      "acceptable": [
+        "BP.3.2.3",
+        "BP.3.5.3",
+        "BP.7.3.4"
+      ],
+      "got": "BP.1.8.7",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.7",
+          "BP.1"
+        ],
+        "pick_domain": "BP.1",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.3.2.3",
+        "embedding_top_sim": 0.21,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 18,
+      "fact": "Data transfer",
+      "expected": "BP.7.5.2",
+      "acceptable": [
+        "BP.7.2.4",
+        "BP.7.4.4",
+        "BP.7.5.2"
+      ],
+      "got": "BP.7.2.10",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.7"
+        ],
+        "pick_domain": "BP.7",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.226,
+        "embedding_top_id": "BP.7.2.10",
+        "embedding_top_sim": 0.226,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 19,
+      "fact": "Manuscript confidentiality",
+      "expected": "BP.7.4.5",
+      "acceptable": [
+        "BP.7.4",
+        "BP.7.4.5",
+        "BP.7.4.7"
+      ],
+      "got": "BP.7.4",
+      "exact": false,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.7"
+        ],
+        "pick_domain": "BP.7",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.354,
+        "embedding_top_id": "BP.7.4.5",
+        "embedding_top_sim": 0.389,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 20,
+      "fact": "Copyright/IP ownership",
+      "expected": "BP.7.1.4",
+      "acceptable": [
+        "BP.5.3.2",
+        "BP.7",
+        "BP.7.1.4",
+        "BP.7.2"
+      ],
+      "got": "BP.7.1.1",
+      "exact": false,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.7",
+          "BP.12"
+        ],
+        "pick_domain": "BP.7",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.5.3.2",
+        "embedding_top_sim": 0.27,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 21,
+      "fact": "Reduce avoidable rejection risk and improve reviewer-readiness by diagnosing claim-level weaknesses before submission",
+      "expected": "BP.9.1.1",
+      "acceptable": [
+        "BP.1.1.3",
+        "BP.3.4.8",
+        "BP.3.4.9",
+        "BP.9.1.1"
+      ],
+      "got": "BP.1.1.3",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.1",
+          "BP.2"
+        ],
+        "pick_domain": "BP.1",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.3,
+        "embedding_top_id": "BP.3.4.9",
+        "embedding_top_sim": 0.377,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 22,
+      "fact": "Extracts claims, maps evidence, checks inference, flags method-claim mismatch, detects citation-support gaps",
+      "expected": "BP.1.1.3",
+      "acceptable": [
+        "BP.1.1.3",
+        "BP.11.1.4",
+        "BP.3.4",
+        "BP.3.4.9"
+      ],
+      "got": "BP.1.8.4",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.1"
+        ],
+        "pick_domain": "BP.1",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.529,
+        "embedding_top_id": "BP.1.8.4",
+        "embedding_top_sim": 0.529,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 23,
+      "fact": "Supports research quality control, publication competitiveness, doctoral supervision, governance",
+      "expected": "BP.1.3",
+      "acceptable": [
+        "BP.1.3",
+        "BP.3",
+        "BP.3.3.1",
+        "BP.3.3.8"
+      ],
+      "got": "BP.1.3",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.1",
+          "BP.6"
+        ],
+        "pick_domain": "BP.1",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.1.9.3",
+        "embedding_top_sim": 0.318,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 24,
+      "fact": "Reduces unsupported claims, causal overreach, weak inference, AI-induced epistemic risk",
+      "expected": "BP.9.1.1",
+      "acceptable": [
+        "BP.1.7.4",
+        "BP.11.3.8",
+        "BP.2.5.8",
+        "BP.9.1.1"
+      ],
+      "got": "BP.1.1.5",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.1",
+          "BP.2"
+        ],
+        "pick_domain": "BP.1",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.1.8.4",
+        "embedding_top_sim": 0.326,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 25,
+      "fact": "spoke to one research dean at IESE, confirmed awareness of claim validation problem but no budget discussion yet",
+      "expected": "BP.6.1",
+      "acceptable": [
+        "BP.3.4.8",
+        "BP.5.3.5",
+        "BP.5.5.6",
+        "BP.6.1"
+      ],
+      "got": "BP.5.3.1",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.6",
+          "BP.5",
+          "BP.10"
+        ],
+        "pick_domain": "BP.5",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.5.3.5",
+        "embedding_top_sim": 0.292,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 26,
+      "fact": "We assume primary monetization model is institutional SaaS subscription",
+      "expected": "BP.9.1.4",
+      "acceptable": [
+        "BP.6.5.4",
+        "BP.8.2.4",
+        "BP.9.1.4"
+      ],
+      "got": "BP.9.5.1",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.257,
+        "embedding_top_id": "BP.9.1.4",
+        "embedding_top_sim": 0.326,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 27,
+      "fact": "We believe target users are academic researchers in European universities",
+      "expected": "BP.5.1.1",
+      "acceptable": [
+        "BP.3.3.6",
+        "BP.3.3.8",
+        "BP.5.1.1",
+        "BP.6.1.2"
+      ],
+      "got": "BP.5.1.1",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.4",
+          "BP.5"
+        ],
+        "pick_domain": "BP.5",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.229,
+        "embedding_top_id": "BP.3.3.8",
+        "embedding_top_sim": 0.271,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 28,
+      "fact": "It is confirmed that CIO and IT Security have veto power over procurement",
+      "expected": "BP.5.4.4",
+      "acceptable": [
+        "BP.5",
+        "BP.5.4.4",
+        "BP.5.4.8"
+      ],
+      "got": "BP.5.4.3",
+      "exact": false,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.5"
+        ],
+        "pick_domain": "BP.5",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.283,
+        "embedding_top_id": "BP.5",
+        "embedding_top_sim": 0.35,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 29,
+      "fact": "We confirmed with IESE research dean that awareness exists",
+      "expected": "BP.6.1",
+      "acceptable": [
+        "BP.11.4.9",
+        "BP.2.6.9",
+        "BP.6.1",
+        "BP.6.7"
+      ],
+      "got": "BP.10.3.8",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.6",
+          "BP.10"
+        ],
+        "pick_domain": "BP.10",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.11.4.9",
+        "embedding_top_sim": 0.229,
+        "validated": false,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 30,
+      "fact": "I think pricing should be per-department bundles",
+      "expected": "BP.9.2.2",
+      "acceptable": [
+        "BP.5.3",
+        "BP.9.2.2",
+        "BP.9.2.6"
+      ],
+      "got": "BP.9.2.4",
+      "exact": false,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": null,
+        "embedding_top_sim": 0.0,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 31,
+      "fact": "The product contradicts what we said about MVP readiness",
+      "expected": "BP.1.1.7.4",
+      "acceptable": [
+        "BP.1.1.7",
+        "BP.1.1.7.4",
+        "BP.1.1.7.7"
+      ],
+      "got": "BP.1.1.7.7",
+      "exact": false,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.10",
+          "BP.1"
+        ],
+        "pick_domain": "BP.1",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.325,
+        "embedding_top_id": "BP.1.1.7.4",
+        "embedding_top_sim": 0.417,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 32,
+      "fact": "We assume annual institutional contracts align with academic procurement cycles",
+      "expected": "BP.5.5.1",
+      "acceptable": [
+        "BP.5.5.1",
+        "BP.5.5.9",
+        "BP.6.6.4",
+        "BP.7.6.3"
+      ],
+      "got": "BP.9.4.5",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9",
+          "BP.5"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.271,
+        "embedding_top_id": "BP.6.6.4",
+        "embedding_top_sim": 0.309,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 33,
+      "fact": "We verified that competitor Iris.ai uses per-researcher pricing model",
+      "expected": "BP.8.1.3",
+      "acceptable": [
+        "BP.8.1.3",
+        "BP.9.1.4",
+        "BP.9.2.1",
+        "BP.9.2.8"
+      ],
+      "got": "BP.8.1.3",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.8",
+          "BP.9"
+        ],
+        "pick_domain": "BP.8",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.9.1.4",
+        "embedding_top_sim": 0.239,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 34,
+      "fact": "We hypothesize that department heads control the budget",
+      "expected": "BP.5.3.2",
+      "acceptable": [
+        "BP.5.3",
+        "BP.5.3.2",
+        "BP.5.3.9"
+      ],
+      "got": "BP.5.3.1",
+      "exact": false,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.5",
+          "BP.2"
+        ],
+        "pick_domain": "BP.5",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.5.3.2",
+        "embedding_top_sim": 0.446,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 35,
+      "fact": "The contract states GDPR compliance requires data residency in EU",
+      "expected": "BP.7.5.2",
+      "acceptable": [
+        "BP.7.2",
+        "BP.7.2.6",
+        "BP.7.5.2"
+      ],
+      "got": "BP.7.5.2",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.7"
+        ],
+        "pick_domain": "BP.7",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.274,
+        "embedding_top_id": "BP.7.2.6",
+        "embedding_top_sim": 0.317,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 36,
+      "fact": "Maybe we should consider freemium for individual researchers",
+      "expected": "BP.9.2.1",
+      "acceptable": [
+        "BP.3.3.6",
+        "BP.7.4",
+        "BP.9.1.4",
+        "BP.9.2.1"
+      ],
+      "got": "BP.9.2.1",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": null,
+        "embedding_top_sim": 0.0,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 37,
+      "fact": "It is documented that the epistemic layer has 11 knowledge categories",
+      "expected": "BP.1.1.3",
+      "acceptable": [
+        "BP.1.1.3",
+        "BP.1.5.1.1",
+        "BP.1.5.2.1",
+        "BP.7.2.1"
+      ],
+      "got": "BP.1.1.10",
+      "exact": false,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.1"
+        ],
+        "pick_domain": "BP.1",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.1.5.1.1",
+        "embedding_top_sim": 0.394,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 38,
+      "fact": "Our assumption is that researchers need diagnostic tools",
+      "expected": "BP.2.5.5",
+      "acceptable": [
+        "BP.1.1.4",
+        "BP.1.1.5",
+        "BP.2.5.5",
+        "BP.6.1.1"
+      ],
+      "got": "BP.2.5.5",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.2",
+          "BP.10"
+        ],
+        "pick_domain": "BP.2",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.7.2.10",
+        "embedding_top_sim": 0.352,
+        "validated": false,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 39,
+      "fact": "Data shows 73% of academics distrust automated reviews",
+      "expected": "BP.6.5.3",
+      "acceptable": [
+        "BP.1.1.6",
+        "BP.1.2.7",
+        "BP.3.3.8",
+        "BP.6.5.3"
+      ],
+      "got": "BP.6.5.3",
+      "exact": true,
+      "section_ok": true,
+      "domain_ok": true,
+      "lenient": true,
+      "signals": {
+        "domain_router_ids": [
+          "BP.2",
+          "BP.6"
+        ],
+        "pick_domain": "BP.6",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": false,
+        "pick_embedding_sim": 0.0,
+        "embedding_top_id": "BP.1.2.7",
+        "embedding_top_sim": 0.224,
+        "validated": false,
+        "confidence": "medium",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    },
+    {
+      "id": 40,
+      "fact": "We assume institutions will pay but need to validate",
+      "expected": "BP.5.3.5",
+      "acceptable": [
+        "BP.5.3.5",
+        "BP.6.5.1",
+        "BP.6.6.4",
+        "BP.7.5.3"
+      ],
+      "got": "BP.9.2.3",
+      "exact": false,
+      "section_ok": false,
+      "domain_ok": false,
+      "lenient": false,
+      "signals": {
+        "domain_router_ids": [
+          "BP.9",
+          "BP.10",
+          "BP.6"
+        ],
+        "pick_domain": "BP.9",
+        "domain_agreement": true,
+        "pick_in_embedding_pool": true,
+        "pick_embedding_sim": 0.261,
+        "embedding_top_id": "BP.6.5.1",
+        "embedding_top_sim": 0.332,
+        "validated": true,
+        "confidence": "high",
+        "none_fit": false,
+        "rescued_none_fit": false
+      }
+    }
+  ]
+}

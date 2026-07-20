@@ -1431,6 +1431,31 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
                 data={"phase": "no_match"},
             )
 
+    # Signal capture for tier calibration: expose the independent signals the
+    # auto-file decision should weigh, instead of trusting LLM "confidence"
+    # alone (measured 34% precision at "high"). These are computed during
+    # classification and were previously discarded. _determine_tier reads them.
+    _pick = result.get("node_id")
+    _pick_domain = ".".join(_pick.split(".")[:2]) if _pick else None
+    _pick_sim = next(
+        (c.get("similarity", 0.0) for c in embedding_candidates
+         if c.get("node_id") == _pick),
+        0.0,
+    )
+    result["signals"] = {
+        "domain_router_ids": selected_domain_ids,
+        "pick_domain": _pick_domain,
+        "domain_agreement": (_pick_domain in selected_domain_ids) if _pick_domain else False,
+        "pick_in_embedding_pool": any(c.get("node_id") == _pick for c in embedding_candidates),
+        "pick_embedding_sim": round(_pick_sim, 4),
+        "embedding_top_id": embedding_candidates[0]["node_id"] if embedding_candidates else None,
+        "embedding_top_sim": round(embedding_candidates[0].get("similarity", 0.0), 4) if embedding_candidates else 0.0,
+        "validated": result.get("validated", False),
+        "confidence": result.get("confidence"),
+        "none_fit": result.get("none_fit", False),
+        "rescued_none_fit": result.get("rescued_none_fit", False),
+    }
+
     return result
 
 
@@ -1591,31 +1616,59 @@ QUARANTINE_COUNT_KEY_PREFIX = "quarantine_count"
 def _determine_tier(classification: dict, source: str = "alex_direct") -> str:
     """Map classifier signals to one of four confidence tiers.
 
+    Data-calibrated gate (evaluation/calibrate_tier.py, measured 2026-07-20 on
+    the 40-fact Alex-confirmed gold set):
+
+    The LLM's self-reported ``confidence`` does NOT predict correctness — at
+    "high" it was only 38% exact and let 24/40 misfiles into the KB, including
+    facts placed in the WRONG DOMAIN. Tightening on confidence/validated barely
+    moved precision because those signals are the same LLM grading itself.
+
+    The one signal that separates right from wrong is DOMAIN-ROUTER AGREEMENT:
+      - router commits to a single domain AND the pick agrees -> 100% domain-
+        correct (13/13), 77% section-correct.
+      - router torn across >1 domain -> only 65% domain-correct.
+
+    So auto-file ONLY router-committed facts, and flag them for leaf review
+    (the leaf is still ~36% even when the domain is right — that is Phase 1b).
+    Everything else goes to Alex rather than polluting the KB.
+
     Args:
-        classification: Result dict from classify_and_match_node().
-        source: Origin of the fact — "alex_direct" for typed input, "document" for uploads.
+        classification: Result dict from classify_and_match_node() (must carry
+            the ``signals`` block; falls back to the old confidence gate if not).
+        source: Origin of the fact — "alex_direct" or "document".
 
     Returns:
         One of: "auto_file", "auto_file_flagged", "soft_ask", "ask".
     """
     none_fit = classification.get("none_fit", True) or not classification.get("node_id")
-    confidence = classification.get("confidence", "low")
-    validated = classification.get("validated", False)
-
-    if none_fit or confidence == "low":
+    if none_fit:
         return "ask"
 
-    if confidence == "high":
-        if validated:
-            return "auto_file"
-        return "auto_file_flagged"
+    signals = classification.get("signals")
 
-    if confidence == "medium":
-        if source == "alex_direct":
+    # Backward-compat: no signals (older callers) -> conservative confidence gate.
+    if not signals:
+        confidence = classification.get("confidence", "low")
+        if confidence == "high" and classification.get("validated"):
             return "auto_file_flagged"
-        return "soft_ask"
+        return "ask"
 
-    return "ask"
+    router = signals.get("domain_router_ids") or []
+    domain_agree = signals.get("domain_agreement", False)
+    router_committed = len(router) == 1 and domain_agree
+
+    if not router_committed:
+        # Unsafe: torn router or the pick left the routed domain. These are the
+        # placements that produce wrong-domain pollution. Send to Alex.
+        return "ask"
+
+    # Router-committed: domain is trustworthy (100% on the gold set). The leaf
+    # is not (43% even here), so ALWAYS store with a review flag on the leaf —
+    # never the unflagged "auto_file" tier. `validated` is deliberately NOT used
+    # as a sub-gate: it was measured to be uncorrelated with correctness and
+    # only discards good (100%-domain) facts. Leaf accuracy is Phase 1b.
+    return "auto_file_flagged"
 
 
 def _build_audit_metadata(

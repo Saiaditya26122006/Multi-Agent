@@ -1,59 +1,63 @@
-  [xexact][xsec][xdom] auto_file          exp=BP.1.1.2     got=BP.1.1.2       | Claim is the atomic unit of validation
-  [ exact][ sec][ dom] auto_file_flagged  exp=BP.6.6.1     got=BP.4.3.4       | Business schools are easiest first pilots
-  [ exact][xsec][xdom] auto_file_flagged  exp=BP.8.5.5     got=BP.8.5.1       | Journals are harder but more defensible long
-  [ exact][ sec][xdom] auto_file_flagged  exp=BP.2         got=BP.2.2.1       | Researchers feel AI-induced epistemic risk
+  [xexact][xsec][xdom] ask                exp=BP.1.1.2     got=BP.1.1.2       | Claim is the atomic unit of validation
+  [ exact][ sec][ dom] ask                exp=BP.6.6.1     got=BP.4.3.4       | Business schools are easiest first pilots
+  [ exact][xsec][xdom] ask                exp=BP.8.5.5     got=BP.8.5.1       | Journals are harder but more defensible long
+  [ exact][ sec][xdom] ask                exp=BP.2         got=BP.2.2.1       | Researchers feel AI-induced epistemic risk
   [ exact][ sec][ dom] ask                exp=BP.9.1.4     got=None           | Advanced researchers pay for risk containmen
-  [ exact][ sec][ dom] auto_file_flagged  exp=BP.8.6.3     got=BP.5.2.3       | Institutional buyers value auditability
-  [xexact][xsec][xdom] auto_file          exp=BP.9.1.4     got=BP.9.1.4       | Primary monetization hypothesis: Institution
-  [ exact][ sec][xdom] auto_file          exp=BP.9.5.3     got=BP.9.1.4       | Unit of sale: Institution, school, departmen
-  [xexact][xsec][xdom] auto_file          exp=BP.9.1.4     got=BP.9.1.4       | Value unit: Claim appears to be unit of vali
-  [ exact][xsec][xdom] auto_file          exp=BP.9.2.1     got=BP.9.2.2       | Individual researcher pricing: Possible prem
-  [xexact][xsec][xdom] auto_file          exp=BP.9.2.1     got=BP.9.2.1       | Doctoral student pricing: Possible individua
-  [ exact][xsec][xdom] auto_file          exp=BP.1.5.1.1   got=BP.1.5.1       | Market category hypothesis: Manuscript diagn
-  [ exact][ sec][xdom] auto_file_flagged  exp=BP.8.2.4     got=BP.8.3.3       | Comparable model: Turnitin/iThenticate used 
+  [ exact][ sec][ dom] ask                exp=BP.8.6.3     got=BP.5.2.3       | Institutional buyers value auditability
+  [xexact][xsec][xdom] auto_file_flagged  exp=BP.9.1.4     got=BP.9.1.4       | Primary monetization hypothesis: Institution
+  [ exact][ sec][xdom] ask                exp=BP.9.5.3     got=BP.9.1.4       | Unit of sale: Institution, school, departmen
+  [xexact][xsec][xdom] ask                exp=BP.9.1.4     got=BP.9.1.4       | Value unit: Claim appears to be unit of vali
+  [ exact][xsec][xdom] auto_file_flagged  exp=BP.9.2.1     got=BP.9.2.2       | Individual researcher pricing: Possible prem
+  [xexact][xsec][xdom] ask                exp=BP.9.2.1     got=BP.9.2.1       | Doctoral student pricing: Possible individua
+  [xexact][xsec][xdom] ask                exp=BP.1.5.1.1   got=BP.1.5.1.1     | Market category hypothesis: Manuscript diagn
+  [ exact][ sec][xdom] ask                exp=BP.8.2.4     got=BP.8.3.3       | Comparable model: Turnitin/iThenticate used 
   [xexact][xsec][xdom] auto_file_flagged  exp=BP.8.1.3     got=BP.8.1.3       | Direct competitors: Need to identify claim-l
-  [xexact][xsec][xdom] auto_file          exp=BP.8.1.5     got=BP.8.1.5       | Adjacent tools: AI writing tools, academic w
+  [xexact][xsec][xdom] ask                exp=BP.8.1.5     got=BP.8.1.5       | Adjacent tools: AI writing tools, academic w
   [xexact][xsec][xdom] auto_file_flagged  exp=BP.7.2       got=BP.7.2         | GDPR manuscript data handling
-  [ exact][ sec][ dom] auto_file_flagged  exp=BP.7.3.4     got=BP.1.8.7       | Third-party LLM API use
+  [ exact][ sec][ dom] ask                exp=BP.7.3.4     got=BP.1.8.7       | Third-party LLM API use
   [ exact][ sec][ dom] ask                exp=BP.7.5.2     got=None           | Data transfer
-  [ exact][xsec][xdom] auto_file          exp=BP.7.4.5     got=BP.7.4         | Manuscript confidentiality
-  [ exact][xsec][xdom] auto_file_flagged  exp=BP.7.1.4     got=BP.7.1.1       | Copyright/IP ownership
-  [ exact][ sec][ dom] auto_file          exp=BP.9.1.1     got=BP.1.1.3       | Reduce avoidable rejection risk and improve 
-  [ exact][ sec][xdom] auto_file          exp=BP.1.1.3     got=BP.1.8.4       | Extracts claims, maps evidence, checks infer
-  [xexact][xsec][xdom] auto_file_flagged  exp=BP.1.3       got=BP.1.3         | Supports research quality control, publicati
-  [ exact][ sec][ dom] auto_file_flagged  exp=BP.9.1.1     got=BP.1.1.5       | Reduces unsupported claims, causal overreach
-  [ exact][ sec][ dom] auto_file_flagged  exp=BP.6.1       got=BP.5.3.1       | spoke to one research dean at IESE, confirme
-  [ exact][ sec][xdom] auto_file          exp=BP.9.1.4     got=BP.9.5.1       | We assume primary monetization model is inst
-  [ exact][ sec][ dom] auto_file          exp=BP.5.1.1     got=BP.4.4.1       | We believe target users are academic researc
-  [ exact][xsec][xdom] auto_file_flagged  exp=BP.5.4.4     got=BP.5.4.3       | It is confirmed that CIO and IT Security hav
-  [ exact][ sec][ dom] auto_file_flagged  exp=BP.6.1       got=BP.10.3.8      | We confirmed with IESE research dean that aw
+  [ exact][xsec][xdom] auto_file_flagged  exp=BP.7.4.5     got=BP.7.4         | Manuscript confidentiality
+  [ exact][xsec][xdom] ask                exp=BP.7.1.4     got=BP.7.1.1       | Copyright/IP ownership
+  [ exact][ sec][ dom] ask                exp=BP.9.1.1     got=BP.1.1.3       | Reduce avoidable rejection risk and improve 
+  [ exact][ sec][xdom] auto_file_flagged  exp=BP.1.1.3     got=BP.1.8.4       | Extracts claims, maps evidence, checks infer
+  [xexact][xsec][xdom] ask                exp=BP.1.3       got=BP.1.3         | Supports research quality control, publicati
+  [ exact][ sec][ dom] ask                exp=BP.9.1.1     got=BP.1.1.3       | Reduces unsupported claims, causal overreach
+  [ exact][ sec][ dom] ask                exp=BP.6.1       got=BP.5.3.1       | spoke to one research dean at IESE, confirme
+  [ exact][ sec][xdom] auto_file_flagged  exp=BP.9.1.4     got=BP.9.5.1       | We assume primary monetization model is inst
+  [xexact][xsec][xdom] ask                exp=BP.5.1.1     got=BP.5.1.1       | We believe target users are academic researc
+  [ exact][xsec][xdom] ask                exp=BP.5.4.4     got=BP.5.4.3       | It is confirmed that CIO and IT Security hav
+  [ exact][ sec][ dom] ask                exp=BP.6.1       got=BP.10.3.8      | We confirmed with IESE research dean that aw
   [ exact][xsec][xdom] auto_file_flagged  exp=BP.9.2.2     got=BP.9.2.4       | I think pricing should be per-department bun
-  [ exact][xsec][xdom] auto_file_flagged  exp=BP.1.1.7.4   got=BP.1.1.7.7     | The product contradicts what we said about M
-  [ exact][ sec][ dom] auto_file          exp=BP.5.5.1     got=BP.9.4.5       | We assume annual institutional contracts ali
-  [xexact][xsec][xdom] auto_file          exp=BP.8.1.3     got=BP.8.1.3       | We verified that competitor Iris.ai uses per
-  [ exact][xsec][xdom] auto_file_flagged  exp=BP.5.3.2     got=BP.5.3.1       | We hypothesize that department heads control
-  [xexact][xsec][xdom] auto_file          exp=BP.7.5.2     got=BP.7.5.2       | The contract states GDPR compliance requires
-  [xexact][xsec][xdom] auto_file          exp=BP.9.2.1     got=BP.9.2.1       | Maybe we should consider freemium for indivi
+  [ exact][xsec][xdom] ask                exp=BP.1.1.7.4   got=BP.1.1.7.7     | The product contradicts what we said about M
+  [ exact][ sec][ dom] ask                exp=BP.5.5.1     got=BP.9.4.5       | We assume annual institutional contracts ali
+  [xexact][xsec][xdom] ask                exp=BP.8.1.3     got=BP.8.1.3       | We verified that competitor Iris.ai uses per
+  [ exact][xsec][xdom] ask                exp=BP.5.3.2     got=BP.5.3.1       | We hypothesize that department heads control
+  [xexact][xsec][xdom] auto_file_flagged  exp=BP.7.5.2     got=BP.7.5.2       | The contract states GDPR compliance requires
+  [xexact][xsec][xdom] auto_file_flagged  exp=BP.9.2.1     got=BP.9.2.1       | Maybe we should consider freemium for indivi
   [ exact][xsec][xdom] auto_file_flagged  exp=BP.1.1.3     got=BP.1.1.10      | It is documented that the epistemic layer ha
-  [xexact][xsec][xdom] auto_file_flagged  exp=BP.2.5.5     got=BP.2.5.5       | Our assumption is that researchers need diag
-  [xexact][xsec][xdom] auto_file_flagged  exp=BP.6.5.3     got=BP.6.5.3       | Data shows 73% of academics distrust automat
-  [ exact][ sec][ dom] auto_file          exp=BP.5.3.5     got=BP.9.2.3       | We assume institutions will pay but need to 
+  [xexact][xsec][xdom] ask                exp=BP.2.5.5     got=BP.2.5.5       | Our assumption is that researchers need diag
+  [xexact][xsec][xdom] ask                exp=BP.6.5.3     got=BP.6.5.3       | Data shows 73% of academics distrust automat
+  [ exact][ sec][ dom] ask                exp=BP.5.3.5     got=BP.9.2.3       | We assume institutions will pay but need to 
 
 PHASE 0 SCORECARD — 40 Alex-confirmed gold facts
-  run at: 2026-07-20T07:34:54.598770+00:00
+  run at: 2026-07-20T08:12:53.094067+00:00
 
   ── The three numbers that matter ──
-  1. Domain accuracy      : 28/40 = 70%
-  2. Section accuracy     : 23/40 = 58%
-  3. Auto-file precision  : 13/38 = 34%
+  1. Domain accuracy      : 29/40 = 72%
+  2. Section accuracy     : 24/40 = 60%
+  3. Auto-file precision (of 11 auto-filed):
+       domain  : 11/11 = 100%  <- wrong-domain pollution metric
+       section : 9/11 = 82%
+       exact   : 5/11 = 45%  (leaf — Phase 1b)
+       wrong-domain auto-files: 0
 
   ── Supporting numbers ──
-  Exact-leaf (strict)     : 13/40 = 32%
-  Exact-leaf (w/ alts)    : 16/40 = 40%
-  Review rate (soft_ask+ask): 2/40 = 5%
+  Exact-leaf (strict)     : 15/40 = 38%
+  Exact-leaf (w/ alts)    : 18/40 = 45%
+  Review rate (soft_ask+ask): 29/40 = 72%
 
   ── Tier breakdown ──
-  auto_file (no review)   : 18
-  auto_file_flagged       : 20
+  auto_file (no review)   : 0
+  auto_file_flagged       : 11
   soft_ask                : 0
-  ask (Alex must place)   : 2
+  ask (Alex must place)   : 29
