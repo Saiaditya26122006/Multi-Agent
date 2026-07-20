@@ -374,56 +374,36 @@ async def handle_message(message_data):
     session_id = l0_result["session_id"]
     ceo_id = l0_result["ceo_id"]
 
-    # Check for topic-change notification (set by get_active_session)
-    topic_notify_key = f"topic_change_notify:{chat_id}"
-    old_idea = safe_redis_get(topic_notify_key)
-    if old_idea:
-        old_idea_str = old_idea.decode("utf-8") if isinstance(old_idea, bytes) else old_idea
-        await send_reply(
-            chat_id,
-            f"Previous idea ({old_idea_str}) saved and paused — starting fresh on this one.",
-        )
-        safe_redis_delete(topic_notify_key)
-        logger.info("[L0] Topic change notification sent for '%s'", old_idea_str)
+    # Topic change is now detected via session state machine, not Redis
+    # get_active_session() already handles topic-change detection internally
+    # No notification needed here
 
     # ========================================================================
     # STEP 1.4: Handle pending task challenge/adjust responses
     # ========================================================================
-    challenge_key = f"challenge_pending:{chat_id}"
-    challenge_task_id = safe_redis_get(challenge_key)
+    challenge_task_id = get_session_data(session_id, "challenge_pending_task_id")
     if challenge_task_id:
-        task_id_str = (
-            challenge_task_id.decode("utf-8")
-            if isinstance(challenge_task_id, bytes)
-            else challenge_task_id
-        )
-        safe_redis_delete(challenge_key)
+        set_session_data(session_id, "challenge_pending_task_id", None)
         logger.info(
-            "[TASK] Challenge received for %s: %s", task_id_str, text
+            "[TASK] Challenge received for %s: %s", challenge_task_id, text
         )
         await send_reply(
             chat_id,
-            f"⚡ Challenge noted for task {task_id_str}.\n\n"
+            f"⚡ Challenge noted for task {challenge_task_id}.\n\n"
             f"Your reasoning: \"{text}\"\n\n"
             "I'll flag this dependency for review before execution."
         )
         return
 
-    adjust_key = f"adjust_pending:{chat_id}"
-    adjust_task_id = safe_redis_get(adjust_key)
+    adjust_task_id = get_session_data(session_id, "adjust_pending_task_id")
     if adjust_task_id:
-        task_id_str = (
-            adjust_task_id.decode("utf-8")
-            if isinstance(adjust_task_id, bytes)
-            else adjust_task_id
-        )
-        safe_redis_delete(adjust_key)
+        set_session_data(session_id, "adjust_pending_task_id", None)
         logger.info(
-            "[TASK] Adjustment received for %s: %s", task_id_str, text
+            "[TASK] Adjustment received for %s: %s", adjust_task_id, text
         )
         await send_reply(
             chat_id,
-            f"🔧 Adjustment noted for task {task_id_str}.\n\n"
+            f"🔧 Adjustment noted for task {adjust_task_id}.\n\n"
             f"Your change: \"{text}\"\n\n"
             "I'll apply this before executing the task."
         )
@@ -439,9 +419,9 @@ async def handle_message(message_data):
     # ========================================================================
     text_lower = text.lower().strip()
 
-    # TASK 3: Check Redis for active Gate 2 listener before processing agree/kill
+    # Check session state for active Gate 2 listener before processing agree/kill
     if text_lower in ("agree", "kill"):
-        gate2_active = safe_redis_get(f"gate2_active_group:{chat_id}")
+        gate2_active = get_session_flag(session_id, "gate2_active", False)
         if gate2_active:
             # Gate 2 listener will handle this — drop silently
             print(f"[GUARD] ✓ Gate 2 command '{text_lower}' will be handled by listener — dropping from main pipeline")
@@ -460,13 +440,10 @@ async def handle_message(message_data):
     # STEP 1.55: Handle DELIVER/CANCEL response for final delivery gate
     # ========================================================================
     if text_lower in ("deliver", "cancel"):
-        pending_keys = redis_client.keys("final_delivery_state:*")
-        if pending_keys:
-            key = pending_keys[0]
-            if isinstance(key, bytes):
-                key = key.decode("utf-8")
-            run_id = key.replace("final_delivery_state:", "")
-            safe_redis_set(f"final_delivery_response:{run_id}", text_lower, ex=3600)
+        # Check if there's a pending delivery in this session
+        pending_run_id = get_session_data(session_id, "final_delivery_pending")
+        if pending_run_id:
+            set_session_data(session_id, f"final_delivery_response_{pending_run_id}", text_lower)
             ack = (
                 "Delivering the final plan now."
                 if text_lower == "deliver"
@@ -489,17 +466,13 @@ async def handle_message(message_data):
             .order("started_at", desc=True) \
             .limit(1) \
             .execute()
-        
+
         if completed.data:
             proceed_session_id = completed.data[0]["id"]
         else:
             proceed_session_id = session_id  # fallback
-        
-        safe_redis_set(
-            f"proceed_response:{proceed_session_id}",
-            text_lower,
-            ex=7200,
-        )
+
+        set_session_data(proceed_session_id, "proceed_response", text_lower)
         await send_reply(
             chat_id,
             f"✓ Got it. {'Starting' if text_lower == 'proceed' else 'Running with available data'}..."
@@ -510,27 +483,23 @@ async def handle_message(message_data):
     # ========================================================================
     # STEP 1.7: Route clarification responses back to Mother Agent
     # ========================================================================
-    # TASK 6: Check if we're awaiting a clarification response from CEO
-    clarification_key = f"awaiting_clarification:{chat_id}"
-    clarification_data = safe_redis_get(clarification_key)
+    clarification_data = get_session_data(session_id, "clarification_data")
     if clarification_data:
         try:
-            import json as _json
-            clarification = _json.loads(clarification_data.decode("utf-8") if isinstance(clarification_data, bytes) else clarification_data)
-            task_id = clarification.get("task_id")
-            run_id = clarification.get("run_id")
+            task_id = clarification_data.get("task_id")
+            run_id = clarification_data.get("run_id")
 
             print(f"[CLARIFICATION] Routing CEO response to Mother Agent for task {task_id}")
 
-            # Store the clarification answer in Redis for Mother Agent to pick up
-            safe_redis_set(
-                f"clarification_response:{task_id}",
-                _json.dumps({"answer": text, "task_id": task_id, "run_id": run_id}),
-                ex=3600,
+            # Store clarification answer for Mother Agent
+            set_session_data(
+                session_id,
+                "clarification_response",
+                {"answer": text, "task_id": task_id, "run_id": run_id}
             )
 
-            # Clear the awaiting key
-            safe_redis_delete(clarification_key)
+            # Clear the awaiting data
+            set_session_data(session_id, "clarification_data", None)
 
             await send_reply(
                 chat_id,
@@ -562,11 +531,7 @@ async def handle_message(message_data):
             logger.info("[ROUTER] NEEDS_CLARIFICATION but explicit topic-change detected — routing normally")
 
         # Get last question asked (for router context)
-        last_q_key = f"last_question:{chat_id}"
-        last_question_raw = safe_redis_get(last_q_key)
-        last_question = None
-        if last_question_raw:
-            last_question = last_question_raw.decode("utf-8") if isinstance(last_question_raw, bytes) else last_question_raw
+        last_question = get_session_data(session_id, "last_question")
 
         print("\n[ROUTER] Classifying message intent...")
         intent = classify_message(text, session_state=current_state, last_question_asked=last_question)
@@ -606,8 +571,7 @@ async def handle_message(message_data):
     if not is_continue_response and not is_new_response:
         is_mid_conversation = current_state in ["NEEDS_CLARIFICATION", "AWAITING_APPROVAL"]
 
-        welcome_key = f"welcome_sent:{chat_id}"
-        welcome_already_sent = safe_redis_get(welcome_key) is not None
+        welcome_already_sent = get_session_flag(session_id, "welcome_sent", False)
 
         if (
             not is_mid_conversation
@@ -620,8 +584,8 @@ async def handle_message(message_data):
 
             if welcome_msg:
                 await send_reply(chat_id, welcome_msg)
-                safe_redis_set(welcome_key, "1", ex=7200)
-                print(f"[MEMORY] ✓ Sent welcome back message (locked for 2h)")
+                set_session_flag(session_id, "welcome_sent", True)
+                print(f"[MEMORY] ✓ Sent welcome back message")
                 return
 
     # Handle "continue" response
@@ -680,9 +644,8 @@ async def handle_message(message_data):
             update_session_state(session_id, "COMPLETED")
             print("[RESET] ✓ Session closed, assumptions deactivated")
 
-        # Clear last question cache
-        last_q_key = f"last_question:{chat_id}"
-        safe_redis_delete(last_q_key)
+        # Clear last question from session state
+        set_session_data(session_id, "last_question", None)
 
         await send_reply(
             chat_id,
@@ -738,14 +701,15 @@ async def handle_message(message_data):
             task_preview_msg = format_task_preview(preview_tasks)
             print(f"[PHASE2] ✓ Generated preview with {len(preview_tasks)} tasks")
 
-            # Trigger Phase 2 pipeline via Redis
+            # Trigger Phase 2 pipeline via message bus
             print("[PHASE2] Triggering Phase 2 pipeline...")
-            safe_redis_set(
-                f"pipeline_trigger:{session_id}",
-                "full_pipeline",
-                ex=3600,
+            await message_bus.send(
+                sender="main",
+                recipient="mother_agent",
+                payload={"trigger": "full_pipeline", "session_id": session_id},
+                session_id=session_id
             )
-            print(f"[PHASE2] ✓ Pipeline trigger set for session {session_id}")
+            print(f"[PHASE2] ✓ Pipeline trigger sent for session {session_id}")
 
             # Send confirmation with task preview + inline keyboard
             confirmation = "✅ Decision approved! Building the full business plan.\n\n"
@@ -772,9 +736,8 @@ async def handle_message(message_data):
             from memory.supabase_client import clear_session_assumptions
             clear_session_assumptions(session_id)
 
-            # Clear the last question cache
-            last_q_key = f"last_question:{chat_id}"
-            safe_redis_delete(last_q_key)
+            # Clear the last question from session state
+            set_session_data(session_id, "last_question", None)
 
             # Reset session to needs clarification
             update_session_state(session_id, "NEEDS_CLARIFICATION")
@@ -876,8 +839,7 @@ async def handle_message(message_data):
         print(f"[L1] Assumption: {assumption_id}")
 
         # Store last question so router knows what to expect next
-        last_q_key = f"last_question:{chat_id}"
-        safe_redis_set(last_q_key, question, ex=86400)
+        set_session_data(session_id, "last_question", question)
 
         # Send clarifying question to CEO
         await send_reply(chat_id, question)
@@ -927,7 +889,7 @@ async def handle_callback(callback_data):
     if data.startswith("task_") or data.startswith("group_"):
         if data.startswith("task_challenge_"):
             task_id = data.replace("task_challenge_", "")
-            safe_redis_set(f"challenge_pending:{chat_id}", task_id, ex=300)
+            set_session_data(session_id, "challenge_pending_task_id", task_id)
             await send_reply(
                 chat_id,
                 f"⚡ Challenging task {task_id}.\n\n"
@@ -944,7 +906,7 @@ async def handle_callback(callback_data):
 
         elif data.startswith("task_adjust_"):
             task_id = data.replace("task_adjust_", "")
-            safe_redis_set(f"adjust_pending:{chat_id}", task_id, ex=300)
+            set_session_data(session_id, "adjust_pending_task_id", task_id)
             await send_reply(
                 chat_id,
                 f"🔧 Adjusting task {task_id}.\n\n"
@@ -1027,14 +989,15 @@ async def handle_callback(callback_data):
         preview_tasks = generate_preview_tasks(session_id)
         task_preview_msg = format_task_preview(preview_tasks)
 
-        # Trigger Phase 2 pipeline via Redis
+        # Trigger Phase 2 pipeline via message bus
         print("[PHASE2] Triggering Phase 2 pipeline...")
-        safe_redis_set(
-            f"pipeline_trigger:{session_id}",
-            "full_pipeline",
-            ex=3600,
+        await message_bus.send(
+            sender="main",
+            recipient="mother_agent",
+            payload={"trigger": "full_pipeline", "session_id": session_id},
+            session_id=session_id
         )
-        print(f"[PHASE2] ✓ Pipeline trigger set for session {session_id}")
+        print(f"[PHASE2] ✓ Pipeline trigger sent for session {session_id}")
 
         confirmation = "✅ Decision approved! Building the full business plan.\n\n"
         if task_preview_msg:
@@ -1059,9 +1022,8 @@ async def handle_callback(callback_data):
         from memory.supabase_client import clear_session_assumptions
         clear_session_assumptions(session_id)
 
-        # Clear last question cache
-        last_q_key = f"last_question:{chat_id}"
-        safe_redis_delete(last_q_key)
+        # Clear last question from session state
+        set_session_data(session_id, "last_question", None)
 
         # Reset session
         update_session_state(session_id, "NEEDS_CLARIFICATION")
