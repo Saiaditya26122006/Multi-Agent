@@ -2086,9 +2086,11 @@ def extract_atomic_facts(text: str) -> Optional[list[dict]]:
     if not text or not text.strip():
         return None
     try:
+        import time as _time
         from web.handlers.llm_helper import _get_client
         import os
 
+        _t0 = _time.monotonic()
         client = _get_client()
         model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 
@@ -2146,6 +2148,10 @@ def extract_atomic_facts(text: str) -> Optional[list[dict]]:
                     100 * coverage,
                 )
                 return None
+        logger.info(
+            "[FeedHandler] LLM extraction: %d facts from %d chars in %.2fs",
+            len(facts), len(text), _time.monotonic() - _t0,
+        )
         return facts
     except Exception as e:  # noqa: BLE001
         logger.debug("[FeedHandler] LLM fact extraction failed (fallback to regex): %s", e)
