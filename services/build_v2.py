@@ -81,10 +81,19 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict) -
     result = await orch._dispatch_to_agent(agent_name, session_id, run_id, input_package)
 
     if result:
-        # New output lands in needs_review (Alex/quality gate confirms -> done).
+        # Phase 3: grounding report travels with the draft so Alex sees how
+        # evidence-backed it is before accepting. Best-effort — never blocks.
+        grounding = None
+        try:
+            from services.grounding import check_draft
+            grounding = check_draft(result, session_id)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("[BuildV2] grounding skipped for %s: %s", section_id, e)
+        draft = {"output": result, "grounding": grounding}
         section_state.update_section(session_id, section_id,
-                                     status="needs_review", draft=result, blocked_on=None)
-        logger.info("[BuildV2] section %s produced output -> needs_review", section_id)
+                                     status="needs_review", draft=draft, blocked_on=None)
+        rate = (grounding or {}).get("rate")
+        logger.info("[BuildV2] section %s -> needs_review (grounding rate=%s)", section_id, rate)
     else:
         section_state.update_section(session_id, section_id,
                                      status="failed", blocked_on="agent returned no output")
