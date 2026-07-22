@@ -89,11 +89,20 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict) -
             grounding = check_draft(result, session_id)
         except Exception as e:  # noqa: BLE001
             logger.debug("[BuildV2] grounding skipped for %s: %s", section_id, e)
-        draft = {"output": result, "grounding": grounding}
+        # Phase 5: adversarial quality gate for gated sections (Skeptic/Operator).
+        critique = None
+        try:
+            from services.quality_gate import critique_section
+            critique = critique_section(section_id, result)
+        except Exception as e:  # noqa: BLE001
+            logger.debug("[BuildV2] critique skipped for %s: %s", section_id, e)
+        draft = {"output": result, "grounding": grounding, "critique": critique}
         section_state.update_section(session_id, section_id,
                                      status="needs_review", draft=draft, blocked_on=None)
         rate = (grounding or {}).get("rate")
-        logger.info("[BuildV2] section %s -> needs_review (grounding rate=%s)", section_id, rate)
+        verdict = (critique or {}).get("verdict")
+        logger.info("[BuildV2] section %s -> needs_review (grounding=%s, critique=%s)",
+                    section_id, rate, verdict)
     else:
         section_state.update_section(session_id, section_id,
                                      status="failed", blocked_on="agent returned no output")
