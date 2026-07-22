@@ -146,7 +146,7 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict,
         critique = None
         try:
             from services.quality_gate import critique_section
-            critique = critique_section(section_id, result)
+            critique = critique_section(section_id, result, session_id)
         except Exception as e:  # noqa: BLE001
             logger.debug("[BuildV2] critique skipped for %s: %s", section_id, e)
         draft = {"output": result, "grounding": grounding, "critique": critique}
