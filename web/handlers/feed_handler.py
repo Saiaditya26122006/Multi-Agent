@@ -3240,6 +3240,17 @@ def _run_post_store_hooks(
     node_id: Optional[str] = None,
 ) -> None:
     """Run post-storage hooks: contradiction check, BP.12 register, supersession candidates, temporal scoring, multi-node linking, evidence links."""
+    # Build v2 handshake: if this fact satisfies an open data request, close it
+    # and unblock the waiting section (best-effort; no-op if unused/absent).
+    try:
+        from services.data_requests import try_fulfill
+
+        filled = try_fulfill(session_id, node_id, chunk_id)
+        if filled:
+            logger.info("[FeedHandler] fact fulfilled %d data request(s)", len(filled))
+    except Exception as e:  # noqa: BLE001
+        logger.debug("[FeedHandler] data-request fulfilment skipped: %s", e)
+
     try:
         _flag_supersession_candidates(content, chunk_id, node_id, session_id)
         from services.rag_service import retrieve, update_metadata

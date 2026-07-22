@@ -1446,6 +1446,46 @@ async def post_build_v2_accept(req: BuildV2SectionRequest) -> dict:
     return await asyncio.to_thread(accept_section, session_id, req.section_id)
 
 
+@app.get("/api/build-v2/data-requests")
+async def get_build_v2_data_requests(token: str) -> dict:
+    """The 'Needs your data' inbox — open data requests for this session."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.data_requests import list_open
+
+    return {"requests": await asyncio.to_thread(list_open, session_id)}
+
+
+class DataRequestCreate(BaseModel):
+    """Payload to raise a data request (agent/manual)."""
+
+    section_id: str
+    target_nodes: list[str]
+    description: str
+    why: Optional[str] = None
+    agent: Optional[str] = None
+    token: str
+
+
+@app.post("/api/build-v2/data-request")
+async def post_build_v2_data_request(req: DataRequestCreate) -> dict:
+    """Raise a data request → marks the section blocked_on_data."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.data_requests import create
+
+    result = await asyncio.to_thread(
+        create, session_id, req.section_id, req.target_nodes, req.description, req.why, req.agent
+    )
+    return {"created": result}
+
+
 def _get_session_key() -> str:
     """Resolve the current CEO session key the same way every other endpoint does."""
     try:
