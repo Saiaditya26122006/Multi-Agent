@@ -383,6 +383,7 @@ class BaseChildAgent(ABC):
 
         parsed = self._augment_parsed(parsed, input_package)
 
+        fallback_used = False
         try:
             parsed["task_id"] = task_id
             parsed["model_used"] = self.model_id
@@ -391,10 +392,31 @@ class BaseChildAgent(ABC):
             validated_output = self.OUTPUT_SCHEMA(**parsed)
         except Exception as e:
             logger.error("[%s] Output validation failed: %s", self.AGENT_NAME, e)
-            await self._escalate(task_id, session_id, pipeline_run_id, "output_conflict", str(e))
-            return
+            # Instead of escalating to a dead end (which, with no mother-agent
+            # handler, just fails the section), produce the agent's schema-valid
+            # fallback so the section COMPLETES with an honest, low-confidence
+            # draft that flags the missing data. Only escalate if the fallback is
+            # itself invalid.
+            try:
+                fb = self._fallback_defaults(validated_input)
+                fb["task_id"] = task_id
+                fb["model_used"] = self.model_id
+                fb["input_tokens"] = token_usage.get("input_tokens", 0)
+                fb["output_tokens"] = token_usage.get("output_tokens", 0)
+                validated_output = self.OUTPUT_SCHEMA(**fb)
+                fallback_used = True
+                logger.warning("[%s] Used schema-valid fallback after validation failure", self.AGENT_NAME)
+            except Exception as e2:
+                logger.error("[%s] Fallback also invalid (%s) — escalating", self.AGENT_NAME, e2)
+                await self._escalate(task_id, session_id, pipeline_run_id, "output_conflict", str(e))
+                return
 
         result = validated_output.model_dump()
+        if fallback_used:
+            result["_fallback_used"] = True
+            result["_fallback_reason"] = "LLM output failed schema validation; used honest low-confidence defaults"
+            if "confidence_score" in result:
+                result["confidence_score"] = "low"
         result["reasoning_trace"] = reasoning_trace
 
         # BELIEFS: Update agent's beliefs from produced output
@@ -456,6 +478,12 @@ class BaseChildAgent(ABC):
 
         await self._post_process(task_id, session_id, pipeline_run_id, validated_input, result)
         await self._send_inform(task_id, session_id, pipeline_run_id, result)
+
+        # Return the result so request_response (the caller — e.g. the build
+        # orchestrator) receives the output directly. The _send_inform above is
+        # the legacy "tell mother_agent" path; the return is what actually
+        # delivers the section output to whoever requested it.
+        return result
 
     # ── Structured failure handling (replaces template fallback) ──────────────
 
