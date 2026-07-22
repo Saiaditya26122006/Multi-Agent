@@ -1,0 +1,20 @@
+==============================================================================
+RAW (455 chars, format=paragraph)
+
+--- REGEX split: 5 facts ---
+  [ask               ] BP.3.1.1     conf=medium | We spoke to a research dean at IESE last month.
+  [ask               ] BP.2.4.3     conf=high   | He said manuscript quality is a real problem, and confirmed 
+  [ask               ] BP.9.2.3     conf=high   | Pricing is still open but we think it should be around 5000 
+  [ask               ] BP.4.2.4     conf=medium | It could go higher for research-intensive universities.
+  [ask               ] BP.5.4.4     conf=high   | The main risk is that procurement cycles in academia are slo
+  -> auto-filed: 0/5
+
+--- LLM extraction: 5 facts ---
+  [ask               ] BP.2.1.4     conf=high   | Research dean at IESE confirmed that manuscript quality is a
+  [ask               ] BP.2.4.3     conf=medium | Research dean at IESE confirmed that ANECA accreditation pre
+  [auto_file_flagged ] BP.9.2.1     conf=high   | Proposed pricing model: approximately 5000 euros per institu
+  [ask               ] BP.12.1      conf=medium | Risk: Pricing could be higher for research-intensive univers
+  [ask               ] BP.5.4.4     conf=high   | Risk: Academic procurement cycles are often 6-9 months long,
+  -> auto-filed: 1/5
+
+SUMMARY: regex auto-filed 0/5, LLM auto-filed 1/5

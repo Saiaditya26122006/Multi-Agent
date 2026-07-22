@@ -2056,6 +2056,98 @@ def _generate_document_context(text: str) -> Optional[str]:
         return None
 
 
+def extract_atomic_facts(text: str) -> Optional[list[dict]]:
+    """LLM-based atomic fact extraction with decontextualization.
+
+    Replaces regex splitting for prose/documents. One Haiku call:
+      - splits the text into distinct, independently-checkable claims
+      - keeps multi-sentence claims together when splitting would lose meaning
+      - makes each fact SELF-CONTAINED by resolving pronouns/references from the
+        surrounding text ("it grew 40%" -> "Revenue grew 40% in Q3"), which is
+        exactly what lets the classifier place a fact correctly in isolation
+      - drops headers/filler; never invents facts
+
+    Returns a list of {text, inferred_status, source_format} dicts, or None on
+    failure (caller falls back to regex splitting).
+    """
+    if not text or not text.strip():
+        return None
+    try:
+        from web.handlers.llm_helper import _get_client
+        import os
+
+        client = _get_client()
+        model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+
+        system = (
+            "You extract atomic facts from raw business/research notes for a knowledge base.\n"
+            "Rules:\n"
+            "- Each item is ONE independently-checkable claim.\n"
+            "- Keep a claim and its reason/evidence together if splitting loses meaning.\n"
+            "- Make each item SELF-CONTAINED: resolve pronouns and references using the "
+            "surrounding text so it is understandable in isolation "
+            "('it grew 40%' -> 'Revenue grew 40%').\n"
+            "- Preserve meaning-carrying labels (Risk:, Assumption:, Decision:, Metric:, etc.).\n"
+            "- Drop headers, filler, and non-factual text.\n"
+            "- Do NOT invent facts or add information not present in the text.\n"
+            "Return ONLY a JSON array of strings."
+        )
+        response = client.converse(
+            modelId=model_id,
+            system=[{"text": system}],
+            messages=[{"role": "user", "content": [{"text": text[:6000]}]}],
+            inferenceConfig={"maxTokens": 1500},
+        )
+        raw = response["output"]["message"]["content"][0]["text"].strip()
+        if raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+
+        import json as _json
+        items = _json.loads(raw)
+        if not isinstance(items, list):
+            return None
+        facts = []
+        for it in items:
+            s = it.strip() if isinstance(it, str) else ""
+            if len(s) > 3:
+                facts.append({
+                    "text": s,
+                    "inferred_status": _infer_epistemic_status(s),
+                    "source_format": "llm_extracted",
+                })
+        return facts or None
+    except Exception as e:  # noqa: BLE001
+        logger.debug("[FeedHandler] LLM fact extraction failed (fallback to regex): %s", e)
+        return None
+
+
+_LLM_EXTRACT_MIN_LENGTH = 200  # below this a typed line is one fact — regex is fine
+
+
+def divide_into_facts(text: str) -> list[dict]:
+    """Split raw input into atomic facts, using LLM extraction for prose.
+
+    Clean structured input (bullets/tables) uses the fast, free regex splitter.
+    Prose / mixed / document text long enough to hold multiple or
+    context-dependent claims goes through extract_atomic_facts (decontextualized,
+    higher-quality units — measured to produce facts that classify to better
+    nodes), falling back to regex if the LLM call fails or returns nothing.
+    """
+    fmt = detect_format(text)
+    if fmt in ("bullets", "table"):
+        return split_into_atomic_facts(text, fmt)
+    t = (text or "").strip()
+    # Use LLM extraction for multi-sentence prose (likely multiple claims and/or
+    # pronouns needing decontextualization) or any long block. A single short
+    # typed sentence is one fact — regex handles it free.
+    sentence_count = len(re.findall(r"[.!?](?:\s|$)", t))
+    if sentence_count >= 2 or len(t) >= _LLM_EXTRACT_MIN_LENGTH:
+        llm = extract_atomic_facts(text)
+        if llm:
+            return llm
+    return split_into_atomic_facts(text, fmt)
+
+
 def handle_raw_text(
     text: str,
     session_id: Optional[str] = None,
@@ -2106,7 +2198,7 @@ def handle_raw_text(
             emit_trace(session_id, "Feed", "splitting", "Splitting input into atomic facts...")
 
         fmt = detect_format(text)
-        raw_facts = split_into_atomic_facts(text, fmt)
+        raw_facts = divide_into_facts(text)
 
         if not raw_facts:
             return {
@@ -3413,7 +3505,7 @@ def process_uploaded_document(
         review-needed ones for the Process panel checklist).
     """
     fmt = detect_format(text)
-    raw_facts = split_into_atomic_facts(text, fmt)
+    raw_facts = divide_into_facts(text)  # LLM extraction for prose/documents
 
     truncated = len(raw_facts) > max_facts
     raw_facts = raw_facts[:max_facts]
