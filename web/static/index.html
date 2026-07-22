@@ -5827,6 +5827,13 @@
                         .catch(() => {}); // Silently fail if endpoint not available
                 }
 
+                // Build workspace: open the installment section board.
+                if (num === 2) {
+                    setTimeout(() => { try { loadBuildV2Board(); } catch (e) {} }, 150);
+                } else {
+                    if (typeof closeSidePanel === 'function' && sidePanel.classList.contains('active')) closeSidePanel();
+                }
+
                 lucide.createIcons();
 
                 if (sendMsg && token) {
@@ -5928,61 +5935,84 @@
                 needs_review: '🔎', done: '✅', failed: '❌',
             };
 
-            async function loadBuildV2Board(containerId = 'buildV2Board') {
-                const el = document.getElementById(containerId);
-                if (!el || !token) return;
+            async function loadBuildV2Board() {
+                if (!token) return;
                 try {
                     const [planRes, nextRes] = await Promise.all([
                         fetch(`/api/build-v2/plan?token=${token}`),
                         fetch(`/api/build-v2/next?token=${token}`),
                     ]);
-                    if (!planRes.ok) { el.innerHTML = '<div class="panel-empty">No active session.</div>'; return; }
+                    if (!planRes.ok) { openSidePanel('Build', '', '<div class="panel-empty">No active session — send a business idea first.</div>'); return; }
                     const plan = await planRes.json();
                     const next = nextRes.ok ? await nextRes.json() : { ready: [], needs_review: [] };
                     const ready = new Set(next.ready || []);
                     const review = new Set(next.needs_review || []);
-                    let html = `<div class="panel-section-title">Business plan — ${plan.done}/${plan.total} sections done</div>`;
+                    let html = `<div style="margin-bottom:10px;">
+                        <button class="confirm-leaf-btn" data-bv2-refresh="1">↻ Refresh</button>
+                        <button class="confirm-leaf-btn" data-bv2-export="1">⬇ Export plan</button>
+                    </div>`;
                     const secs = plan.sections || {};
                     Object.keys(secs).forEach(sid => {
                         const s = secs[sid];
                         const badge = BUILD_V2_BADGE[s.status] || '';
-                        const canRun = ready.has(sid);
-                        const inReview = review.has(sid);
-                        const blocked = s.status === 'blocked_on_data' && s.blocked_on ? ` — needs: ${escapeHtml(s.blocked_on)}` : '';
-                        let action = '';
-                        if (inReview) action = `<button class="confirm-leaf-btn" data-bv2-accept="${escapeHtml(sid)}">Accept</button>`;
-                        else if (canRun) action = `<button class="confirm-leaf-btn" data-bv2-run="${escapeHtml(sid)}">Work on this</button>`;
+                        const blocked = s.status === 'blocked_on_data' && s.blocked_on ? ` — <em>needs: ${escapeHtml(s.blocked_on)}</em>` : '';
+                        let actions = '';
+                        if (review.has(sid)) actions += `<button class="confirm-leaf-btn" data-bv2-accept="${escapeHtml(sid)}">Accept</button> `;
+                        if (ready.has(sid)) actions += `<button class="confirm-leaf-btn" data-bv2-run="${escapeHtml(sid)}">Work on this</button> `;
+                        if (s.status === 'done' || s.status === 'needs_review') actions += `<button class="confirm-leaf-btn" data-bv2-adjust="${escapeHtml(sid)}">Adjust</button>`;
                         html += `<div class="trace-entry"><div class="trace-entry-body">
                             <div class="trace-entry-detail">${badge} <strong>${escapeHtml(sid)}. ${escapeHtml(s.title || '')}</strong>${blocked}</div>
-                            <div>${action}</div></div></div>`;
+                            <div style="margin-top:4px;">${actions}</div></div></div>`;
                     });
-                    el.innerHTML = html;
-                    el.querySelectorAll('[data-bv2-run]').forEach(b => b.addEventListener('click', () => buildV2Action('section', b.dataset.bv2Run)));
-                    el.querySelectorAll('[data-bv2-accept]').forEach(b => b.addEventListener('click', () => buildV2Action('accept', b.dataset.bv2Accept)));
+                    openSidePanel('Build', `${plan.done}/${plan.total} sections done`, html);
+                    const body = sidePanelBody;
+                    body.querySelectorAll('[data-bv2-refresh]').forEach(b => b.addEventListener('click', () => loadBuildV2Board()));
+                    body.querySelectorAll('[data-bv2-export]').forEach(b => b.addEventListener('click', () => buildV2Export()));
+                    body.querySelectorAll('[data-bv2-run]').forEach(b => b.addEventListener('click', () => buildV2Action('section', b.dataset.bv2Run)));
+                    body.querySelectorAll('[data-bv2-accept]').forEach(b => b.addEventListener('click', () => buildV2Action('accept', b.dataset.bv2Accept)));
+                    body.querySelectorAll('[data-bv2-adjust]').forEach(b => b.addEventListener('click', () => {
+                        const fb = prompt('What should the agent change for section ' + b.dataset.bv2Adjust + '?');
+                        if (fb) buildV2Action('adjust', b.dataset.bv2Adjust, fb);
+                    }));
                 } catch (e) {
-                    el.innerHTML = '<div class="panel-empty">Could not load build board.</div>';
+                    openSidePanel('Build', '', '<div class="panel-empty">Could not load the build board.</div>');
                 }
             }
 
-            async function buildV2Action(kind, sectionId) {
+            async function buildV2Action(kind, sectionId, feedback) {
                 try {
+                    const payload = { section_id: sectionId, token };
+                    if (kind === 'adjust') payload.feedback = feedback || '';
                     const res = await fetch(`/api/build-v2/${kind}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ section_id: sectionId, token }),
+                        body: JSON.stringify(payload),
                     });
                     const data = await res.json();
                     if (kind === 'section' && data.status === 'blocked') {
-                        showToast(`Section ${sectionId} ${data.reason}`, 'error');
-                    } else if (kind === 'section' && data.status === 'started') {
-                        showToast(`Working on section ${sectionId}…`, 'success');
+                        showToast(`Section ${sectionId}: ${data.reason}`, 'error');
+                    } else if ((kind === 'section' || kind === 'adjust') && data.status === 'started') {
+                        showToast(`Working on section ${sectionId}… refresh in a moment`, 'success');
                     } else if (kind === 'accept') {
                         showToast(`Section ${sectionId} accepted`, 'success');
                     }
-                    setTimeout(() => loadBuildV2Board(), 800);
+                    setTimeout(() => loadBuildV2Board(), 1200);
                 } catch (e) {
                     showToast('Action failed — try again', 'error');
                 }
+            }
+
+            async function buildV2Export() {
+                try {
+                    const res = await fetch(`/api/build-v2/export?token=${token}`);
+                    if (!res.ok) { showToast('Export failed', 'error'); return; }
+                    const data = await res.json();
+                    openSidePanel('Business plan export', `${data.sections_included}/${data.total} sections drafted`,
+                        `<button class="confirm-leaf-btn" data-bv2-back="1" style="margin-bottom:8px;">← Back to board</button>
+                         <pre style="white-space:pre-wrap;font-size:12px;line-height:1.5;">${escapeHtml(data.markdown || '')}</pre>`);
+                    const back = sidePanelBody.querySelector('[data-bv2-back]');
+                    if (back) back.addEventListener('click', () => loadBuildV2Board());
+                } catch (e) { showToast('Export failed', 'error'); }
             }
 
             function loadWelcomeMessage() {
