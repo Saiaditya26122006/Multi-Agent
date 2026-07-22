@@ -5,6 +5,20 @@ Detects contradictions in knowledge_base using:
 1. Semantic similarity (fast pre-filter)
 2. LLM judge (accurate contradiction validation)
 3. Automatic filing to BP.12 governance register
+
+Relationship to the other contradiction paths (there are TWO detectors, ONE sink):
+  - THIS module = the BATCH / on-demand full-scan detector. It compares stored
+    pairs with an in-Python cosine pre-filter (threshold ~0.75) then LLM-judges.
+    Use for periodic audits over the whole KB.
+  - web/handlers/feed_handler._run_post_store_hooks = the REAL-TIME detector.
+    On each fact store it RAG-retrieves same-topic chunks (threshold ~0.4) and
+    LLM-judges. This is the live Feed path and the canonical one for new data.
+  - BP.12 register (services/bp12_register) is the shared SINK both write to —
+    not a third detector.
+Known inconsistency to reconcile later: the two detectors use different
+similarity methods and thresholds (0.75 Python-cosine vs 0.4 RAG), so a full
+consolidation should pick one method. Not done here — it needs its own tests so
+a governance path is never silently weakened.
 """
 
 import json

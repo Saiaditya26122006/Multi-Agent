@@ -38,10 +38,12 @@ VALID_SOURCE_TYPES = {
     "assumption_lifecycle",
     "contradiction_resolution",
     "run_metadata",
-    "ssot_node",
-    "ssot_mapping",
-    "bp_architecture",
-    "ssot_alex",
+    # NOTE: keep this set in sync with the DB CHECK constraint in
+    # database/migrations/add_knowledge_base.sql. ssot_node/ssot_mapping/
+    # bp_architecture/ssot_alex were advertised here but REJECTED by the DB
+    # constraint (a silent trap — store() would fail at insert). They are unused
+    # as source_types; BP-architecture retrieval uses source_type='ceo_doc' with
+    # metadata.layer='bp_architecture'/'bp_architecture_aug' instead.
 }
 
 VALID_EPISTEMIC_STATUSES = {
