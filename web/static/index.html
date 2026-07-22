@@ -1217,6 +1217,27 @@
             cursor: default;
         }
 
+        .confirm-leaf-btn {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            background: var(--accent-soft);
+            border: 1px solid var(--accent-medium);
+            border-radius: 12px;
+            padding: 3px 10px;
+            margin-top: 5px;
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        .confirm-leaf-btn:hover { background: var(--accent-medium); }
+        .confirm-leaf-btn:disabled { opacity: 0.5; cursor: default; }
+        .confirm-leaf-btn.confirmed {
+            color: var(--success);
+            background: var(--success-soft);
+            border-color: var(--success);
+        }
+
         /* MESSAGES AREA */
 
         .messages-area {
@@ -3875,17 +3896,59 @@
                 // Inject into activity drawer
                 if (activityEmptyState) activityEmptyState.remove();
                 facts.forEach(f => {
+                    // Section-filed facts carry a suggested leaf — offer a
+                    // one-click confirm that promotes the chunk to that leaf.
+                    const leafBtn = (f.suggested_leaf_id && f.chunk_id)
+                        ? `<button class="confirm-leaf-btn" data-chunk-id="${escapeHtml(f.chunk_id)}" data-leaf-id="${escapeHtml(f.suggested_leaf_id)}">Confirm leaf ${escapeHtml(f.suggested_leaf_id)}${f.suggested_leaf_title ? ' — ' + escapeHtml(f.suggested_leaf_title) : ''}</button>`
+                        : '';
                     const html = `
                         <div class="trace-entry">
                             <span class="trace-agent-tag mono" style="background:var(--success-soft);color:var(--success);border-color:var(--success);">FILED</span>
                             <div class="trace-entry-body">
                                 <div class="trace-entry-detail"><strong>${escapeHtml(f.node_id || '?')}</strong> — ${escapeHtml((f.verbatim_text || '').slice(0, 80))}</div>
                                 <div class="trace-entry-time">${escapeHtml(f.node_title || '')} · ${formatTime(new Date(data.timestamp || Date.now()))}</div>
+                                ${leafBtn}
                             </div>
                         </div>
                     `;
                     activityDrawerBody.insertAdjacentHTML('afterbegin', html);
                 });
+
+                // Bind the confirm-leaf delegated handler once. Entries are
+                // inserted incrementally, so delegate on the container rather
+                // than re-querying each time.
+                if (activityDrawerBody && !activityDrawerBody._leafHandlerBound) {
+                    activityDrawerBody._leafHandlerBound = true;
+                    activityDrawerBody.addEventListener('click', async (e) => {
+                        const btn = e.target.closest('.confirm-leaf-btn');
+                        if (!btn || btn.disabled || !token) return;
+                        const chunkId = btn.dataset.chunkId;
+                        const leafId = btn.dataset.leafId;
+                        btn.disabled = true;
+                        const label = btn.textContent;
+                        btn.textContent = 'Confirming...';
+                        try {
+                            const res = await fetch('/api/feed/confirm-leaf', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ chunk_id: chunkId, leaf_id: leafId, token }),
+                            });
+                            if (res.ok) {
+                                btn.textContent = 'Confirmed ✓ ' + leafId;
+                                btn.classList.add('confirmed');
+                                showToast('Leaf confirmed — ' + leafId, 'success');
+                            } else {
+                                btn.disabled = false;
+                                btn.textContent = label;
+                                showToast('Could not confirm leaf — try again', 'error');
+                            }
+                        } catch (err) {
+                            btn.disabled = false;
+                            btn.textContent = label;
+                            showToast('Could not confirm leaf — try again', 'error');
+                        }
+                    });
+                }
 
                 // Pulse the activity indicator
                 activityTrigger.classList.add('live');
