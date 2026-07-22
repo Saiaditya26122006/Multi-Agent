@@ -176,6 +176,40 @@ def get_plan(session_id: str) -> dict:
     return section_state.assemble(session_id)
 
 
+def quality_report(session_id: str) -> dict:
+    """Aggregate build quality across sections (Phase 7 measurement).
+
+    From the stored per-section grounding + critique, reports the metrics that
+    actually matter: mean grounding rate, count of ungrounded claims, and how
+    many gated sections passed vs need revision.
+    """
+    section_state.init_sections(session_id)
+    states = section_state.list_sections(session_id)
+    rates, ungrounded, gated_pass, gated_revise = [], 0, 0, 0
+    for s in states.values():
+        draft = s.get("draft")
+        if not isinstance(draft, dict):
+            continue
+        g = draft.get("grounding") or {}
+        if g.get("available") and g.get("rate") is not None:
+            rates.append(g["rate"])
+            ungrounded += len(g.get("ungrounded") or [])
+        c = draft.get("critique") or {}
+        if c.get("gated"):
+            if c.get("verdict") == "revise":
+                gated_revise += 1
+            else:
+                gated_pass += 1
+    mean_grounding = round(sum(rates) / len(rates), 3) if rates else None
+    return {
+        "sections_with_grounding": len(rates),
+        "mean_grounding_rate": mean_grounding,
+        "total_ungrounded_claims": ungrounded,
+        "gated_pass": gated_pass,
+        "gated_revise": gated_revise,
+    }
+
+
 def next_actions(session_id: str) -> dict:
     """What Alex can do now: ready sections + what's blocked/in-review."""
     section_state.init_sections(session_id)
