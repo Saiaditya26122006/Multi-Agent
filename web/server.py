@@ -143,6 +143,13 @@ def _handle_workspace_message(workspace: Workspace, text: str, session_id: str):
                 logger.error("[Server] Pipeline interaction error: %s", e)
                 return f"Error processing your response: {str(e)}"
 
+        # Build v2 typed commands ("work on section 8", "build all", "accept 8",
+        # "show plan") — handle BEFORE the Answer Engine so they aren't swallowed
+        # as knowledge queries.
+        bv2 = _dispatch_build_v2(text.strip().lower(), session_id)
+        if bv2 is not None:
+            return bv2
+
     # ── Answer Engine: handles ANY question across all workspaces ──────────
     from web.handlers.answer_engine import is_question, answer_question
 
@@ -311,6 +318,77 @@ def _dispatch_inspect(text_lower: str, text: str, session_id: str) -> str:
     except Exception as e:
         logger.error("[Inspect] Error answering question: %s", e)
         return f"Error: {e}"
+
+
+def _dispatch_build_v2(text_lower: str, session_id: str):
+    """Parse Build v2 natural-language commands. Returns a response string, or
+    None if the text isn't a build command (so other handlers can try)."""
+    import re
+    from services import build_v2, section_state
+
+    # The workspace router passes the chat_id; Build v2 state keys on the session
+    # UUID. Resolve it (no-op if already a UUID).
+    resolved = _chat_to_session_uuid(session_id)
+    if not resolved:
+        return ("I couldn't find an active session to build into — send your business "
+                "idea first, then we can work on sections.")
+    session_id = resolved
+
+    SEC = r"(bp\.?\d{1,2}|\d{1,2}|executive[ _]?summary|exec|summary)"
+
+    def _sid(raw: str):
+        raw = raw.strip().lower().replace("bp.", "").replace("bp", "").strip()
+        if raw in ("exec", "executive summary", "executive_summary", "summary"):
+            return "executive_summary"
+        return raw if raw.isdigit() else None
+
+    reg = section_state.load_registry()
+    title = lambda s: reg.get(s, {}).get("title", s)
+
+    # Build everything
+    if re.search(r"\bbuild (all|everything|the (whole )?plan|full plan)\b", text_lower):
+        build_v2.build_all(session_id)
+        return ("🏗️ Building **all sections** in dependency order. Watch the Build board "
+                "(side panel) — sections move to *needs review* as their agents finish, and "
+                "any that need more data will ask for it.")
+
+    # Show / plan / status
+    if text_lower in ("plan", "show plan", "status", "board", "sections", "progress"):
+        p = build_v2.get_plan(session_id)
+        return p.get("overview_markdown", "No plan yet.")
+
+    # Accept section N
+    m = re.search(r"\baccept\s+(?:section\s+)?" + SEC, text_lower)
+    if m and _sid(m.group(1)):
+        s = _sid(m.group(1))
+        build_v2.accept_section(session_id, s)
+        return f"✓ Section **{s} — {title(s)}** accepted."
+
+    # Adjust section N: <feedback>
+    m = re.search(r"\badjust\s+(?:section\s+)?" + SEC + r"\s*[:\-]?\s*(.*)", text_lower)
+    if m and _sid(m.group(1)) and m.group(2).strip():
+        s = _sid(m.group(1))
+        r = build_v2.adjust_section(session_id, s, m.group(2).strip())
+        if r.get("status") == "started":
+            return f"🔧 Revising section **{s} — {title(s)}** with your feedback…"
+        return f"Couldn't adjust section {s}: {r.get('reason', r.get('status'))}."
+
+    # Work on / build / run section N
+    m = re.search(r"\b(?:work on|build|run|do|start|generate)\s+(?:section\s+)?" + SEC, text_lower)
+    if m and _sid(m.group(1)):
+        s = _sid(m.group(1))
+        r = build_v2.run_section(session_id, s)
+        st = r.get("status")
+        if st == "started":
+            return (f"🔨 Working on section **{s} — {title(s)}**. Its agent is drafting now; "
+                    f"it'll appear on the Build board as *needs review* shortly (with a grounding "
+                    f"report, and a council review for the key sections).")
+        if st == "blocked":
+            return (f"Section **{s} — {title(s)}** is waiting on {r.get('reason','earlier sections')}. "
+                    f"Build those first, then come back to it.")
+        if st == "unknown_section":
+            return f"There's no section '{m.group(1)}'. Sections are 1–14 and the executive summary."
+    return None
 
 
 def _dispatch_build(text_lower: str, text: str, session_id: str) -> str:
@@ -1382,16 +1460,29 @@ class BuildV2SectionRequest(BaseModel):
     force: bool = False
 
 
+def _chat_to_session_uuid(chat) -> Optional[str]:
+    """Resolve a chat id to the latest session UUID. Queries the real column
+    (telegram_chat_id); returns the input unchanged if it's already a UUID."""
+    if chat is None:
+        return None
+    if "-" in str(chat):  # already a UUID
+        return str(chat)
+    try:
+        from services.rag_service import _get_supabase
+
+        cid = int(chat) if str(chat).isdigit() else chat
+        r = (_get_supabase().table("sessions").select("id")
+             .eq("telegram_chat_id", cid).order("started_at", desc=True).limit(1).execute())
+        if r.data:
+            return r.data[0]["id"]
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Could not resolve session uuid for chat %s: %s", chat, e)
+    return None
+
+
 def _resolve_session_id() -> Optional[str]:
     """Resolve the active session's UUID (not the chat_id) for Build v2 state."""
-    try:
-        from memory.supabase_client import get_active_session
-
-        session = get_active_session(_get_session_key())
-        return session.get("id") if session else None
-    except Exception as e:  # noqa: BLE001
-        logger.warning("Could not resolve session id: %s", e)
-        return None
+    return _chat_to_session_uuid(_get_session_key())
 
 
 @app.get("/api/build-v2/plan")
