@@ -56,6 +56,23 @@ async def _register_main_loop() -> None:
 
     set_main_loop(asyncio.get_running_loop())
 
+    # Keep the augmented BP-node index in sync with bp_architecture.json. Feed
+    # node creation upserts incrementally, but a direct edit to the file would
+    # otherwise leave the index stale until a manual rebuild. This does nothing
+    # when the file is unchanged (hash match); a real rebuild (840 embeds, a few
+    # minutes) runs in a worker thread so it never blocks server startup.
+    async def _refresh_aug_index() -> None:
+        try:
+            from services.bp_aug_index import ensure_fresh
+
+            result = await asyncio.to_thread(ensure_fresh)
+            if result.get("rebuilt"):
+                logger.info("Aug index rebuilt on startup: %s", result)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Aug index refresh skipped: %s", e)
+
+    asyncio.create_task(_refresh_aug_index())
+
 
 class ConnectionManager:
     """Manages active WebSocket connections per session."""

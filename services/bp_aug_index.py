@@ -16,6 +16,7 @@ Stored under source_type 'ceo_doc' with metadata.layer='bp_architecture_aug'
 (the DB knowledge_base_source_type_check constraint rejects 'ssot_node').
 """
 
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -25,6 +26,63 @@ logger = logging.getLogger(__name__)
 
 AUG_LAYER = "bp_architecture_aug"
 _ARCH_PATH = Path(__file__).parent.parent / "ceo_data" / "bp_architecture.json"
+_HASH_MARKER = Path(__file__).parent.parent / "ceo_data" / ".aug_index_hash"
+
+
+def _arch_hash() -> str:
+    """SHA-256 of bp_architecture.json (empty string if missing)."""
+    if not _ARCH_PATH.exists():
+        return ""
+    return hashlib.sha256(_ARCH_PATH.read_bytes()).hexdigest()
+
+
+def mark_synced() -> None:
+    """Record that the aug layer reflects the current architecture file.
+
+    Called after a full rebuild and after each incremental index_node() from
+    Feed node creation, so a direct edit to bp_architecture.json is the only
+    thing that makes ensure_fresh() see the layer as stale.
+    """
+    try:
+        _HASH_MARKER.write_text(_arch_hash())
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[AugIndex] Could not write hash marker: %s", e)
+
+
+def _aug_layer_empty() -> bool:
+    from services.rag_service import _get_supabase
+
+    try:
+        r = _get_supabase().table("knowledge_base").select(
+            "id", count="exact"
+        ).contains("metadata", {"layer": AUG_LAYER}).limit(1).execute()
+        return (r.count or 0) == 0
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[AugIndex] Could not check aug layer size: %s", e)
+        return False
+
+
+def is_stale() -> bool:
+    """True if the aug layer is empty or the architecture file changed since sync."""
+    if _aug_layer_empty():
+        return True
+    stored = _HASH_MARKER.read_text().strip() if _HASH_MARKER.exists() else ""
+    return stored != _arch_hash()
+
+
+def ensure_fresh(force: bool = False) -> dict:
+    """Rebuild the aug layer if it is stale (or force=True). Safe to call at
+    startup — returns a status dict, never raises."""
+    try:
+        if not force and not is_stale():
+            return {"rebuilt": False, "reason": "fresh"}
+        logger.info("[AugIndex] Aug layer stale — rebuilding")
+        result = reindex_all()
+        result["rebuilt"] = True
+        return result
+    except Exception as e:  # noqa: BLE001
+        logger.error("[AugIndex] ensure_fresh failed: %s", e)
+        return {"rebuilt": False, "error": str(e)}
 
 
 def aug_text(node: dict) -> str:
@@ -127,5 +185,6 @@ def reindex_all() -> dict:
         if ingested % 100 == 0:
             logger.info("[AugIndex]   %d/%d", ingested, len(nodes))
 
+    mark_synced()
     logger.info("[AugIndex] Rebuilt aug layer: %d nodes", ingested)
     return {"total": len(nodes), "ingested": ingested}

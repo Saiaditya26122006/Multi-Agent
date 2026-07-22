@@ -54,3 +54,4 @@ ceo_data/*.txt
 logs/
 outputs/
 evaluation/feed_corrections.jsonl
+ceo_data/.aug_index_hash
