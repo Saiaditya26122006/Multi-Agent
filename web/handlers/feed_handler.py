@@ -1626,11 +1626,12 @@ def _handle_duplicate_confirm(response_text: str, session_id: str) -> dict:
 AUTO_FILE_CONFIDENCE = "high"
 
 # --- Confidence Tier Routing ---
-# Four tiers map existing classifier signals to UX decisions:
-#   auto_file:         high + validated → store immediately, no prompt
-#   auto_file_flagged: high + not validated (or medium promoted by source) → store + flag
-#   soft_ask:          medium → lean-yes prompt, auto-file after 30s with needs_review
-#   ask:               low / none_fit → full review flow
+# Calibrated on the gold set (evaluation/calibrate_tier.py): LLM confidence is
+# uncorrelated with correctness, so _determine_tier now emits only two tiers:
+#   auto_file_flagged: router-committed (single domain + pick agrees) → store at
+#                      the section, flagged for one-click leaf confirmation
+#   ask:               everything else → full review flow (Alex places it)
+# The old "auto_file" (silent) and "soft_ask" tiers are no longer produced.
 
 QUARANTINE_TTL = 60 * 60 * 24 * 7  # 7 days
 QUARANTINE_KEY_PREFIX = "quarantine"
@@ -1663,7 +1664,8 @@ def _determine_tier(classification: dict, source: str = "alex_direct") -> str:
         source: Origin of the fact — "alex_direct" or "document".
 
     Returns:
-        One of: "auto_file", "auto_file_flagged", "soft_ask", "ask".
+        One of: "auto_file_flagged" (router-committed → store at section, flag
+        for leaf review) or "ask" (everything else → full review).
     """
     none_fit = classification.get("none_fit", True) or not classification.get("node_id")
     if none_fit:
@@ -2162,54 +2164,23 @@ def handle_raw_text(
             tier = _determine_tier(fact_data["classification"], source=source)
             tiered.append({"fact": fact_data, "tier": tier})
 
-        auto_file_batch = [t for t in tiered if t["tier"] == "auto_file"]
+        # _determine_tier only produces "auto_file_flagged" (router-committed,
+        # stored + flagged for leaf review) or "ask" (sent to Alex). The old
+        # "auto_file" (silent) and "soft_ask" tiers are no longer emitted.
         flagged_batch = [t for t in tiered if t["tier"] == "auto_file_flagged"]
-        soft_ask_batch = [t for t in tiered if t["tier"] == "soft_ask"]
         ask_batch = [t for t in tiered if t["tier"] == "ask"]
 
-        if session_id and (auto_file_batch or flagged_batch):
+        if session_id and flagged_batch:
             emit_trace(
                 session_id, "Feed", "auto_filing",
-                f"Auto-filing {len(auto_file_batch) + len(flagged_batch)} fact(s) "
-                f"({len(auto_file_batch)} high, {len(flagged_batch)} flagged)...",
-                {"auto": len(auto_file_batch), "flagged": len(flagged_batch),
-                 "soft_ask": len(soft_ask_batch), "ask": len(ask_batch)},
+                f"Auto-filing {len(flagged_batch)} fact(s) at section level "
+                f"(flagged for leaf review)...",
+                {"flagged": len(flagged_batch), "ask": len(ask_batch)},
             )
 
         auto_results = []
 
-        # Tier 1: auto_file — store immediately, no flag
-        for item in auto_file_batch:
-            fact_data = item["fact"]
-            classification = fact_data["classification"]
-            node_id = classification["node_id"]
-            node_title = classification.get("node_title", "")
-            audit = _build_audit_metadata(classification, source, "auto_file", fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
-            result = _store_fact_now(
-                verbatim=fact_data["verbatim_text"],
-                content_type=fact_data["content_type"],
-                epistemic_status=fact_data["epistemic_status"],
-                node_id=node_id,
-                node_title=node_title,
-                session_id=session_id,
-                content_confidence=fact_data["content_confidence"],
-                node_confidence=classification.get("confidence"),
-                extra_metadata=audit,
-            )
-            auto_results.append({
-                "verbatim_text": fact_data["verbatim_text"],
-                "node_id": node_id,
-                "node_title": node_title,
-                "epistemic_status": fact_data["epistemic_status"],
-                "status": result["status"],
-                "chunk_id": result.get("chunk_id"),
-                "confidence": classification.get("confidence", "high"),
-                "validated": classification.get("validated", False),
-                "tier": "auto_file",
-                "audit": audit,
-            })
-
-        # Tier 2: auto_file_flagged — store with needs_review=True
+        # Router-committed facts: store at the section, flagged for leaf review.
         for item in flagged_batch:
             fact_data = item["fact"]
             classification = fact_data["classification"]
@@ -2263,14 +2234,8 @@ def handle_raw_text(
         if auto_results:
             response_parts.append(_format_auto_file_table(auto_results))
 
-        # Tier 3: soft_ask — present with a lean-yes prompt
-        # Combined with Tier 4 (ask) into the review queue, but soft_ask
-        # facts get a friendlier prompt and auto-file after timeout.
+        # Non-router-committed facts go to Alex for placement.
         review_batch = []
-        for item in soft_ask_batch:
-            fact_data = item["fact"]
-            fact_data["tier"] = "soft_ask"
-            review_batch.append(fact_data)
         for item in ask_batch:
             fact_data = item["fact"]
             fact_data["tier"] = "ask"
@@ -3504,22 +3469,20 @@ def process_uploaded_document(
             )
 
     # --- Tier-based routing (same logic as chat flow) ---
-    auto_file_batch = [f for f in classified if f["tier"] == "auto_file"]
+    # _determine_tier only emits "auto_file_flagged" or "ask" now.
     flagged_batch = [f for f in classified if f["tier"] == "auto_file_flagged"]
-    review_batch = [f for f in classified if f["tier"] in ("soft_ask", "ask")]
+    review_batch = [f for f in classified if f["tier"] == "ask"]
 
     emit_trace(
         session_id, "Feed", "tier_routing",
-        f"Tier routing: {len(auto_file_batch)} auto-file, "
-        f"{len(flagged_batch)} flagged, {len(review_batch)} need review",
-        {"auto": len(auto_file_batch), "flagged": len(flagged_batch),
-         "review": len(review_batch), "filename": filename},
+        f"Tier routing: {len(flagged_batch)} flagged, {len(review_batch)} need review",
+        {"flagged": len(flagged_batch), "review": len(review_batch), "filename": filename},
     )
 
-    # Auto-file high-confidence facts immediately
+    # Auto-file router-committed facts immediately (flagged for review).
     auto_filed_results = []
     auto_filed_ids = []
-    for fact_data in auto_file_batch + flagged_batch:
+    for fact_data in flagged_batch:
         classification = fact_data["classification"]
         node_id = classification["node_id"]
         node_title = classification.get("node_title", "")
@@ -3854,8 +3817,6 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
     lines.append("")
     lines.append("-" * 40)
 
-    tier = fact_data.get("tier", "ask")
-
     if none_fit:
         suggested_parent = fact_data.get("suggested_parent", {})
         no_domain = suggested_parent.get("no_domain_match", False)
@@ -3863,8 +3824,6 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
             lines.append("  [1] Create new top-level domain — type a name to create it")
         else:
             lines.append(f"  [1] Create new node under {suggested_parent.get('node_id', '?')}")
-    elif tier == "soft_ask":
-        lines.append("  Looks like a good fit. [yes] to confirm, [adjust] to move, [skip] to discard")
     else:
         lines.append("  [1] Confirm — store here")
     lines.append("  [2] Adjust — pick a different node")
