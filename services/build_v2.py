@@ -157,8 +157,15 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict,
         logger.info("[BuildV2] section %s -> needs_review (grounding=%s, critique=%s)",
                     section_id, rate, verdict)
     else:
-        section_state.update_section(session_id, section_id,
-                                     status="failed", blocked_on="agent returned no output")
+        # No result = the agent escalated (typically weak/missing evidence for
+        # its schema). That's a data gap, not a crash — mark blocked_on_data so
+        # Alex can feed the missing evidence (which auto-resumes via the Phase 2
+        # handshake), rather than a dead-end 'failed'.
+        section_state.update_section(
+            session_id, section_id, status="blocked_on_data",
+            blocked_on="agent needs more evidence — provide supporting data via Feed",
+        )
+        logger.info("[BuildV2] section %s -> blocked_on_data (agent escalated)", section_id)
 
 
 def accept_section(session_id: str, section_id: str) -> dict:
