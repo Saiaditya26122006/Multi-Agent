@@ -5949,7 +5949,8 @@
                     const review = new Set(next.needs_review || []);
                     let html = `<div style="margin-bottom:10px;">
                         <button class="confirm-leaf-btn" data-bv2-refresh="1">↻ Refresh</button>
-                        <button class="confirm-leaf-btn" data-bv2-export="1">⬇ Export plan</button>
+                        <button class="confirm-leaf-btn" data-bv2-export="1">⬇ Preview plan</button>
+                        <a class="confirm-leaf-btn" href="/api/build-v2/export-docx?token=${encodeURIComponent(token)}" download="business_plan.docx" style="text-decoration:none;">⬇ Download .docx</a>
                     </div>`;
                     const secs = plan.sections || {};
                     Object.keys(secs).forEach(sid => {

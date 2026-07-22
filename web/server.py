@@ -1478,6 +1478,27 @@ async def get_build_v2_export(token: str) -> dict:
     return await asyncio.to_thread(export_plan, session_id)
 
 
+@app.get("/api/build-v2/export-docx")
+async def get_build_v2_export_docx(token: str):
+    """Download the current business plan as a .docx file."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.build_v2 import export_docx
+    from fastapi import Response
+
+    data = await asyncio.to_thread(export_docx, session_id)
+    if not data:
+        raise HTTPException(status_code=500, detail="DOCX export unavailable")
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="business_plan.docx"'},
+    )
+
+
 @app.get("/api/build-v2/data-requests")
 async def get_build_v2_data_requests(token: str) -> dict:
     """The 'Needs your data' inbox — open data requests for this session."""
