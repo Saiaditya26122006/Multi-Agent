@@ -1446,6 +1446,38 @@ async def post_build_v2_accept(req: BuildV2SectionRequest) -> dict:
     return await asyncio.to_thread(accept_section, session_id, req.section_id)
 
 
+class BuildV2AdjustRequest(BaseModel):
+    section_id: str
+    feedback: str
+    token: str
+
+
+@app.post("/api/build-v2/adjust")
+async def post_build_v2_adjust(req: BuildV2AdjustRequest) -> dict:
+    """Re-open a section and re-run it with Alex's feedback (real Adjust)."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.build_v2 import adjust_section
+
+    return await asyncio.to_thread(adjust_section, session_id, req.section_id, req.feedback)
+
+
+@app.get("/api/build-v2/export")
+async def get_build_v2_export(token: str) -> dict:
+    """Compile the current section drafts into one markdown business plan."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.build_v2 import export_plan
+
+    return await asyncio.to_thread(export_plan, session_id)
+
+
 @app.get("/api/build-v2/data-requests")
 async def get_build_v2_data_requests(token: str) -> dict:
     """The 'Needs your data' inbox — open data requests for this session."""

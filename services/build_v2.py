@@ -17,13 +17,15 @@ from services import section_state
 logger = logging.getLogger(__name__)
 
 
-def run_section(session_id: str, section_id: str, force: bool = False) -> dict:
+def run_section(session_id: str, section_id: str, force: bool = False,
+                feedback: Optional[str] = None) -> dict:
     """Start one section's agent in the background. Returns immediately.
 
     Returns {status, section_id, [reason]} where status is:
       - "started"  — agent dispatched
       - "blocked"  — dependencies not done (unless force=True)
       - "unknown_section"
+    `feedback` (Adjust flow) is passed to the agent to steer a revision.
     """
     registry = section_state.load_registry()
     if section_id not in registry:
@@ -38,11 +40,14 @@ def run_section(session_id: str, section_id: str, force: bool = False) -> dict:
         return {"status": "blocked", "section_id": section_id,
                 "reason": f"waiting on sections {pending}", "pending_deps": pending}
 
-    section_state.update_section(session_id, section_id, status="in_progress")
+    cur = (states.get(section_id) or {}).get("status")
+    # re-open a done/needs_review section for a revision
+    section_state.update_section(session_id, section_id,
+                                 status="in_progress" if cur != "in_progress" else cur)
 
     def _worker() -> None:
         try:
-            asyncio.run(_run_section_async(session_id, section_id, registry))
+            asyncio.run(_run_section_async(session_id, section_id, registry, feedback))
         except Exception as e:  # noqa: BLE001
             logger.exception("[BuildV2] section %s crashed", section_id)
             try:
@@ -56,7 +61,49 @@ def run_section(session_id: str, section_id: str, force: bool = False) -> dict:
             "agent": registry[section_id].get("agent")}
 
 
-async def _run_section_async(session_id: str, section_id: str, registry: dict) -> None:
+def adjust_section(session_id: str, section_id: str, feedback: str) -> dict:
+    """Re-open a done/needs_review section and re-run it with Alex's feedback.
+
+    Replaces the old stubbed 'Adjust' — real section-level revision.
+    """
+    sec = section_state.get_section(session_id, section_id)
+    if not sec:
+        return {"status": "unknown_section"}
+    if sec.get("status") not in ("done", "needs_review", "failed"):
+        return {"status": "not_adjustable", "reason": f"section is {sec.get('status')}"}
+    return run_section(session_id, section_id, force=True, feedback=feedback)
+
+
+def export_plan(session_id: str) -> dict:
+    """Compile the current section drafts into one markdown business plan.
+
+    A view over section state (not a re-run). Includes only sections that have a
+    draft; marks the rest as pending. DOCX export can adapt evaluation/export_docx.
+    """
+    section_state.init_sections(session_id)
+    registry = section_state.load_registry()
+    states = section_state.list_sections(session_id)
+    lines = ["# Business Plan\n"]
+    included = 0
+    for sid, meta in registry.items():
+        sec = states.get(sid, {})
+        draft = sec.get("draft")
+        output = draft.get("output") if isinstance(draft, dict) else draft
+        lines.append(f"\n## {sid}. {meta.get('title', sid)}\n")
+        if output and sec.get("status") in ("done", "needs_review"):
+            included += 1
+            if isinstance(output, (dict, list)):
+                import json as _json
+                lines.append("```json\n" + _json.dumps(output, indent=2, ensure_ascii=False)[:4000] + "\n```")
+            else:
+                lines.append(str(output)[:4000])
+        else:
+            lines.append(f"_{sec.get('status', 'not_started')} — not yet drafted._")
+    return {"markdown": "\n".join(lines), "sections_included": included, "total": len(registry)}
+
+
+async def _run_section_async(session_id: str, section_id: str, registry: dict,
+                             feedback: Optional[str] = None) -> None:
     from services.pipeline_orchestrator import get_orchestrator
     from ceo_data.loader import get_relevant_ceo_data
 
@@ -76,6 +123,12 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict) -
 
     await orch._ensure_agents_registered([agent_name])
     input_package = orch._build_input_package(agent_name, phase1, prior_outputs, ceo_data)
+    if feedback:
+        # Adjust flow: give the agent Alex's revision note + its prior draft.
+        input_package["revision_feedback"] = feedback
+        prior = section_state.get_section(session_id, section_id) or {}
+        pd = prior.get("draft")
+        input_package["prior_draft"] = pd.get("output") if isinstance(pd, dict) else pd
     run_id = f"secrun_{uuid.uuid4().hex[:8]}"
 
     result = await orch._dispatch_to_agent(agent_name, session_id, run_id, input_package)
