@@ -3422,6 +3422,9 @@
                 <i data-lucide="x" style="width:14px;height:14px;"></i>
             </button>
         </div>
+        <!-- Build v2 installment board (call loadBuildV2Board() to populate).
+             Backend/endpoints live-tested; panel not yet browser-verified. -->
+        <div id="buildV2Board" class="build-v2-board" style="display:none;padding:10px;"></div>
         <div class="side-panel-body" id="sidePanelBody">
         </div>
     </div>
@@ -5916,6 +5919,72 @@
             // aren't in the same store the Telegram-era /api/messages
             // endpoint reads from) is a larger feature left for later —
             // this at least stops the UI from lying about plan state.
+            // ── Build v2: installment section board ─────────────────────────
+            // Renders the section-state plan and drives per-section runs.
+            // NOTE: backend + endpoints are live-tested; this UI panel is not yet
+            // browser-verified end to end.
+            const BUILD_V2_BADGE = {
+                not_started: '⬜', in_progress: '🚧', blocked_on_data: '⛔',
+                needs_review: '🔎', done: '✅', failed: '❌',
+            };
+
+            async function loadBuildV2Board(containerId = 'buildV2Board') {
+                const el = document.getElementById(containerId);
+                if (!el || !token) return;
+                try {
+                    const [planRes, nextRes] = await Promise.all([
+                        fetch(`/api/build-v2/plan?token=${token}`),
+                        fetch(`/api/build-v2/next?token=${token}`),
+                    ]);
+                    if (!planRes.ok) { el.innerHTML = '<div class="panel-empty">No active session.</div>'; return; }
+                    const plan = await planRes.json();
+                    const next = nextRes.ok ? await nextRes.json() : { ready: [], needs_review: [] };
+                    const ready = new Set(next.ready || []);
+                    const review = new Set(next.needs_review || []);
+                    let html = `<div class="panel-section-title">Business plan — ${plan.done}/${plan.total} sections done</div>`;
+                    const secs = plan.sections || {};
+                    Object.keys(secs).forEach(sid => {
+                        const s = secs[sid];
+                        const badge = BUILD_V2_BADGE[s.status] || '';
+                        const canRun = ready.has(sid);
+                        const inReview = review.has(sid);
+                        const blocked = s.status === 'blocked_on_data' && s.blocked_on ? ` — needs: ${escapeHtml(s.blocked_on)}` : '';
+                        let action = '';
+                        if (inReview) action = `<button class="confirm-leaf-btn" data-bv2-accept="${escapeHtml(sid)}">Accept</button>`;
+                        else if (canRun) action = `<button class="confirm-leaf-btn" data-bv2-run="${escapeHtml(sid)}">Work on this</button>`;
+                        html += `<div class="trace-entry"><div class="trace-entry-body">
+                            <div class="trace-entry-detail">${badge} <strong>${escapeHtml(sid)}. ${escapeHtml(s.title || '')}</strong>${blocked}</div>
+                            <div>${action}</div></div></div>`;
+                    });
+                    el.innerHTML = html;
+                    el.querySelectorAll('[data-bv2-run]').forEach(b => b.addEventListener('click', () => buildV2Action('section', b.dataset.bv2Run)));
+                    el.querySelectorAll('[data-bv2-accept]').forEach(b => b.addEventListener('click', () => buildV2Action('accept', b.dataset.bv2Accept)));
+                } catch (e) {
+                    el.innerHTML = '<div class="panel-empty">Could not load build board.</div>';
+                }
+            }
+
+            async function buildV2Action(kind, sectionId) {
+                try {
+                    const res = await fetch(`/api/build-v2/${kind}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ section_id: sectionId, token }),
+                    });
+                    const data = await res.json();
+                    if (kind === 'section' && data.status === 'blocked') {
+                        showToast(`Section ${sectionId} ${data.reason}`, 'error');
+                    } else if (kind === 'section' && data.status === 'started') {
+                        showToast(`Working on section ${sectionId}…`, 'success');
+                    } else if (kind === 'accept') {
+                        showToast(`Section ${sectionId} accepted`, 'success');
+                    }
+                    setTimeout(() => loadBuildV2Board(), 800);
+                } catch (e) {
+                    showToast('Action failed — try again', 'error');
+                }
+            }
+
             function loadWelcomeMessage() {
                 const html = `
                     <div class="message message-system">
