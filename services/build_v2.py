@@ -150,12 +150,32 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict,
         except Exception as e:  # noqa: BLE001
             logger.debug("[BuildV2] critique skipped for %s: %s", section_id, e)
         draft = {"output": result, "grounding": grounding, "critique": critique}
-        section_state.update_section(session_id, section_id,
-                                     status="needs_review", draft=draft, blocked_on=None)
-        rate = (grounding or {}).get("rate")
-        verdict = (critique or {}).get("verdict")
-        logger.info("[BuildV2] section %s -> needs_review (grounding=%s, critique=%s)",
-                    section_id, rate, verdict)
+        # If the agent fell back for lack of data, the "draft" is a placeholder —
+        # park the section as blocked_on_data and raise a TARGETED data request so
+        # Feed auto-resumes it (Phase 2 handshake) once Alex provides the evidence.
+        used_fallback = isinstance(result, dict) and result.get("_fallback_used")
+        if used_fallback:
+            section_state.update_section(
+                session_id, section_id, status="blocked_on_data", draft=draft,
+                blocked_on="agent could only draft a placeholder — provide data via Feed")
+            if section_id.isdigit():
+                try:
+                    from services.data_requests import create
+                    title = registry[section_id].get("title", section_id)
+                    create(session_id, section_id, [f"BP.{section_id}"],
+                           f"Section {section_id} ({title}) needs supporting data — the agent "
+                           f"could only produce a placeholder.",
+                           why="agent fell back for insufficient evidence", agent=agent_name)
+                except Exception as e:  # noqa: BLE001
+                    logger.debug("[BuildV2] data request on fallback skipped: %s", e)
+            logger.info("[BuildV2] section %s -> blocked_on_data (fallback; data request raised)", section_id)
+        else:
+            section_state.update_section(session_id, section_id,
+                                         status="needs_review", draft=draft, blocked_on=None)
+            rate = (grounding or {}).get("rate")
+            verdict = (critique or {}).get("verdict")
+            logger.info("[BuildV2] section %s -> needs_review (grounding=%s, critique=%s)",
+                        section_id, rate, verdict)
     else:
         # No result = the agent escalated (typically weak/missing evidence for
         # its schema). That's a data gap, not a crash — mark blocked_on_data so
