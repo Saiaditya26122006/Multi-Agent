@@ -1062,6 +1062,19 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
         reasoning, none_fit (bool), suggested_parent (dict, only populated
         when none_fit is True — where a brand-new node would go).
     """
+    # Few-shot from Alex's past corrections: show the classifier the most
+    # similar facts Alex has already placed. No-op (returns [] without embedding)
+    # while the correction log is empty, so this is safe before data accrues; it
+    # strengthens as Alex reviews. Travels with document_context into Step A/B.
+    try:
+        from services.correction_store import similar_corrections, format_fewshot
+
+        fewshot = format_fewshot(similar_corrections(text, k=3))
+        if fewshot:
+            document_context = f"{document_context}\n\n{fewshot}" if document_context else fewshot
+    except Exception as e:  # noqa: BLE001
+        logger.debug("[FeedHandler] few-shot retrieval skipped: %s", e)
+
     if document_context:
         logger.debug(
             "[FeedHandler] Classifying with document context: fact='%s...', context='%s...'",
