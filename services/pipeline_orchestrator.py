@@ -775,7 +775,12 @@ class PipelineOrchestrator:
             result = self.db.client.table("sessions").select("*").eq("id", session_id).execute()
             if not result.data:
                 return None
-            return result.data[0]
+            row = result.data[0]
+            # The column is `idea_text`; downstream (input packages, RAG retrieval)
+            # reads `idea`. Map it so the agent actually gets the business idea.
+            if "idea" not in row and row.get("idea_text"):
+                row["idea"] = row["idea_text"]
+            return row
         except Exception as e:
             logger.error(f"[PipelineOrchestrator] Failed to read Phase 1 data: {e}")
             return None

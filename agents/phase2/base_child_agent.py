@@ -46,6 +46,7 @@ from agents.phase2.llm_utils import parse_json_with_retry, signal_ready
 from agents.phase2.intelligence_engine import IntelligenceEngine
 from agents.phase2.message_bus import MessageBus, ACLMessage
 from agents.phase2.agent_beliefs import AgentBeliefStore
+from memory.redis_client import RedisClient  # ephemeral agent state (beliefs, task output, ready signals)
 
 logger = logging.getLogger(__name__)
 

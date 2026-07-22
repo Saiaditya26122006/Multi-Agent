@@ -167,7 +167,26 @@ def session_exists(session_id: str) -> bool:
 
 
 class RedisClient:
-    """Wrapper class for Phase 2 agents that need object-oriented access."""
+    """Wrapper class for Phase 2 agents that need object-oriented access.
+
+    Delegates the common key ops to the underlying Upstash client so callers can
+    use `redis.get/set/delete/keys(...)` directly (AgentBeliefStore, signal_ready,
+    task-output storage all rely on this)."""
 
     def __init__(self):
         self.client = redis_client
+
+    def get(self, *args, **kwargs):
+        return self.client.get(*args, **kwargs)
+
+    def set(self, *args, **kwargs):
+        return self.client.set(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        return self.client.delete(*args, **kwargs)
+
+    def keys(self, *args, **kwargs):
+        return self.client.keys(*args, **kwargs)
+
+    def exists(self, *args, **kwargs):
+        return self.client.exists(*args, **kwargs)

@@ -215,15 +215,15 @@ class MessageBus:
     async def _persist(self, message: ACLMessage) -> None:
         """Persist message to Supabase events_logs if client is available."""
         try:
+            # events_logs columns: agent_id, action, input_ref, output_ref,
+            # session_id, channel, state_before/after, created_at (auto).
             self._supabase.table("events_logs").insert(
                 {
-                    "agent_name": message.sender,
+                    "agent_id": message.sender,
                     "action": f"message_sent:{message.performative}",
-                    "input_summary": f"to={message.receiver} task={message.task_id}",
-                    "output_summary": str(message.content)[:500],
-                    "timestamp": message.timestamp.isoformat(),
+                    "input_ref": f"to={message.receiver} task={message.task_id} run={message.pipeline_run_id}",
+                    "output_ref": str(message.content)[:500],
                     "session_id": message.session_id,
-                    "pipeline_run_id": message.pipeline_run_id,
                 }
             ).execute()
         except Exception:
