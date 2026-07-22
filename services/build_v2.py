@@ -188,6 +188,52 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict,
         logger.info("[BuildV2] section %s -> blocked_on_data (agent escalated)", section_id)
 
 
+def build_all(session_id: str) -> dict:
+    """Run every runnable section in dependency order (the 'build the whole plan'
+    action, now served by the installment engine instead of the batch pipeline).
+
+    Sections are run in dependency waves — a section runs once all its
+    dependencies have a draft (done or needs_review). Each reaches needs_review /
+    blocked_on_data; Alex reviews. Returns immediately (runs in the background).
+    """
+    section_state.init_sections(session_id)
+
+    def _worker() -> None:
+        try:
+            asyncio.run(_build_all_async(session_id))
+        except Exception:  # noqa: BLE001
+            logger.exception("[BuildV2] build_all crashed")
+
+    threading.Thread(target=_worker, daemon=True, name="build-all").start()
+    return {"status": "started", "message": "Building all sections in dependency order"}
+
+
+async def _build_all_async(session_id: str) -> None:
+    registry = section_state.load_registry()
+    for _ in range(len(registry) + 5):  # bounded; each pass drafts >=1 or stops
+        states = section_state.list_sections(session_id)
+        runnable = [
+            sid for sid in registry
+            if states.get(sid, {}).get("status", "not_started") == "not_started"
+            and all(states.get(d, {}).get("status") in ("done", "needs_review")
+                    for d in registry[sid].get("depends_on", []))
+        ]
+        if not runnable:
+            break
+        for sid in runnable:
+            try:
+                section_state.update_section(session_id, sid, status="in_progress")
+                await _run_section_async(session_id, sid, registry)
+            except Exception as e:  # noqa: BLE001
+                logger.error("[BuildV2] build_all section %s failed: %s", sid, e)
+                try:
+                    section_state.update_section(session_id, sid, status="failed",
+                                                 blocked_on=str(e)[:200])
+                except Exception:
+                    pass
+    logger.info("[BuildV2] build_all complete for %s", session_id)
+
+
 def accept_section(session_id: str, section_id: str) -> dict:
     """Alex accepts a needs_review section -> done."""
     sec = section_state.get_section(session_id, section_id)

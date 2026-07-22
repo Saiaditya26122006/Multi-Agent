@@ -21,14 +21,33 @@ def _trace(session_id: Optional[str], step: str, detail: str, data: Optional[dic
 
 
 def build_full_plan(session_id: Optional[str] = None) -> dict:
-    """Trigger the full pipeline via Pipeline Orchestrator.
+    """Trigger a full-plan build.
+
+    CONSOLIDATION (Build v2): this now runs every section in dependency order via
+    the installment engine (services.build_v2.build_all) — the same per-section
+    agents, state, grounding, and quality gate as "work on one section", just
+    driven to completion. The old batch pipeline (PipelineOrchestrator._run_pipeline
+    with fixed 4 groups + Gate 2 + legacy mother_agent) is deprecated and no
+    longer the path for a full build.
 
     Args:
         session_id: Current session identifier.
 
     Returns:
-        Dict with: status, run_id, message
+        Dict with: status, message
     """
+    try:
+        from services.build_v2 import build_all
+
+        _trace(session_id, "build_all", "Building all sections in dependency order...")
+        return build_all(session_id)
+    except Exception as e:
+        logger.exception("[BuildHandler] build_full_plan (build_all) failed")
+        return {"status": "error", "message": f"Failed to start build: {str(e)}"}
+
+
+def _legacy_build_full_plan_batch(session_id: Optional[str] = None) -> dict:
+    """DEPRECATED batch pipeline (kept for reference; superseded by build_all)."""
     try:
         _trace(session_id, "checking_blockers", "Checking which sections are blocked by missing data...")
         blockers = get_build_blockers()
