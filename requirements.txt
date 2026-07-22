@@ -8,6 +8,9 @@ python-dotenv==1.2.2
 
 # Database and storage
 supabase==2.30.0
+# Redis kept for ephemeral Feed/agent state (see CLAUDE.md datastore split).
+# redis_client.py imports this at module load — removing it crashes deploys.
+upstash-redis==1.7.0
 
 # AI/LLM packages
 google-genai==1.75.0
