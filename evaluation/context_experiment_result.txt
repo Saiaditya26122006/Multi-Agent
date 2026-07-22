@@ -1,0 +1,51 @@
+  [1/40] BP.1.1.2     base=BP.1.8.3     A=BP.1.1.2     B=BP.1.1.2     sib=3
+  [2/40] BP.6.6.1     base=BP.4.3.4     A=BP.6.6.1     B=BP.6.6.1     sib=0
+  [3/40] BP.8.5.5     base=BP.8.5.1     A=BP.8.5.1     B=BP.8.5.1     sib=0
+  [4/40] BP.2         base=BP.2.2.1     A=BP.2.2       B=BP.2.2       sib=0
+[LLMHelper] Classification call failed, falling back to top embedding candidate: list index out of range
+  [5/40] BP.9.1.4     base=BP.1.5       A=BP.9.1.4     B=BP.9.1.4     sib=5
+  [6/40] BP.8.6.3     base=BP.6.4.2     A=BP.8.6.3     B=BP.8.6.3     sib=0
+  [7/40] BP.9.1.4     base=BP.9.1.4     A=BP.9.1.4     B=BP.9.1.4     sib=5
+  [8/40] BP.9.5.3     base=BP.9.2.1     A=BP.9.5.1     B=BP.9.5.1     sib=0
+  [9/40] BP.9.1.4     base=BP.9.1.4     A=BP.9.1.4     B=BP.9.1.4     sib=5
+  [10/40] BP.9.2.1     base=BP.9.2.1     A=BP.9.2.2     B=BP.9.2.2     sib=3
+  [11/40] BP.9.2.1     base=BP.9.2.2     A=BP.9.2.1     B=BP.9.2.2     sib=3
+  [12/40] BP.1.5.1.1   base=BP.1.5.1.1   A=BP.1.5.1     B=BP.1.5.1     sib=0
+  [13/40] BP.8.2.4     base=BP.8.1.5     A=BP.8.2.3     B=BP.8.2.3     sib=0
+  [14/40] BP.8.1.3     base=BP.8.1.3     A=BP.8.1.3     B=BP.8.1.3     sib=2
+  [15/40] BP.8.1.5     base=BP.8.1.5     A=BP.8.1.5     B=BP.8.1.5     sib=2
+  [16/40] BP.7.2       base=BP.7.2       A=BP.7.2       B=BP.7.2       sib=0
+  [17/40] BP.7.3.4     base=BP.1.8.7     A=BP.7.3.10    B=BP.7.3.10    sib=0
+  [18/40] BP.7.5.2     base=None         A=None         B=None         sib=1
+  [19/40] BP.7.4.5     base=BP.7.4       A=BP.7.4       B=BP.7.4       sib=0
+  [20/40] BP.7.1.4     base=BP.7.1.1     A=BP.7.1.1     B=BP.7.1.1     sib=0
+  [21/40] BP.9.1.1     base=BP.1.1.3     A=BP.9.1.1     B=BP.9.1.1     sib=5
+  [22/40] BP.1.1.3     base=BP.1.8.4     A=BP.1.1.9     B=BP.1.1.9     sib=3
+  [23/40] BP.1.3       base=BP.1.3       A=BP.1.3       B=BP.1.3       sib=0
+  [24/40] BP.9.1.1     base=BP.1.8.4     A=BP.9.1.2     B=BP.9.1.2     sib=5
+  [25/40] BP.6.1       base=BP.5.3.1     A=BP.6.1.2     B=BP.6.1.2     sib=1
+  [26/40] BP.9.1.4     base=BP.9.5.1     A=BP.9.1.4     B=BP.9.1.5     sib=5
+  [27/40] BP.5.1.1     base=BP.4.4.1     A=BP.5.1.1     B=BP.5.1.1     sib=0
+  [28/40] BP.5.4.4     base=BP.5.4.3     A=BP.5.4.4     B=BP.5.4.4     sib=0
+  [29/40] BP.6.1       base=BP.6.5.2     A=BP.6.1.2     B=BP.6.1.2     sib=1
+  [30/40] BP.9.2.2     base=BP.9.2.1     A=BP.9.2.4     B=BP.9.2.4     sib=3
+  [31/40] BP.1.1.7.4   base=BP.10.6      A=BP.1.1.7     B=None         sib=3
+  [32/40] BP.5.5.1     base=BP.5.4.6     A=BP.5.5.6     B=BP.5.5.6     sib=0
+  [33/40] BP.8.1.3     base=BP.8.1.3     A=BP.8.1.3     B=BP.8.1.3     sib=2
+  [34/40] BP.5.3.2     base=BP.5.3.1     A=BP.5.3.1     B=BP.5.3.1     sib=1
+  [35/40] BP.7.5.2     base=BP.7.5.2     A=BP.7.5.2     B=BP.7.5.2     sib=1
+  [36/40] BP.9.2.1     base=BP.9.2.1     A=BP.9.2.1     B=BP.9.2.1     sib=3
+  [37/40] BP.1.1.3     base=BP.1.1.10    A=BP.1.1.10    B=BP.1.1.10    sib=3
+  [38/40] BP.2.5.5     base=BP.2.5.5     A=BP.2.5.5     B=BP.2.5.5     sib=0
+  [39/40] BP.6.5.3     base=BP.6.5.3     A=BP.6.5.3     B=BP.6.5.3     sib=0
+  [40/40] BP.5.3.5     base=BP.9.2.3     A=BP.5.3.5     B=BP.5.3.5     sib=1
+
+=== CONTEXT EXPERIMENT (exact-leaf accuracy) ===
+  eligible facts (section has candidates): 40/40
+  baseline (isolated ingestion) : 13/40 = 32%
+  A: correct-section, no siblings: 21/40 = 52%
+  B: correct-section + siblings  : 19/40 = 48%
+
+  section-constraint lift (A-base): +20 pts
+  sibling-context lift    (B-A)   : -5 pts
+  VERDICT: BUILD IT
