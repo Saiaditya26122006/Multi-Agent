@@ -4,10 +4,8 @@ The unit of work is the SECTION. Each has a durable status/draft that survives
 days, so Alex builds the plan in installments. A section is runnable when its
 dependencies are `done` (dependency DAG from config/phase2/bp_sections.yaml).
 
-Storage: interim, per-session JSONB under sessions.archived_state["bp_sections"]
-(merge-safe read-modify-write — works today with no DDL). Production target is a
-dedicated table: database/migrations/004_add_bp_sections.sql. Swap _load/_save
-to the table once the migration is applied; the public API is unchanged.
+Storage: the dedicated `bp_sections` table (database/migrations/004, applied) —
+one row per (session_id, section_id).
 """
 
 import logging
@@ -20,7 +18,6 @@ import yaml
 logger = logging.getLogger(__name__)
 
 _REGISTRY_PATH = Path(__file__).parent.parent / "config" / "phase2" / "bp_sections.yaml"
-_STATE_KEY = "bp_sections"  # namespaced key inside sessions.archived_state
 
 VALID_STATUS = {
     "not_started", "in_progress", "blocked_on_data", "needs_review", "done", "failed",
@@ -67,28 +64,30 @@ def deps_met(section_id: str, states: dict, registry: dict) -> bool:
     return all(states.get(d, {}).get("status") == "done" for d in deps)
 
 
-# ── storage (interim: sessions.archived_state) ────────────────────────────────
+# ── storage (dedicated bp_sections table; migration 004) ──────────────────────
+
+def _get_sb():
+    """Client for bp_sections. The table has RLS on and this is server-managed
+    build state, so use the service-role key (bypasses RLS) when available;
+    fall back to the anon client otherwise."""
+    import os
+
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if url and key:
+        if not hasattr(_get_sb, "_client"):
+            from supabase import create_client
+
+            _get_sb._client = create_client(url, key)
+        return _get_sb._client
+    from services.rag_service import _get_supabase
+
+    return _get_supabase()
+
 
 def _load(session_id: str) -> dict:
-    from services.rag_service import _get_supabase
-
-    sb = _get_supabase()
-    row = sb.table("sessions").select("archived_state").eq("id", session_id).limit(1).execute()
-    if not row.data:
-        return {}
-    archived = row.data[0].get("archived_state") or {}
-    return archived.get(_STATE_KEY) or {}
-
-
-def _save(session_id: str, states: dict) -> bool:
-    from services.rag_service import _get_supabase
-
-    sb = _get_supabase()
-    row = sb.table("sessions").select("archived_state").eq("id", session_id).limit(1).execute()
-    archived = (row.data[0].get("archived_state") if row.data else None) or {}
-    archived[_STATE_KEY] = states  # merge-safe: preserve other archival keys
-    sb.table("sessions").update({"archived_state": archived}).eq("id", session_id).execute()
-    return True
+    rows = _get_sb().table("bp_sections").select("*").eq("session_id", session_id).execute().data or []
+    return {r["section_id"]: r for r in rows}
 
 
 # ── public API ────────────────────────────────────────────────────────────────
@@ -96,21 +95,25 @@ def _save(session_id: str, states: dict) -> bool:
 def init_sections(session_id: str) -> dict:
     """Seed every registry section as not_started (idempotent — keeps existing)."""
     registry = load_registry()
-    states = _load(session_id)
-    for sid, meta in registry.items():
-        if sid not in states:
-            states[sid] = {
-                "section_id": sid,
-                "title": meta.get("title", sid),
-                "agent": meta.get("agent"),
-                "status": "not_started",
-                "draft": None,
-                "blocked_on": None,
-                "version": 0,
-                "last_updated": datetime.now(timezone.utc).isoformat(),
-            }
-    _save(session_id, states)
-    return states
+    existing = _load(session_id)
+    to_insert = [
+        {
+            "session_id": session_id,
+            "section_id": sid,
+            "title": meta.get("title", sid),
+            "agent": meta.get("agent"),
+            "status": "not_started",
+            "draft": None,
+            "blocked_on": None,
+            "depends_on": meta.get("depends_on", []),
+            "version": 0,
+        }
+        for sid, meta in registry.items()
+        if sid not in existing
+    ]
+    if to_insert:
+        _get_sb().table("bp_sections").insert(to_insert).execute()
+    return _load(session_id)
 
 
 def get_section(session_id: str, section_id: str) -> Optional[dict]:
@@ -134,12 +137,13 @@ def update_section(session_id: str, section_id: str, **fields) -> dict:
         if not valid_transition(sec.get("status"), new):
             raise ValueError(f"invalid transition {sec.get('status')} -> {new} for {section_id}")
 
-    sec.update(fields)
-    sec["version"] = sec.get("version", 0) + 1
-    sec["last_updated"] = datetime.now(timezone.utc).isoformat()
-    states[section_id] = sec
-    _save(session_id, states)
-    return sec
+    update = dict(fields)
+    update["version"] = (sec.get("version") or 0) + 1
+    update["last_updated"] = datetime.now(timezone.utc).isoformat()
+    _get_sb().table("bp_sections").update(update).eq(
+        "session_id", session_id
+    ).eq("section_id", section_id).execute()
+    return {**sec, **update}
 
 
 def ready_sections(session_id: str) -> list[str]:
