@@ -1374,6 +1374,78 @@ async def post_confirm_leaf(req: ConfirmLeafRequest) -> dict:
     return result
 
 
+class BuildV2SectionRequest(BaseModel):
+    """Payload for Build v2 per-section actions."""
+
+    section_id: str
+    token: str
+    force: bool = False
+
+
+def _resolve_session_id() -> Optional[str]:
+    """Resolve the active session's UUID (not the chat_id) for Build v2 state."""
+    try:
+        from memory.supabase_client import get_active_session
+
+        session = get_active_session(_get_session_key())
+        return session.get("id") if session else None
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Could not resolve session id: %s", e)
+        return None
+
+
+@app.get("/api/build-v2/plan")
+async def get_build_v2_plan(token: str) -> dict:
+    """On-demand assembly of the whole plan (done/WIP/blocked/not-started)."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.build_v2 import get_plan
+
+    return await asyncio.to_thread(get_plan, session_id)
+
+
+@app.get("/api/build-v2/next")
+async def get_build_v2_next(token: str) -> dict:
+    """What Alex can act on now: ready / needs_review / blocked sections."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.build_v2 import next_actions
+
+    return await asyncio.to_thread(next_actions, session_id)
+
+
+@app.post("/api/build-v2/section")
+async def post_build_v2_section(req: BuildV2SectionRequest) -> dict:
+    """Run one section's agent (installment model)."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.build_v2 import run_section
+
+    return await asyncio.to_thread(run_section, session_id, req.section_id, req.force)
+
+
+@app.post("/api/build-v2/accept")
+async def post_build_v2_accept(req: BuildV2SectionRequest) -> dict:
+    """Accept a needs_review section → done."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.build_v2 import accept_section
+
+    return await asyncio.to_thread(accept_section, session_id, req.section_id)
+
+
 def _get_session_key() -> str:
     """Resolve the current CEO session key the same way every other endpoint does."""
     try:
