@@ -2115,7 +2115,25 @@ def extract_atomic_facts(text: str) -> Optional[list[dict]]:
                     "inferred_status": _infer_epistemic_status(s),
                     "source_format": "llm_extracted",
                 })
-        return facts or None
+        if not facts:
+            return None
+
+        # Coverage guard: catch SILENT dropping. Compare content words (4+ chars)
+        # of the source vs the extracted facts. Extraction legitimately drops
+        # filler, but if it retains < 55% of the source's content words it
+        # probably lost real facts — fall back to regex rather than store a
+        # lossy split.
+        src_words = set(re.findall(r"[a-z0-9]{4,}", text.lower()))
+        out_words = set(re.findall(r"[a-z0-9]{4,}", " ".join(f["text"] for f in facts).lower()))
+        if src_words:
+            coverage = len(src_words & out_words) / len(src_words)
+            if coverage < 0.55:
+                logger.warning(
+                    "[FeedHandler] LLM extraction coverage %.0f%% too low — falling back to regex",
+                    100 * coverage,
+                )
+                return None
+        return facts
     except Exception as e:  # noqa: BLE001
         logger.debug("[FeedHandler] LLM fact extraction failed (fallback to regex): %s", e)
         return None
@@ -2212,7 +2230,10 @@ def handle_raw_text(
         # sentences like "Job: Improve manuscript quality" are understood in
         # their original frame (PMF analysis, not writing-assistance).
         document_context = None
-        if len(raw_facts) > 1:
+        # LLM-extracted facts are already decontextualized (self-contained), so
+        # the separate context-summary call is redundant for them — skip it.
+        already_decontextualized = bool(raw_facts) and raw_facts[0].get("source_format") == "llm_extracted"
+        if len(raw_facts) > 1 and not already_decontextualized:
             if session_id:
                 emit_trace(session_id, "Feed", "summarizing", "Understanding document context...")
             document_context = _generate_document_context(text)
@@ -3578,11 +3599,18 @@ def process_uploaded_document(
     auto_filed_ids = []
     for fact_data in flagged_batch:
         classification = fact_data["classification"]
-        node_id = classification["node_id"]
-        node_title = classification.get("node_title", "")
+        # File at the SECTION (reliable ~77-82%), not the leaf — same safety the
+        # chat path has. Carry the suggested leaf forward for one-click confirm.
+        target = _resolve_filing_target(classification)
+        node_id = target["file_node_id"]
+        node_title = target["file_node_title"] or classification.get("node_title", "")
         audit = _build_audit_metadata(classification, source, fact_data["tier"], fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
         if fact_data["tier"] == "auto_file_flagged":
             audit["needs_review"] = True
+        if target["backed_off"]:
+            audit["filed_at_section"] = True
+            audit["suggested_leaf_id"] = target["suggested_leaf_id"]
+            audit["suggested_leaf_title"] = target["suggested_leaf_title"]
         audit["source_filename"] = filename
 
         result = _store_fact_now(
@@ -3600,6 +3628,8 @@ def process_uploaded_document(
             "verbatim_text": fact_data["verbatim_text"],
             "node_id": node_id,
             "node_title": node_title,
+            "suggested_leaf_id": target.get("suggested_leaf_id"),
+            "suggested_leaf_title": target.get("suggested_leaf_title"),
             "epistemic_status": fact_data["epistemic_status"],
             "status": result["status"],
             "chunk_id": result.get("chunk_id"),
