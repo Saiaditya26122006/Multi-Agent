@@ -145,12 +145,16 @@ def resolve_provisional(section_prefix: Optional[str] = None, limit: Optional[in
     section_prefix) or as a background pass. Only touches facts not yet
     build-suggested or Alex-confirmed. Returns counts.
     """
-    from services.rag_service import _get_supabase
+    try:
+        from services.rag_service import _get_supabase
 
-    sb = _get_supabase()
-    rows = (sb.table("knowledge_base").select("id,metadata").contains(
-        "metadata", {"filed_at_section": True}
-    ).execute().data) or []
+        sb = _get_supabase()
+        rows = (sb.table("knowledge_base").select("id,metadata").contains(
+            "metadata", {"filed_at_section": True}
+        ).execute().data) or []
+    except Exception as e:  # noqa: BLE001 — background/best-effort; never raise
+        logger.warning("[LeafResolver] resolve_provisional query failed: %s", e)
+        return {"considered": 0, "updated": 0, "error": str(e)}
 
     considered = updated = 0
     for row in rows:

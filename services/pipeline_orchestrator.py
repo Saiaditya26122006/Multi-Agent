@@ -437,6 +437,36 @@ class PipelineOrchestrator:
 
         return group_outputs
 
+    def _trigger_leaf_resolution(self, active_agents: List[str]) -> None:
+        """Fire background leaf-suggestion refinement for this group's sections.
+
+        For each section an active agent owns, re-resolve provisional facts to a
+        better suggested leaf (measured 52% vs ingestion's ~35%). Runs in a
+        worker thread so the group is never blocked; best-effort, so any failure
+        is swallowed. See services/leaf_resolver.py (suggestion mode — nothing is
+        auto-promoted).
+        """
+        try:
+            loop = asyncio.get_running_loop()  # raises if none — skip cleanly
+            prefixes = {
+                (s if str(s).startswith("BP.") else f"BP.{s}")
+                for name in active_agents
+                for s in self.agent_roster["agents"].get(name, {}).get("sections_owned", [])
+            }
+            if not prefixes:
+                return
+            from services.leaf_resolver import resolve_provisional
+
+            if not hasattr(self, "_leaf_tasks"):
+                self._leaf_tasks = set()
+            for prefix in prefixes:
+                task = loop.create_task(asyncio.to_thread(resolve_provisional, prefix))
+                self._leaf_tasks.add(task)
+                task.add_done_callback(self._leaf_tasks.discard)
+            logger.info("[PipelineOrchestrator] leaf-resolution triggered for %s", sorted(prefixes))
+        except Exception as e:  # noqa: BLE001
+            logger.debug("[PipelineOrchestrator] leaf-resolution trigger skipped: %s", e)
+
     async def _execute_group(
         self,
         session_id: str,
@@ -464,6 +494,12 @@ class PipelineOrchestrator:
 
         # Ensure agents are registered on the bus
         await self._ensure_agents_registered(active_agents)
+
+        # Refine provisional-section leaf suggestions for the sections this group
+        # touches (background, non-blocking). Improves Alex's one-click leaf
+        # suggestions; does not change what agents read this run — facts stay at
+        # the section. Best-effort; never affects the build.
+        self._trigger_leaf_resolution(active_agents)
 
         # Build input packages for each agent
         ceo_data = get_relevant_ceo_data(phase1_data.get("idea", ""))
