@@ -5,7 +5,8 @@
 - **Phase:** 2 (active since May 19, 2026)
 - **Phase 1:** Complete — L0/L1/L3 pipeline works, Web Interface integration done
 - **Phase 2:** Mother Agent + 9 child agents built, custom async message bus, SimPy simulation
-- **Latest (2026-07-20):** Redis eliminated (Supabase session state), SPADE removed (never used), BP classification error handler added for 90% accuracy target
+- **Latest (2026-07-20):** SPADE removed (never used), BP classification error handler added for 90% accuracy target
+- **Datastore split (intentional):** durable records → Supabase; **ephemeral, short-TTL workflow state → Redis**. Session flags/data moved to Supabase (survives restarts). Redis is deliberately KEPT for Feed's ephemeral state — pending-fact approvals (10 min), feed state, quarantine (7 days), batch, undo — which is a poor fit for Postgres (TTL churn, write amplification) and whose loss is harmless (Alex re-submits). Do not "finish removing" Redis; it is the right tool for that state.
 
 ## Technology Stack
 
@@ -15,7 +16,8 @@
 | LLM               | Claude (Bedrock) — Sonnet/Haiku |
 | Canonical DB      | Supabase / Postgres           |
 | RAG / Knowledge   | Supabase pgvector + Amazon Titan Embed v2 (1024-dim, via Bedrock) |
-| Session state     | Supabase (7 new columns on sessions table) |
+| Session state     | Supabase (7 new columns on sessions table) — durable |
+| Ephemeral state   | Redis (Upstash) — Feed pending/quarantine/batch/undo, TTL'd |
 | Simulation        | SimPy (Monte Carlo)           |
 | MVP UI            | Streamlit                     |
 | CEO channel       | Web interface (FastAPI + WebSocket) |

@@ -1,6 +1,16 @@
 """
-Redis Client for Multi-Agent AI System
-Provides session state caching and management using Upstash Redis.
+Redis Client for Multi-Agent AI System (Upstash).
+
+Scope (intentional datastore split — see CLAUDE.md):
+  USE Redis for EPHEMERAL, short-TTL, high-churn workflow state whose loss is
+  harmless — Feed's pending-fact approvals (~10 min), feed state, quarantine
+  (7 days), batch review, and undo. Redis TTLs handle expiry automatically and
+  it absorbs the per-keystroke churn of a review flow.
+
+  Do NOT use Redis for durable records or anything that must survive a restart —
+  those belong in Supabase (session flags/data live on the sessions table;
+  knowledge lives in knowledge_base). Session state was deliberately moved OUT
+  of Redis for that reason; Feed's ephemeral state was deliberately KEPT here.
 """
 
 import os
