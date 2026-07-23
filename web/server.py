@@ -612,8 +612,15 @@ class AddFactRequest(BaseModel):
 
 @app.get("/")
 async def index():
-    """Serve the chat HTML page."""
-    return FileResponse(str(STATIC_DIR / "index.html"))
+    """Serve the chat HTML page.
+
+    no-cache so UI/JS updates (the app JS is inline in this file) land on the
+    next load instead of being served stale from the browser cache.
+    """
+    return FileResponse(
+        str(STATIC_DIR / "index.html"),
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 
 
 @app.get("/api/health")
