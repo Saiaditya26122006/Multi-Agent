@@ -3039,6 +3039,35 @@ def _store_fact_now(
         Dict with status ("stored" | "duplicate" | "error"), chunk_id
         (None for duplicate/error), and error (str, only on "error").
     """
+    # Orphan guard: never write a chunk pointing at a node_id that doesn't
+    # exist in the architecture. Phantom node_ids (e.g. BP.13/BP.14/BP.4.7)
+    # arise when a node created at runtime is lost — the file it was written to
+    # is ephemeral on Railway, so on redeploy the node vanishes but chunks keep
+    # the id. Regardless of how a node_id got here, if it doesn't resolve, fall
+    # back to the nearest existing ancestor section and record what happened.
+    orphan_guard_meta = None
+    if node_id and _get_node_details(node_id) is None:
+        original_node_id = node_id
+        # Walk up the dotted hierarchy to the nearest ancestor that exists.
+        ancestor = node_id
+        fallback = None
+        while "." in ancestor:
+            ancestor = ancestor.rsplit(".", 1)[0]
+            if _get_node_details(ancestor) is not None:
+                fallback = ancestor
+                break
+        logger.warning(
+            "[FeedHandler] orphan_guard: node_id %s does not exist in the "
+            "architecture — falling back to %s",
+            original_node_id, fallback or "None (no valid ancestor)",
+        )
+        node_id = fallback  # None if even the top-level domain is phantom
+        node_title = (_get_node_details(node_id) or {}).get("node_title", "") if node_id else ""
+        orphan_guard_meta = {
+            "orphan_guard": True,
+            "original_node_id": original_node_id,
+        }
+
     section = node_id.split(".")[1] if node_id and "." in node_id else None
 
     try:
@@ -3056,6 +3085,8 @@ def _store_fact_now(
         }
         if extra_metadata:
             metadata.update(extra_metadata)
+        if orphan_guard_meta:
+            metadata.update(orphan_guard_meta)
 
         chunk_id = store(
             content=verbatim,
