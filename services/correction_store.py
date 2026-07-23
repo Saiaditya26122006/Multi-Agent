@@ -1,7 +1,8 @@
 """Correction store — turns Alex's Feed review decisions into training signal.
 
-Feed logs every confirm/adjust to evaluation/feed_corrections.jsonl
-(_record_correction). This module reads that log and exposes it two ways:
+Feed logs every confirm/adjust (feed_handler._record_correction -> record_correction
+here) into the Supabase `feed_corrections` table. This module reads that table and
+exposes it two ways:
 
   1. few-shot retrieval — given a new fact, find the most similar past
      Alex-placed facts, to show the classifier as examples ("Alex filed a
@@ -11,48 +12,111 @@ Feed logs every confirm/adjust to evaluation/feed_corrections.jsonl
   2. gold candidates — corrected entries (Alex changed the node) are the
      highest-signal labels; exported for review into the gold set.
 
-Correctness note: labels come only from real Alex actions — nothing here is
-invented. When the log is empty, retrieval returns [] and callers behave exactly
-as before (no few-shot), so wiring it in is safe before data accumulates.
+Durability note: this used to append to evaluation/feed_corrections.jsonl on the
+container filesystem, which is EPHEMERAL on Railway — wiped on every redeploy, so
+no correction ever survived and the classifier never accumulated signal. It now
+persists to Supabase. When the table is empty/absent, retrieval returns [] and
+callers behave exactly as before (no few-shot), so this is safe before data
+accrues and degrades gracefully if the migration hasn't been applied yet.
+
+Correctness note: labels come only from real Alex actions — nothing here is invented.
 """
 
-import json
 import logging
-from pathlib import Path
+import os
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-_CORRECTIONS = Path(__file__).parent.parent / "evaluation" / "feed_corrections.jsonl"
+TABLE = "feed_corrections"
+
+_sb_client = None
 
 
-def load_corrections() -> list[dict]:
-    """Read all logged corrections (newest last). Empty list if none/unreadable."""
-    if not _CORRECTIONS.exists():
-        return []
-    out = []
+def _sb():
+    """Service-role Supabase client (feed_corrections has no anon write policy)."""
+    global _sb_client
+    if _sb_client is None:
+        from supabase import create_client
+
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+        if not url or not key:
+            raise ValueError("SUPABASE_URL and a Supabase key must be set in .env")
+        _sb_client = create_client(url, key)
+    return _sb_client
+
+
+def record_correction(
+    original_node_id: Optional[str],
+    corrected_node_id: Optional[str],
+    fact_content: Optional[str],
+    correction_type: str,
+    session_id: Optional[str] = None,
+) -> None:
+    """Persist one labeled Feed review decision to Supabase. Never raises.
+
+    Args:
+        original_node_id: What the classifier suggested.
+        corrected_node_id: What Alex accepted (== original when confirmed).
+        fact_content: The fact text.
+        correction_type: "confirmed" | "corrected".
+        session_id: Session that produced this decision.
+    """
     try:
-        for line in _CORRECTIONS.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-                if rec.get("fact") and rec.get("alex_chosen"):
-                    out.append(rec)
-            except json.JSONDecodeError:
-                continue
+        _sb().table(TABLE).insert({
+            "original_node_id": original_node_id,
+            "corrected_node_id": corrected_node_id,
+            "fact_content": (fact_content or "")[:500],
+            "correction_type": correction_type,
+            "session_id": session_id,
+        }).execute()
     except Exception as e:  # noqa: BLE001
-        logger.warning("[CorrectionStore] could not read log: %s", e)
+        logger.warning("[CorrectionStore] could not persist correction: %s", e)
+
+
+def load_corrections(limit: int = 500) -> list[dict]:
+    """Read logged corrections from Supabase (newest first). [] if none/unreadable.
+
+    Returns dicts normalized to the keys the rest of this module expects:
+    {fact, alex_chosen, system_suggested, action}.
+    """
+    try:
+        rows = (
+            _sb().table(TABLE)
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+            .data
+            or []
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[CorrectionStore] could not read corrections: %s", e)
+        return []
+
+    out = []
+    for r in rows:
+        fact = r.get("fact_content")
+        chosen = r.get("corrected_node_id")
+        if fact and chosen:
+            out.append({
+                "fact": fact,
+                "alex_chosen": chosen,
+                "system_suggested": r.get("original_node_id"),
+                "action": r.get("correction_type", ""),
+            })
     return out
 
 
 def similar_corrections(fact_text: str, k: int = 3, min_similarity: float = 0.4) -> list[dict]:
     """Return up to k past corrections most similar to `fact_text`.
 
-    Uses the same Titan embeddings as the rest of the system. Returns
-    [{fact, node, action, similarity}], best first. Empty if the log is empty or
-    embedding is unavailable — callers must treat few-shot as optional.
+    Embedding similarity (Titan) over the Supabase-stored corrections, best first.
+    This is called BEFORE classification with the raw fact text (no candidate
+    node exists yet), so similarity on fact content — not original_node_id match —
+    is the correct few-shot signal. Empty if the table is empty or embedding is
+    unavailable; callers must treat few-shot as optional.
     """
     corrections = load_corrections()
     if not corrections:
@@ -110,7 +174,7 @@ def gold_candidates() -> list[dict]:
 
 
 def stats() -> dict:
-    """Summary of what the log currently holds."""
+    """Summary of what the store currently holds."""
     corrections = load_corrections()
     corrected = sum(1 for c in corrections if c.get("action") == "corrected")
     return {

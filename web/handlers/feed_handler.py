@@ -3017,28 +3017,25 @@ def _record_correction(
     action: str,
     session_id: Optional[str] = None,
 ) -> None:
-    """Append a labeled example from Alex's review to the corrections log.
+    """Persist a labeled example from Alex's review to the corrections store.
 
     Every confirm/adjust in review is a free labeled example: what the classifier
     suggested vs what Alex accepted. This is the training/gold data that makes
     real classifier improvement possible instead of tuning against a static
-    40-fact set. Append-only JSONL; never raises into the caller.
+    40-fact set. Persisted to Supabase (feed_corrections) — the old JSONL was
+    ephemeral on Railway and wiped on every redeploy, so signal never accrued.
+    Never raises into the caller.
     """
     try:
-        from pathlib import Path
+        from services.correction_store import record_correction
 
-        path = Path(__file__).parent.parent.parent / "evaluation" / "feed_corrections.jsonl"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        rec = {
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "fact": (fact_text or "")[:500],
-            "system_suggested": system_suggested,
-            "alex_chosen": alex_chosen,
-            "action": action,  # "confirmed" | "corrected"
-            "session_id": session_id,
-        }
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(rec) + "\n")
+        record_correction(
+            original_node_id=system_suggested,
+            corrected_node_id=alex_chosen,
+            fact_content=fact_text,
+            correction_type=action,  # "confirmed" | "corrected"
+            session_id=session_id,
+        )
     except Exception as e:
         logger.warning("[FeedHandler] Could not record correction: %s", e)
 
