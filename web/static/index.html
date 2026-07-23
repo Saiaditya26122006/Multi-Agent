@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EpistemicOS</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236D28D9'/%3E%3Ctext x='16' y='22' font-size='17' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -3103,100 +3105,135 @@
                 flex-wrap: nowrap;
             }
         }
-        /* ── Build v2 threaded workspace (Oasis-style) ─────────────────── */
+        /* ══ Build v2 — premium light workspace (uses app design tokens) ══ */
+        .build-inline {
+            --bv2-ok:#059669; --bv2-ok-bg:rgba(5,150,105,.10);
+            --bv2-warn:#B45309; --bv2-warn-bg:rgba(217,119,6,.12);
+            --bv2-bad:#DC2626; --bv2-bad-bg:rgba(220,38,38,.10);
+            --bv2-info:#2563EB; --bv2-info-bg:rgba(37,99,235,.10);
+            color:var(--text-secondary);
+            animation:bv2fade .25s ease both;
+        }
+        @keyframes bv2fade { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:none;} }
+        /* header */
+        .bv2-head { display:flex; align-items:baseline; justify-content:space-between;
+            gap:12px; margin:2px 0 16px; }
+        .bv2-head strong { font-size:20px; font-weight:700; color:var(--text-primary);
+            letter-spacing:-.01em; }
+        .bv2-head span { font-size:12.5px; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+        /* inbox banner */
         .bv2-inbox {
-            display:flex; align-items:center; gap:8px;
-            background:linear-gradient(90deg,rgba(59,130,246,.18),rgba(59,130,246,.04));
-            border:1px solid rgba(59,130,246,.35); border-radius:10px;
-            padding:9px 12px; margin-bottom:10px; font-size:13px; color:#bcd4ff;
+            display:flex; align-items:center; gap:9px;
+            background:var(--accent-soft); border:1px solid var(--accent-medium);
+            border-radius:var(--radius-md); padding:11px 14px; margin-bottom:14px;
+            font-size:13px; color:var(--accent);
         }
-        .bv2-inbox strong { color:#eaf1ff; }
+        .bv2-inbox strong { font-weight:700; }
+        /* action button row (Refresh / Add specialist / Preview / Download) */
+        .bv2-toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+        .bv2-btn { font-size:12.5px; font-weight:600; padding:8px 13px; cursor:pointer;
+            background:var(--bg-surface); border:1px solid var(--border);
+            border-radius:var(--radius-sm); color:var(--text-secondary);
+            transition:border-color .15s, color .15s, background .15s, box-shadow .15s;
+            text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+        .bv2-btn:hover { border-color:var(--accent); color:var(--accent); box-shadow:var(--shadow-sm); }
+        .bv2-btn.accent { background:var(--accent); border-color:var(--accent); color:#fff; }
+        .bv2-btn.accent:hover { filter:brightness(1.06); color:#fff; }
+        /* section rows */
         .bv2-row {
-            display:flex; align-items:center; gap:10px; cursor:pointer;
-            background:#12151c; border:1px solid #232a36; border-radius:10px;
-            padding:10px 12px; margin-bottom:7px; transition:border-color .15s, background .15s;
+            display:flex; align-items:center; gap:12px; cursor:pointer;
+            background:var(--bg-surface); border:1px solid var(--border);
+            border-radius:var(--radius-md); padding:13px 15px; margin-bottom:9px;
+            box-shadow:var(--shadow-sm);
+            transition:border-color .15s, box-shadow .15s, transform .12s;
+            animation:bv2in .3s ease both;
         }
-        .bv2-row:hover { border-color:#3b82f6; background:#161b24; }
-        .bv2-row.bv2-attn { border-color:rgba(59,130,246,.5); }
-        .bv2-row-badge { font-size:15px; line-height:1; }
+        .bv2-row:hover { border-color:var(--accent); box-shadow:var(--shadow-md); transform:translateY(-1px); }
+        .bv2-row:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+        .bv2-row.bv2-attn { border-color:var(--accent-medium); background:var(--accent-soft); }
+        @keyframes bv2in { from{opacity:0;transform:translateY(5px);} to{opacity:1;transform:none;} }
+        /* status dot (no emoji) */
+        .bv2-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; background:var(--text-tertiary); }
+        .bv2-dot[data-status="in_progress"] { background:var(--bv2-info); }
+        .bv2-dot[data-status="blocked_on_data"] { background:var(--bv2-bad); }
+        .bv2-dot[data-status="needs_review"] { background:var(--bv2-warn); }
+        .bv2-dot[data-status="done"] { background:var(--bv2-ok); }
+        .bv2-dot[data-status="failed"] { background:var(--bv2-bad); }
+        .bv2-dot[data-status="in_progress"] { box-shadow:0 0 0 0 rgba(37,99,235,.5); animation:bv2pulse 1.5s infinite; }
+        @keyframes bv2pulse { 0%{box-shadow:0 0 0 0 rgba(37,99,235,.45);} 70%{box-shadow:0 0 0 6px rgba(37,99,235,0);} 100%{box-shadow:0 0 0 0 rgba(37,99,235,0);} }
         .bv2-row-main { flex:1; min-width:0; }
-        .bv2-row-title { font-size:13px; font-weight:600; color:#e7ecf3;
+        .bv2-row-title { font-size:14px; font-weight:600; color:var(--text-primary);
             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .bv2-row-sub { font-size:11px; color:#7c869a; margin-top:2px;
+        .bv2-row-sub { font-size:12px; color:var(--text-tertiary); margin-top:3px;
             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .bv2-row-chev { color:#4a5468; font-size:12px; }
-        .bv2-pulse { width:7px; height:7px; border-radius:50%; background:#3b82f6;
-            box-shadow:0 0 0 0 rgba(59,130,246,.6); animation:bv2pulse 1.4s infinite; }
-        @keyframes bv2pulse {
-            0%{box-shadow:0 0 0 0 rgba(59,130,246,.55);} 70%{box-shadow:0 0 0 7px rgba(59,130,246,0);}
-            100%{box-shadow:0 0 0 0 rgba(59,130,246,0);}
-        }
+        .bv2-row-chev { color:var(--text-tertiary); font-size:18px; line-height:1; }
         /* rich section card */
         .bv2-card {
-            background:linear-gradient(135deg,#1b2740,#101521); border:1px solid #2b3550;
-            border-radius:14px; padding:14px 16px; margin-bottom:14px;
+            background:var(--bg-surface); border:1px solid var(--border);
+            border-radius:var(--radius-lg); padding:18px 20px; margin-bottom:16px;
+            box-shadow:var(--shadow-sm);
         }
-        .bv2-card-agent { font-size:11px; letter-spacing:.04em; text-transform:uppercase;
-            color:#7fa8ff; margin-bottom:3px; }
-        .bv2-card-title { font-size:16px; font-weight:700; color:#f0f4fa; }
-        .bv2-card-scope { font-size:12.5px; color:#aab6c8; margin-top:6px; line-height:1.45; }
-        .bv2-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
-        .bv2-badge { font-size:11px; padding:3px 9px; border-radius:20px;
-            border:1px solid transparent; font-weight:600; }
-        .bv2-badge.good { background:rgba(34,197,94,.12); color:#6ee7a0; border-color:rgba(34,197,94,.35); }
-        .bv2-badge.warn { background:rgba(234,179,8,.12); color:#f5d472; border-color:rgba(234,179,8,.35); }
-        .bv2-badge.bad  { background:rgba(239,68,68,.12); color:#f7a1a1; border-color:rgba(239,68,68,.35); }
-        .bv2-badge.neutral { background:rgba(148,163,184,.12); color:#c3cee0; border-color:rgba(148,163,184,.3); }
-        .bv2-tools { font-size:11px; color:#8b96aa; margin-top:10px; }
+        .bv2-card-agent { font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+            color:var(--accent); font-weight:700; margin-bottom:5px; }
+        .bv2-card-title { font-size:18px; font-weight:700; color:var(--text-primary); letter-spacing:-.01em; }
+        .bv2-card-scope { font-size:13.5px; color:var(--text-secondary); margin-top:8px; line-height:1.55; }
+        /* badges */
+        .bv2-badges { display:flex; flex-wrap:wrap; gap:7px; margin-top:13px; }
+        .bv2-badge { font-size:11.5px; padding:4px 10px; border-radius:20px; font-weight:600;
+            border:1px solid transparent; }
+        .bv2-badge.good { background:var(--bv2-ok-bg); color:var(--bv2-ok); border-color:rgba(5,150,105,.25); }
+        .bv2-badge.warn { background:var(--bv2-warn-bg); color:var(--bv2-warn); border-color:rgba(217,119,6,.28); }
+        .bv2-badge.bad  { background:var(--bv2-bad-bg); color:var(--bv2-bad); border-color:rgba(220,38,38,.25); }
+        .bv2-badge.neutral { background:var(--bg-main); color:var(--text-secondary); border-color:var(--border); }
+        .bv2-tools { font-size:12px; color:var(--text-tertiary); margin-top:12px;
+            padding-top:12px; border-top:1px solid var(--border); }
         /* thread messages */
-        .bv2-msg { display:flex; gap:10px; margin-bottom:12px; }
-        .bv2-ava { width:28px; height:28px; border-radius:8px; flex-shrink:0;
+        .bv2-msg { display:flex; gap:11px; margin-bottom:14px; }
+        .bv2-ava { width:30px; height:30px; border-radius:9px; flex-shrink:0;
             display:flex; align-items:center; justify-content:center; font-size:12px;
-            font-weight:700; color:#0b0e14; }
-        .bv2-ava.agent { background:linear-gradient(135deg,#6ea8ff,#3b82f6); }
-        .bv2-ava.system { background:#5b6478; color:#dfe6f2; }
-        .bv2-ava.critic { background:linear-gradient(135deg,#f5c168,#e08d2f); }
-        .bv2-ava.feed { background:linear-gradient(135deg,#7ee0b8,#22a06b); }
-        .bv2-ava.human { background:linear-gradient(135deg,#c9a6ff,#8b5cf6); }
+            font-weight:700; color:#fff; }
+        .bv2-ava.agent { background:var(--accent); }
+        .bv2-ava.system { background:#64748B; }
+        .bv2-ava.critic { background:#D97706; }
+        .bv2-ava.feed { background:var(--bv2-ok); }
+        .bv2-ava.human { background:#7C3AED; }
         .bv2-msg-body { flex:1; min-width:0; }
-        .bv2-msg-head { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
-        .bv2-msg-who { font-size:12.5px; font-weight:700; color:#e7ecf3; }
-        .bv2-msg-role { font-size:10.5px; color:#7c869a; }
-        .bv2-bubble { background:#12151c; border:1px solid #232a36; border-radius:10px;
-            padding:9px 11px; font-size:12.5px; color:#c4ccd8; line-height:1.5;
-            white-space:pre-wrap; word-break:break-word; }
-        .bv2-msg.data_request .bv2-bubble { border-color:rgba(234,179,8,.4);
-            background:rgba(234,179,8,.06); }
-        .bv2-bubble strong { color:#e7ecf3; }
-        .bv2-actions { position:sticky; bottom:0; display:flex; gap:8px; flex-wrap:wrap;
-            padding-top:12px; margin-top:6px; border-top:1px solid #232a36; background:transparent; }
-        .bv2-chip { font-size:12.5px; padding:7px 12px; border-radius:20px; cursor:pointer;
-            background:#161b24; border:1px solid #2b3550; color:#cdd6e4; transition:all .12s; }
-        .bv2-chip:hover { border-color:#3b82f6; color:#fff; }
-        .bv2-chip.primary { background:#3b82f6; border-color:#3b82f6; color:#fff; }
-        .bv2-back { font-size:12px; color:#7fa8ff; cursor:pointer; margin-bottom:10px;
-            display:inline-block; }
-        /* Phase 5: roster graph + wave/entrance animation */
-        .bv2-graph-wrap { margin-bottom:10px; }
-        .bv2-graph-wrap summary { font-size:11px; color:#7fa8ff; cursor:pointer;
-            margin-bottom:6px; list-style:none; user-select:none; }
+        .bv2-msg-head { display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap; }
+        .bv2-msg-who { font-size:13px; font-weight:700; color:var(--text-primary); }
+        .bv2-msg-role { font-size:11px; color:var(--text-tertiary); }
+        .bv2-bubble { background:var(--bg-surface); border:1px solid var(--border);
+            border-radius:var(--radius-md); padding:11px 13px; font-size:13px;
+            color:var(--text-secondary); line-height:1.6;
+            white-space:pre-wrap; word-break:break-word; box-shadow:var(--shadow-sm); }
+        .bv2-msg.data_request .bv2-bubble { border-color:rgba(217,119,6,.35); background:var(--bv2-warn-bg); }
+        .bv2-bubble strong { color:var(--text-primary); font-weight:600; }
+        /* action chips */
+        .bv2-actions { display:flex; gap:9px; flex-wrap:wrap; padding-top:16px; margin-top:8px;
+            border-top:1px solid var(--border); }
+        .bv2-chip { font-size:13px; font-weight:600; padding:9px 15px; border-radius:22px; cursor:pointer;
+            background:var(--bg-surface); border:1px solid var(--border); color:var(--text-secondary);
+            transition:border-color .15s, color .15s, box-shadow .15s, background .15s; }
+        .bv2-chip:hover { border-color:var(--accent); color:var(--accent); box-shadow:var(--shadow-sm); }
+        .bv2-chip.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+        .bv2-chip.primary:hover { filter:brightness(1.06); color:#fff; }
+        .bv2-back { font-size:12.5px; font-weight:600; color:var(--accent); cursor:pointer;
+            margin-bottom:14px; display:inline-flex; align-items:center; gap:4px; }
+        .bv2-back:hover { text-decoration:underline; }
+        /* team-map graph */
+        .bv2-graph-wrap { margin-bottom:16px; }
+        .bv2-graph-wrap summary { font-size:11.5px; font-weight:600; color:var(--text-tertiary);
+            cursor:pointer; margin-bottom:8px; list-style:none; user-select:none;
+            text-transform:uppercase; letter-spacing:.04em; }
         .bv2-graph-wrap summary::-webkit-details-marker { display:none; }
-        .bv2-graph { background:#0e1218; border:1px solid #1e2530; border-radius:12px; padding:6px; }
+        .bv2-graph { background:var(--bg-surface); border:1px solid var(--border);
+            border-radius:var(--radius-lg); padding:10px; box-shadow:var(--shadow-sm); }
         .bv2-node text { pointer-events:none; }
         .bv2-node circle { transition:r .15s; }
-        .bv2-node:hover circle { r:10; }
-        .bv2-row { animation:bv2in .28s ease both; }
-        @keyframes bv2in { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
-        /* inline Build view (main workspace area) */
-        .build-inline { color:#c4ccd8; }
-        .bv2-head { display:flex; align-items:baseline; justify-content:space-between;
-            margin-bottom:12px; }
-        .bv2-head strong { font-size:17px; color:#e7ecf3; }
-        .bv2-head span { font-size:12px; color:#8b96aa; }
-        @media (prefers-color-scheme: light) {
-            .bv2-head strong { color:#1a2233; }
+        .bv2-node:hover circle { r:11; }
+        @media (prefers-reduced-motion: reduce) {
+            .build-inline, .bv2-row { animation:none; }
+            .bv2-dot[data-status="in_progress"] { animation:none; }
         }
-        :root[data-theme="light"] .bv2-head strong { color:#1a2233; }
     </style>
 </head>
 <body>
@@ -6078,28 +6115,25 @@
                 const inbox = (next.needs_review || []).length + Object.keys(blocked).length;
                 let html = '';
                 if (inbox > 0) {
-                    html += `<div class="bv2-inbox">📥 <span><strong>${inbox}</strong> section${inbox > 1 ? 's' : ''} need your attention</span></div>`;
+                    html += `<div class="bv2-inbox"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg><span><strong>${inbox}</strong> section${inbox > 1 ? 's' : ''} need your attention</span></div>`;
                 }
                 html += renderRosterGraph(plan);
-                html += `<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">
-                    <button class="confirm-leaf-btn" data-bv2-refresh="1">↻ Refresh</button>
-                    <button class="confirm-leaf-btn" data-bv2-add="1">＋ Add specialist</button>
-                    <button class="confirm-leaf-btn" data-bv2-export="1">⬇ Preview plan</button>
-                    <a class="confirm-leaf-btn" href="/api/build-v2/export-docx?token=${encodeURIComponent(token)}" download="business_plan.docx" style="text-decoration:none;">⬇ Download .docx</a>
+                html += `<div class="bv2-toolbar">
+                    <button class="bv2-btn accent" data-bv2-add="1">Add specialist</button>
+                    <button class="bv2-btn" data-bv2-refresh="1">Refresh</button>
+                    <button class="bv2-btn" data-bv2-export="1">Preview plan</button>
+                    <a class="bv2-btn" href="/api/build-v2/export-docx?token=${encodeURIComponent(token)}" download="business_plan.docx">Download .docx</a>
                 </div>`;
                 Object.keys(secs).forEach(sid => {
                     const s = secs[sid];
                     const attn = review.has(sid) || s.status === 'blocked_on_data';
-                    const badge = BUILD_V2_BADGE[s.status] || '';
                     let sub = BV2_STATUS_LABEL[s.status] || s.status;
                     if (s.status === 'blocked_on_data' && s.blocked_on) sub = 'Needs: ' + s.blocked_on;
-                    const pulse = s.status === 'in_progress'
-                        ? '<span class="bv2-pulse" style="display:inline-block;margin-right:5px;vertical-align:middle;"></span>' : '';
-                    html += `<div class="bv2-row${attn ? ' bv2-attn' : ''}" data-bv2-open="${escapeHtml(sid)}">
-                        <span class="bv2-row-badge">${badge}</span>
+                    html += `<div class="bv2-row${attn ? ' bv2-attn' : ''}" data-bv2-open="${escapeHtml(sid)}" tabindex="0" role="button">
+                        <span class="bv2-dot" data-status="${escapeHtml(s.status)}"></span>
                         <div class="bv2-row-main">
                           <div class="bv2-row-title">${escapeHtml(sid)}. ${escapeHtml(s.title || '')}</div>
-                          <div class="bv2-row-sub">${pulse}${escapeHtml(sub)}</div>
+                          <div class="bv2-row-sub">${escapeHtml(sub)}</div>
                         </div>
                         <span class="bv2-row-chev">›</span>
                     </div>`;
@@ -6109,8 +6143,8 @@
 
             // ── Phase 5: roster constellation (You → sections, coloured by status)
             function bv2NodeColor(st) {
-                return ({ not_started: '#3a4252', in_progress: '#3b82f6', blocked_on_data: '#ef4444',
-                    needs_review: '#eab308', done: '#22c55e', failed: '#ef4444' })[st] || '#3a4252';
+                return ({ not_started: '#94A3B8', in_progress: '#2563EB', blocked_on_data: '#DC2626',
+                    needs_review: '#D97706', done: '#059669', failed: '#DC2626' })[st] || '#94A3B8';
             }
 
             function renderRosterGraph(plan) {
@@ -6128,21 +6162,21 @@
                     const x = (W - rowW) / 2 + (c + 1) * dx;
                     const y = top + r * dy;
                     const col = bv2NodeColor(secs[sid].status);
-                    lines += `<line x1="${cx}" y1="${ay}" x2="${x.toFixed(1)}" y2="${y}" stroke="#232a36" stroke-width="1"/>`;
+                    lines += `<line x1="${cx}" y1="${ay}" x2="${x.toFixed(1)}" y2="${y}" stroke="var(--border)" stroke-width="1.2"/>`;
                     const pulse = secs[sid].status === 'in_progress'
                         ? `<circle cx="${x.toFixed(1)}" cy="${y}" r="9" fill="none" stroke="${col}" stroke-width="1.5"><animate attributeName="r" values="9;14;9" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="1.4s" repeatCount="indefinite"/></circle>` : '';
                     nodes += `<g class="bv2-node" data-bv2-open="${escapeHtml(sid)}" style="cursor:pointer;">
                         <title>${escapeHtml(sid)}. ${escapeHtml(secs[sid].title || '')} — ${escapeHtml(BV2_STATUS_LABEL[secs[sid].status] || secs[sid].status)}</title>
                         ${pulse}<circle cx="${x.toFixed(1)}" cy="${y}" r="8" fill="${col}"/>
-                        <text x="${x.toFixed(1)}" y="${y + 3}" text-anchor="middle" font-size="7" fill="#0b0e14" font-weight="700">${escapeHtml(sid)}</text>
+                        <text x="${x.toFixed(1)}" y="${y + 2.6}" text-anchor="middle" font-size="7.5" fill="#fff" font-weight="700">${escapeHtml(sid)}</text>
                     </g>`;
                 });
                 return `<details class="bv2-graph-wrap" open><summary>Team map</summary>
                     <div class="bv2-graph"><svg viewBox="0 0 ${W} ${H}" width="100%">
-                        <defs><radialGradient id="bv2alex"><stop offset="0%" stop-color="#8ec5ff"/><stop offset="100%" stop-color="#3b82f6"/></radialGradient></defs>
+                        <defs><radialGradient id="bv2alex" cx="40%" cy="35%"><stop offset="0%" stop-color="#8B5CF6"/><stop offset="100%" stop-color="#6D28D9"/></radialGradient></defs>
                         ${lines}
-                        <circle cx="${cx}" cy="${ay}" r="13" fill="url(#bv2alex)"/>
-                        <text x="${cx}" y="${ay + 4}" text-anchor="middle" font-size="9" fill="#06101f" font-weight="700">You</text>
+                        <circle cx="${cx}" cy="${ay}" r="14" fill="url(#bv2alex)"/>
+                        <text x="${cx}" y="${ay + 3.5}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">You</text>
                         ${nodes}
                     </svg></div></details>`;
             }
@@ -6168,13 +6202,18 @@
                 body.querySelectorAll('[data-bv2-refresh]').forEach(b => b.addEventListener('click', () => loadBuildV2Board()));
                 body.querySelectorAll('[data-bv2-export]').forEach(b => b.addEventListener('click', () => buildV2Export()));
                 body.querySelectorAll('[data-bv2-add]').forEach(b => b.addEventListener('click', () => buildV2AddSpecialist()));
-                body.querySelectorAll('[data-bv2-open]').forEach(r => r.addEventListener('click', () => openSectionThread(r.dataset.bv2Open)));
+                body.querySelectorAll('[data-bv2-open]').forEach(r => {
+                    r.addEventListener('click', () => openSectionThread(r.dataset.bv2Open));
+                    r.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSectionThread(r.dataset.bv2Open); }
+                    });
+                });
             }
 
             async function loadBuildV2Board() {
                 if (!token) return;
                 bv2View = 'board';
-                bv2ShowInline('<div class="panel-empty" style="padding:28px;text-align:center;color:#7c869a;">Loading your plan…</div>');
+                bv2ShowInline('<div class="panel-empty" style="padding:28px;text-align:center;color:var(--text-tertiary);">Loading your plan…</div>');
                 try {
                     const [planRes, nextRes] = await Promise.all([
                         fetch(`/api/build-v2/plan?token=${token}`),
@@ -6184,7 +6223,7 @@
                         const msg = planRes.status === 404
                             ? 'No active session yet — send a business idea in the chat first, then reopen Build.'
                             : `Build service error (HTTP ${planRes.status}). The server is likely missing the SUPABASE_SERVICE_ROLE_KEY env var (needed to read the RLS-protected bp_sections table).`;
-                        bv2ShowInline(`<div class="panel-empty" style="padding:24px;text-align:center;color:#7c869a;">${escapeHtml(msg)}</div>`);
+                        bv2ShowInline(`<div class="panel-empty" style="padding:24px;text-align:center;color:var(--text-tertiary);">${escapeHtml(msg)}</div>`);
                         return;
                     }
                     const plan = await planRes.json();
@@ -6194,7 +6233,7 @@
                     wireBoard();
                     bv2StreamConnect();
                 } catch (e) {
-                    bv2ShowInline('<div class="panel-empty" style="padding:24px;text-align:center;color:#7c869a;">Could not load the build board.</div>');
+                    bv2ShowInline('<div class="panel-empty" style="padding:24px;text-align:center;color:var(--text-tertiary);">Could not load the build board.</div>');
                 }
             }
 
@@ -6286,7 +6325,7 @@
 
             async function openSectionThread(sid) {
                 bv2View = sid;
-                bv2ShowInline('<div class="panel-empty" style="padding:24px;color:#7c869a;">Loading…</div>');
+                bv2ShowInline('<div class="panel-empty" style="padding:24px;color:var(--text-tertiary);">Loading…</div>');
                 try {
                     const res = await fetch(`/api/build-v2/section-thread?token=${token}&section_id=${encodeURIComponent(sid)}`);
                     if (!res.ok) { showToast('Could not load section', 'error'); return loadBuildV2Board(); }
@@ -6307,7 +6346,7 @@
 
             // ── Phase 3: tap-to-answer kickoff clarify ────────────────────
             async function buildV2Kickoff(sid) {
-                bv2ShowInline('<div class="panel-empty" style="padding:24px;color:#7c869a;">Preparing questions…</div>');
+                bv2ShowInline('<div class="panel-empty" style="padding:24px;color:var(--text-tertiary);">Preparing questions…</div>');
                 let opts = null;
                 try {
                     const res = await fetch(`/api/build-v2/focus-options?token=${token}&section_id=${encodeURIComponent(sid)}`);
