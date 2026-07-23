@@ -6180,7 +6180,13 @@
                         fetch(`/api/build-v2/plan?token=${token}`),
                         fetch(`/api/build-v2/next?token=${token}`),
                     ]);
-                    if (!planRes.ok) { bv2ShowInline('<div class="panel-empty" style="padding:24px;text-align:center;color:#7c869a;">No active session yet — send a business idea in the chat first, then reopen Build.</div>'); return; }
+                    if (!planRes.ok) {
+                        const msg = planRes.status === 404
+                            ? 'No active session yet — send a business idea in the chat first, then reopen Build.'
+                            : `Build service error (HTTP ${planRes.status}). The server is likely missing the SUPABASE_SERVICE_ROLE_KEY env var (needed to read the RLS-protected bp_sections table).`;
+                        bv2ShowInline(`<div class="panel-empty" style="padding:24px;text-align:center;color:#7c869a;">${escapeHtml(msg)}</div>`);
+                        return;
+                    }
                     const plan = await planRes.json();
                     const next = nextRes.ok ? await nextRes.json() : { ready: [], needs_review: [], blocked_on_data: {} };
                     const header = `<div class="bv2-head"><strong>Your plan</strong><span>${plan.done}/${plan.total} sections done</span></div>`;
