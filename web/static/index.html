@@ -3551,6 +3551,7 @@
             let ws = null;
             let sessionKey = null;
             let token = null;
+            let sessionId = null;  // referenced by switchWorkspace; declared so it never ReferenceErrors
             let currentWorkspace = 'Feed';
             let currentWorkspaceNum = 1;
             let pendingAttachment = null;
