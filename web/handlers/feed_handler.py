@@ -1573,6 +1573,9 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
         "embedding_top_sim": round(embedding_candidates[0].get("similarity", 0.0), 4) if embedding_candidates else 0.0,
         "validated": result.get("validated", False),
         "confidence": result.get("confidence"),
+        # Explicit aliases read by _determine_tier's loosened gate.
+        "classifier_confidence": result.get("confidence"),
+        "classifier_validated": result.get("validated", False),
         "none_fit": result.get("none_fit", False),
         "rescued_none_fit": result.get("rescued_none_fit", False),
     }
@@ -1761,8 +1764,12 @@ def _determine_tier(classification: dict, source: str = "alex_direct") -> str:
         source: Origin of the fact — "alex_direct" or "document".
 
     Returns:
-        One of: "auto_file_flagged" (router-committed → store at section, flag
-        for leaf review) or "ask" (everything else → full review).
+        One of three tiers:
+        - "auto_file"         high + validated + the pick lands in one of the
+                              router's domains → store silently (one-line summary).
+        - "auto_file_flagged" high + validated but the pick left the router's
+                              domains → store but flag for review.
+        - "ask"               everything else → full review.
     """
     none_fit = classification.get("none_fit", True) or not classification.get("node_id")
     if none_fit:
@@ -1777,21 +1784,20 @@ def _determine_tier(classification: dict, source: str = "alex_direct") -> str:
             return "auto_file_flagged"
         return "ask"
 
-    router = signals.get("domain_router_ids") or []
+    # Loosened gate. The old rule required the router to commit to EXACTLY one
+    # domain (len(router)==1); real sentences span domains, so it almost never
+    # held and nearly everything fell to "ask". Now auto-file when the final
+    # pick lands in ANY of the router's domains (domain_agreement) as long as
+    # the classifier is high-confidence AND validated — with a true 3-way split.
     domain_agree = signals.get("domain_agreement", False)
-    router_committed = len(router) == 1 and domain_agree
+    high = signals.get("classifier_confidence") == "high"
+    validated = signals.get("classifier_validated", False)
 
-    if not router_committed:
-        # Unsafe: torn router or the pick left the routed domain. These are the
-        # placements that produce wrong-domain pollution. Send to Alex.
-        return "ask"
-
-    # Router-committed: domain is trustworthy (100% on the gold set). The leaf
-    # is not (43% even here), so ALWAYS store with a review flag on the leaf —
-    # never the unflagged "auto_file" tier. `validated` is deliberately NOT used
-    # as a sub-gate: it was measured to be uncorrelated with correctness and
-    # only discards good (100%-domain) facts. Leaf accuracy is Phase 1b.
-    return "auto_file_flagged"
+    if high and validated and domain_agree:
+        return "auto_file"           # trusted: store silently
+    if high and validated and not domain_agree:
+        return "auto_file_flagged"   # confident but out-of-domain: store + flag
+    return "ask"
 
 
 def _build_audit_metadata(
@@ -2386,30 +2392,38 @@ def handle_raw_text(
         # _determine_tier only produces "auto_file_flagged" (router-committed,
         # stored + flagged for leaf review) or "ask" (sent to Alex). The old
         # "auto_file" (silent) and "soft_ask" tiers are no longer emitted.
-        flagged_batch = [t for t in tiered if t["tier"] == "auto_file_flagged"]
+        # Both auto-file tiers are stored immediately; they differ only in
+        # whether Alex is asked to review the leaf. "auto_file" = trusted
+        # (high+validated+domain agrees) → stored silently, no review flag.
+        # "auto_file_flagged" = confident but the pick left the router domain
+        # → stored with a review flag.
+        autofile_batch = [t for t in tiered if t["tier"] in ("auto_file", "auto_file_flagged")]
         ask_batch = [t for t in tiered if t["tier"] == "ask"]
 
-        if session_id and flagged_batch:
+        silent_count = sum(1 for t in autofile_batch if t["tier"] == "auto_file")
+        flagged_count = len(autofile_batch) - silent_count
+
+        if session_id and autofile_batch:
             emit_trace(
                 session_id, "Feed", "auto_filing",
-                f"Auto-filing {len(flagged_batch)} fact(s) at section level "
-                f"(flagged for leaf review)...",
-                {"flagged": len(flagged_batch), "ask": len(ask_batch)},
+                f"Auto-filing {len(autofile_batch)} fact(s) at section level "
+                f"({silent_count} silent, {flagged_count} flagged for leaf review)...",
+                {"silent": silent_count, "flagged": flagged_count, "ask": len(ask_batch)},
             )
 
         auto_results = []
 
-        # Router-committed facts: store at the section, flagged for leaf review.
-        for item in flagged_batch:
+        for item in autofile_batch:
             fact_data = item["fact"]
+            tier = item["tier"]
             classification = fact_data["classification"]
             # File at the SECTION (reliable ~77-82%), not the leaf (~35-55%),
             # and carry the suggested leaf forward for one-click confirmation.
             target = _resolve_filing_target(classification)
             node_id = target["file_node_id"]
             node_title = target["file_node_title"] or classification.get("node_title", "")
-            audit = _build_audit_metadata(classification, source, "auto_file_flagged", fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
-            audit["needs_review"] = True
+            audit = _build_audit_metadata(classification, source, tier, fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
+            audit["needs_review"] = (tier == "auto_file_flagged")
             if target["backed_off"]:
                 audit["filed_at_section"] = True
                 audit["suggested_leaf_id"] = target["suggested_leaf_id"]
@@ -2435,8 +2449,9 @@ def handle_raw_text(
                 "status": result["status"],
                 "chunk_id": result.get("chunk_id"),
                 "confidence": classification.get("confidence", "high"),
-                "validated": False,
-                "tier": "auto_file_flagged",
+                "validated": tier == "auto_file",
+                "needs_review": audit["needs_review"],
+                "tier": tier,
                 "audit": audit,
             })
 
@@ -3735,8 +3750,8 @@ def process_uploaded_document(
             )
 
     # --- Tier-based routing (same logic as chat flow) ---
-    # _determine_tier only emits "auto_file_flagged" or "ask" now.
-    flagged_batch = [f for f in classified if f["tier"] == "auto_file_flagged"]
+    # _determine_tier emits "auto_file", "auto_file_flagged", or "ask".
+    flagged_batch = [f for f in classified if f["tier"] in ("auto_file", "auto_file_flagged")]
     review_batch = [f for f in classified if f["tier"] == "ask"]
 
     emit_trace(
