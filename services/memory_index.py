@@ -22,19 +22,21 @@ def _get_supabase():
 
 def _classify_relationship(
     similarity: float,
-    new_epistemic: Optional[str],
-    existing_epistemic: Optional[str],
-    new_node_id: Optional[str],
-    existing_node_id: Optional[str],
+    new_meta: Optional[dict],
+    existing_meta: Optional[dict],
 ) -> Optional[tuple[str, float]]:
     """Classify the relationship between two chunks.
 
+    The old rules keyed 'contradicts'/'confirms' on epistemic_status == CONFIRMED,
+    but the governance design deliberately never assigns CONFIRMED at ingestion —
+    so those branches could never fire and every link fell to 'related'. This uses
+    the fields that ARE populated at ingestion instead: verification_status,
+    assertion_certainty, and content_type (from the audit metadata), plus node_id.
+
     Args:
         similarity: Cosine similarity between the two chunks.
-        new_epistemic: Epistemic status of the new chunk.
-        existing_epistemic: Epistemic status of the existing chunk.
-        new_node_id: BP node_id of the new chunk.
-        existing_node_id: BP node_id of the existing chunk.
+        new_meta: Metadata dict of the newly stored chunk.
+        existing_meta: Metadata dict of the existing chunk.
 
     Returns:
         Tuple of (relationship_type, confidence) or None if below threshold.
@@ -42,15 +44,49 @@ def _classify_relationship(
     if similarity < 0.5:
         return None
 
-    if similarity >= 0.92 and new_epistemic == existing_epistemic:
-        return ("related", similarity)
+    new_meta = new_meta or {}
+    existing_meta = existing_meta or {}
 
-    if similarity >= 0.85 and new_epistemic != existing_epistemic:
-        pair = {new_epistemic, existing_epistemic}
-        if "CONFIRMED" in pair and "CONTRADICTION" in pair:
-            return ("contradicts", similarity)
-        if "CONFIRMED" in pair and "ASSUMPTION" in pair:
-            return ("confirms", similarity)
+    new_ac = new_meta.get("assertion_certainty")
+    ex_ac = existing_meta.get("assertion_certainty")
+    new_ct = new_meta.get("content_type")
+    ex_ct = existing_meta.get("content_type")
+    new_vs = new_meta.get("verification_status")
+    ex_vs = existing_meta.get("verification_status")
+    new_node_id = new_meta.get("node_id")
+    existing_node_id = existing_meta.get("node_id")
+
+    def _domain(nid: Optional[str]) -> Optional[str]:
+        return ".".join(nid.split(".")[:2]) if nid else None
+
+    # contradicts: two explicitly-asserted facts/decisions that are highly
+    # similar but filed under DIFFERENT nodes in the SAME domain — i.e. two
+    # firm claims about the same area that don't agree.
+    if (
+        similarity >= 0.82
+        and new_ac == "explicit"
+        and ex_ac == "explicit"
+        and new_ct in ("fact", "decision")
+        and ex_ct in ("fact", "decision")
+        and new_node_id
+        and existing_node_id
+        and new_node_id != existing_node_id
+        and _domain(new_node_id) == _domain(existing_node_id)
+    ):
+        return ("contradicts", similarity)
+
+    # confirms: one chunk is verified and the other explicitly asserts the same
+    # claim (same node) — the verified evidence backs the assertion.
+    if (
+        similarity >= 0.82
+        and new_node_id
+        and new_node_id == existing_node_id
+        and (
+            (new_vs == "verified" and ex_ac == "explicit")
+            or (ex_vs == "verified" and new_ac == "explicit")
+        )
+    ):
+        return ("confirms", similarity)
 
     if similarity >= 0.7 and new_node_id and existing_node_id:
         if (
@@ -121,7 +157,6 @@ def link_new_chunk(
         from services.rag_service import retrieve
 
         metadata = metadata or {}
-        new_epistemic = metadata.get("epistemic_status")
         new_node_id = metadata.get("node_id")
 
         similar_chunks = retrieve(
@@ -137,20 +172,37 @@ def link_new_chunk(
             return empty_result
 
         supabase = _get_supabase()
+
+        # The caller passes only a subset of the new chunk's metadata. The typed
+        # relationship rules need its full audit fields (assertion_certainty,
+        # content_type, verification_status), which were persisted when it was
+        # stored — read them back so contradicts/confirms can actually fire.
+        new_meta = dict(metadata)
+        try:
+            row = (
+                supabase.table(TABLE_NAME)
+                .select("metadata")
+                .eq("id", chunk_id)
+                .limit(1)
+                .execute()
+            )
+            if row.data and row.data[0].get("metadata"):
+                new_meta = row.data[0]["metadata"]
+        except Exception as e:  # noqa: BLE001
+            logger.debug("[MemoryIndex] could not load new chunk metadata: %s", e)
+
         created_count = 0
         linked_nodes = set()
         relationships = []
 
         for chunk in similar_chunks:
-            existing_epistemic = chunk.epistemic_status
-            existing_node_id = chunk.metadata.get("node_id") if chunk.metadata else None
+            existing_meta = chunk.metadata or {}
+            existing_node_id = existing_meta.get("node_id")
 
             result = _classify_relationship(
                 similarity=chunk.similarity,
-                new_epistemic=new_epistemic,
-                existing_epistemic=existing_epistemic,
-                new_node_id=new_node_id,
-                existing_node_id=existing_node_id,
+                new_meta=new_meta,
+                existing_meta=existing_meta,
             )
 
             if result is None:
