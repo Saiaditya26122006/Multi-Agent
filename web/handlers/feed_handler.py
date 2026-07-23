@@ -327,7 +327,82 @@ def _next_child_id(parent_id: str, all_nodes: list[dict]) -> str:
     return f"{parent_id}.{max_n + 1}"
 
 
-def _create_new_node(node_title: str, parent_id: str, verbatim_text: str = "") -> dict:
+def _persist_new_node_durably(new_node: dict, session_id: Optional[str] = None) -> None:
+    """Persist a runtime-created architecture node to Supabase so it survives redeploys.
+
+    _create_new_node/_create_new_domain write to the local bp_architecture.json,
+    which is EPHEMERAL on Railway — wiped on every redeploy. Facts filed to a
+    runtime-created node then point at a node that no longer exists (the phantom
+    BP.13/BP.14/BP.4.7 bug). Writing the node to knowledge_base as a
+    bp_architecture chunk — identical format to the 840 nodes ingested by
+    scripts/ingest_bp_architecture.py — makes Supabase the durable source of
+    truth and the node immediately searchable via match_bp_node. Best-effort:
+    a Supabase failure must never break node creation itself.
+    """
+    node_id = new_node.get("node_id")
+    if not node_id:
+        return
+
+    try:
+        from services.rag_service import store
+
+        node_title = new_node.get("node_title") or ""
+        purpose = new_node.get("purpose") or ""
+        required_output = new_node.get("required_output") or ""
+        prohibited = new_node.get("prohibited_claims_inference_patterns") or ""
+        content = f"{node_title}. {purpose}. Required output: {required_output}"
+        if prohibited:
+            content += f". Prohibited claims: {prohibited}"
+        metadata = {
+            "layer": "bp_architecture",
+            "node_id": node_id,
+            "node_title": node_title,
+            "level": new_node.get("level", 0),
+            "parent_node": new_node.get("parent_node") or "",
+            "purpose": purpose,
+            "required_output": required_output,
+            "prohibited_claims": prohibited,
+            "runtime_created": True,
+        }
+        store(
+            content=content,
+            source_type="ceo_doc",
+            section=node_id,
+            epistemic_status="CONFIRMED",
+            confidence=1.0,
+            metadata=metadata,
+        )
+        logger.info("[FeedHandler] Persisted new node %s to Supabase (durable)", node_id)
+    except Exception as e:
+        logger.error("[FeedHandler] Could not persist new node %s to Supabase: %s", node_id, e)
+
+    # Surface the created node to Alex in the BP.12 governance register. There is
+    # no "new_node" item_type in the CHECK constraint; a custom node is created
+    # precisely to fill an architecture coverage gap, so evidence_gap is the
+    # closest valid, non-migration type. Title makes the real intent explicit.
+    try:
+        from services.bp12_register import create_register_item
+
+        create_register_item(
+            item_type="evidence_gap",
+            title=f"Custom node created via Feed: {node_id}",
+            description=(
+                f'Alex created a new architecture node "{new_node.get("node_title", "")}" '
+                f"({node_id}) via Feed because no existing node covered a submitted fact. "
+                f"Persisted to Supabase; review whether it should be formalized in the "
+                f"canonical architecture."
+            ),
+            affected_node_ids=[node_id],
+            severity="low",
+            source_session_id=session_id,
+        )
+    except Exception as e:
+        logger.error("[FeedHandler] Could not register new node %s in BP.12: %s", node_id, e)
+
+
+def _create_new_node(
+    node_title: str, parent_id: str, verbatim_text: str = "", session_id: Optional[str] = None
+) -> dict:
     """Permanently add a new node to bp_architecture.json under a parent.
 
     This used to just tag a fact with a placeholder node_id ("NEW_PENDING")
@@ -438,6 +513,10 @@ def _create_new_node(node_title: str, parent_id: str, verbatim_text: str = "") -
     from services.bp_aug_index import index_node, mark_synced
     index_node(new_node)
     mark_synced()  # aug layer now matches the just-written architecture file
+
+    # Durable persistence (Supabase = source of truth) so the node survives a
+    # Railway redeploy that wipes the local JSON — prevents future phantom nodes.
+    _persist_new_node_durably(new_node, session_id)
 
     logger.info("[FeedHandler] Created new node %s (%s) under %s", new_id, node_title, parent_id)
 
@@ -2688,7 +2767,9 @@ def _get_next_domain_id() -> str:
     return f"BP.{next_num}"
 
 
-def _create_new_domain(domain_name: str, verbatim_text: str = "") -> dict:
+def _create_new_domain(
+    domain_name: str, verbatim_text: str = "", session_id: Optional[str] = None
+) -> dict:
     """Create a new top-level domain node in bp_architecture.json.
 
     This is the real domain-creation function: assigns a permanent ID,
@@ -2776,6 +2857,9 @@ def _create_new_domain(domain_name: str, verbatim_text: str = "") -> dict:
     index_node(new_node)
     mark_synced()  # aug layer now matches the just-written architecture file
 
+    # Durable persistence (Supabase = source of truth) — see _create_new_node.
+    _persist_new_node_durably(new_node, session_id)
+
     logger.info("[FeedHandler] Created new domain %s (%s)", new_id, domain_name)
     return {"node_id": new_id, "node_title": domain_name, "level": 1}
 
@@ -2821,6 +2905,7 @@ def handle_new_domain_name(response_text: str, session_id: str) -> dict:
     new_domain = _create_new_domain(
         domain_name=domain_name,
         verbatim_text=pending.get("verbatim_text", ""),
+        session_id=session_id,
     )
 
     if new_domain["node_id"] == "NEW_PENDING":
@@ -2878,6 +2963,7 @@ def handle_new_node_name(response_text: str, session_id: str) -> dict:
         node_title=node_name,
         parent_id=suggested_parent.get("node_id", "BP.1"),
         verbatim_text=pending.get("verbatim_text", ""),
+        session_id=session_id,
     )
 
     pending["proposed_node"] = new_node
