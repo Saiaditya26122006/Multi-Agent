@@ -3639,6 +3639,18 @@
                 initEventListeners();
                 initConnection();
                 initQuarantineBadge();
+                // Open on the Build workspace by default (client-side switch — no
+                // chat message sent; opens the section board).
+                switchWorkspace(2, false);
+                // Keep the server-side workspace in sync so typed messages route to
+                // Build too (equivalent to clicking Build in the tray, silently).
+                if (token) {
+                    fetch('/api/workspace/switch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ workspace: 'build', token }),
+                    }).catch(() => {});
+                }
             });
 
             // --- Event Listeners ---
