@@ -4292,6 +4292,48 @@ def handle_undo(session_id: str) -> str:
         return f"Undo failed: {e}"
 
 
+def handle_move(text: str, session_id: str) -> str:
+    """Redirect the most recently auto-filed fact to a different node.
+
+    Alex types 'move BP.2.3' after an auto-file statement. Moves the last
+    auto-filed chunk to that node via promote_chunk_to_leaf — which also records
+    the correction (_record_correction), so the classifier learns from the move.
+
+    Returns:
+        A confirmation string (never empty).
+    """
+    m = re.search(r"\b(BP\.\d+(?:\.\d+)*)", text, re.IGNORECASE)
+    if not m:
+        return "Couldn't read a node id. Use e.g. 'move BP.2.3'."
+    node_id = m.group(1).upper()
+
+    if _get_node_details(node_id) is None:
+        return f"No node '{node_id}' exists in the architecture. Nothing moved."
+
+    try:
+        raw = _get_redis().get(_last_stored_key(session_id))
+    except Exception as e:
+        logger.error("[FeedHandler] move: redis read failed: %s", e)
+        return f"Move failed: {e}"
+    if not raw:
+        return "Nothing to move — no recent auto-filed fact within the last 10 minutes."
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8")
+    try:
+        chunk_ids = json.loads(raw)
+    except Exception:
+        chunk_ids = []
+    if not chunk_ids:
+        return "Nothing to move — no recent auto-filed fact."
+
+    chunk_id = chunk_ids[-1]  # the most recent auto-filed fact
+    # promote_chunk_to_leaf moves the chunk AND records the correction internally.
+    result = promote_chunk_to_leaf(chunk_id, node_id, session_id=session_id)
+    if not result.get("success"):
+        return f"Move failed: {result.get('error', 'unknown error')}."
+    return f"Moved to {result.get('node_title') or node_id} ({result.get('node_id', node_id)})."
+
+
 def handle_feed_message(text: str, session_id: str) -> str:
     """Main entry point for all feed workspace messages.
 
@@ -4331,10 +4373,13 @@ def handle_feed_message(text: str, session_id: str) -> str:
             result = handle_new_domain_name(text, session_id)
             return result.get("response_text") or "Processing new domain..."
 
-        # Undo — must check before question detection
+        # Undo / move — must check before question detection
         text_lower = text.strip().lower()
         if text_lower == "undo":
             return handle_undo(session_id)
+
+        if text_lower.startswith("move "):
+            return handle_move(text, session_id)
 
         if looks_like_question(text):
             result = handle_feed_question(text, session_id)
