@@ -298,7 +298,7 @@ def board_snapshot(session_id: str) -> dict:
 
     section_state.init_sections(session_id)
     states = section_state.list_sections(session_id)
-    registry = section_state.load_registry()
+    registry = section_state.effective_registry(session_id)
 
     sections = []
     done = 0
@@ -335,7 +335,7 @@ def focus_options(session_id: str, section_id: str) -> dict:
     the CEO's idea. On any failure, degrades to a clearly-generic option set
     (logged) so the kickoff still works offline — never fabricated specifics.
     """
-    registry = section_state.load_registry()
+    registry = section_state.effective_registry(session_id)
     meta = registry.get(section_id)
     if not meta:
         return {"section_id": section_id, "options": [], "question": ""}

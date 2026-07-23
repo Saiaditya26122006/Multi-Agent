@@ -29,7 +29,7 @@ def run_section(session_id: str, section_id: str, force: bool = False,
     `feedback` (Adjust flow) steers a revision; `focus` (kickoff tap-clarify)
     tells a fresh run which angle Alex chose.
     """
-    registry = section_state.load_registry()
+    registry = section_state.effective_registry(session_id)
     if section_id not in registry:
         return {"status": "unknown_section", "section_id": section_id}
 
@@ -83,7 +83,7 @@ def export_plan(session_id: str) -> dict:
     draft; marks the rest as pending. DOCX export can adapt evaluation/export_docx.
     """
     section_state.init_sections(session_id)
-    registry = section_state.load_registry()
+    registry = section_state.effective_registry(session_id)
     states = section_state.list_sections(session_id)
     lines = ["# Business Plan\n"]
     included = 0
@@ -143,7 +143,7 @@ def export_docx(session_id: str) -> Optional[bytes]:
         return None
 
     section_state.init_sections(session_id)
-    registry = section_state.load_registry()
+    registry = section_state.effective_registry(session_id)
     states = section_state.list_sections(session_id)
 
     doc = Document()
@@ -191,6 +191,10 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict,
 
     await orch._ensure_agents_registered([agent_name])
     input_package = orch._build_input_package(agent_name, phase1, prior_outputs, ceo_data)
+    # Tell the agent which section it is writing — required by the generic analyst
+    # (custom sections), harmless to the topic-locked specialists (they ignore it).
+    input_package["section_id"] = section_id
+    input_package["section_title"] = registry.get(section_id, {}).get("title", section_id)
     if feedback:
         # Adjust flow: give the agent Alex's revision note + its prior draft.
         input_package["revision_feedback"] = feedback
@@ -280,7 +284,7 @@ def build_all(session_id: str) -> dict:
 
 
 async def _build_all_async(session_id: str) -> None:
-    registry = section_state.load_registry()
+    registry = section_state.effective_registry(session_id)
     for _ in range(len(registry) + 5):  # bounded; each pass drafts >=1 or stops
         states = section_state.list_sections(session_id)
         runnable = [

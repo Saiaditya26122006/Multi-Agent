@@ -603,7 +603,9 @@ class PipelineOrchestrator:
             from agents.phase2.swot_synthesizer import SWOTSynthesizerAgent
             from agents.phase2.marketing_strategy import MarketingStrategyAgent
             from agents.phase2.financial_modelling import FinancialModellingAgent
+            from agents.phase2.generic_analyst import GenericAnalystAgent
             self._agent_class_map = {
+                "generic_analyst": GenericAnalystAgent,
                 "opportunity_analyst": OpportunityAnalystAgent,
                 "entrepreneur_team": EntrepreneurTeamAgent,
                 "alliances": AlliancesAgent,

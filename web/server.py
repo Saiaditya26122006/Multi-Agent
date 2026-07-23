@@ -1539,6 +1539,29 @@ async def get_build_v2_focus_options(token: str, section_id: str) -> dict:
     return await asyncio.to_thread(focus_options, session_id, section_id)
 
 
+class BuildV2AddSectionRequest(BaseModel):
+    """Payload to add a custom specialist/section (Phase 4)."""
+
+    title: str
+    token: str
+
+
+@app.post("/api/build-v2/add-section")
+async def post_build_v2_add_section(req: BuildV2AddSectionRequest) -> dict:
+    """Add a custom section written by the generic analyst agent."""
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    if not req.title or not req.title.strip():
+        raise HTTPException(status_code=400, detail="Title required")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.section_state import add_custom_section
+
+    row = await asyncio.to_thread(add_custom_section, session_id, req.title.strip())
+    return {"status": "added", "section_id": row["section_id"], "title": row["title"]}
+
+
 @app.get("/api/build-v2/stream")
 async def get_build_v2_stream(request: Request, token: str) -> StreamingResponse:
     """Live board updates over one SSE connection (Phase 2).

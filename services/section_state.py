@@ -116,6 +116,58 @@ def init_sections(session_id: str) -> dict:
     return _load(session_id)
 
 
+def effective_registry(session_id: str) -> dict:
+    """The static registry plus any custom sections Alex added this session.
+
+    Custom sections live only as bp_sections rows (section_id not in the YAML);
+    they carry their own title/agent/depends_on, so they behave like built-ins
+    for the DAG, assembly, and next-actions.
+    """
+    reg = dict(load_registry())
+    for sid, row in _load(session_id).items():
+        if sid not in reg:
+            reg[sid] = {
+                "title": row.get("title", sid),
+                "agent": row.get("agent"),
+                "depends_on": row.get("depends_on") or [],
+            }
+    return reg
+
+
+def add_custom_section(
+    session_id: str,
+    title: str,
+    agent: str = "generic_analyst",
+    depends_on: Optional[list] = None,
+) -> dict:
+    """Register a custom section for this session (independent DAG node).
+
+    Returns the new section row. Section id is 'c<N>' so it never collides with
+    the numeric built-in ids. Defaults to no dependencies so it can run anytime
+    and nothing depends on it — it can't stall the built-in waves.
+    """
+    init_sections(session_id)
+    existing = _load(session_id)
+    n = 1
+    while f"c{n}" in existing:
+        n += 1
+    sid = f"c{n}"
+    row = {
+        "session_id": session_id,
+        "section_id": sid,
+        "title": title.strip()[:200] or sid,
+        "agent": agent,
+        "status": "not_started",
+        "draft": None,
+        "blocked_on": None,
+        "depends_on": depends_on or [],
+        "version": 0,
+    }
+    _get_sb().table("bp_sections").insert(row).execute()
+    logger.info("[SectionState] added custom section %s (%s) for %s", sid, title, session_id)
+    return row
+
+
 def get_section(session_id: str, section_id: str) -> Optional[dict]:
     return _load(session_id).get(section_id)
 
@@ -148,7 +200,7 @@ def update_section(session_id: str, section_id: str, **fields) -> dict:
 
 def ready_sections(session_id: str) -> list[str]:
     """Sections that are not_started/blocked and whose dependencies are all done."""
-    registry = load_registry()
+    registry = effective_registry(session_id)
     states = _load(session_id) or init_sections(session_id)
     out = []
     for sid in registry:
@@ -164,7 +216,7 @@ def assemble(session_id: str) -> dict:
     Cheap (a view over state, not a re-run). Returns counts, a markdown overview
     with badges, and the section drafts that exist.
     """
-    registry = load_registry()
+    registry = effective_registry(session_id)
     states = _load(session_id) or {}
     counts: dict[str, int] = {}
     lines = ["# Business Plan — current state", ""]

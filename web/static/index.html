@@ -3176,6 +3176,17 @@
         .bv2-chip.primary { background:#3b82f6; border-color:#3b82f6; color:#fff; }
         .bv2-back { font-size:12px; color:#7fa8ff; cursor:pointer; margin-bottom:10px;
             display:inline-block; }
+        /* Phase 5: roster graph + wave/entrance animation */
+        .bv2-graph-wrap { margin-bottom:10px; }
+        .bv2-graph-wrap summary { font-size:11px; color:#7fa8ff; cursor:pointer;
+            margin-bottom:6px; list-style:none; user-select:none; }
+        .bv2-graph-wrap summary::-webkit-details-marker { display:none; }
+        .bv2-graph { background:#0e1218; border:1px solid #1e2530; border-radius:12px; padding:6px; }
+        .bv2-node text { pointer-events:none; }
+        .bv2-node circle { transition:r .15s; }
+        .bv2-node:hover circle { r:10; }
+        .bv2-row { animation:bv2in .28s ease both; }
+        @keyframes bv2in { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
     </style>
 </head>
 <body>
@@ -6031,8 +6042,10 @@
                 if (inbox > 0) {
                     html += `<div class="bv2-inbox">📥 <span><strong>${inbox}</strong> section${inbox > 1 ? 's' : ''} need your attention</span></div>`;
                 }
+                html += renderRosterGraph(plan);
                 html += `<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">
                     <button class="confirm-leaf-btn" data-bv2-refresh="1">↻ Refresh</button>
+                    <button class="confirm-leaf-btn" data-bv2-add="1">＋ Add specialist</button>
                     <button class="confirm-leaf-btn" data-bv2-export="1">⬇ Preview plan</button>
                     <a class="confirm-leaf-btn" href="/api/build-v2/export-docx?token=${encodeURIComponent(token)}" download="business_plan.docx" style="text-decoration:none;">⬇ Download .docx</a>
                 </div>`;
@@ -6056,10 +6069,66 @@
                 return html;
             }
 
+            // ── Phase 5: roster constellation (You → sections, coloured by status)
+            function bv2NodeColor(st) {
+                return ({ not_started: '#3a4252', in_progress: '#3b82f6', blocked_on_data: '#ef4444',
+                    needs_review: '#eab308', done: '#22c55e', failed: '#ef4444' })[st] || '#3a4252';
+            }
+
+            function renderRosterGraph(plan) {
+                const secs = plan.sections || {};
+                const ids = Object.keys(secs);
+                if (!ids.length) return '';
+                const W = 340, cols = 5, cx = W / 2, ay = 20, top = 60, dx = W / (cols + 1), dy = 42;
+                const rows = Math.ceil(ids.length / cols);
+                const H = top + rows * dy;
+                let lines = '', nodes = '';
+                ids.forEach((sid, i) => {
+                    const r = Math.floor(i / cols), c = i % cols;
+                    const inRow = Math.min(cols, ids.length - r * cols);
+                    const rowW = (inRow + 1) * dx;
+                    const x = (W - rowW) / 2 + (c + 1) * dx;
+                    const y = top + r * dy;
+                    const col = bv2NodeColor(secs[sid].status);
+                    lines += `<line x1="${cx}" y1="${ay}" x2="${x.toFixed(1)}" y2="${y}" stroke="#232a36" stroke-width="1"/>`;
+                    const pulse = secs[sid].status === 'in_progress'
+                        ? `<circle cx="${x.toFixed(1)}" cy="${y}" r="9" fill="none" stroke="${col}" stroke-width="1.5"><animate attributeName="r" values="9;14;9" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="1.4s" repeatCount="indefinite"/></circle>` : '';
+                    nodes += `<g class="bv2-node" data-bv2-open="${escapeHtml(sid)}" style="cursor:pointer;">
+                        <title>${escapeHtml(sid)}. ${escapeHtml(secs[sid].title || '')} — ${escapeHtml(BV2_STATUS_LABEL[secs[sid].status] || secs[sid].status)}</title>
+                        ${pulse}<circle cx="${x.toFixed(1)}" cy="${y}" r="8" fill="${col}"/>
+                        <text x="${x.toFixed(1)}" y="${y + 3}" text-anchor="middle" font-size="7" fill="#0b0e14" font-weight="700">${escapeHtml(sid)}</text>
+                    </g>`;
+                });
+                return `<details class="bv2-graph-wrap" open><summary>Team map</summary>
+                    <div class="bv2-graph"><svg viewBox="0 0 ${W} ${H}" width="100%">
+                        <defs><radialGradient id="bv2alex"><stop offset="0%" stop-color="#8ec5ff"/><stop offset="100%" stop-color="#3b82f6"/></radialGradient></defs>
+                        ${lines}
+                        <circle cx="${cx}" cy="${ay}" r="13" fill="url(#bv2alex)"/>
+                        <text x="${cx}" y="${ay + 4}" text-anchor="middle" font-size="9" fill="#06101f" font-weight="700">You</text>
+                        ${nodes}
+                    </svg></div></details>`;
+            }
+
+            async function buildV2AddSpecialist() {
+                const title = prompt('Name the specialist / section to add (e.g. "Regulatory & Compliance Strategy"):');
+                if (!title || !title.trim()) return;
+                try {
+                    const res = await fetch('/api/build-v2/add-section', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: title.trim(), token }),
+                    });
+                    if (!res.ok) { showToast('Could not add section', 'error'); return; }
+                    const data = await res.json();
+                    showToast(`Added: ${data.title}`, 'success');
+                    loadBuildV2Board();
+                } catch (e) { showToast('Could not add section', 'error'); }
+            }
+
             function wireBoard() {
                 const body = sidePanelBody;
                 body.querySelectorAll('[data-bv2-refresh]').forEach(b => b.addEventListener('click', () => loadBuildV2Board()));
                 body.querySelectorAll('[data-bv2-export]').forEach(b => b.addEventListener('click', () => buildV2Export()));
+                body.querySelectorAll('[data-bv2-add]').forEach(b => b.addEventListener('click', () => buildV2AddSpecialist()));
                 body.querySelectorAll('[data-bv2-open]').forEach(r => r.addEventListener('click', () => openSectionThread(r.dataset.bv2Open)));
             }
 
