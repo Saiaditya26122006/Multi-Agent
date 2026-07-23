@@ -16,6 +16,10 @@ from tools.trace_emitter import emit_trace
 
 logger = logging.getLogger(__name__)
 
+# Toggle for the near-duplicate "[yes/skip]" prompt on new Feed input. Off for
+# now (noisy on first send); duplicates still get skipped/summarised downstream.
+DUPLICATE_CHECK_ENABLED = False
+
 PENDING_FACT_TTL = 600  # 10 minutes
 
 CONTENT_TYPE_PATTERNS = {
@@ -2211,7 +2215,10 @@ def handle_raw_text(
     Returns:
         Dict with: action, response_text, auto_filed_count, review_count.
     """
-    if not _skip_dupe_check:
+    # Near-duplicate prompt disabled for now — Alex found the "already in the
+    # knowledge base? [yes/skip]" message noisy on first send. Flip
+    # DUPLICATE_CHECK_ENABLED to restore it.
+    if DUPLICATE_CHECK_ENABLED and not _skip_dupe_check:
         try:
             from services.rag_service import retrieve as rag_retrieve
 
