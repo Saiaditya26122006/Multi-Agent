@@ -2312,6 +2312,48 @@ def divide_into_facts(text: str) -> list[dict]:
     ]
 
 
+# Returned by handle_raw_text as its response_text when it has ALREADY delivered
+# its chat output over WebSocket (via emit_chat_message). The HTTP layer detects
+# this and skips re-broadcasting, avoiding a duplicate message. Only used when a
+# session_id is present (i.e. a real WS-connected request, not tests/CLI).
+FEED_ASYNC_SENTINEL = "\x00__FEED_SELF_DELIVERED__\x00"
+
+
+def _format_batch_summary(auto_results: list[dict]) -> str:
+    """Single consolidated summary of an auto-filed batch (a statement, not a question).
+
+    One line per fact: truncated fact (<=80 chars) + arrow + node_title (node_id).
+    Tier-2 (parked-at-parent) facts get an extra "will refine when section is built"
+    marker. Ends with the undo hint.
+    """
+    stored = [r for r in auto_results if r.get("status") == "stored"]
+    if not stored:
+        return ""
+
+    def _fact(r: dict) -> str:
+        v = " ".join((r.get("verbatim_text") or "").split())
+        return (v[:77] + "...") if len(v) > 80 else v
+
+    n = len(stored)
+    lines = [f"✓ Filed {n} fact{'s' if n != 1 else ''} automatically:", ""]
+    for r in stored:
+        if r.get("tier") == "auto_file_parent":
+            title = r.get("node_title") or ""
+            nid = r.get("node_id") or ""
+            lines.append(f"  • {_fact(r)}")
+            lines.append(f"    → {title} ({nid})")
+            lines.append("    ⏳ will refine when section is built")
+        else:
+            # Tier 1: show the specific leaf if we have one, else the filed node.
+            title = r.get("suggested_leaf_title") or r.get("node_title") or ""
+            nid = r.get("suggested_leaf_id") or r.get("node_id") or ""
+            lines.append(f"  • {_fact(r)}")
+            lines.append(f"    → {title} ({nid})")
+        lines.append("")
+    lines.append("Type 'undo' to reverse this batch.")
+    return "\n".join(lines)
+
+
 def _format_autofile_statements(auto_results: list[dict]) -> str:
     """Render auto-filed facts as statements (never questions), one per fact.
 
@@ -2573,7 +2615,7 @@ def handle_raw_text(
 
         response_parts = []
         if auto_results:
-            response_parts.append(_format_autofile_statements(auto_results))
+            response_parts.append(_format_batch_summary(auto_results))
 
         # Non-router-committed facts go to Alex for placement.
         review_batch = []
@@ -2599,9 +2641,26 @@ def handle_raw_text(
                 "Could not extract distinct facts from this input. "
                 "Filing as a single entry instead.\n\n---\n\n" + body
             )
+
+        # Self-deliver over WebSocket so the summary still reaches Alex even if the
+        # HTTP request that started this already timed out (a large batch of facts
+        # can take longer than the request's wait). Return a sentinel so the HTTP
+        # layer doesn't re-broadcast the same text. No session_id (tests/CLI) ->
+        # return the body directly as before.
+        response_out = body
+        if session_id:
+            try:
+                from tools.trace_emitter import emit_chat_message
+
+                emit_chat_message(session_id, body, workspace="feed")
+                response_out = FEED_ASYNC_SENTINEL
+            except Exception as e:  # noqa: BLE001
+                logger.debug("[FeedHandler] self-deliver failed, returning body: %s", e)
+                response_out = body
+
         return {
             "action": "auto_filed_with_review" if review_batch else "auto_filed",
-            "response_text": body,
+            "response_text": response_out,
             "auto_filed_count": len(auto_results),
             "review_count": len(review_batch),
         }

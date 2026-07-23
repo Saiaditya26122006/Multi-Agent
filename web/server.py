@@ -857,16 +857,46 @@ async def post_message(req: SendMessageRequest):
                 timeout=120.0,
             )
         except asyncio.TimeoutError:
-            logger.error(f"[Workspace:{current_ws.value}] Handler timed out after 120s")
-            response_text = "That took too long. Please try again or simplify your request."
+            # The handler is still running in its worker thread and will deliver
+            # its result over WebSocket when done (Feed self-delivers its summary).
+            # Show a processing status instead of an error, and keep the indicator
+            # up — do NOT clear the spinner or claim failure here.
+            logger.warning(
+                f"[Workspace:{current_ws.value}] Handler exceeded 120s — continuing in background"
+            )
+            await manager.broadcast(
+                session_key,
+                {
+                    "role": "status",
+                    "text": "Processing your input — extracting facts…",
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
+            return {
+                "status": "processing_in_background",
+                "session_key": session_key,
+                "workspace": current_ws.value,
+            }
         except Exception as e:
             logger.error(f"[Workspace:{current_ws.value}] Handler crashed: {e}", exc_info=True)
             response_text = "Something went wrong processing that. Please try again."
-        finally:
-            await manager.broadcast(
-                session_key,
-                {"role": "status", "text": "", "timestamp": datetime.utcnow().isoformat()},
-            )
+
+        # Synchronous result in hand — clear the processing spinner.
+        await manager.broadcast(
+            session_key,
+            {"role": "status", "text": "", "timestamp": datetime.utcnow().isoformat()},
+        )
+
+        # The handler may have already delivered its chat output over WebSocket
+        # (Feed batch auto-filing) — in that case don't re-broadcast.
+        from web.handlers.feed_handler import FEED_ASYNC_SENTINEL
+        if response_text == FEED_ASYNC_SENTINEL:
+            return {
+                "status": "handled_self_delivered",
+                "session_key": session_key,
+                "workspace": current_ws.value,
+            }
+
         if not response_text:
             response_text = "Received — nothing to show for that input."
 

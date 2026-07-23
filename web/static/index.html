@@ -3706,6 +3706,11 @@
             let storedDataSortMode = 'node';
             let processLog = [];
             let processPhase = 'idle'; // 'idle' | 'processing' | 'review'
+            // True from when a message is sent until the assistant reply arrives.
+            // Gates the trace-driven spinner so late/zombie trace events (e.g. from
+            // a background thread after a handler timeout) can't re-show it once the
+            // final reply has cleared it.
+            let awaitingResponse = false;
             let currentBatch = null;
             let pendingDownload = null;
             let commandSearchDebounce = null;
@@ -5579,14 +5584,19 @@
                 } else if (data.role === 'trace') {
                     handleTraceEvent(data);
                     handleProcessTraceEvent(data);
-                    // Drive the typing indicator with live trace detail
-                    if (data.detail && document.getElementById('typingMsg')) {
-                        updateTypingStatus(data.detail, data);
-                    } else if (data.detail && !document.getElementById('typingMsg')) {
-                        showTypingIndicator(data.detail);
-                        // If first trace is a classification stage, show progress immediately
-                        if (data.step && getStageIndex(data.step) >= 0) {
+                    // Drive the typing indicator with live trace detail — but only
+                    // while we're actually awaiting a reply. A trace arriving after
+                    // the final reply (e.g. a background thread that outlived the
+                    // request) must NOT resurrect the spinner.
+                    if (awaitingResponse && data.detail) {
+                        if (document.getElementById('typingMsg')) {
                             updateTypingStatus(data.detail, data);
+                        } else {
+                            showTypingIndicator(data.detail);
+                            // If first trace is a classification stage, show progress immediately
+                            if (data.step && getStageIndex(data.step) >= 0) {
+                                updateTypingStatus(data.detail, data);
+                            }
                         }
                     }
                 } else if (data.role === 'status') {
@@ -5596,6 +5606,8 @@
                         removeTypingIndicator();
                     }
                 } else if (data.role === 'assistant') {
+                    // Any assistant reply ends the wait and clears the spinner.
+                    awaitingResponse = false;
                     removeTypingIndicator();
                     if (data.workspace_action === 'show_menu') {
                         appendSystemMessage(data.text, { rich_type: 'menu', menu_data: data.menu_data });
@@ -5629,6 +5641,7 @@
 
                 // Show typing indicator immediately — don't wait for server status event
                 if (text) {
+                    awaitingResponse = true;
                     showTypingIndicator('Processing...');
                 }
 

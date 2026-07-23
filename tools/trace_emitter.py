@@ -152,6 +152,39 @@ def emit_classification(
         pass
 
 
+def emit_chat_message(session_key: str, text: str, workspace: str = "feed") -> None:
+    """Broadcast an assistant chat message from a worker thread.
+
+    Lets a slow handler (e.g. Feed batch auto-filing) deliver its final summary
+    directly over WebSocket, so the message still reaches Alex even if the HTTP
+    request that started it already timed out. Non-blocking, never raises.
+    """
+    if not text:
+        return
+    try:
+        from web.server import manager
+
+        message = {
+            "role": "assistant",
+            "text": text,
+            "channel": "system",
+            "workspace": workspace,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        loop = _get_event_loop()
+        if loop and loop.is_running():
+            loop.create_task(_safe_broadcast(manager, session_key, message))
+        elif _main_loop is not None and _main_loop.is_running():
+            asyncio.run_coroutine_threadsafe(
+                _safe_broadcast(manager, session_key, message), _main_loop
+            )
+        else:
+            asyncio.run(_safe_broadcast(manager, session_key, message))
+    except Exception:
+        pass
+
+
 def _get_event_loop():
     """Get the running event loop or None."""
     try:
