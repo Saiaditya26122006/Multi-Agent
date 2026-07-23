@@ -2111,10 +2111,90 @@ def _generate_document_context(text: str) -> Optional[str]:
         return None
 
 
+_EXTRACTION_TIMEOUT_S = 30
+_EXTRACTION_CHUNK_WORDS = 150
+_extraction_client = None
+
+
+def _get_extraction_client():
+    """Bedrock client for fact extraction with a hard 30s read timeout.
+
+    The shared _get_client() has no timeout, so a slow/hung extraction call can
+    stall the whole Feed request. This client caps the read at 30s and disables
+    boto retries so they can't stack past that budget.
+    """
+    global _extraction_client
+    if _extraction_client is None:
+        import os
+        import boto3
+        from botocore.config import Config
+
+        _extraction_client = boto3.client(
+            "bedrock-runtime",
+            region_name=os.getenv("AWS_BEDROCK_REGION", "us-east-1"),
+            config=Config(
+                read_timeout=_EXTRACTION_TIMEOUT_S,
+                connect_timeout=10,
+                retries={"total_max_attempts": 1},  # exactly one attempt — keep 30s a hard cap
+            ),
+        )
+    return _extraction_client
+
+
+def _chunk_by_words(text: str, max_words: int) -> list[str]:
+    """Split text into <=max_words chunks on sentence boundaries (sentences kept whole)."""
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    chunks: list[str] = []
+    cur: list[str] = []
+    cur_words = 0
+    for s in sentences:
+        w = len(s.split())
+        if cur and cur_words + w > max_words:
+            chunks.append(" ".join(cur))
+            cur, cur_words = [], 0
+        cur.append(s)
+        cur_words += w
+    if cur:
+        chunks.append(" ".join(cur))
+    return chunks or [text]
+
+
+_EXTRACTION_SYSTEM_PROMPT = (
+    "You extract atomic facts from raw business/research notes for a knowledge base.\n"
+    "Rules:\n"
+    "- Each item is ONE independently-checkable claim.\n"
+    "- Keep a claim and its reason/evidence together if splitting loses meaning.\n"
+    "- Make each item SELF-CONTAINED: resolve pronouns and references using the "
+    "surrounding text so it is understandable in isolation "
+    "('it grew 40%' -> 'Revenue grew 40%').\n"
+    "- Preserve meaning-carrying labels (Risk:, Assumption:, Decision:, Metric:, etc.).\n"
+    "- Drop headers, filler, and non-factual text.\n"
+    "- Do NOT invent facts or add information not present in the text.\n"
+    "Return ONLY a JSON array of strings."
+)
+
+
+def _extract_facts_one(text: str, client, model_id: str) -> Optional[list]:
+    """One LLM extraction call over a single chunk. Returns raw item list or None."""
+    response = client.converse(
+        modelId=model_id,
+        system=[{"text": _EXTRACTION_SYSTEM_PROMPT}],
+        messages=[{"role": "user", "content": [{"text": text[:6000]}]}],
+        inferenceConfig={"maxTokens": 1500},
+    )
+    raw = response["output"]["message"]["content"][0]["text"].strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
+    import json as _json
+
+    items = _json.loads(raw)
+    return items if isinstance(items, list) else None
+
+
 def extract_atomic_facts(text: str) -> Optional[list[dict]]:
     """LLM-based atomic fact extraction with decontextualization.
 
-    Replaces regex splitting for prose/documents. One Haiku call:
+    Replaces regex splitting for prose/documents. Per chunk, one Haiku call:
       - splits the text into distinct, independently-checkable claims
       - keeps multi-sentence claims together when splitting would lose meaning
       - makes each fact SELF-CONTAINED by resolving pronouns/references from the
@@ -2122,49 +2202,35 @@ def extract_atomic_facts(text: str) -> Optional[list[dict]]:
         exactly what lets the classifier place a fact correctly in isolation
       - drops headers/filler; never invents facts
 
-    Returns a list of {text, inferred_status, source_format} dicts, or None on
-    failure (caller falls back to regex splitting).
+    Inputs over 150 words are chunked on sentence boundaries and extracted per
+    chunk; the extraction call has a hard 30s read timeout (Bug 1). Returns a
+    list of {text, inferred_status, source_format} dicts, or None on failure
+    (caller falls back to regex / sentence splitting).
     """
     if not text or not text.strip():
         return None
     try:
         import time as _time
-        from web.handlers.llm_helper import _get_client
         import os
 
         _t0 = _time.monotonic()
-        client = _get_client()
+        client = _get_extraction_client()
         model_id = os.getenv("CLAUDE_HAIKU_MODEL", "us.anthropic.claude-haiku-4-5-20251001-v1:0")
 
-        system = (
-            "You extract atomic facts from raw business/research notes for a knowledge base.\n"
-            "Rules:\n"
-            "- Each item is ONE independently-checkable claim.\n"
-            "- Keep a claim and its reason/evidence together if splitting loses meaning.\n"
-            "- Make each item SELF-CONTAINED: resolve pronouns and references using the "
-            "surrounding text so it is understandable in isolation "
-            "('it grew 40%' -> 'Revenue grew 40%').\n"
-            "- Preserve meaning-carrying labels (Risk:, Assumption:, Decision:, Metric:, etc.).\n"
-            "- Drop headers, filler, and non-factual text.\n"
-            "- Do NOT invent facts or add information not present in the text.\n"
-            "Return ONLY a JSON array of strings."
+        chunks = (
+            _chunk_by_words(text, _EXTRACTION_CHUNK_WORDS)
+            if len(text.split()) > _EXTRACTION_CHUNK_WORDS
+            else [text]
         )
-        response = client.converse(
-            modelId=model_id,
-            system=[{"text": system}],
-            messages=[{"role": "user", "content": [{"text": text[:6000]}]}],
-            inferenceConfig={"maxTokens": 1500},
-        )
-        raw = response["output"]["message"]["content"][0]["text"].strip()
-        if raw.startswith("```"):
-            raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.MULTILINE).strip()
 
-        import json as _json
-        items = _json.loads(raw)
-        if not isinstance(items, list):
-            return None
+        raw_items: list = []
+        for ch in chunks:
+            items = _extract_facts_one(ch, client, model_id)
+            if items:
+                raw_items.extend(items)
+
         facts = []
-        for it in items:
+        for it in raw_items:
             s = it.strip() if isinstance(it, str) else ""
             if len(s) > 3:
                 facts.append({
@@ -2224,7 +2290,26 @@ def divide_into_facts(text: str) -> list[dict]:
         llm = extract_atomic_facts(text)
         if llm:
             return llm
-    return split_into_atomic_facts(text, fmt)
+
+    regex_facts = split_into_atomic_facts(text, fmt)
+    if regex_facts:
+        return regex_facts
+
+    # Final fallback (Bug 2): the LLM and regex splitters both returned empty on
+    # declarative/definitional prose. Treat each sentence as an atomic fact
+    # directly — no LLM decontextualization. Split on sentence enders and drop
+    # fragments under 8 words (keeps real declarative sentences, skips scraps).
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", t) if s.strip()]
+    return [
+        {
+            "text": s,
+            "inferred_status": _infer_epistemic_status(s),
+            "source_format": "sentence_split",
+            "content_type": "fact",
+        }
+        for s in sentences
+        if len(s.split()) >= 8
+    ]
 
 
 def _format_autofile_statements(auto_results: list[dict]) -> str:
@@ -2319,11 +2404,18 @@ def handle_raw_text(
         fmt = detect_format(text)
         raw_facts = divide_into_facts(text)
 
+        single_entry = False
         if not raw_facts:
-            return {
-                "action": "no_facts",
-                "response_text": "No extractable facts found in that input. Try rephrasing or adding more detail.",
-            }
+            # Bug 2: nothing splittable (no declarative sentences >=8 words).
+            # Rather than drop the input, file the WHOLE thing as one entry and
+            # let it flow through the normal classify/file pipeline.
+            single_entry = True
+            raw_facts = [{
+                "text": text.strip(),
+                "inferred_status": _infer_epistemic_status(text),
+                "source_format": "single_entry",
+                "content_type": "fact",
+            }]
 
         # --- Approach C: Generate document context for disambiguation ---
         # One cheap Haiku call summarizes the topic of the whole input. This
@@ -2501,9 +2593,15 @@ def handle_raw_text(
         elif session_id:
             set_feed_state(session_id, None)
 
+        body = "\n\n---\n\n".join(response_parts) if response_parts else "Nothing extractable was found in that input."
+        if single_entry:
+            body = (
+                "Could not extract distinct facts from this input. "
+                "Filing as a single entry instead.\n\n---\n\n" + body
+            )
         return {
             "action": "auto_filed_with_review" if review_batch else "auto_filed",
-            "response_text": "\n\n---\n\n".join(response_parts) if response_parts else "Nothing extractable was found in that input.",
+            "response_text": body,
             "auto_filed_count": len(auto_results),
             "review_count": len(review_batch),
         }
@@ -4386,7 +4484,7 @@ def handle_feed_message(text: str, session_id: str) -> str:
             return result.get("response_text") or "I'm not sure how to answer that here."
 
         result = handle_raw_text(text, session_id=session_id)
-        return result.get("response_text") or "Input received but no facts could be extracted. Try rephrasing."
+        return result.get("response_text") or "Could not extract distinct facts from this input. Filing as a single entry instead."
     except Exception as e:
         logger.error("[FeedHandler] Unhandled error in handle_feed_message: %s", e, exc_info=True)
         return f"Feed processing error: {e}. Please try again."
