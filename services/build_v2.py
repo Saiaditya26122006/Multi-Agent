@@ -204,6 +204,21 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict,
     if focus:
         # Kickoff tap-clarify: the focus angle Alex picked for a fresh run.
         input_package["focus_directive"] = focus
+
+    # Phase 2 of two-phase filing: before generating, refine the suggested leaf
+    # of any facts parked at this section's parent (pending_leaf_resolution).
+    # Suggestion-only — nothing is moved; the agent just gets better leaf hints
+    # in the facts it retrieves. Non-blocking: a failure never stops the build.
+    try:
+        from services.leaf_resolver import resolve_provisional
+
+        resolve_provisional(section_prefix=section_id)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "[BuildV2] leaf resolution failed for %s: %s — continuing without refinement",
+            section_id, e,
+        )
+
     run_id = f"secrun_{uuid.uuid4().hex[:8]}"
 
     result = await orch._dispatch_to_agent(agent_name, session_id, run_id, input_package)

@@ -1442,94 +1442,52 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
                 node_id_for_val.startswith("BP.8.8")  # Category compression
             )
             if not skip_validation:
-                required_output = node_details.get("required_output") or ""
-                precheck_passed = _required_output_precheck(text, required_output, node_details)
-
-                if not precheck_passed:
-                    result["confidence"] = "medium"
-                    result["reasoning"] = (
-                        f"Demoted: fact has no keyword overlap with node's required_output "
-                        f"({result['node_id']}). Needs human review."
+                # required_output satisfaction is NO LONGER a filing gate. It is a
+                # build-time completeness check that belongs in the build agent, not
+                # the feed handler: a fact is valid to FILE if it is RELEVANT to the
+                # node (embedding + the LLM node pick already decide relevance).
+                # So we do NOT demote on required_output mismatch. We still run the
+                # PROHIBITION governance check — a fact must not be filed where the
+                # node explicitly bars it.
+                if session_id:
+                    emit_trace(
+                        session_id, "Classifier", "validating",
+                        "Checking placement against node prohibitions...",
+                        data={"node_id": result["node_id"], "phase": "validation"},
                     )
-                    logger.info(
-                        "[FeedHandler] Required-output precheck failed: demoted high -> medium for %s",
-                        result["node_id"],
+                try:
+                    from web.handlers.llm_helper import validate_classification
+
+                    validation = validate_classification(text, node_details)
+
+                    if validation["prohibition_violated"]:
+                        result["confidence"] = "low"
+                        result["reasoning"] = (
+                            f"Demoted: fact violates node's prohibition "
+                            f"({result['node_id']}). {validation['reasoning']}"
+                        )
+                        if session_id:
+                            emit_trace(
+                                session_id, "Classifier", "validated",
+                                f"Validation failed — prohibition violated ({result['node_id']})",
+                                data={"node_id": result["node_id"], "passed": False, "phase": "validation"},
+                            )
+                        logger.info(
+                            "[FeedHandler] Prohibition validated: demoted -> low for %s",
+                            result["node_id"],
+                        )
+                    else:
+                        result["validated"] = True
+                        if session_id:
+                            emit_trace(
+                                session_id, "Classifier", "validated",
+                                f"Validated ✓ — placement confirmed for {result['node_id']}",
+                                data={"node_id": result["node_id"], "passed": True, "phase": "validation"},
+                            )
+                except Exception as e:
+                    logger.error(
+                        "[FeedHandler] LLM validation failed (keeping original classification): %s", e
                     )
-                else:
-                    if session_id:
-                        emit_trace(
-                            session_id, "Classifier", "validating",
-                            f"Validating placement against node constraints...",
-                            data={"node_id": result["node_id"], "phase": "validation"},
-                        )
-                    try:
-                        from web.handlers.llm_helper import validate_classification
-
-                        validation = validate_classification(text, node_details)
-
-                        if validation["prohibition_violated"] and not validation["required_output_match"]:
-                            result["node_id"] = None
-                            result["node_title"] = ""
-                            result["confidence"] = "low"
-                            result["none_fit"] = True
-                            result["reasoning"] = (
-                                f"Validation rejected: prohibition violated AND required_output mismatch. "
-                                f"{validation['reasoning']}"
-                            )
-                            result["suggested_parent"] = _get_suggested_parent(step_a_candidates, text=text)
-                            if session_id:
-                                emit_trace(
-                                    session_id, "Classifier", "validated",
-                                    f"Validation failed — prohibition violated and output mismatch",
-                                    data={"passed": False, "phase": "validation"},
-                                )
-                            logger.info(
-                                "[FeedHandler] Validation double-reject: forced none_fit for fact"
-                            )
-                        elif validation["prohibition_violated"]:
-                            result["confidence"] = "low"
-                            result["reasoning"] = (
-                                f"Demoted: fact violates node's prohibition "
-                                f"({result['node_id']}). {validation['reasoning']}"
-                            )
-                            if session_id:
-                                emit_trace(
-                                    session_id, "Classifier", "validated",
-                                    f"Validation failed — prohibition violated ({result['node_id']})",
-                                    data={"node_id": result["node_id"], "passed": False, "phase": "validation"},
-                                )
-                            logger.info(
-                                "[FeedHandler] Prohibition validated: demoted high -> low for %s",
-                                result["node_id"],
-                            )
-                        elif not validation["required_output_match"]:
-                            result["confidence"] = "medium"
-                            result["reasoning"] = (
-                                f"Demoted: fact doesn't produce node's required_output "
-                                f"({result['node_id']}). {validation['reasoning']}"
-                            )
-                            if session_id:
-                                emit_trace(
-                                    session_id, "Classifier", "validated",
-                                    f"Validation partial — required output mismatch ({result['node_id']})",
-                                    data={"node_id": result["node_id"], "passed": False, "phase": "validation"},
-                                )
-                            logger.info(
-                                "[FeedHandler] Required-output mismatch: demoted high -> medium for %s",
-                                result["node_id"],
-                            )
-                        else:
-                            result["validated"] = True
-                            if session_id:
-                                emit_trace(
-                                    session_id, "Classifier", "validated",
-                                    f"Validated ✓ — placement confirmed for {result['node_id']}",
-                                    data={"node_id": result["node_id"], "passed": True, "phase": "validation"},
-                                )
-                    except Exception as e:
-                        logger.error(
-                            "[FeedHandler] LLM validation failed (keeping original classification): %s", e
-                        )
 
         # Strict none_fit enforcement REMOVED — the keyword-overlap gate had a
         # high false-positive rate across a 747-node architecture where most valid
@@ -1739,37 +1697,28 @@ QUARANTINE_COUNT_KEY_PREFIX = "quarantine_count"
 
 
 def _determine_tier(classification: dict, source: str = "alex_direct") -> str:
-    """Map classifier signals to one of four confidence tiers.
+    """Map classifier signals to one of three filing tiers (relevance-based).
 
-    Data-calibrated gate (evaluation/calibrate_tier.py, measured 2026-07-20 on
-    the 40-fact Alex-confirmed gold set):
-
-    The LLM's self-reported ``confidence`` does NOT predict correctness — at
-    "high" it was only 38% exact and let 24/40 misfiles into the KB, including
-    facts placed in the WRONG DOMAIN. Tightening on confidence/validated barely
-    moved precision because those signals are the same LLM grading itself.
-
-    The one signal that separates right from wrong is DOMAIN-ROUTER AGREEMENT:
-      - router commits to a single domain AND the pick agrees -> 100% domain-
-        correct (13/13), 77% section-correct.
-      - router torn across >1 domain -> only 65% domain-correct.
-
-    So auto-file ONLY router-committed facts, and flag them for leaf review
-    (the leaf is still ~36% even when the domain is right — that is Phase 1b).
-    Everything else goes to Alex rather than polluting the KB.
+    required_output satisfaction is NOT a filing gate — it is a build-time
+    completeness check that belongs in the build agent. A fact is valid to file
+    if it is RELEVANT to the node, which the domain router + LLM node pick already
+    decide. So the tier depends only on classifier confidence and whether the
+    pick landed in one of the router's domains (domain_agreement). DOMAIN-ROUTER
+    AGREEMENT remains the reliable signal (measured 100% domain-correct on the
+    gold set); leaf precision is handled downstream by section-level filing and
+    build-time leaf resolution, not by blocking the fact here.
 
     Args:
-        classification: Result dict from classify_and_match_node() (must carry
-            the ``signals`` block; falls back to the old confidence gate if not).
+        classification: Result dict from classify_and_match_node() (carries the
+            ``signals`` block; falls back to a confidence-only mapping if absent).
         source: Origin of the fact — "alex_direct" or "document".
 
     Returns:
         One of three tiers:
-        - "auto_file"         high + validated + the pick lands in one of the
-                              router's domains → store silently (one-line summary).
-        - "auto_file_flagged" high + validated but the pick left the router's
-                              domains → store but flag for review.
-        - "ask"               everything else → full review.
+        - "auto_file"        high confidence + domain agrees → file at the section.
+        - "auto_file_parent" medium confidence + domain agrees → park at the parent
+                             (domain) node, pending leaf resolution at build time.
+        - "ask"              none_fit, wrong domain, or low confidence → ask Alex.
     """
     none_fit = classification.get("none_fit", True) or not classification.get("node_id")
     if none_fit:
@@ -1777,27 +1726,31 @@ def _determine_tier(classification: dict, source: str = "alex_direct") -> str:
 
     signals = classification.get("signals")
 
-    # Backward-compat: no signals (older callers) -> conservative confidence gate.
+    # Backward-compat: no signals block (older callers) -> confidence-only mapping.
     if not signals:
         confidence = classification.get("confidence", "low")
-        if confidence == "high" and classification.get("validated"):
-            return "auto_file_flagged"
+        if confidence == "high":
+            return "auto_file"
+        if confidence == "medium":
+            return "auto_file_parent"
         return "ask"
 
-    # Loosened gate. The old rule required the router to commit to EXACTLY one
-    # domain (len(router)==1); real sentences span domains, so it almost never
-    # held and nearly everything fell to "ask". Now auto-file when the final
-    # pick lands in ANY of the router's domains (domain_agreement) as long as
-    # the classifier is high-confidence AND validated — with a true 3-way split.
+    # Relevance-based filing. required_output satisfaction (validated) is NOT a
+    # filing gate anymore — a fact is valid to file if it is RELEVANT, which the
+    # domain router + LLM node pick already decide. The tier depends only on
+    # confidence and whether the pick landed in one of the router's domains.
     domain_agree = signals.get("domain_agreement", False)
-    high = signals.get("classifier_confidence") == "high"
-    validated = signals.get("classifier_validated", False)
+    confidence = signals.get("classifier_confidence") or "low"
 
-    if high and validated and domain_agree:
-        return "auto_file"           # trusted: store silently
-    if high and validated and not domain_agree:
-        return "auto_file_flagged"   # confident but out-of-domain: store + flag
-    return "ask"
+    # Wrong domain -> genuinely ambiguous, ask Alex.
+    if not domain_agree:
+        return "ask"
+
+    if confidence == "high":
+        return "auto_file"          # Tier 1: file at the section
+    if confidence == "medium":
+        return "auto_file_parent"   # Tier 2: park at the parent, pending leaf resolution
+    return "ask"                    # Tier 3: low confidence
 
 
 def _build_audit_metadata(
@@ -2274,6 +2227,43 @@ def divide_into_facts(text: str) -> list[dict]:
     return split_into_atomic_facts(text, fmt)
 
 
+def _format_autofile_statements(auto_results: list[dict]) -> str:
+    """Render auto-filed facts as statements (never questions), one per fact.
+
+    Tier 1 (auto_file): filed at the section, showing the suggested leaf.
+    Tier 2 (auto_file_parent): parked at the parent, pending leaf resolution when
+    the section is built. Both are statements only — no confirm/adjust/skip. Alex
+    can 'undo' to remove or 'move <node_id>' to redirect.
+    """
+    blocks = []
+    for r in auto_results:
+        if r.get("status") != "stored":
+            continue
+        ct = r.get("content_type", "fact")
+        verbatim = (r.get("verbatim_text") or "").replace("\n", " ")
+        if len(verbatim) > 100:
+            verbatim = verbatim[:97] + "..."
+        node_id = r.get("node_id") or ""
+        node_title = r.get("node_title") or node_id
+        leaf_id = r.get("suggested_leaf_id")
+        leaf_title = r.get("suggested_leaf_title") or ""
+
+        if r.get("tier") == "auto_file":
+            lines = [f"✓ {ct} filed → {node_title}", f"   Fact: {verbatim}"]
+            if leaf_id:
+                lines.append(f"   Suggested leaf: {leaf_title} ({leaf_id})")
+            lines.append(f"   tap 'undo' to remove · 'move {node_id}' to redirect")
+        else:
+            lines = [
+                f"→ {ct} parked → {node_title}",
+                f"   Fact: {verbatim}",
+                f"   Will refine to leaf when {node_title} section is built.",
+                f"   tap 'undo' to remove · 'move {node_id}' to redirect now",
+            ]
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
 def handle_raw_text(
     text: str,
     session_id: Optional[str] = None,
@@ -2389,26 +2379,25 @@ def handle_raw_text(
             tier = _determine_tier(fact_data["classification"], source=source)
             tiered.append({"fact": fact_data, "tier": tier})
 
-        # _determine_tier only produces "auto_file_flagged" (router-committed,
-        # stored + flagged for leaf review) or "ask" (sent to Alex). The old
-        # "auto_file" (silent) and "soft_ask" tiers are no longer emitted.
-        # Both auto-file tiers are stored immediately; they differ only in
-        # whether Alex is asked to review the leaf. "auto_file" = trusted
-        # (high+validated+domain agrees) → stored silently, no review flag.
-        # "auto_file_flagged" = confident but the pick left the router domain
-        # → stored with a review flag.
-        autofile_batch = [t for t in tiered if t["tier"] in ("auto_file", "auto_file_flagged")]
+        # Three-tier, relevance-based filing:
+        #   "auto_file"        high + domain agrees -> file at the SECTION.
+        #   "auto_file_parent" medium + domain agrees -> park at the PARENT (domain)
+        #                      node, pending leaf resolution when Build runs.
+        #   "ask"              none_fit / wrong domain / low -> full review flow.
+        # Both auto-file tiers are stored immediately as STATEMENTS to Alex (no
+        # confirm/adjust/skip); only genuinely ambiguous facts go to "ask".
+        autofile_batch = [t for t in tiered if t["tier"] in ("auto_file", "auto_file_parent")]
         ask_batch = [t for t in tiered if t["tier"] == "ask"]
 
-        silent_count = sum(1 for t in autofile_batch if t["tier"] == "auto_file")
-        flagged_count = len(autofile_batch) - silent_count
+        tier1_count = sum(1 for t in autofile_batch if t["tier"] == "auto_file")
+        tier2_count = len(autofile_batch) - tier1_count
 
         if session_id and autofile_batch:
             emit_trace(
                 session_id, "Feed", "auto_filing",
-                f"Auto-filing {len(autofile_batch)} fact(s) at section level "
-                f"({silent_count} silent, {flagged_count} flagged for leaf review)...",
-                {"silent": silent_count, "flagged": flagged_count, "ask": len(ask_batch)},
+                f"Auto-filing {len(autofile_batch)} fact(s) "
+                f"({tier1_count} at section, {tier2_count} parked at parent)...",
+                {"section": tier1_count, "parent": tier2_count, "ask": len(ask_batch)},
             )
 
         auto_results = []
@@ -2417,17 +2406,43 @@ def handle_raw_text(
             fact_data = item["fact"]
             tier = item["tier"]
             classification = fact_data["classification"]
-            # File at the SECTION (reliable ~77-82%), not the leaf (~35-55%),
-            # and carry the suggested leaf forward for one-click confirmation.
-            target = _resolve_filing_target(classification)
-            node_id = target["file_node_id"]
-            node_title = target["file_node_title"] or classification.get("node_title", "")
-            audit = _build_audit_metadata(classification, source, tier, fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
-            audit["needs_review"] = (tier == "auto_file_flagged")
-            if target["backed_off"]:
-                audit["filed_at_section"] = True
-                audit["suggested_leaf_id"] = target["suggested_leaf_id"]
-                audit["suggested_leaf_title"] = target["suggested_leaf_title"]
+            match_node_id = classification.get("node_id") or ""
+            audit = _build_audit_metadata(
+                classification, source, tier,
+                fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""),
+            )
+            audit["auto_filed"] = True
+            audit["needs_review"] = False
+
+            if tier == "auto_file":
+                # Tier 1: file at the SECTION (reliable ~77-82%); carry the leaf
+                # pick forward as a one-click suggestion.
+                target = _resolve_filing_target(classification)
+                node_id = target["file_node_id"]
+                node_title = target["file_node_title"] or classification.get("node_title", "")
+                suggested_leaf_id = target.get("suggested_leaf_id")
+                suggested_leaf_title = target.get("suggested_leaf_title")
+                if suggested_leaf_id:
+                    audit["suggested_leaf_id"] = suggested_leaf_id
+                    audit["suggested_leaf_title"] = suggested_leaf_title
+                if target["backed_off"]:
+                    audit["filed_at_section"] = True
+            else:
+                # Tier 2 (auto_file_parent): medium confidence -> park at the parent
+                # (domain) node; the leaf is resolved when the section is built.
+                parts = match_node_id.split(".")
+                parent_id = ".".join(parts[:2]) if len(parts) >= 2 else match_node_id
+                parent_details = _get_node_details(parent_id) or {}
+                node_id = parent_id
+                node_title = parent_details.get("node_title") or classification.get("node_title", "")
+                suggested_leaf_id = match_node_id
+                suggested_leaf_title = classification.get("node_title", "")
+                audit["filed_at_parent"] = True
+                audit["pending_leaf_resolution"] = True
+                audit["original_match_node_id"] = match_node_id
+                audit["suggested_leaf_id"] = suggested_leaf_id
+                audit["suggested_leaf_title"] = suggested_leaf_title
+
             result = _store_fact_now(
                 verbatim=fact_data["verbatim_text"],
                 content_type=fact_data["content_type"],
@@ -2441,16 +2456,16 @@ def handle_raw_text(
             )
             auto_results.append({
                 "verbatim_text": fact_data["verbatim_text"],
+                "content_type": fact_data["content_type"],
                 "node_id": node_id,
                 "node_title": node_title,
-                "suggested_leaf_id": target.get("suggested_leaf_id"),
-                "suggested_leaf_title": target.get("suggested_leaf_title"),
+                "suggested_leaf_id": suggested_leaf_id,
+                "suggested_leaf_title": suggested_leaf_title,
+                "original_match_node_id": match_node_id,
                 "epistemic_status": fact_data["epistemic_status"],
                 "status": result["status"],
                 "chunk_id": result.get("chunk_id"),
                 "confidence": classification.get("confidence", "high"),
-                "validated": tier == "auto_file",
-                "needs_review": audit["needs_review"],
                 "tier": tier,
                 "audit": audit,
             })
@@ -2466,7 +2481,7 @@ def handle_raw_text(
 
         response_parts = []
         if auto_results:
-            response_parts.append(_format_auto_file_table(auto_results))
+            response_parts.append(_format_autofile_statements(auto_results))
 
         # Non-router-committed facts go to Alex for placement.
         review_batch = []
@@ -3750,8 +3765,8 @@ def process_uploaded_document(
             )
 
     # --- Tier-based routing (same logic as chat flow) ---
-    # _determine_tier emits "auto_file", "auto_file_flagged", or "ask".
-    flagged_batch = [f for f in classified if f["tier"] in ("auto_file", "auto_file_flagged")]
+    # _determine_tier emits "auto_file", "auto_file_parent", or "ask".
+    flagged_batch = [f for f in classified if f["tier"] in ("auto_file", "auto_file_parent")]
     review_batch = [f for f in classified if f["tier"] == "ask"]
 
     emit_trace(
@@ -3771,8 +3786,8 @@ def process_uploaded_document(
         node_id = target["file_node_id"]
         node_title = target["file_node_title"] or classification.get("node_title", "")
         audit = _build_audit_metadata(classification, source, fact_data["tier"], fact_data.get("source_reliability"), fact_data.get("verbatim_text", ""))
-        if fact_data["tier"] == "auto_file_flagged":
-            audit["needs_review"] = True
+        audit["auto_filed"] = True
+        audit["needs_review"] = False
         if target["backed_off"]:
             audit["filed_at_section"] = True
             audit["suggested_leaf_id"] = target["suggested_leaf_id"]
