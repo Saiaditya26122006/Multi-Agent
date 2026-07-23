@@ -1490,8 +1490,37 @@ def _chat_to_session_uuid(chat) -> Optional[str]:
 
 
 def _resolve_session_id() -> Optional[str]:
-    """Resolve the active session's UUID (not the chat_id) for Build v2 state."""
-    return _chat_to_session_uuid(_get_session_key())
+    """Resolve the active session's UUID (not the chat_id) for Build v2 state.
+
+    ceo_context carries `telegram_chat_id` (not `chat_id`), so the plain
+    _get_session_key() lookup can miss. Try, in order: the session-key chat id,
+    the ceo_context telegram_chat_id, then the latest session overall (this is a
+    single-CEO app, so the newest session is the current one).
+    """
+    sid = _chat_to_session_uuid(_get_session_key())
+    if sid:
+        return sid
+    try:
+        from memory.supabase_client import get_ceo_context
+
+        ctx = get_ceo_context() or {}
+        tg = ctx.get("telegram_chat_id")
+        if tg is not None:
+            sid = _chat_to_session_uuid(tg)
+            if sid:
+                return sid
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Build v2 session resolve via ceo_context failed: %s", e)
+    try:
+        from services.rag_service import _get_supabase
+
+        r = (_get_supabase().table("sessions").select("id")
+             .order("started_at", desc=True).limit(1).execute())
+        if r.data:
+            return r.data[0]["id"]
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Build v2 session resolve via latest-session failed: %s", e)
+    return None
 
 
 @app.get("/api/build-v2/plan")
