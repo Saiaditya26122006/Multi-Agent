@@ -3187,6 +3187,16 @@
         .bv2-node:hover circle { r:10; }
         .bv2-row { animation:bv2in .28s ease both; }
         @keyframes bv2in { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+        /* inline Build view (main workspace area) */
+        .build-inline { color:#c4ccd8; }
+        .bv2-head { display:flex; align-items:baseline; justify-content:space-between;
+            margin-bottom:12px; }
+        .bv2-head strong { font-size:17px; color:#e7ecf3; }
+        .bv2-head span { font-size:12px; color:#8b96aa; }
+        @media (prefers-color-scheme: light) {
+            .bv2-head strong { color:#1a2233; }
+        }
+        :root[data-theme="light"] .bv2-head strong { color:#1a2233; }
     </style>
 </head>
 <body>
@@ -3273,6 +3283,8 @@
                 <div class="messages-container" id="messagesContainer">
                     <!-- Demo content injected by JS -->
                 </div>
+                <!-- Build v2 renders its roster/threads inline here (main view). -->
+                <div id="buildInline" class="build-inline" style="display:none;max-width:760px;margin:0 auto;width:100%;padding:14px 16px 40px;"></div>
             </div>
 
             <!-- INPUT -->
@@ -3548,6 +3560,16 @@
             // --- DOM Elements ---
             const messagesArea = document.getElementById('messagesArea');
             const messagesContainer = document.getElementById('messagesContainer');
+            const buildInline = document.getElementById('buildInline');
+            // Render Build v2 (roster + threads) as the main workspace view.
+            function bv2ShowInline(html) {
+                if (messagesContainer) messagesContainer.style.display = 'none';
+                if (buildInline) { buildInline.style.display = 'block'; buildInline.innerHTML = html; }
+            }
+            function bv2HideInline() {
+                if (buildInline) { buildInline.style.display = 'none'; buildInline.innerHTML = ''; }
+                if (messagesContainer) messagesContainer.style.display = '';
+            }
             const inputField = document.getElementById('inputField');
             const sendBtn = document.getElementById('sendBtn');
             const plusBtn = document.getElementById('plusBtn');
@@ -5923,10 +5945,12 @@
                         .catch(() => {}); // Silently fail if endpoint not available
                 }
 
-                // Build workspace: open the installment section board.
+                // Build workspace: show the installment section board inline as the
+                // main view. Leaving Build restores the chat.
                 if (num === 2) {
                     setTimeout(() => { try { loadBuildV2Board(); } catch (e) {} }, 150);
                 } else {
+                    if (typeof bv2HideInline === 'function') bv2HideInline();
                     if (typeof closeSidePanel === 'function' && sidePanel.classList.contains('active')) closeSidePanel();
                 }
 
@@ -6137,7 +6161,8 @@
             }
 
             function wireBoard() {
-                const body = sidePanelBody;
+                const body = buildInline;
+                if (!body) return;
                 body.querySelectorAll('[data-bv2-refresh]').forEach(b => b.addEventListener('click', () => loadBuildV2Board()));
                 body.querySelectorAll('[data-bv2-export]').forEach(b => b.addEventListener('click', () => buildV2Export()));
                 body.querySelectorAll('[data-bv2-add]').forEach(b => b.addEventListener('click', () => buildV2AddSpecialist()));
@@ -6147,19 +6172,21 @@
             async function loadBuildV2Board() {
                 if (!token) return;
                 bv2View = 'board';
+                bv2ShowInline('<div class="panel-empty" style="padding:28px;text-align:center;color:#7c869a;">Loading your plan…</div>');
                 try {
                     const [planRes, nextRes] = await Promise.all([
                         fetch(`/api/build-v2/plan?token=${token}`),
                         fetch(`/api/build-v2/next?token=${token}`),
                     ]);
-                    if (!planRes.ok) { openSidePanel('Build', '', '<div class="panel-empty">No active session — send a business idea first.</div>'); return; }
+                    if (!planRes.ok) { bv2ShowInline('<div class="panel-empty" style="padding:24px;text-align:center;color:#7c869a;">No active session yet — send a business idea in the chat first, then reopen Build.</div>'); return; }
                     const plan = await planRes.json();
                     const next = nextRes.ok ? await nextRes.json() : { ready: [], needs_review: [], blocked_on_data: {} };
-                    openSidePanel('Build', `${plan.done}/${plan.total} sections done`, renderBoard(plan, next));
+                    const header = `<div class="bv2-head"><strong>Your plan</strong><span>${plan.done}/${plan.total} sections done</span></div>`;
+                    bv2ShowInline(header + renderBoard(plan, next));
                     wireBoard();
                     bv2StreamConnect();
                 } catch (e) {
-                    openSidePanel('Build', '', '<div class="panel-empty">Could not load the build board.</div>');
+                    bv2ShowInline('<div class="panel-empty" style="padding:24px;text-align:center;color:#7c869a;">Could not load the build board.</div>');
                 }
             }
 
@@ -6169,13 +6196,14 @@
                 try {
                     bv2Stream = new EventSource(`/api/build-v2/stream?token=${encodeURIComponent(token)}`);
                     bv2Stream.onmessage = (ev) => {
-                        if (bv2View !== 'board' || !sidePanel.classList.contains('active')) return;
+                        // Only live-refresh when the roster is the current inline view.
+                        if (bv2View !== 'board' || currentWorkspaceNum !== 2 || !buildInline || buildInline.style.display === 'none') return;
                         try {
                             const snap = JSON.parse(ev.data);
                             const plan = { done: snap.done, total: snap.total, sections: {} };
                             (snap.sections || []).forEach(s => { plan.sections[s.section_id] = s; });
-                            sidePanelSubtitle.textContent = `${snap.done}/${snap.total} sections done`;
-                            sidePanelBody.innerHTML = renderBoard(plan, snap.next || {});
+                            const header = `<div class="bv2-head"><strong>Your plan</strong><span>${snap.done}/${snap.total} sections done</span></div>`;
+                            buildInline.innerHTML = header + renderBoard(plan, snap.next || {});
                             wireBoard();
                         } catch (e) { /* keep the connection; skip a bad frame */ }
                     };
@@ -6230,7 +6258,8 @@
             }
 
             function wireThread(sid) {
-                const body = sidePanelBody;
+                const body = buildInline;
+                if (!body) return;
                 body.querySelectorAll('[data-bv2-back]').forEach(b => b.addEventListener('click', () => loadBuildV2Board()));
                 body.querySelectorAll('[data-bv2-accept]').forEach(b => b.addEventListener('click', async () => {
                     await buildV2Post('accept', { section_id: sid });
@@ -6249,7 +6278,7 @@
 
             async function openSectionThread(sid) {
                 bv2View = sid;
-                openSidePanel('Build', 'Loading section…', '<div class="panel-empty">Loading…</div>');
+                bv2ShowInline('<div class="panel-empty" style="padding:24px;color:#7c869a;">Loading…</div>');
                 try {
                     const res = await fetch(`/api/build-v2/section-thread?token=${token}&section_id=${encodeURIComponent(sid)}`);
                     if (!res.ok) { showToast('Could not load section', 'error'); return loadBuildV2Board(); }
@@ -6260,7 +6289,7 @@
                     html += renderCard(card);
                     html += (data.messages || []).map(renderMessage).join('');
                     html += renderThreadActions(card);
-                    openSidePanel('Build', card.title || sid, html);
+                    bv2ShowInline(html);
                     wireThread(sid);
                 } catch (e) {
                     showToast('Could not load section', 'error');
@@ -6270,7 +6299,7 @@
 
             // ── Phase 3: tap-to-answer kickoff clarify ────────────────────
             async function buildV2Kickoff(sid) {
-                openSidePanel('Build', 'Getting started…', '<div class="panel-empty">Preparing questions…</div>');
+                bv2ShowInline('<div class="panel-empty" style="padding:24px;color:#7c869a;">Preparing questions…</div>');
                 let opts = null;
                 try {
                     const res = await fetch(`/api/build-v2/focus-options?token=${token}&section_id=${encodeURIComponent(sid)}`);
@@ -6286,9 +6315,9 @@
                       <div class="bv2-card-title" style="font-size:14px;">${escapeHtml(opts.question || 'What should this focus on?')}</div>
                       <div class="bv2-actions" style="border-top:none;position:static;padding-top:12px;">${chips}</div>
                     </div>`;
-                openSidePanel('Build', sid, html);
-                sidePanelBody.querySelectorAll('[data-bv2-back]').forEach(b => b.addEventListener('click', () => openSectionThread(sid)));
-                sidePanelBody.querySelectorAll('[data-focus]').forEach(c => c.addEventListener('click', () => {
+                bv2ShowInline(html);
+                buildInline.querySelectorAll('[data-bv2-back]').forEach(b => b.addEventListener('click', () => openSectionThread(sid)));
+                buildInline.querySelectorAll('[data-focus]').forEach(c => c.addEventListener('click', () => {
                     let f = c.dataset.focus;
                     if (f === '__all__') f = opts.options.join(', ');
                     startSection(sid, f || null);
@@ -6323,10 +6352,11 @@
                     const res = await fetch(`/api/build-v2/export?token=${token}`);
                     if (!res.ok) { showToast('Export failed', 'error'); return; }
                     const data = await res.json();
-                    openSidePanel('Business plan export', `${data.sections_included}/${data.total} sections drafted`,
-                        `<button class="confirm-leaf-btn" data-bv2-back="1" style="margin-bottom:8px;">← Back to board</button>
-                         <pre style="white-space:pre-wrap;font-size:12px;line-height:1.5;">${escapeHtml(data.markdown || '')}</pre>`);
-                    const back = sidePanelBody.querySelector('[data-bv2-back]');
+                    bv2ShowInline(
+                        `<span class="bv2-back" data-bv2-back="1">← Back to team</span>
+                         <div class="bv2-head"><strong>Plan preview</strong><span>${data.sections_included}/${data.total} sections drafted</span></div>
+                         <pre style="white-space:pre-wrap;font-size:12px;line-height:1.5;color:#c4ccd8;">${escapeHtml(data.markdown || '')}</pre>`);
+                    const back = buildInline.querySelector('[data-bv2-back]');
                     if (back) back.addEventListener('click', () => loadBuildV2Board());
                 } catch (e) { showToast('Export failed', 'error'); }
             }
