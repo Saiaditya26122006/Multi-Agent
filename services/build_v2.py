@@ -19,14 +19,15 @@ logger = logging.getLogger(__name__)
 
 
 def run_section(session_id: str, section_id: str, force: bool = False,
-                feedback: Optional[str] = None) -> dict:
+                feedback: Optional[str] = None, focus: Optional[str] = None) -> dict:
     """Start one section's agent in the background. Returns immediately.
 
     Returns {status, section_id, [reason]} where status is:
       - "started"  — agent dispatched
       - "blocked"  — dependencies not done (unless force=True)
       - "unknown_section"
-    `feedback` (Adjust flow) is passed to the agent to steer a revision.
+    `feedback` (Adjust flow) steers a revision; `focus` (kickoff tap-clarify)
+    tells a fresh run which angle Alex chose.
     """
     registry = section_state.load_registry()
     if section_id not in registry:
@@ -48,7 +49,7 @@ def run_section(session_id: str, section_id: str, force: bool = False,
 
     def _worker() -> None:
         try:
-            asyncio.run(_run_section_async(session_id, section_id, registry, feedback))
+            asyncio.run(_run_section_async(session_id, section_id, registry, feedback, focus))
         except Exception as e:  # noqa: BLE001
             logger.exception("[BuildV2] section %s crashed", section_id)
             try:
@@ -169,7 +170,8 @@ def export_docx(session_id: str) -> Optional[bytes]:
 
 
 async def _run_section_async(session_id: str, section_id: str, registry: dict,
-                             feedback: Optional[str] = None) -> None:
+                             feedback: Optional[str] = None,
+                             focus: Optional[str] = None) -> None:
     from services.pipeline_orchestrator import get_orchestrator
     from ceo_data.loader import get_relevant_ceo_data
 
@@ -195,6 +197,9 @@ async def _run_section_async(session_id: str, section_id: str, registry: dict,
         prior = section_state.get_section(session_id, section_id) or {}
         pd = prior.get("draft")
         input_package["prior_draft"] = pd.get("output") if isinstance(pd, dict) else pd
+    if focus:
+        # Kickoff tap-clarify: the focus angle Alex picked for a fresh run.
+        input_package["focus_directive"] = focus
     run_id = f"secrun_{uuid.uuid4().hex[:8]}"
 
     result = await orch._dispatch_to_agent(agent_name, session_id, run_id, input_package)

@@ -22,9 +22,10 @@ from fastapi import (
     UploadFile,
     File,
     Form,
+    Request,
 )
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from services.conversation_store import store_ceo_message
@@ -1458,6 +1459,7 @@ class BuildV2SectionRequest(BaseModel):
     section_id: str
     token: str
     force: bool = False
+    focus: Optional[str] = None
 
 
 def _chat_to_session_uuid(chat) -> Optional[str]:
@@ -1511,6 +1513,71 @@ async def get_build_v2_next(token: str) -> dict:
     return await asyncio.to_thread(next_actions, session_id)
 
 
+@app.get("/api/build-v2/section-thread")
+async def get_build_v2_section_thread(token: str, section_id: str) -> dict:
+    """One section rendered as a conversation (draft, grounding, Council, data)."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.section_view import section_thread
+
+    return await asyncio.to_thread(section_thread, session_id, section_id)
+
+
+@app.get("/api/build-v2/focus-options")
+async def get_build_v2_focus_options(token: str, section_id: str) -> dict:
+    """Tap-to-answer focus choices for a section kickoff (Phase 3)."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.section_view import focus_options
+
+    return await asyncio.to_thread(focus_options, session_id, section_id)
+
+
+@app.get("/api/build-v2/stream")
+async def get_build_v2_stream(request: Request, token: str) -> StreamingResponse:
+    """Live board updates over one SSE connection (Phase 2).
+
+    Polls the durable board snapshot and pushes only when it changes — one
+    stream for the whole roster, not one connection per agent.
+    """
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    session_id = _resolve_session_id()
+    if not session_id:
+        raise HTTPException(status_code=404, detail="No active session")
+    from services.section_view import board_snapshot
+
+    async def _events():
+        last = None
+        while True:
+            if await request.is_disconnected():
+                break
+            try:
+                snap = await asyncio.to_thread(board_snapshot, session_id)
+                blob = json.dumps(snap, sort_keys=True)
+                if blob != last:
+                    last = blob
+                    yield f"data: {blob}\n\n"
+                else:
+                    yield ": heartbeat\n\n"
+            except Exception as e:  # noqa: BLE001
+                logger.warning("[BuildV2] stream snapshot failed: %s", e)
+                yield ": error\n\n"
+            await asyncio.sleep(2)
+
+    return StreamingResponse(
+        _events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.post("/api/build-v2/section")
 async def post_build_v2_section(req: BuildV2SectionRequest) -> dict:
     """Run one section's agent (installment model)."""
@@ -1521,7 +1588,9 @@ async def post_build_v2_section(req: BuildV2SectionRequest) -> dict:
         raise HTTPException(status_code=404, detail="No active session")
     from services.build_v2 import run_section
 
-    return await asyncio.to_thread(run_section, session_id, req.section_id, req.force)
+    return await asyncio.to_thread(
+        run_section, session_id, req.section_id, req.force, None, req.focus
+    )
 
 
 @app.post("/api/build-v2/accept")

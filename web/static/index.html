@@ -3103,6 +3103,79 @@
                 flex-wrap: nowrap;
             }
         }
+        /* ── Build v2 threaded workspace (Oasis-style) ─────────────────── */
+        .bv2-inbox {
+            display:flex; align-items:center; gap:8px;
+            background:linear-gradient(90deg,rgba(59,130,246,.18),rgba(59,130,246,.04));
+            border:1px solid rgba(59,130,246,.35); border-radius:10px;
+            padding:9px 12px; margin-bottom:10px; font-size:13px; color:#bcd4ff;
+        }
+        .bv2-inbox strong { color:#eaf1ff; }
+        .bv2-row {
+            display:flex; align-items:center; gap:10px; cursor:pointer;
+            background:#12151c; border:1px solid #232a36; border-radius:10px;
+            padding:10px 12px; margin-bottom:7px; transition:border-color .15s, background .15s;
+        }
+        .bv2-row:hover { border-color:#3b82f6; background:#161b24; }
+        .bv2-row.bv2-attn { border-color:rgba(59,130,246,.5); }
+        .bv2-row-badge { font-size:15px; line-height:1; }
+        .bv2-row-main { flex:1; min-width:0; }
+        .bv2-row-title { font-size:13px; font-weight:600; color:#e7ecf3;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .bv2-row-sub { font-size:11px; color:#7c869a; margin-top:2px;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .bv2-row-chev { color:#4a5468; font-size:12px; }
+        .bv2-pulse { width:7px; height:7px; border-radius:50%; background:#3b82f6;
+            box-shadow:0 0 0 0 rgba(59,130,246,.6); animation:bv2pulse 1.4s infinite; }
+        @keyframes bv2pulse {
+            0%{box-shadow:0 0 0 0 rgba(59,130,246,.55);} 70%{box-shadow:0 0 0 7px rgba(59,130,246,0);}
+            100%{box-shadow:0 0 0 0 rgba(59,130,246,0);}
+        }
+        /* rich section card */
+        .bv2-card {
+            background:linear-gradient(135deg,#1b2740,#101521); border:1px solid #2b3550;
+            border-radius:14px; padding:14px 16px; margin-bottom:14px;
+        }
+        .bv2-card-agent { font-size:11px; letter-spacing:.04em; text-transform:uppercase;
+            color:#7fa8ff; margin-bottom:3px; }
+        .bv2-card-title { font-size:16px; font-weight:700; color:#f0f4fa; }
+        .bv2-card-scope { font-size:12.5px; color:#aab6c8; margin-top:6px; line-height:1.45; }
+        .bv2-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
+        .bv2-badge { font-size:11px; padding:3px 9px; border-radius:20px;
+            border:1px solid transparent; font-weight:600; }
+        .bv2-badge.good { background:rgba(34,197,94,.12); color:#6ee7a0; border-color:rgba(34,197,94,.35); }
+        .bv2-badge.warn { background:rgba(234,179,8,.12); color:#f5d472; border-color:rgba(234,179,8,.35); }
+        .bv2-badge.bad  { background:rgba(239,68,68,.12); color:#f7a1a1; border-color:rgba(239,68,68,.35); }
+        .bv2-badge.neutral { background:rgba(148,163,184,.12); color:#c3cee0; border-color:rgba(148,163,184,.3); }
+        .bv2-tools { font-size:11px; color:#8b96aa; margin-top:10px; }
+        /* thread messages */
+        .bv2-msg { display:flex; gap:10px; margin-bottom:12px; }
+        .bv2-ava { width:28px; height:28px; border-radius:8px; flex-shrink:0;
+            display:flex; align-items:center; justify-content:center; font-size:12px;
+            font-weight:700; color:#0b0e14; }
+        .bv2-ava.agent { background:linear-gradient(135deg,#6ea8ff,#3b82f6); }
+        .bv2-ava.system { background:#5b6478; color:#dfe6f2; }
+        .bv2-ava.critic { background:linear-gradient(135deg,#f5c168,#e08d2f); }
+        .bv2-ava.feed { background:linear-gradient(135deg,#7ee0b8,#22a06b); }
+        .bv2-ava.human { background:linear-gradient(135deg,#c9a6ff,#8b5cf6); }
+        .bv2-msg-body { flex:1; min-width:0; }
+        .bv2-msg-head { display:flex; align-items:center; gap:8px; margin-bottom:3px; }
+        .bv2-msg-who { font-size:12.5px; font-weight:700; color:#e7ecf3; }
+        .bv2-msg-role { font-size:10.5px; color:#7c869a; }
+        .bv2-bubble { background:#12151c; border:1px solid #232a36; border-radius:10px;
+            padding:9px 11px; font-size:12.5px; color:#c4ccd8; line-height:1.5;
+            white-space:pre-wrap; word-break:break-word; }
+        .bv2-msg.data_request .bv2-bubble { border-color:rgba(234,179,8,.4);
+            background:rgba(234,179,8,.06); }
+        .bv2-bubble strong { color:#e7ecf3; }
+        .bv2-actions { position:sticky; bottom:0; display:flex; gap:8px; flex-wrap:wrap;
+            padding-top:12px; margin-top:6px; border-top:1px solid #232a36; background:transparent; }
+        .bv2-chip { font-size:12.5px; padding:7px 12px; border-radius:20px; cursor:pointer;
+            background:#161b24; border:1px solid #2b3550; color:#cdd6e4; transition:all .12s; }
+        .bv2-chip:hover { border-color:#3b82f6; color:#fff; }
+        .bv2-chip.primary { background:#3b82f6; border-color:#3b82f6; color:#fff; }
+        .bv2-back { font-size:12px; color:#7fa8ff; cursor:pointer; margin-bottom:10px;
+            display:inline-block; }
     </style>
 </head>
 <body>
@@ -5935,8 +6008,64 @@
                 needs_review: '🔎', done: '✅', failed: '❌',
             };
 
+            let bv2Stream = null;      // single SSE connection for the whole board
+            let bv2View = 'board';     // 'board' or a section id — controls live refresh
+
+            const BV2_STATUS_LABEL = {
+                not_started: 'Not started', in_progress: 'Working…',
+                blocked_on_data: 'Needs your data', needs_review: 'Ready for you',
+                done: 'Done', failed: 'Failed',
+            };
+
+            function bv2Fmt(s) {
+                return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            }
+
+            // ── Phase 2: the roster (team board) ──────────────────────────
+            function renderBoard(plan, next) {
+                const secs = plan.sections || {};
+                const review = new Set(next.needs_review || []);
+                const blocked = next.blocked_on_data || {};
+                const inbox = (next.needs_review || []).length + Object.keys(blocked).length;
+                let html = '';
+                if (inbox > 0) {
+                    html += `<div class="bv2-inbox">📥 <span><strong>${inbox}</strong> section${inbox > 1 ? 's' : ''} need your attention</span></div>`;
+                }
+                html += `<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="confirm-leaf-btn" data-bv2-refresh="1">↻ Refresh</button>
+                    <button class="confirm-leaf-btn" data-bv2-export="1">⬇ Preview plan</button>
+                    <a class="confirm-leaf-btn" href="/api/build-v2/export-docx?token=${encodeURIComponent(token)}" download="business_plan.docx" style="text-decoration:none;">⬇ Download .docx</a>
+                </div>`;
+                Object.keys(secs).forEach(sid => {
+                    const s = secs[sid];
+                    const attn = review.has(sid) || s.status === 'blocked_on_data';
+                    const badge = BUILD_V2_BADGE[s.status] || '';
+                    let sub = BV2_STATUS_LABEL[s.status] || s.status;
+                    if (s.status === 'blocked_on_data' && s.blocked_on) sub = 'Needs: ' + s.blocked_on;
+                    const pulse = s.status === 'in_progress'
+                        ? '<span class="bv2-pulse" style="display:inline-block;margin-right:5px;vertical-align:middle;"></span>' : '';
+                    html += `<div class="bv2-row${attn ? ' bv2-attn' : ''}" data-bv2-open="${escapeHtml(sid)}">
+                        <span class="bv2-row-badge">${badge}</span>
+                        <div class="bv2-row-main">
+                          <div class="bv2-row-title">${escapeHtml(sid)}. ${escapeHtml(s.title || '')}</div>
+                          <div class="bv2-row-sub">${pulse}${escapeHtml(sub)}</div>
+                        </div>
+                        <span class="bv2-row-chev">›</span>
+                    </div>`;
+                });
+                return html;
+            }
+
+            function wireBoard() {
+                const body = sidePanelBody;
+                body.querySelectorAll('[data-bv2-refresh]').forEach(b => b.addEventListener('click', () => loadBuildV2Board()));
+                body.querySelectorAll('[data-bv2-export]').forEach(b => b.addEventListener('click', () => buildV2Export()));
+                body.querySelectorAll('[data-bv2-open]').forEach(r => r.addEventListener('click', () => openSectionThread(r.dataset.bv2Open)));
+            }
+
             async function loadBuildV2Board() {
                 if (!token) return;
+                bv2View = 'board';
                 try {
                     const [planRes, nextRes] = await Promise.all([
                         fetch(`/api/build-v2/plan?token=${token}`),
@@ -5944,62 +6073,167 @@
                     ]);
                     if (!planRes.ok) { openSidePanel('Build', '', '<div class="panel-empty">No active session — send a business idea first.</div>'); return; }
                     const plan = await planRes.json();
-                    const next = nextRes.ok ? await nextRes.json() : { ready: [], needs_review: [] };
-                    const ready = new Set(next.ready || []);
-                    const review = new Set(next.needs_review || []);
-                    let html = `<div style="margin-bottom:10px;">
-                        <button class="confirm-leaf-btn" data-bv2-refresh="1">↻ Refresh</button>
-                        <button class="confirm-leaf-btn" data-bv2-export="1">⬇ Preview plan</button>
-                        <a class="confirm-leaf-btn" href="/api/build-v2/export-docx?token=${encodeURIComponent(token)}" download="business_plan.docx" style="text-decoration:none;">⬇ Download .docx</a>
-                    </div>`;
-                    const secs = plan.sections || {};
-                    Object.keys(secs).forEach(sid => {
-                        const s = secs[sid];
-                        const badge = BUILD_V2_BADGE[s.status] || '';
-                        const blocked = s.status === 'blocked_on_data' && s.blocked_on ? ` — <em>needs: ${escapeHtml(s.blocked_on)}</em>` : '';
-                        let actions = '';
-                        if (review.has(sid)) actions += `<button class="confirm-leaf-btn" data-bv2-accept="${escapeHtml(sid)}">Accept</button> `;
-                        if (ready.has(sid)) actions += `<button class="confirm-leaf-btn" data-bv2-run="${escapeHtml(sid)}">Work on this</button> `;
-                        if (s.status === 'done' || s.status === 'needs_review') actions += `<button class="confirm-leaf-btn" data-bv2-adjust="${escapeHtml(sid)}">Adjust</button>`;
-                        html += `<div class="trace-entry"><div class="trace-entry-body">
-                            <div class="trace-entry-detail">${badge} <strong>${escapeHtml(sid)}. ${escapeHtml(s.title || '')}</strong>${blocked}</div>
-                            <div style="margin-top:4px;">${actions}</div></div></div>`;
-                    });
-                    openSidePanel('Build', `${plan.done}/${plan.total} sections done`, html);
-                    const body = sidePanelBody;
-                    body.querySelectorAll('[data-bv2-refresh]').forEach(b => b.addEventListener('click', () => loadBuildV2Board()));
-                    body.querySelectorAll('[data-bv2-export]').forEach(b => b.addEventListener('click', () => buildV2Export()));
-                    body.querySelectorAll('[data-bv2-run]').forEach(b => b.addEventListener('click', () => buildV2Action('section', b.dataset.bv2Run)));
-                    body.querySelectorAll('[data-bv2-accept]').forEach(b => b.addEventListener('click', () => buildV2Action('accept', b.dataset.bv2Accept)));
-                    body.querySelectorAll('[data-bv2-adjust]').forEach(b => b.addEventListener('click', () => {
-                        const fb = prompt('What should the agent change for section ' + b.dataset.bv2Adjust + '?');
-                        if (fb) buildV2Action('adjust', b.dataset.bv2Adjust, fb);
-                    }));
+                    const next = nextRes.ok ? await nextRes.json() : { ready: [], needs_review: [], blocked_on_data: {} };
+                    openSidePanel('Build', `${plan.done}/${plan.total} sections done`, renderBoard(plan, next));
+                    wireBoard();
+                    bv2StreamConnect();
                 } catch (e) {
                     openSidePanel('Build', '', '<div class="panel-empty">Could not load the build board.</div>');
                 }
             }
 
-            async function buildV2Action(kind, sectionId, feedback) {
+            // ── Phase 2: one SSE stream keeps the roster live ─────────────
+            function bv2StreamConnect() {
+                if (bv2Stream || !token) return;
                 try {
-                    const payload = { section_id: sectionId, token };
-                    if (kind === 'adjust') payload.feedback = feedback || '';
-                    const res = await fetch(`/api/build-v2/${kind}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                    });
+                    bv2Stream = new EventSource(`/api/build-v2/stream?token=${encodeURIComponent(token)}`);
+                    bv2Stream.onmessage = (ev) => {
+                        if (bv2View !== 'board' || !sidePanel.classList.contains('active')) return;
+                        try {
+                            const snap = JSON.parse(ev.data);
+                            const plan = { done: snap.done, total: snap.total, sections: {} };
+                            (snap.sections || []).forEach(s => { plan.sections[s.section_id] = s; });
+                            sidePanelSubtitle.textContent = `${snap.done}/${snap.total} sections done`;
+                            sidePanelBody.innerHTML = renderBoard(plan, snap.next || {});
+                            wireBoard();
+                        } catch (e) { /* keep the connection; skip a bad frame */ }
+                    };
+                    bv2Stream.onerror = () => { if (bv2Stream) { bv2Stream.close(); bv2Stream = null; } };
+                } catch (e) { /* SSE unsupported — board still refreshes manually */ }
+            }
+
+            // ── Phase 1: a section as a conversation ──────────────────────
+            function renderCard(card) {
+                const badges = (card.badges || []).map(b => `<span class="bv2-badge ${b.tone || 'neutral'}">${escapeHtml(b.label)}</span>`).join('');
+                let council = '';
+                if (card.council) {
+                    const v = card.council.verdict;
+                    const n = card.council.issue_count ? ` (${card.council.issue_count})` : '';
+                    council = `<span class="bv2-badge ${v === 'pass' ? 'good' : 'warn'}">Council: ${escapeHtml(v)}${n}</span>`;
+                }
+                const scope = card.scope ? `<div class="bv2-card-scope">${escapeHtml(card.scope)}</div>` : '';
+                const tools = (card.tools && card.tools.length)
+                    ? `<div class="bv2-tools">🔧 Will use: 🔍 web search · 📚 your data · ❓ ask you</div>` : '';
+                return `<div class="bv2-card">
+                    <div class="bv2-card-agent">${escapeHtml(card.agent || 'specialist')} · ${escapeHtml(BV2_STATUS_LABEL[card.status] || card.status || '')}</div>
+                    <div class="bv2-card-title">${escapeHtml(card.title || '')}</div>
+                    ${scope}
+                    <div class="bv2-badges">${badges}${council}</div>
+                    ${tools}
+                </div>`;
+            }
+
+            function renderMessage(m) {
+                const role = m.role || 'system';
+                const initial = (m.participant || '?').charAt(0).toUpperCase();
+                const badges = (m.badges || []).map(b => `<span class="bv2-badge ${b.tone || 'neutral'}">${escapeHtml(b.label)}</span>`).join('');
+                return `<div class="bv2-msg ${m.kind || ''}">
+                    <div class="bv2-ava ${role}">${escapeHtml(initial)}</div>
+                    <div class="bv2-msg-body">
+                      <div class="bv2-msg-head"><span class="bv2-msg-who">${escapeHtml(m.participant || '')}</span>
+                        ${m.title ? `<span class="bv2-msg-role">${escapeHtml(m.title)}</span>` : ''}${badges}</div>
+                      <div class="bv2-bubble">${bv2Fmt(m.body || '')}</div>
+                    </div>
+                </div>`;
+            }
+
+            function renderThreadActions(card) {
+                const st = card.status;
+                let btns = '';
+                if (st === 'needs_review') btns = `<span class="bv2-chip primary" data-bv2-accept="1">✓ Accept</span><span class="bv2-chip" data-bv2-adjust="1">✎ Adjust</span>`;
+                else if (st === 'done') btns = `<span class="bv2-chip" data-bv2-adjust="1">✎ Adjust</span>`;
+                else if (st === 'not_started') btns = `<span class="bv2-chip primary" data-bv2-work="1">▸ Work on this</span>`;
+                else if (st === 'blocked_on_data' || st === 'failed') btns = `<span class="bv2-chip" data-bv2-work="1">▸ Retry</span>`;
+                if (!btns) return `<div class="bv2-actions"><span class="bv2-msg-role">Working… this updates when the specialist finishes.</span></div>`;
+                return `<div class="bv2-actions">${btns}</div>`;
+            }
+
+            function wireThread(sid) {
+                const body = sidePanelBody;
+                body.querySelectorAll('[data-bv2-back]').forEach(b => b.addEventListener('click', () => loadBuildV2Board()));
+                body.querySelectorAll('[data-bv2-accept]').forEach(b => b.addEventListener('click', async () => {
+                    await buildV2Post('accept', { section_id: sid });
+                    showToast(`Section ${sid} accepted`, 'success');
+                    loadBuildV2Board();
+                }));
+                body.querySelectorAll('[data-bv2-adjust]').forEach(b => b.addEventListener('click', async () => {
+                    const fb = prompt('What should the specialist change?');
+                    if (!fb) return;
+                    await buildV2Post('adjust', { section_id: sid, feedback: fb });
+                    showToast('Revising…', 'success');
+                    setTimeout(() => openSectionThread(sid), 1200);
+                }));
+                body.querySelectorAll('[data-bv2-work]').forEach(b => b.addEventListener('click', () => buildV2Kickoff(sid)));
+            }
+
+            async function openSectionThread(sid) {
+                bv2View = sid;
+                openSidePanel('Build', 'Loading section…', '<div class="panel-empty">Loading…</div>');
+                try {
+                    const res = await fetch(`/api/build-v2/section-thread?token=${token}&section_id=${encodeURIComponent(sid)}`);
+                    if (!res.ok) { showToast('Could not load section', 'error'); return loadBuildV2Board(); }
                     const data = await res.json();
-                    if (kind === 'section' && data.status === 'blocked') {
-                        showToast(`Section ${sectionId}: ${data.reason}`, 'error');
-                    } else if ((kind === 'section' || kind === 'adjust') && data.status === 'started') {
-                        showToast(`Working on section ${sectionId}… refresh in a moment`, 'success');
-                    } else if (kind === 'accept') {
-                        showToast(`Section ${sectionId} accepted`, 'success');
-                    }
-                    setTimeout(() => loadBuildV2Board(), 1200);
+                    if (!data.found) return loadBuildV2Board();
+                    const card = data.card || {};
+                    let html = `<span class="bv2-back" data-bv2-back="1">← Back to team</span>`;
+                    html += renderCard(card);
+                    html += (data.messages || []).map(renderMessage).join('');
+                    html += renderThreadActions(card);
+                    openSidePanel('Build', card.title || sid, html);
+                    wireThread(sid);
                 } catch (e) {
-                    showToast('Action failed — try again', 'error');
+                    showToast('Could not load section', 'error');
+                    loadBuildV2Board();
+                }
+            }
+
+            // ── Phase 3: tap-to-answer kickoff clarify ────────────────────
+            async function buildV2Kickoff(sid) {
+                openSidePanel('Build', 'Getting started…', '<div class="panel-empty">Preparing questions…</div>');
+                let opts = null;
+                try {
+                    const res = await fetch(`/api/build-v2/focus-options?token=${token}&section_id=${encodeURIComponent(sid)}`);
+                    if (res.ok) opts = await res.json();
+                } catch (e) { /* fall through to a plain start */ }
+                if (!opts || !(opts.options || []).length) return startSection(sid, null);
+
+                const chips = opts.options.map(o => `<span class="bv2-chip" data-focus="${escapeHtml(o)}">${escapeHtml(o)}</span>`).join('')
+                    + `<span class="bv2-chip primary" data-focus="__all__">All of the above</span>`
+                    + `<span class="bv2-chip" data-focus="">Skip</span>`;
+                const html = `<span class="bv2-back" data-bv2-back="1">← Back</span>
+                    <div class="bv2-card">
+                      <div class="bv2-card-title" style="font-size:14px;">${escapeHtml(opts.question || 'What should this focus on?')}</div>
+                      <div class="bv2-actions" style="border-top:none;position:static;padding-top:12px;">${chips}</div>
+                    </div>`;
+                openSidePanel('Build', sid, html);
+                sidePanelBody.querySelectorAll('[data-bv2-back]').forEach(b => b.addEventListener('click', () => openSectionThread(sid)));
+                sidePanelBody.querySelectorAll('[data-focus]').forEach(c => c.addEventListener('click', () => {
+                    let f = c.dataset.focus;
+                    if (f === '__all__') f = opts.options.join(', ');
+                    startSection(sid, f || null);
+                }));
+            }
+
+            async function buildV2Post(kind, payload) {
+                const res = await fetch(`/api/build-v2/${kind}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...payload, token }),
+                });
+                return res.json();
+            }
+
+            async function startSection(sid, focus) {
+                try {
+                    const data = await buildV2Post('section', { section_id: sid, focus });
+                    if (data.status === 'blocked') {
+                        showToast(`${sid}: ${data.reason}`, 'error');
+                        return openSectionThread(sid);
+                    }
+                    showToast(`Working on ${sid}…`, 'success');
+                    setTimeout(() => openSectionThread(sid), 1200);
+                } catch (e) {
+                    showToast('Could not start the section', 'error');
                 }
             }
 
