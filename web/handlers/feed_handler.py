@@ -1125,7 +1125,26 @@ def _check_prohibition_violation(fact_text: str, node_id: str) -> tuple[bool, st
     return False, ""
 
 
-def classify_and_match_node(text: str, session_id: Optional[str] = None, document_context: Optional[str] = None, use_fast_model: bool = False) -> dict:
+# Exclusion / non-scope markers — "what the product is NOT, or must not be
+# treated as". These claims belong under BP.1.2 (Product Non-Scope), a
+# categorically different node from positive capability/definition statements.
+_NON_SCOPE_PATTERNS = [
+    r"must not be treated as",
+    r"\bit is not\b",
+    r"cannot be used for",
+    r"\bshould not be\b",
+    r"\bis not a\b",
+    r"\bdoes not\b",
+]
+_NON_SCOPE_RE = re.compile("|".join(_NON_SCOPE_PATTERNS), re.IGNORECASE)
+
+
+def _is_non_scope(text: str) -> bool:
+    """True if the text is an exclusion / non-scope statement (belongs in BP.1.2)."""
+    return bool(text) and bool(_NON_SCOPE_RE.search(text))
+
+
+def classify_and_match_node(text: str, session_id: Optional[str] = None, document_context: Optional[str] = None, use_fast_model: bool = False, non_scope: bool = False) -> dict:
     """Classify a fact to exactly one BP architecture node, accurately.
 
     Three-stage:
@@ -1212,6 +1231,22 @@ def classify_and_match_node(text: str, session_id: Optional[str] = None, documen
         )
     else:
         selected_domain_ids = classify_fact_to_domain(text, level1_domains, document_context=document_context)
+
+    # Non-scope / exclusion statements belong in BP.1.2 (Product Non-Scope) by
+    # definition — don't leave that to the LLM to rediscover from embeddings.
+    # Force BP.1 into the selected domains so ALL BP.1 sections (including BP.1.2)
+    # become Step-A candidates, and hint the section/leaf LLM to pick the
+    # exclusion section rather than a positive-capability one. Detect from the
+    # caller's flag OR the text itself, so it works on any extraction path.
+    if non_scope or _is_non_scope(text):
+        if "BP.1" not in selected_domain_ids:
+            selected_domain_ids = ["BP.1"] + list(selected_domain_ids)
+        _ns_hint = (
+            "This statement is an EXCLUSION / NON-SCOPE claim (what the product is "
+            "NOT, or must not be treated as). It belongs under BP.1.2 (Product "
+            "Non-Scope), not a positive-capability section."
+        )
+        document_context = f"{document_context}\n\n{_ns_hint}" if document_context else _ns_hint
 
     if session_id and selected_domain_ids:
         emit_trace(
@@ -1938,6 +1973,7 @@ def _classify_one_fact(
     document_context: Optional[str] = None,
     use_fast_model: bool = False,
     input_source: str = "alex_direct",
+    non_scope: bool = False,
 ) -> dict:
     """Build a complete, classified fact_data dict for one atomic fact.
 
@@ -1948,11 +1984,15 @@ def _classify_one_fact(
     """
     from services.source_reliability import assess_source_reliability
 
+    # Non-scope / exclusion statements are constraints by definition and route to
+    # BP.1.2. Honor the extractor's flag OR self-detect, so any path is covered.
+    is_non_scope = non_scope or _is_non_scope(fact_text)
     content_classification = classify_content_type(fact_text)
-    content_type = content_classification["content_type"]
+    content_type = "constraint" if is_non_scope else content_classification["content_type"]
     epistemic_status = infer_epistemic_status(fact_text, content_type)
     classification = classify_and_match_node(
-        fact_text, session_id=session_id, document_context=document_context, use_fast_model=use_fast_model
+        fact_text, session_id=session_id, document_context=document_context,
+        use_fast_model=use_fast_model, non_scope=is_non_scope,
     )
     source_reliability = assess_source_reliability(fact_text, input_source)
 
@@ -2234,11 +2274,17 @@ def extract_atomic_facts(text: str) -> Optional[list[dict]]:
         for it in raw_items:
             s = it.strip() if isinstance(it, str) else ""
             if len(s) > 3:
-                facts.append({
+                fact = {
                     "text": s,
                     "inferred_status": _infer_epistemic_status(s),
                     "source_format": "llm_extracted",
-                })
+                }
+                # Tag exclusion / non-scope claims so classification routes them to
+                # BP.1.2 (Product Non-Scope), separate from positive definitions.
+                if _is_non_scope(s):
+                    fact["content_type"] = "constraint"
+                    fact["non_scope"] = True
+                facts.append(fact)
         if not facts:
             return None
 
@@ -2509,7 +2555,7 @@ def handle_raw_text(
             return _classify_one_fact(
                 f["text"], fmt, f.get("inferred_status", "INFERRED"),
                 session_id=session_id, document_context=document_context,
-                use_fast_model=use_fast,
+                use_fast_model=use_fast, non_scope=f.get("non_scope", False),
             )
 
         async def _classify_all():
