@@ -1846,6 +1846,96 @@
             font-weight: 500;
         }
 
+        /* --- Feed processing shimmer (Improvement 1) --- */
+        .feed-shimmer-wrap {
+            padding: 4px 0;
+            min-height: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .feed-shimmer-text {
+            display: inline-block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            background: linear-gradient(90deg, var(--accent) 0%, #F4F4F5 50%, var(--accent) 100%);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            animation: feedShimmer 2s linear infinite;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        @keyframes feedShimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: 0% 0; }
+        }
+
+        /* --- Feed auto-file summary cards (Improvement 2) --- */
+        .feed-summary-container {
+            padding: 12px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .feed-summary-header {
+            color: var(--success);
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .feed-fact-card {
+            background: var(--bg-surface, #18181b);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 6px;
+            padding: 8px 12px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: start;
+            opacity: 0;
+            transform: translateY(12px);
+            animation: feedCardIn 0.3s ease-out forwards;
+        }
+        @keyframes feedCardIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .feed-fact-text {
+            font-size: 12px;
+            color: var(--text-primary);
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .feed-fact-node {
+            text-align: right;
+            white-space: nowrap;
+        }
+        .feed-fact-node-title {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .feed-fact-node-id {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .feed-summary-footer {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            font-style: italic;
+            opacity: 0;
+            transform: translateY(12px);
+            animation: feedCardIn 0.3s ease-out forwards;
+        }
+
         .typing-step-progress {
             display: flex;
             align-items: center;
@@ -5680,6 +5770,70 @@
                 scrollToBottom();
             }
 
+            function isFeedSummary(text) {
+                return typeof text === 'string'
+                    && text.trimStart().startsWith('✓ Filed')
+                    && text.includes('→');
+            }
+
+            // Parse the auto-file summary ("✓ Filed N facts automatically") into a
+            // header + one card per "• fact / → Title (BP.x)" pair + undo footer,
+            // rendered with a staggered reveal. Falls back to plain text otherwise.
+            function renderFeedSummaryCards(text) {
+                const lines = text.split('\n');
+                let header = '';
+                let footer = '';
+                const cards = [];
+                let cur = null;
+                for (const raw of lines) {
+                    const line = raw.trim();
+                    if (!line) continue;
+                    if (line.startsWith('✓ Filed')) {
+                        header = line.replace(/:\s*$/, '');
+                    } else if (line.startsWith('Type ') && line.toLowerCase().includes('undo')) {
+                        footer = line;
+                    } else if (line.startsWith('•')) {
+                        if (cur) cards.push(cur);
+                        cur = { fact: line.replace(/^•\s*/, ''), node: '', nodeId: '', refine: false };
+                    } else if (line.startsWith('→')) {
+                        if (cur) {
+                            const rest = line.replace(/^→\s*/, '');
+                            const m = rest.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+                            if (m) { cur.node = m[1].trim(); cur.nodeId = m[2].trim(); }
+                            else { cur.node = rest; }
+                        }
+                    } else if (line.startsWith('⏳')) {
+                        if (cur) cur.refine = true;
+                    } else if (cur && !cur.node) {
+                        cur.fact += ' ' + line; // continuation of a wrapped fact line
+                    }
+                }
+                if (cur) cards.push(cur);
+
+                let html = '<div class="feed-summary-container">';
+                if (header) html += `<div class="feed-summary-header">${escapeHtml(header)}</div>`;
+                cards.forEach((c, i) => {
+                    let fact = c.fact;
+                    if (fact.length > 70) fact = fact.slice(0, 70) + '...';
+                    const delay = 80 * (i + 1);
+                    const idLine = c.nodeId ? `(${c.nodeId})${c.refine ? ' ⏳' : ''}` : (c.refine ? '⏳' : '');
+                    html += `
+                        <div class="feed-fact-card" style="animation-delay:${delay}ms">
+                            <div class="feed-fact-text">${escapeHtml(fact)}</div>
+                            <div class="feed-fact-node">
+                                <div class="feed-fact-node-title">${escapeHtml(c.node)}</div>
+                                <div class="feed-fact-node-id">${escapeHtml(idLine)}</div>
+                            </div>
+                        </div>`;
+                });
+                if (footer) {
+                    const fdelay = 80 * (cards.length + 1);
+                    html += `<div class="feed-summary-footer" style="animation-delay:${fdelay}ms">${escapeHtml(footer)}</div>`;
+                }
+                html += '</div>';
+                return html;
+            }
+
             function appendSystemMessage(text, metadata) {
                 removeTypingIndicator();
                 let content = '';
@@ -5687,6 +5841,8 @@
                 if (metadata && metadata.rich_type) {
                     metadata._text = text;
                     content = renderRichContent(metadata);
+                } else if (isFeedSummary(text)) {
+                    content = renderFeedSummaryCards(text);
                 } else {
                     content = `<div class="message-bubble">${formatMessageText(text)}</div>`;
                 }
@@ -5907,7 +6063,64 @@
                 `;
             }
 
+            const FEED_SHIMMER_PHRASES = [
+                'Extracting atomic facts...',
+                'Classifying claims...',
+                'Matching to architecture...',
+                'Filing to knowledge base...',
+                'Running post-store checks...',
+            ];
+            let feedShimmerTimer = null;
+
+            function showFeedProcessingIndicator() {
+                removeTypingIndicator();
+                const html = `
+                    <div class="message message-system" id="typingMsg">
+                        <div class="message-avatar">EO</div>
+                        <div class="message-body">
+                            <div class="feed-shimmer-wrap">
+                                <span class="feed-shimmer-text" id="feedShimmerText">${FEED_SHIMMER_PHRASES[0]}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                messagesContainer.insertAdjacentHTML('beforeend', html);
+                scrollToBottom();
+
+                let idx = 0;
+                feedShimmerTimer = setInterval(() => {
+                    const el = document.getElementById('feedShimmerText');
+                    if (!el) { clearInterval(feedShimmerTimer); feedShimmerTimer = null; return; }
+                    // Fade current phrase out and upward.
+                    el.style.transition = 'opacity .25s ease-in-out, transform .25s ease-in-out';
+                    el.style.opacity = '0';
+                    el.style.transform = 'translateY(-8px)';
+                    setTimeout(() => {
+                        const el2 = document.getElementById('feedShimmerText');
+                        if (!el2) return;
+                        idx = (idx + 1) % FEED_SHIMMER_PHRASES.length;
+                        el2.textContent = FEED_SHIMMER_PHRASES[idx];
+                        // Jump to the "below" start position with no transition, then
+                        // transition up into place so the next phrase fades in from below.
+                        el2.style.transition = 'none';
+                        el2.style.opacity = '0';
+                        el2.style.transform = 'translateY(8px)';
+                        requestAnimationFrame(() => {
+                            el2.style.transition = 'opacity .25s ease-in-out, transform .25s ease-in-out';
+                            el2.style.opacity = '1';
+                            el2.style.transform = 'translateY(0)';
+                        });
+                    }, 250);
+                }, 2500);
+            }
+
             function showTypingIndicator(statusText) {
+                // Feed shows a cycling shimmer of what it's actually doing, in place
+                // of the generic typing indicator, while a submission is processing.
+                if (currentWorkspace === 'Feed' && awaitingResponse) {
+                    showFeedProcessingIndicator();
+                    return;
+                }
                 removeTypingIndicator();
                 const status = statusText || 'Thinking...';
                 const html = `
@@ -5963,6 +6176,7 @@
             }
 
             function removeTypingIndicator() {
+                if (feedShimmerTimer) { clearInterval(feedShimmerTimer); feedShimmerTimer = null; }
                 const el = document.getElementById('typingMsg');
                 if (el) el.remove();
                 currentClassificationStep = null;
