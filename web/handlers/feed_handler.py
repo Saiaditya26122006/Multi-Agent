@@ -2500,7 +2500,7 @@ def handle_raw_text(
 
         # Classify all facts CONCURRENTLY. Each fact's classify_and_match_node makes
         # ~3 blocking Bedrock calls, so a sequential loop is O(N) round trips (≈3-4
-        # min for 11 facts). Run them in parallel — capped at 5 in-flight via a
+        # min for 11 facts). Run them in parallel — capped at 3 in-flight via a
         # semaphore to avoid Bedrock throttling. _classify_one_fact stays sync and is
         # offloaded to worker threads; asyncio.gather preserves input order, so the
         # summary order is unchanged. handle_raw_text is a sync function running in a
@@ -2513,7 +2513,7 @@ def handle_raw_text(
             )
 
         async def _classify_all():
-            sem = asyncio.Semaphore(5)
+            sem = asyncio.Semaphore(3)
 
             async def _one(f):
                 async with sem:
