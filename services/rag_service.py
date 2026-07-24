@@ -293,6 +293,7 @@ def retrieve(
     threshold: float = DEFAULT_THRESHOLD,
     recency_boost: bool = True,
     metadata_filter: Optional[dict[str, str]] = None,
+    exclude_architecture: bool = True,
 ) -> list[Chunk]:
     """Retrieve relevant chunks via semantic similarity search.
 
@@ -342,6 +343,17 @@ def retrieve(
 
         if source_types and row.get("source_type") not in source_types:
             continue
+
+        # Exclude architecture embedding-index rows from fact/evidence retrieval.
+        # They share source_type='ceo_doc' with real facts but are the retrieval
+        # index (metadata.layer='bp_architecture'/'bp_architecture_aug'), NOT CEO
+        # data — so a semantic query must not return node-definition text as a
+        # fact. Kept only when the caller explicitly filters for a layer
+        # (e.g. match_bp_node), which is exactly when index rows ARE wanted.
+        if exclude_architecture and not (metadata_filter and metadata_filter.get("layer")):
+            _layer = (row.get("metadata") or {}).get("layer")
+            if isinstance(_layer, str) and _layer.startswith("bp_architecture"):
+                continue
 
         if section and row.get("section") != section:
             continue

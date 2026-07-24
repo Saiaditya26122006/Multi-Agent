@@ -2353,6 +2353,12 @@ async def get_stored_knowledge(
         rows = []
         for row in raw_rows:
             meta = row.get("metadata") or {}
+            # Skip architecture embedding-index rows — they are the retrieval index
+            # (metadata.layer='bp_architecture'/'bp_architecture_aug'), not Alex's
+            # facts, and must never appear in the Stored Data table as if they were.
+            _layer = meta.get("layer")
+            if isinstance(_layer, str) and _layer.startswith("bp_architecture"):
+                continue
             row_node_id = meta.get("node_id") or row.get("section") or ""
             if node_id and row_node_id != node_id:
                 continue
@@ -2446,6 +2452,10 @@ async def export_stored_knowledge(token: str = "") -> FileResponse:
 
         for row in export_rows:
             meta = row.get("metadata") or {}
+            # Skip architecture embedding-index rows (metadata.layer) — index, not facts.
+            _layer = meta.get("layer")
+            if isinstance(_layer, str) and _layer.startswith("bp_architecture"):
+                continue
             ws.append([
                 meta.get("node_id") or row.get("section") or "",
                 meta.get("node_title", ""),
