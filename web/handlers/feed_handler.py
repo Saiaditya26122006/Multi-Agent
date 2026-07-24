@@ -2320,37 +2320,45 @@ FEED_ASYNC_SENTINEL = "\x00__FEED_SELF_DELIVERED__\x00"
 
 
 def _format_batch_summary(auto_results: list[dict]) -> str:
-    """Single consolidated summary of an auto-filed batch (a statement, not a question).
-
-    One line per fact: truncated fact (<=80 chars) + arrow + node_title (node_id).
-    Tier-2 (parked-at-parent) facts get an extra "will refine when section is built"
-    marker. Ends with the undo hint.
+    """Single consolidated summary of an auto-filed batch, rendered as a Markdown
+    table so the chat shows a scannable grid (fact -> where it was filed -> status)
+    instead of a wall of text. The fact count and the node each fact landed on are
+    highlighted; Tier-2 (parked-at-parent) facts are marked as pending refinement.
     """
     stored = [r for r in auto_results if r.get("status") == "stored"]
     if not stored:
         return ""
 
+    def _cell(s: str) -> str:
+        # Table cells must stay single-line and pipe-safe or the table breaks.
+        return " ".join((s or "").split()).replace("|", "\\|")
+
     def _fact(r: dict) -> str:
-        v = " ".join((r.get("verbatim_text") or "").split())
+        v = _cell(r.get("verbatim_text") or "")
         return (v[:77] + "...") if len(v) > 80 else v
 
     n = len(stored)
-    lines = [f"✓ Filed {n} fact{'s' if n != 1 else ''} automatically:", ""]
-    for r in stored:
+    lines = [
+        f"**✓ Filed {n} fact{'s' if n != 1 else ''} automatically**",
+        "",
+        "| # | Fact | Filed to | Status |",
+        "|:--:|:--|:--|:--|",
+    ]
+    for i, r in enumerate(stored, 1):
         if r.get("tier") == "auto_file_parent":
-            title = r.get("node_title") or ""
+            title = _cell(r.get("node_title") or "")
             nid = r.get("node_id") or ""
-            lines.append(f"  • {_fact(r)}")
-            lines.append(f"    → {title} ({nid})")
-            lines.append("    ⏳ will refine when section is built")
+            status = "⏳ **Parked** — refines at build"
         else:
             # Tier 1: show the specific leaf if we have one, else the filed node.
-            title = r.get("suggested_leaf_title") or r.get("node_title") or ""
+            title = _cell(r.get("suggested_leaf_title") or r.get("node_title") or "")
             nid = r.get("suggested_leaf_id") or r.get("node_id") or ""
-            lines.append(f"  • {_fact(r)}")
-            lines.append(f"    → {title} ({nid})")
-        lines.append("")
-    lines.append("Type 'undo' to reverse this batch.")
+            status = "✅ **Filed**"
+        filed_to = f"**{title}** `{nid}`" if nid else f"**{title}**"
+        lines.append(f"| {i} | {_fact(r)} | {filed_to} | {status} |")
+
+    lines.append("")
+    lines.append("_Type **`undo`** to reverse this batch._")
     return "\n".join(lines)
 
 

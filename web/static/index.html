@@ -1493,6 +1493,37 @@
         .answer-card-body tbody tr:last-child td { border-bottom: none; }
         .answer-card-body tbody tr:hover { background: var(--accent-soft); }
 
+        /* Markdown tables inside a chat bubble (e.g. the Feed auto-file summary). */
+        .message-bubble table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8px 0;
+            font-size: 12px;
+        }
+        .message-bubble th,
+        .message-bubble td {
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .message-bubble thead th {
+            background: var(--accent-soft);
+            color: var(--text-primary);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .message-bubble tbody tr:nth-child(even) td { background: var(--bg-surface); }
+        .message-bubble tbody tr:hover td { background: var(--accent-soft); }
+        .message-bubble table code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+
         .answer-card-body pre {
             background: var(--bg-main);
             border: 1px solid var(--border);
