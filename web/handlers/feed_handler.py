@@ -2758,17 +2758,20 @@ def handle_approval_response(response_text: str, session_id: str) -> dict:
                 [], text=pending.get("verbatim_text", "")
             )
 
-            # Handle no_domain_match: offer to create a new top-level domain
+            # New TOP-LEVEL domains are never created via Feed — the architecture
+            # is fixed at BP.1-BP.12, and auto-creating BP.13+ produced orphaned
+            # "phantom" domains (e.g. product content wrongly landing in a brand-new
+            # BP.13). When nothing fits confidently, let Alex place the fact under an
+            # existing node manually instead of minting a new domain.
             if suggested_parent.get("no_domain_match"):
-                set_feed_state(session_id, "FEED_AWAITING_NEW_DOMAIN_NAME")
-                pending["suggested_parent"] = suggested_parent
+                set_feed_state(session_id, "FEED_AWAITING_NODE_SELECTION")
                 store_pending_fact(session_id, pending)
                 return {
-                    "action": "awaiting_new_domain_name",
+                    "action": "awaiting_node_selection",
                     "response_text": (
-                        "This content doesn't fit any existing domain (BP.1–BP.11).\n"
-                        "To create a new top-level domain, type its name "
-                        "(e.g. \"Corporate and Legal Structure\").\n"
+                        "I couldn't confidently place this under an existing domain.\n"
+                        "Type the node ID it belongs under (e.g. BP.1.1.3), or part of "
+                        "a node's title to search for it.\n"
                         "Or type [skip] to discard this fact."
                     ),
                 }
@@ -4258,10 +4261,9 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
         no_domain = suggested_parent.get("no_domain_match", False)
 
         if no_domain:
-            lines.append("  No existing domain covers this content.")
+            lines.append("  Couldn't confidently place this under an existing node.")
             lines.append("")
-            lines.append("  This fact is outside the scope of BP.1–BP.11 entirely.")
-            lines.append("  (e.g., legal entity structure, jurisdiction, incorporation)")
+            lines.append("  Choose the node it belongs under (BP.1–BP.12).")
         else:
             lines.append("  No existing node is a strong fit for this fact.")
             lines.append("")
@@ -4291,7 +4293,7 @@ def _format_review_block(fact_data: dict, remaining: int = 0) -> str:
         suggested_parent = fact_data.get("suggested_parent", {})
         no_domain = suggested_parent.get("no_domain_match", False)
         if no_domain:
-            lines.append("  [1] Create new top-level domain — type a name to create it")
+            lines.append("  [1] Place under a node — type a node ID or title to search")
         else:
             lines.append(f"  [1] Create new node under {suggested_parent.get('node_id', '?')}")
     else:
