@@ -6,6 +6,7 @@ Detects format, splits into atomic facts, classifies content type,
 matches to BP architecture nodes, presents for approval, and stores.
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -2496,21 +2497,39 @@ def handle_raw_text(
         # anything uncertain still goes to human review. Single facts (or very
         # small batches) use Sonnet for maximum accuracy.
         use_fast = len(raw_facts) > 3
-        classified = []
-        for i, f in enumerate(raw_facts):
-            classified.append(
-                _classify_one_fact(
-                    f["text"], fmt, f.get("inferred_status", "INFERRED"),
-                    session_id=session_id, document_context=document_context,
-                    use_fast_model=use_fast,
-                )
+
+        # Classify all facts CONCURRENTLY. Each fact's classify_and_match_node makes
+        # ~3 blocking Bedrock calls, so a sequential loop is O(N) round trips (≈3-4
+        # min for 11 facts). Run them in parallel — capped at 5 in-flight via a
+        # semaphore to avoid Bedrock throttling. _classify_one_fact stays sync and is
+        # offloaded to worker threads; asyncio.gather preserves input order, so the
+        # summary order is unchanged. handle_raw_text is a sync function running in a
+        # worker thread (no event loop), so asyncio.run is safe here.
+        def _classify_sync(f):
+            return _classify_one_fact(
+                f["text"], fmt, f.get("inferred_status", "INFERRED"),
+                session_id=session_id, document_context=document_context,
+                use_fast_model=use_fast,
             )
-            if session_id and len(raw_facts) > 3 and (i + 1) % max(1, len(raw_facts) // 4) == 0:
-                emit_trace(
-                    session_id, "Feed", "classifying_progress",
-                    f"Classified {i + 1}/{len(raw_facts)} facts...",
-                    {"done": i + 1, "total": len(raw_facts)},
-                )
+
+        async def _classify_all():
+            sem = asyncio.Semaphore(5)
+
+            async def _one(f):
+                async with sem:
+                    return await asyncio.to_thread(_classify_sync, f)
+
+            return await asyncio.gather(*[_one(f) for f in raw_facts])
+
+        try:
+            classified = asyncio.run(_classify_all())
+        except Exception as e:  # noqa: BLE001
+            # Fallback to sequential if the parallel path can't run in this context
+            # (e.g. an event loop is already active on this thread). Correctness > speed.
+            logger.warning(
+                "[FeedHandler] parallel classification unavailable (%s) — running sequentially", e
+            )
+            classified = [_classify_sync(f) for f in raw_facts]
 
         # --- Tier-based routing ---
         # Classify each fact into one of four tiers using existing signals.
