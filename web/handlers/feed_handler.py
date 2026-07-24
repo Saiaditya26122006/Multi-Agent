@@ -6,7 +6,6 @@ Detects format, splits into atomic facts, classifies content type,
 matches to BP architecture nodes, presents for approval, and stores.
 """
 
-import asyncio
 import json
 import logging
 import re
@@ -2544,13 +2543,19 @@ def handle_raw_text(
         # small batches) use Sonnet for maximum accuracy.
         use_fast = len(raw_facts) > 3
 
-        # Classify all facts CONCURRENTLY. Each fact's classify_and_match_node makes
-        # ~3 blocking Bedrock calls, so a sequential loop is O(N) round trips (≈3-4
-        # min for 11 facts). Run them in parallel — capped at 3 in-flight via a
-        # semaphore to avoid Bedrock throttling. _classify_one_fact stays sync and is
-        # offloaded to worker threads; asyncio.gather preserves input order, so the
-        # summary order is unchanged. handle_raw_text is a sync function running in a
-        # worker thread (no event loop), so asyncio.run is safe here.
+        # Classify all facts CONCURRENTLY with a plain thread pool. Each fact's
+        # classify_and_match_node makes ~3 blocking Bedrock calls, so a sequential
+        # loop is O(N) round trips (~5 min for 16 facts).
+        #
+        # We use concurrent.futures.ThreadPoolExecutor rather than asyncio here
+        # because it is COMPLETELY INDEPENDENT of the event loop. handle_raw_text
+        # runs inside a worker thread spawned by the server's asyncio.to_thread, and
+        # uvicorn ([standard] extra) runs on uvloop — creating/running a nested
+        # asyncio (uvloop) loop inside that worker thread is fragile and was raising
+        # on Railway, so the old asyncio.run() path silently fell back to sequential.
+        # A thread pool has no loop dependency: it works the same under asyncio,
+        # uvloop, on the main thread, or in a worker thread. max_workers caps
+        # in-flight Bedrock calls (throttle guard); pool.map preserves input order.
         def _classify_sync(f):
             return _classify_one_fact(
                 f["text"], fmt, f.get("inferred_status", "INFERRED"),
@@ -2558,22 +2563,15 @@ def handle_raw_text(
                 use_fast_model=use_fast, non_scope=f.get("non_scope", False),
             )
 
-        async def _classify_all():
-            sem = asyncio.Semaphore(3)
-
-            async def _one(f):
-                async with sem:
-                    return await asyncio.to_thread(_classify_sync, f)
-
-            return await asyncio.gather(*[_one(f) for f in raw_facts])
+        from concurrent.futures import ThreadPoolExecutor
 
         try:
-            classified = asyncio.run(_classify_all())
+            with ThreadPoolExecutor(max_workers=3, thread_name_prefix="feed-classify") as pool:
+                classified = list(pool.map(_classify_sync, raw_facts))
         except Exception as e:  # noqa: BLE001
-            # Fallback to sequential if the parallel path can't run in this context
-            # (e.g. an event loop is already active on this thread). Correctness > speed.
+            # Correctness > speed: if the pool itself can't run, do it sequentially.
             logger.warning(
-                "[FeedHandler] parallel classification unavailable (%s) — running sequentially", e
+                "[FeedHandler] parallel classification failed (%s) — running sequentially", e
             )
             classified = [_classify_sync(f) for f in raw_facts]
 
