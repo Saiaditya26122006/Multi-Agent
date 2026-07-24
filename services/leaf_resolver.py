@@ -1,3 +1,4 @@
+# TEMPORARILY BROKEN — feed_handler deleted, rebuild pending. Do not call this module.
 """Deferred leaf resolution.
 
 Facts Feed was unsure about are filed provisionally at the SECTION (BP.x.y).

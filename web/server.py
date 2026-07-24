@@ -454,22 +454,33 @@ def _dispatch_build(text_lower: str, text: str, session_id: str) -> str:
     return ""
 
 
+def _load_bp_architecture() -> list[dict]:
+    """Load BP architecture nodes from ceo_data/bp_architecture.json.
+
+    Inlined here after web/handlers/feed_handler.py (its previous home) was
+    deleted in the Feed removal. Three non-Feed endpoints still need node
+    order/metadata: the knowledge-table BP ordering, the xlsx export
+    ordering, and the node-detail panel. Drops any row without a real BP.x
+    node_id, matching the old loader's defensive filter.
+    """
+    import json
+    from pathlib import Path
+
+    path = Path(__file__).parent.parent / "ceo_data" / "bp_architecture.json"
+    if not path.exists():
+        logger.warning("[Server] bp_architecture.json not found at %s", path)
+        return []
+    try:
+        nodes = json.loads(path.read_text(encoding="utf-8")).get("nodes", [])
+    except (json.JSONDecodeError, OSError) as e:
+        logger.error("[Server] Failed to load bp_architecture.json: %s", e)
+        return []
+    return [n for n in nodes if str(n.get("node_id", "")).startswith("BP.")]
+
+
 def _dispatch_feed(text_lower: str, text: str, session_id: str) -> str:
-    import traceback
-    from web.handlers.feed_handler import handle_feed_message
-
-    if len(text.strip()) > 0:
-        try:
-            response = handle_feed_message(text, session_id)
-            if not response:
-                logger.warning("[Feed] handle_feed_message returned empty for input: %s", text[:80])
-                return "Received your input but couldn't generate a response. Try again or type 'back' for the menu."
-            return response
-        except Exception as e:
-            logger.error("[Feed] Error handling input: %s\n%s", e, traceback.format_exc())
-            return f"Error processing input: {e}"
-
-    return ""
+    # Feed handler deleted — rebuild pending.
+    return "Feed workspace is being rebuilt. Check back soon."
 
 
 def _dispatch_challenge(text_lower: str, text: str, session_id: str) -> str:
@@ -712,8 +723,7 @@ async def post_message(req: SendMessageRequest):
     except Exception as e:
         logger.warning("[Server] store_ceo_message failed (non-blocking): %s", e)
 
-    from web.handlers.feed_handler import get_feed_state
-    feed_state = get_feed_state(session_key)
+    feed_state = None  # Feed handler removed — rebuild pending
     if feed_state and feed_state.startswith("FEED_AWAITING"):
         await manager.broadcast(
             session_key,
@@ -889,7 +899,7 @@ async def post_message(req: SendMessageRequest):
 
         # The handler may have already delivered its chat output over WebSocket
         # (Feed batch auto-filing) — in that case don't re-broadcast.
-        from web.handlers.feed_handler import FEED_ASYNC_SENTINEL
+        FEED_ASYNC_SENTINEL = "__FEED_ASYNC_SENTINEL__"  # Feed removed — rebuild pending
         if response_text == FEED_ASYNC_SENTINEL:
             return {
                 "status": "handled_self_delivered",
@@ -1482,9 +1492,8 @@ async def post_confirm_leaf(req: ConfirmLeafRequest) -> dict:
     if req.token != WEB_AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    from web.handlers.feed_handler import promote_chunk_to_leaf
-
-    result = promote_chunk_to_leaf(req.chunk_id, req.leaf_id, _get_session_key())
+    # Feed handler removed — rebuild pending.
+    result = {"success": False, "error": "Feed workspace is being rebuilt. Check back soon."}
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "Confirm failed"))
     return result
@@ -1830,7 +1839,6 @@ async def upload_feed_document(
     )
 
     from services.document_extractor import extract_text, ExtractionError
-    from web.handlers.feed_handler import process_uploaded_document
 
     try:
         # Both of these are synchronous, CPU-bound (PDF parsing, local
@@ -1842,9 +1850,8 @@ async def upload_feed_document(
         # defeating the entire point of "live" narration. to_thread() keeps
         # the loop free so trace events stream out as they're emitted.
         text = await asyncio.to_thread(extract_text, file_bytes, filename, session_key)
-        batch = await asyncio.to_thread(
-            process_uploaded_document, text, filename, session_key
-        )
+        # Feed handler removed — rebuild pending. No fact extraction/matching.
+        batch = {"total_facts": 0}
     except ExtractionError as e:
         await manager.broadcast(
             session_key,
@@ -1929,15 +1936,8 @@ async def bulk_approve_feed_batch(req: BulkApproveRequest) -> dict:
 
     session_key = _get_session_key()
 
-    from web.handlers.feed_handler import bulk_store_facts
-
-    # Same reasoning as the upload endpoint: store() does network calls
-    # (Supabase writes, RAG retrieval for contradiction/dedup checks) per
-    # fact — off the event loop so trace events stream live instead of
-    # arriving in one burst when the request finally returns.
-    result = await asyncio.to_thread(
-        bulk_store_facts, session_key, req.accepted_fact_ids, req.edited_texts
-    )
+    # Feed handler removed — rebuild pending.
+    result = {"error": "Feed workspace is being rebuilt. Check back soon."}
 
     if result.get("error"):
         summary = result["error"]
@@ -1969,11 +1969,10 @@ async def get_quarantine(token: str = "") -> dict:
     if token != WEB_AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    from web.handlers.feed_handler import get_quarantine_items, get_quarantine_count
-
+    # Feed handler removed — rebuild pending.
     session_key = _get_session_key()
-    items = get_quarantine_items(session_key)
-    count = get_quarantine_count(session_key)
+    items: list = []
+    count = 0
 
     return {"count": count, "items": items, "session_id": session_key}
 
@@ -1984,10 +1983,8 @@ async def resolve_quarantine(token: str = "", index: int = 0, action: str = "ski
     if token != WEB_AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    from web.handlers.feed_handler import resolve_quarantine_item
-
-    session_key = _get_session_key()
-    return resolve_quarantine_item(session_key, index, action)
+    # Feed handler removed — rebuild pending.
+    return {"status": "Feed workspace is being rebuilt. Check back soon."}
 
 
 @app.get("/api/bp12/register")
@@ -2383,8 +2380,6 @@ async def get_stored_knowledge(
             })
 
         if node_sort:
-            from web.handlers.feed_handler import _load_bp_architecture
-
             order_index = {
                 n["node_id"]: i for i, n in enumerate(_load_bp_architecture())
                 if n.get("node_id")
@@ -2424,8 +2419,6 @@ async def export_stored_knowledge(token: str = "") -> FileResponse:
         raise HTTPException(status_code=401, detail="Invalid token")
 
     try:
-        from web.handlers.feed_handler import _load_bp_architecture
-
         export_rows = await _fetch_all_knowledge_rows()
 
         order_index = {
@@ -2725,7 +2718,6 @@ async def get_node_detail(node_id: str, token: str = ""):
 
     try:
         from services.rag_service import _get_supabase, TABLE_NAME
-        from web.handlers.feed_handler import _load_bp_architecture
 
         arch = _load_bp_architecture()
         node_info = next((n for n in arch if n.get("node_id") == node_id), None)

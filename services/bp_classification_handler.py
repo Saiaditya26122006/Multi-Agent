@@ -1,3 +1,4 @@
+# TEMPORARILY BROKEN — feed_handler deleted, rebuild pending. Do not call this module.
 """
 BP Node Classification Error Handler
 
