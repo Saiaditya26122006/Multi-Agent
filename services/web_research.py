@@ -97,7 +97,7 @@ def research(query: str, session_id: Optional[str] = None,
             continue
         tier = _trust_tier(url)
         try:
-            chunk_id = store(
+            result = store(
                 content=content,
                 source_type="external_research",
                 section=None,
@@ -115,10 +115,11 @@ def research(query: str, session_id: Optional[str] = None,
                     "freshness_policy": "stale_after_90_days",
                 },
             )
-            if chunk_id:
-                stored.append({"url": url, "trust_tier": tier, "chunk_id": chunk_id})
+            if result:
+                stored.append({"url": url, "trust_tier": tier, "chunk_id": result.id})
         except Exception as e:  # noqa: BLE001
-            logger.debug("[WebResearch] store failed for %s: %s", url, e)
+            # Best-effort across many hits: keep going, but never silently.
+            logger.error("[WebResearch] store failed for %s: %s", url, e)
 
     logger.info("[WebResearch] '%s' -> %d evidence chunk(s) stored", query[:60], len(stored))
     return {"available": True, "stored": len(stored), "results": stored}

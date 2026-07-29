@@ -9,6 +9,7 @@ import json
 import logging
 from typing import Optional
 
+from services.rag_service import RagStoreError, StoreOutcome
 from tools.trace_emitter import emit_trace
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ def confirm_assumption(
                 break
 
         _trace(session_id, "storing_validation", "Recording evidence and upgrading status to CONFIRMED...")
-        store(
+        result = store(
             content=f"VALIDATED: {assumption_text} — Evidence: {evidence}",
             source_type="assumption_lifecycle",
             epistemic_status="CONFIRMED",
@@ -77,6 +78,23 @@ def confirm_assumption(
                 "action": "confirm",
             },
         )
+
+        # Only report a confirmation the store actually holds. A duplicate is
+        # fine — the evidence is already on record.
+        if not result and result.outcome is not StoreOutcome.SKIPPED_DUPLICATE:
+            logger.error(
+                "[ValidateHandler] Evidence not persisted (%s) — assumption "
+                "'%s' left unchanged",
+                result.outcome.value,
+                assumption_text[:80],
+            )
+            return {
+                "success": False,
+                "error": (
+                    "Evidence was not persisted — the assumption status is "
+                    "unchanged. Nothing was confirmed."
+                ),
+            }
 
         _trace(session_id, "checking_cascade", "Checking downstream impact on dependent sections...")
         cascade = get_cascade_preview(assumption_text, session_id=session_id)
@@ -96,6 +114,15 @@ def confirm_assumption(
             "message": (
                 f"Assumption confirmed. "
                 f"{cascade.get('affected_count', 0)} downstream node(s) strengthened."
+            ),
+        }
+    except RagStoreError as e:
+        logger.error("[ValidateHandler] Evidence write failed: %s", e)
+        return {
+            "success": False,
+            "error": (
+                "Evidence could not be written to the knowledge base — the "
+                "assumption status is unchanged. Nothing was confirmed."
             ),
         }
     except Exception as e:
@@ -123,7 +150,7 @@ def kill_assumption(
         from services.conversation_store import store_decision
 
         _trace(session_id, "storing_kill", f"Marking as killed: \"{assumption_text[:60]}\"...")
-        store(
+        result = store(
             content=f"KILLED ASSUMPTION: {assumption_text} — Reason: {reason}",
             source_type="negative_knowledge",
             epistemic_status="SUPERSEDED",
@@ -135,6 +162,22 @@ def kill_assumption(
                 "action": "kill",
             },
         )
+
+        # "Never re-suggested" is only true if the negative-knowledge row landed.
+        if not result and result.outcome is not StoreOutcome.SKIPPED_DUPLICATE:
+            logger.error(
+                "[ValidateHandler] Kill not persisted (%s) — assumption '%s' "
+                "is still live",
+                result.outcome.value,
+                assumption_text[:80],
+            )
+            return {
+                "success": False,
+                "error": (
+                    "The kill was not persisted — this assumption is still "
+                    "live and may be re-suggested. Nothing was changed."
+                ),
+            }
 
         _trace(session_id, "checking_cascade", "Checking downstream impact before finalizing...")
         cascade = get_cascade_preview(assumption_text, session_id=session_id)
@@ -158,6 +201,15 @@ def kill_assumption(
             "message": (
                 f"Assumption killed. {affected} downstream node(s) affected. "
                 f"This data will never be re-suggested."
+            ),
+        }
+    except RagStoreError as e:
+        logger.error("[ValidateHandler] Kill write failed: %s", e)
+        return {
+            "success": False,
+            "error": (
+                "The kill could not be written to the knowledge base — this "
+                "assumption is still live and may be re-suggested."
             ),
         }
     except Exception as e:
@@ -191,7 +243,7 @@ def report_conversation(
         )
 
         _trace(session_id, "logging_conversation", f"Logging conversation with {who} as CONFIRMED evidence...")
-        chunk_id = store(
+        result = store(
             content=content,
             source_type="conversation",
             epistemic_status="CONFIRMED",
@@ -205,11 +257,22 @@ def report_conversation(
             },
         )
 
+        if not result and result.outcome is not StoreOutcome.SKIPPED_DUPLICATE:
+            logger.error(
+                "[ValidateHandler] Conversation not persisted (%s): %s",
+                result.outcome.value,
+                who,
+            )
+            return {
+                "success": False,
+                "error": "The conversation was not persisted as evidence.",
+            }
+
         _trace(session_id, "conversation_logged", f"Logged conversation with {who}")
 
         return {
             "success": True,
-            "chunk_id": chunk_id,
+            "chunk_id": result.id or result.duplicate_of,
             "who": who,
             "summary": summary,
             "outcome": outcome,

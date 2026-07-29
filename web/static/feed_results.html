@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feed — batch results</title>
+<link rel="stylesheet" href="/static/feed_shared.css">
+<style>
+.summary { font-size: 16px; margin: 0 0 16px; }
+.summary b { font-weight: 660; }
+.counts { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 18px; }
+.count {
+  flex: 1 1 130px; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 11px 13px;
+}
+.count .n {
+  font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums;
+  line-height: 1.1; transition: color .2s;
+}
+.count .l { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.count[data-tone="done"]  { border-color: var(--done);   background: var(--done-soft); }
+.count[data-tone="done"] .n  { color: var(--done); }
+.count[data-tone="ready"] { border-color: var(--accent); background: var(--accent-soft); }
+.count[data-tone="ready"] .n { color: var(--accent); }
+.count[data-tone="look"]  { border-color: var(--warn);   background: var(--warn-soft); }
+.count[data-tone="look"] .n  { color: var(--warn); }
+.count[data-tone="none"]  { border-color: var(--alert);  background: var(--alert-soft); }
+.count[data-tone="none"] .n  { color: var(--alert); }
+.count.bump .n { transform: scale(1.12); }
+
+.live {
+  display: flex; align-items: center; gap: 10px; font-size: 13.5px;
+  color: var(--ink-2); margin-bottom: 16px;
+}
+.spin {
+  width: 13px; height: 13px; border: 2px solid var(--line);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin .8s linear infinite; flex: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
+
+.stream { display: flex; flex-direction: column; gap: 8px; }
+.fc {
+  background: var(--card); border: 1px solid var(--line);
+  border-left: 3px solid var(--line); border-radius: var(--radius);
+  padding: 11px 14px; animation: in .22s ease-out;
+}
+@keyframes in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .fc { animation: none; } }
+.fc[data-b="processing"] { border-left-color: var(--ink-3); opacity: .72; }
+.fc[data-b="ready"]      { border-left-color: var(--accent); }
+.fc[data-b="look"]       { border-left-color: var(--warn); }
+.fc[data-b="nofit"]      { border-left-color: var(--alert); }
+.fc[data-b="confirmed"]  { border-left-color: var(--done); background: var(--done-soft); }
+.fc .top { display: flex; gap: 10px; align-items: baseline; }
+.fc .n { font: 600 11px/1.6 var(--mono); color: var(--ink-3); flex: none; }
+.fc .q { flex: 1; font-size: 14px; text-wrap: pretty; }
+.fc .st { font-size: 11px; font-weight: 600; white-space: nowrap; padding: 2px 8px;
+          border-radius: 99px; border: 1px solid currentColor; }
+.fc[data-b="processing"] .st { color: var(--ink-3); }
+.fc[data-b="ready"] .st      { color: var(--accent); background: var(--accent-soft); }
+.fc[data-b="look"] .st       { color: var(--warn);   background: var(--warn-soft); }
+.fc[data-b="nofit"] .st      { color: var(--alert);  background: var(--alert-soft); }
+.fc[data-b="confirmed"] .st  { color: var(--done); }
+.fc .node { font: 12px/1.5 var(--mono); color: var(--ink-2); margin-top: 5px; }
+.fc .node b { font-weight: 600; }
+.fc details { margin-top: 5px; }
+.fc summary {
+  cursor: pointer; font-size: 12px; color: var(--ink-3); list-style: none;
+  display: inline-block; padding: 1px 0;
+}
+.fc summary::-webkit-details-marker { display: none; }
+.fc summary:hover { color: var(--accent); }
+.fc .why {
+  font-size: 12.5px; color: var(--ink-2); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; margin-top: 6px;
+}
+.fc .why .src { font: 11px var(--mono); color: var(--ink-3); display: block; margin-top: 6px; }
+.fc .flags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.fc .flag { font-size: 11px; padding: 2px 7px; border-radius: 99px; border: 1px solid currentColor; }
+.fc .flag.fact { background: var(--warn-soft); color: var(--warn); }
+.fc .flag.node { background: var(--alert-soft); color: var(--alert); }
+
+.acts { display: flex; gap: 8px; flex-wrap: wrap; margin: 20px 0 0; }
+.note {
+  font-size: 12.5px; color: var(--ink-2); background: var(--card);
+  border-left: 3px solid var(--accent); border-radius: 0 4px 4px 0;
+  padding: 9px 12px; margin: 0 0 18px;
+}
+.filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.filter-bar button[aria-pressed="true"] {
+  background: var(--key); color: var(--ink); border-color: var(--ink-3);
+}
+</style>
+</head>
+<body>
+
+<nav class="feed-nav">
+  <span class="brand">Feed</span>
+  <a class="step" href="#" id="nav-upload">1 · Upload</a>
+  <span class="sep">→</span>
+  <a class="step" href="#" id="nav-results" aria-current="page">2 · Results</a>
+  <span class="sep">→</span>
+  <a class="step" href="#" id="nav-review">3 · Review</a>
+  <span class="spacer"></span>
+  <span class="doc" id="navdoc"></span>
+</nav>
+
+<main>
+  <h1 id="title">Batch results</h1>
+  <p class="summary" id="summary">Connecting…</p>
+  <div class="live" id="live" hidden><span class="spin"></span><span id="live-text"></span></div>
+  <div class="counts" id="counts"></div>
+
+  <p class="note">
+    Nothing is filed automatically. A fact is written to the knowledge base at the
+    moment you confirm its node — never before. “Ready to confirm” means the
+    shortlist looks clean, not that it has been stored.
+  </p>
+
+  <div class="filter-bar" id="filters"></div>
+  <div class="stream" id="stream"></div>
+  <div class="acts" id="acts"></div>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+const RUN = qs.get("run") || "";
+let token = qs.get("token") || sessionStorage.getItem("feed_token") || "";
+if (token) sessionStorage.setItem("feed_token", token);
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const withTok = (p) => `${p}${p.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+
+function toast(msg, ms = 2800) {
+  const t = $("toast"); t.textContent = msg; t.dataset.show = "1";
+  clearTimeout(t._t); t._t = setTimeout(() => t.dataset.show = "0", ms);
+}
+
+const BUCKETS = [
+  { key: "confirmed", tone: "done",  label: "Filed",            st: "filed" },
+  { key: "ready",     tone: "ready", label: "Ready to confirm", st: "ready" },
+  { key: "look",      tone: "look",  label: "Needs a look",     st: "flagged" },
+  { key: "nofit",     tone: "none",  label: "No match",         st: "no match" },
+];
+
+const CARDS = new Map();   // index -> card-ish object
+let DOC = "", total = 0, live = false, filter = null;
+
+function wireNav() {
+  $("nav-upload").href = withTok("/feed");
+  $("nav-results").href = withTok(`/feed/results?run=${RUN}`);
+  $("nav-review").href = withTok(`/feed/review?run=${RUN}`);
+  $("navdoc").textContent = DOC;
+  $("title").textContent = DOC || "Batch results";
+}
+
+function tally() {
+  const t = { confirmed: 0, ready: 0, look: 0, nofit: 0, processing: 0 };
+  CARDS.forEach(c => { t[c.bucket] = (t[c.bucket] || 0) + 1; });
+  return t;
+}
+
+function renderCounts(bumped) {
+  const t = tally();
+  const done = CARDS.size - t.processing;
+  $("summary").innerHTML =
+    `<b>${done} of ${total || CARDS.size} processed</b> — ` +
+    `${t.confirmed} filed, ${t.ready} ready to confirm, ` +
+    `${t.look} need a look, ${t.nofit} with no match.`;
+  $("counts").innerHTML = BUCKETS.map(b => `
+    <div class="count${bumped === b.key ? " bump" : ""}" data-tone="${b.tone}">
+      <div class="n">${t[b.key] || 0}</div><div class="l">${b.label}</div>
+    </div>`).join("");
+  if (bumped) setTimeout(() => renderCounts(null), 220);
+}
+
+function cardHTML(c) {
+  const meta = BUCKETS.find(b => b.key === c.bucket);
+  const st = c.bucket === "processing" ? "classifying…" : (meta ? meta.st : c.bucket);
+  const span = (c.start_char !== null && c.start_char !== undefined)
+    ? `${c.start_char}:${c.end_char}` : "no span";
+  const flags = (c.checks || []).map(k =>
+    k === "check_extraction"
+      ? `<span class="flag fact">check the fact — ${esc(c.verdict || "suspect")}</span>`
+      : k === "check_node_degraded"
+      ? `<span class="flag node">check the node — ${esc(c.degraded_reason || "incomplete")}</span>`
+      : `<span class="flag node">no candidate matched</span>`).join("");
+  const node = c.node_id
+    ? `<div class="node">→ <b>${esc(c.node_id)}</b> ${esc(c.node_title || "")}</div>`
+    : (c.bucket === "nofit" ? `<div class="node muted">no node proposed</div>` : "");
+  const why = c.why
+    ? `<details><summary>why this node ▾</summary>
+         <div class="why">${esc(c.why)}
+           <span class="src">${esc(c.source_document || "")} [${span}] “${esc(c.source_quote || "")}”</span>
+         </div></details>`
+    : "";
+  return `<article class="fc" data-b="${esc(c.bucket)}" data-i="${c.index}">
+      <div class="top">
+        <span class="n">${String(c.index + 1).padStart(2, "0")}</span>
+        <span class="q">${esc(c.fact)}</span>
+        <span class="st">${st}</span>
+      </div>
+      ${node}${flags ? `<div class="flags">${flags}</div>` : ""}${why}
+    </article>`;
+}
+
+function renderStream() {
+  const list = [...CARDS.values()]
+    .filter(c => !filter || c.bucket === filter)
+    .sort((a, b) => a.index - b.index);
+  $("stream").innerHTML = list.map(cardHTML).join("")
+    || `<p class="muted" style="font-size:13px">Nothing in this group.</p>`;
+
+  $("filters").innerHTML = [{ key: null, label: "All" }, ...BUCKETS].map(b => {
+    const n = b.key ? (tally()[b.key] || 0) : CARDS.size;
+    return `<button data-f="${b.key ?? ""}" aria-pressed="${filter === b.key}">
+              ${b.label ?? "All"} ${n}</button>`;
+  }).join("");
+
+  const t = tally();
+  const actionable = (t.ready || 0) + (t.look || 0) + (t.nofit || 0);
+  $("acts").innerHTML = live ? "" : (actionable
+    ? `<a class="btn primary" href="${withTok(`/feed/review?run=${RUN}`)}">Review all ${actionable}</a>
+       ${t.ready ? `<a class="btn" href="${withTok(`/feed/review?run=${RUN}&filter=ready`)}">Just the ${t.ready} clean ones</a>` : ""}
+       ${t.look ? `<a class="btn" href="${withTok(`/feed/review?run=${RUN}&filter=look`)}">The ${t.look} flagged</a>` : ""}
+       ${t.nofit ? `<a class="btn" href="${withTok(`/feed/review?run=${RUN}&filter=nofit`)}">The ${t.nofit} unmatched</a>` : ""}`
+    : `<a class="btn" href="${withTok("/feed")}">Upload another document</a>`);
+}
+
+$("filters").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-f]");
+  if (!b) return;
+  filter = b.dataset.f || null;
+  renderStream();
+});
+
+// --- paced rendering: a burst of events must stay readable --------------
+const queue = [];
+let draining = false;
+function enqueue(fn) { queue.push(fn); drain(); }
+function drain() {
+  if (draining || !queue.length) return;
+  draining = true;
+  const step = () => {
+    const batchSize = queue.length > 40 ? 8 : queue.length > 12 ? 3 : 1;
+    for (let i = 0; i < batchSize && queue.length; i++) queue.shift()();
+    renderStream();
+    if (queue.length) setTimeout(step, 70);
+    else draining = false;
+  };
+  setTimeout(step, 70);
+}
+
+function handle(ev) {
+  switch (ev.event) {
+    case "started":
+      DOC = ev.source_document || DOC; wireNav();
+      $("live").hidden = false; live = true;
+      $("live-text").textContent = "Extracting text…";
+      break;
+    case "extracted":
+      total = ev.facts;
+      $("live-text").textContent =
+        `${ev.words.toLocaleString()} words → ${ev.facts} facts. Classifying…`;
+      break;
+    case "chunked":
+      enqueue(() => {
+        CARDS.set(ev.index, { ...ev, bucket: "processing" });
+        renderCounts();
+      });
+      break;
+    case "classified":
+      enqueue(() => {
+        const prev = CARDS.get(ev.index) || {};
+        CARDS.set(ev.index, { ...prev, ...ev });
+        renderCounts(ev.bucket);
+        const t = tally();
+        $("live-text").textContent =
+          `${CARDS.size - (t.processing || 0)} of ${total} classified…`;
+      });
+      break;
+    case "done":
+      enqueue(() => {
+        live = false; $("live").hidden = true;
+        toast(`Done — ${ev.total} facts in ${ev.seconds}s`, 3600);
+        renderCounts(); renderStream();
+      });
+      break;
+    case "failed":
+      live = false; $("live").hidden = true;
+      $("summary").textContent = `Processing failed: ${ev.error}`;
+      break;
+  }
+}
+
+// --- socket for a run in flight, REST for one already finished ---------
+function connect() {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  const ws = new WebSocket(
+    `${proto}//${location.host}/ws/${encodeURIComponent(RUN)}?token=${encodeURIComponent(token)}`);
+  ws.onmessage = (m) => { try { handle(JSON.parse(m.data)); } catch {} };
+  ws.onclose = () => { if (live) setTimeout(connect, 2000); };
+}
+
+async function loadExisting() {
+  try {
+    const r = await fetch(withTok(`/api/feed/batch/${encodeURIComponent(RUN)}`));
+    const data = await r.json();
+    if (!r.ok) throw new Error(r.status === 401 ? "Invalid token" : `HTTP ${r.status}`);
+    if (data.status !== "done") return false;      // still running — the socket carries it
+    if (data.batch.error) { $("summary").textContent = `Failed: ${data.batch.error}`; return true; }
+    DOC = data.batch.source_document || "";
+    total = data.batch.total_facts;
+    (data.batch.cards || []).forEach(c => {
+      const top = (c.shortlist || [])[0] || {};
+      CARDS.set(c.index, {
+        index: c.index, fact: c.fact,
+        bucket: c.status === "confirmed" ? "confirmed"
+              : (c.status === "rejected" || !c.shortlist.length) ? "nofit"
+              : (c.checks && c.checks.length) ? "look" : "ready",
+        node_id: c.status === "confirmed" ? c.confirmed_node_id : c.proposed_node_id,
+        node_title: top.title, why: top.note || c.proposal_reason,
+        checks: c.checks, verdict: c.verdict, degraded_reason: c.degraded_reason,
+        source_document: c.source_document, source_quote: c.source_quote,
+        start_char: c.start_char, end_char: c.end_char,
+      });
+    });
+    wireNav(); renderCounts(); renderStream();
+    return true;
+  } catch (e) {
+    $("summary").textContent = e.message;
+    return true;
+  }
+}
+
+async function boot() {
+  if (!RUN) { $("summary").textContent = "No run id in the URL."; return; }
+  if (!token) {
+    $("summary").innerHTML = `No token. Open this from <a href="/feed">the upload page</a>.`;
+    return;
+  }
+  wireNav();
+  connect();                       // attach first so nothing is missed
+  const finished = await loadExisting();
+  if (!finished) { live = true; $("live").hidden = false;
+                   $("live-text").textContent = "Waiting for the pipeline…"; }
+}
+boot();
+</script>
+</body>
+</html>

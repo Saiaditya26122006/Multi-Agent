@@ -53,8 +53,55 @@ def _check_rag_available() -> bool:
     return _rag_available
 
 
+def _load_added_facts() -> dict[str, list[dict]]:
+    """Fetch facts added via POST /api/knowledge-base/add, grouped by topic.
+
+    Those facts live in Supabase, not in ceo_data/*.json — the local filesystem
+    is ephemeral on Railway. This is what keeps the add endpoint and
+    GET /api/knowledge-base agreeing on what exists.
+
+    Returns:
+        {topic: [{"fact", "status", "added_at"}, ...]}. Empty if Supabase is
+        unreachable — this function is also on the RAG-unavailable fallback
+        path and must not make file loading depend on the network.
+    """
+    grouped: dict[str, list[dict]] = {}
+    try:
+        from services.rag_service import TABLE_NAME, _get_supabase
+
+        rows = (
+            _get_supabase()
+            .table(TABLE_NAME)
+            .select("content, epistemic_status, created_at, metadata")
+            .eq("metadata->>origin", "web_add_fact")
+            .order("created_at")
+            .execute()
+            .data
+            or []
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[CEOData] Could not load added facts from Supabase: %s", e)
+        return grouped
+
+    for row in rows:
+        topic = (row.get("metadata") or {}).get("topic")
+        if not topic:
+            continue
+        grouped.setdefault(topic, []).append(
+            {
+                "fact": row.get("content", ""),
+                "status": row.get("epistemic_status"),
+                "added_at": row.get("created_at"),
+            }
+        )
+    return grouped
+
+
 def load_all_ceo_data() -> dict:
     """Load all CEO-provided data files into a structured dict.
+
+    Merges the checked-in ceo_data/*.json seed files with facts added at
+    runtime through the API (which are stored in Supabase).
 
     Returns:
         {"financials": {...}, "customers": {...}, ...}
@@ -80,6 +127,16 @@ def load_all_ceo_data() -> dict:
                 data[key] = content
         except Exception as e:
             logger.warning("[CEOData] Failed to load %s: %s", file_path.name, e)
+
+    for topic, facts in _load_added_facts().items():
+        entry = data.get(topic)
+        if not isinstance(entry, dict):
+            entry = {
+                "_meta": {"source": "Web Interface", "storage": "supabase"},
+                "facts": [],
+            }
+            data[topic] = entry
+        entry.setdefault("facts", []).extend(facts)
 
     return data
 

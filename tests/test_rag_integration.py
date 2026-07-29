@@ -84,7 +84,7 @@ class TestCorrectionSupersedesOld:
             source_type="ceo_doc",
             section="10",
             deduplicate=False,
-        )
+        ).id
 
         new_id = store_correction(
             original_fact=f"pricing is EUR 12000 per year {unique}",

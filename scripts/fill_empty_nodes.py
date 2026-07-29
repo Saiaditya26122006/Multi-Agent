@@ -96,7 +96,7 @@ def main() -> None:
             f"BP Node {nid}: {node.get('node_title') or ''}; "
             f"Purpose: {node['purpose']}; Required output: {node['required_output']}"
         )
-        store(
+        result = store(
             content=content,
             source_type="ceo_doc",
             section=nid,
@@ -114,6 +114,8 @@ def main() -> None:
                 "sync_batch": "fill-empty-nodes",
             },
         )
+        if not result:
+            logger.warning("Node %s not re-embedded: %s", nid, result.outcome.value)
     logger.info("Re-embedded %d filled nodes", len(filled))
 
 

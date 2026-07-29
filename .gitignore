@@ -56,3 +56,6 @@ outputs/
 evaluation/feed_corrections.jsonl
 ceo_data/.aug_index_hash
 .envpytest
+
+# Windows Explorer alternate-data-stream artifacts from WSL copies
+*:Zone.Identifier

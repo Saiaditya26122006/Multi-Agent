@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feed review queue</title>
+<link rel="stylesheet" href="/static/feed_shared.css">
+<style>
+:root {
+  --ink: #16181d;  --ink-2: #4a4f5a;  --ink-3: #7c828e;
+  --bg: #fbfaf8;   --card: #ffffff;   --line: #e3e0da;
+  --accent: #1f5f4e;  --accent-soft: #e6f0ec;
+  --warn: #8a5a12;    --warn-soft: #fbf1dd;
+  --alert: #8c2f39;   --alert-soft: #f9e6e8;
+  --key: #eceae5;
+  --radius: 6px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8e6e1;  --ink-2: #a8adb8;  --ink-3: #767c88;
+    --bg: #14161a;   --card: #1c1f25;   --line: #2c3039;
+    --accent: #6ec0a5;  --accent-soft: #16302a;
+    --warn: #d9a441;    --warn-soft: #2e2617;
+    --alert: #e08893;   --alert-soft: #331a1e;
+    --key: #262a32;
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #e8e6e1;  --ink-2: #a8adb8;  --ink-3: #767c88;
+  --bg: #14161a;   --card: #1c1f25;   --line: #2c3039;
+  --accent: #6ec0a5;  --accent-soft: #16302a;
+  --warn: #d9a441;    --warn-soft: #2e2617;
+  --alert: #e08893;   --alert-soft: #331a1e;
+  --key: #262a32;
+}
+:root[data-theme="light"] {
+  --ink: #16181d;  --ink-2: #4a4f5a;  --ink-3: #7c828e;
+  --bg: #fbfaf8;   --card: #ffffff;   --line: #e3e0da;
+  --accent: #1f5f4e;  --accent-soft: #e6f0ec;
+  --warn: #8a5a12;    --warn-soft: #fbf1dd;
+  --alert: #8c2f39;   --alert-soft: #f9e6e8;
+  --key: #eceae5;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--sans); font-size: 15px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+header {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+h1 { font-size: 15px; margin: 0; font-weight: 620; letter-spacing: -0.01em; }
+.meta { color: var(--ink-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.bar { flex: 1 1 160px; height: 4px; background: var(--line); border-radius: 99px; overflow: hidden; min-width: 100px; }
+.bar > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .25s ease; }
+main { max-width: 860px; margin: 0 auto; padding: 20px 20px 140px; }
+
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 18px 20px; margin-bottom: 14px; scroll-margin-top: 68px;
+}
+.card[data-active="1"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.card[data-status="confirmed"] { opacity: .55; }
+.card[data-status="rejected"] { opacity: .55; }
+
+.idx { font: 600 12px/1 var(--mono); color: var(--ink-3); }
+.fact { font-size: 17px; line-height: 1.45; margin: 8px 0 12px; text-wrap: pretty; }
+
+.prov {
+  font: 12px/1.5 var(--mono); color: var(--ink-2);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+  padding: 8px 10px; margin-bottom: 12px; overflow-x: auto;
+}
+.prov b { color: var(--ink-3); font-weight: 500; }
+
+.flags { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.flag {
+  font-size: 12px; padding: 4px 9px; border-radius: 99px; font-weight: 560;
+  border: 1px solid transparent;
+}
+.flag.fact-flag { background: var(--warn-soft); color: var(--warn); border-color: currentColor; }
+.flag.node-flag { background: var(--alert-soft); color: var(--alert); border-color: currentColor; }
+.flag small { font-weight: 400; opacity: .85; }
+
+.sections { font-size: 12px; color: var(--ink-3); margin-bottom: 10px; }
+.sections code { font-family: var(--mono); color: var(--ink-2); }
+
+.opt {
+  display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; align-items: start;
+  width: 100%; text-align: left; padding: 10px 12px; margin-bottom: 6px;
+  background: transparent; border: 1px solid var(--line); border-radius: 5px;
+  color: inherit; font: inherit; cursor: pointer;
+}
+.opt:hover { border-color: var(--accent); background: var(--accent-soft); }
+.opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt .k {
+  font: 600 12px/22px var(--mono); text-align: center; height: 22px;
+  background: var(--key); border-radius: 4px; color: var(--ink-2);
+}
+.opt .node { font: 600 13px/1.4 var(--mono); }
+.opt .title { font-weight: 560; }
+.opt .note { color: var(--ink-2); font-size: 13.5px; margin-top: 2px; text-wrap: pretty; }
+.opt .deg { color: var(--alert); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.opt.top { border-color: var(--accent); }
+.opt.top .k { background: var(--accent); color: var(--card); }
+
+.alt { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.alt button {
+  font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 5px;
+  border: 1px solid var(--line); background: transparent; color: var(--ink-2); cursor: pointer;
+}
+.alt button:hover { border-color: var(--ink-3); color: var(--ink); }
+.alt kbd { font: 600 11px var(--mono); background: var(--key); padding: 1px 5px; border-radius: 3px; }
+
+.resolved { font-size: 13px; color: var(--accent); font-weight: 560; }
+.resolved.no { color: var(--alert); }
+.empty { color: var(--ink-2); font-size: 14px; font-style: italic; padding: 6px 0 10px; }
+
+footer {
+  position: fixed; bottom: 0; left: 0; right: 0; background: var(--card);
+  border-top: 1px solid var(--line); padding: 9px 20px; font-size: 12.5px;
+  color: var(--ink-3); display: flex; gap: 18px; flex-wrap: wrap; justify-content: center;
+}
+footer kbd { font: 600 11px var(--mono); background: var(--key); color: var(--ink-2); padding: 2px 6px; border-radius: 3px; }
+#toast {
+  position: fixed; bottom: 52px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 5px;
+  font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20;
+}
+#toast[data-show="1"] { opacity: 1; }
+.setup { padding: 24px; max-width: 560px; margin: 40px auto; }
+.setup input {
+  width: 100%; padding: 9px 11px; font: inherit; margin: 6px 0 14px;
+  border: 1px solid var(--line); border-radius: 5px; background: var(--card); color: var(--ink);
+}
+.setup button {
+  font: inherit; font-weight: 600; padding: 9px 18px; border-radius: 5px;
+  border: none; background: var(--accent); color: var(--card); cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="setup" id="setup">
+  <h1>Feed review queue</h1>
+  <p style="color:var(--ink-2);font-size:14px">
+    The facts from a batch that still need your attention. Anything already filed
+    is on the <a href="/feed">results page</a>, not here. Nothing is written to the
+    knowledge base until you confirm its node.
+  </p>
+  <label for="run">Run id</label>
+  <input id="run" placeholder="feed-xxxxxxxxxxxx" autocomplete="off">
+  <label for="tok">Access token</label>
+  <input id="tok" type="password" autocomplete="current-password">
+  <button id="go">Open queue</button>
+  <p id="setup-msg" style="color:var(--alert);font-size:13px"></p>
+</div>
+
+<div id="app" hidden>
+  <nav class="feed-nav">
+    <span class="brand">Feed</span>
+    <a class="step" href="#" id="nav-upload">1 · Upload</a>
+    <span class="sep">→</span>
+    <a class="step" href="#" id="nav-results">2 · Results</a>
+    <span class="sep">→</span>
+    <a class="step" href="#" id="nav-review" aria-current="page">3 · Review</a>
+    <span class="spacer"></span>
+    <a class="step" href="#" id="nav-back">← back to results</a>
+  </nav>
+  <p id="scope" style="max-width:860px;margin:12px auto 0;padding:0 20px;
+     font-size:13px;color:var(--ink-2)"></p>
+  <header>
+    <h1 id="doc">—</h1>
+    <span class="meta" id="counts"></span>
+    <span class="bar"><i id="progress"></i></span>
+  </header>
+  <main id="cards"></main>
+  <footer>
+    <span><kbd>1</kbd>–<kbd>5</kbd> confirm that option</span>
+    <span><kbd>Enter</kbd> confirm top</span>
+    <span><kbd>n</kbd> none of these</span>
+    <span><kbd>s</kbd> skip</span>
+    <span><kbd>j</kbd>/<kbd>k</kbd> move</span>
+  </footer>
+</div>
+<div id="toast"></div>
+
+<script>
+const S = { run: null, token: null, cards: [], doc: "", active: 0, filter: null };
+
+// Which bucket a card belongs to — must match feed_results.html exactly, or the
+// count on the results page will not equal what this queue shows.
+function bucketOf(c) {
+  if (c.status === "confirmed") return "confirmed";
+  if (c.status === "rejected") return "nofit";
+  if (!c.shortlist || !c.shortlist.length) return "nofit";
+  return (c.checks && c.checks.length) ? "look" : "ready";
+}
+const FILTER_LABEL = {
+  ready: "ready to confirm — a suggested node and no flags",
+  look: "flagged — check the fact or the node before confirming",
+  nofit: "no candidate matched — these need the tree browsed",
+};
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function toast(msg, ms = 1800) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.dataset.show = "1";
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.dataset.show = "0", ms);
+}
+
+async function load() {
+  const r = await fetch(`/api/feed/batch/${encodeURIComponent(S.run)}?token=${encodeURIComponent(S.token)}`);
+  if (!r.ok) throw new Error(r.status === 401 ? "Invalid token" : `HTTP ${r.status}`);
+  const data = await r.json();
+  if (data.status !== "done") throw new Error("Still processing — try again shortly");
+  const all = data.batch.cards || [];
+  S.cards = S.filter ? all.filter(c => bucketOf(c) === S.filter) : all;
+  S.doc = data.batch.source_document || "";
+  const scope = document.getElementById("scope");
+  if (scope) {
+    scope.textContent = S.filter
+      ? `Showing ${S.cards.length} of ${all.length} facts from this batch: ${FILTER_LABEL[S.filter] || S.filter}.`
+      : `Showing all ${all.length} facts from this batch.`;
+  }
+  const tok = encodeURIComponent(S.token), run = encodeURIComponent(S.run);
+  document.getElementById("nav-upload").href = `/feed?token=${tok}`;
+  document.getElementById("nav-results").href = `/feed/results?run=${run}&token=${tok}`;
+  document.getElementById("nav-back").href = `/feed/results?run=${run}&token=${tok}`;
+  document.getElementById("nav-review").href = location.href;
+  render();
+}
+
+function counts() {
+  const done = S.cards.filter(c => c.status !== "awaiting_confirmation").length;
+  const flaggedFact = S.cards.filter(c => c.needs_review).length;
+  const flaggedNode = S.cards.filter(c => c.degraded_target).length;
+  $("doc").textContent = S.doc;
+  $("counts").textContent =
+    `${done}/${S.cards.length} resolved · ${flaggedFact} extraction-flagged · ${flaggedNode} node-flagged`;
+  $("progress").style.width = S.cards.length ? `${100 * done / S.cards.length}%` : "0";
+}
+
+function cardHTML(c, i) {
+  const span = c.start_char !== null && c.start_char !== undefined
+    ? `${c.start_char}:${c.end_char}` : "no span";
+
+  const flags = [];
+  if (c.needs_review) flags.push(
+    `<span class="flag fact-flag">Check the FACT — extraction ${esc(c.verdict || "suspect")}
+     <small>${esc((c.review_reason || "").slice(0, 110))}</small></span>`);
+  if (c.degraded_target) flags.push(
+    `<span class="flag node-flag">Check the NODE — definition incomplete
+     <small>${esc(c.degraded_reason || "")}</small></span>`);
+
+  const secs = (c.candidate_sections || []).slice(0, 3)
+    .map(s => `<code>${esc(s.section_id)}</code>`).join(" · ");
+
+  let body;
+  if (c.status === "confirmed") {
+    body = `<p class="resolved">Filed to ${esc(c.confirmed_node_id)}${
+      c.rank_of_confirmed ? ` (option ${c.rank_of_confirmed})` : " (not on the shortlist)"}</p>`;
+  } else if (c.status === "rejected") {
+    body = `<p class="resolved no">Marked “none of these” — left unfiled for Alex to place</p>`;
+  } else if (!c.shortlist || !c.shortlist.length) {
+    body = `<p class="empty">No candidate matched. ${esc(c.proposal_reason || "")}</p>` + altHTML(i);
+  } else {
+    body = c.shortlist.map((o, n) => `
+      <button class="opt${n === 0 ? " top" : ""}" data-i="${i}" data-node="${esc(o.node_id)}">
+        <span class="k">${n + 1}</span>
+        <span>
+          <span class="node">${esc(o.node_id)}</span> <span class="title">${esc(o.title || "")}</span>
+          <span class="note">${esc(o.note || "")}</span>
+        </span>
+        <span class="deg">${o.degraded ? "incomplete node" : ""}</span>
+      </button>`).join("") + altHTML(i);
+  }
+
+  return `<article class="card" id="card-${i}" data-status="${esc(c.status)}"
+            data-active="${i === S.active ? 1 : 0}">
+    <span class="idx">FACT ${c.index + 1} / ${S.cards.length}</span>
+    <p class="fact">${esc(c.fact)}</p>
+    <div class="prov"><b>${esc(c.source_document)}</b> [${span}] &nbsp;“${esc(c.source_quote)}”</div>
+    ${flags.length ? `<div class="flags">${flags.join("")}</div>` : ""}
+    ${secs ? `<p class="sections">sections considered: ${secs}</p>` : ""}
+    ${body}
+  </article>`;
+}
+
+function altHTML(i) {
+  return `<div class="alt">
+    <button data-act="none" data-i="${i}">None of these <kbd>n</kbd></button>
+    <button data-act="skip" data-i="${i}">Skip <kbd>s</kbd></button>
+  </div>`;
+}
+
+function render() {
+  $("cards").innerHTML = S.cards.map(cardHTML).join("");
+  counts();
+}
+
+function focusCard(i) {
+  S.active = Math.max(0, Math.min(i, S.cards.length - 1));
+  document.querySelectorAll(".card").forEach((el, n) =>
+    el.dataset.active = n === S.active ? "1" : "0");
+  const el = $(`card-${S.active}`);
+  if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
+function nextPending(from) {
+  for (let n = from + 1; n < S.cards.length; n++)
+    if (S.cards[n].status === "awaiting_confirmation") return n;
+  return Math.min(from + 1, S.cards.length - 1);
+}
+
+async function act(i, action, nodeId) {
+  const card = S.cards[i];
+  if (!card) return;
+  const body = {
+    run_id: S.run, index: card.index, action,
+    node_id: nodeId || null, confirmed_by: "reviewer", token: S.token,
+  };
+  try {
+    const r = await fetch("/api/feed/confirm", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+    S.cards[i] = data.card;
+    render();
+    toast(action === "confirm" ? `Filed to ${nodeId}`
+        : action === "none" ? "Left unfiled — flagged for Alex" : "Skipped");
+    focusCard(nextPending(i));
+  } catch (e) {
+    toast(`Failed: ${e.message}`, 3200);
+  }
+}
+
+$("cards").addEventListener("click", (ev) => {
+  const opt = ev.target.closest(".opt");
+  if (opt) return act(+opt.dataset.i, "confirm", opt.dataset.node);
+  const alt = ev.target.closest("[data-act]");
+  if (alt) return act(+alt.dataset.i, alt.dataset.act);
+});
+
+document.addEventListener("keydown", (ev) => {
+  if ($("app").hidden || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (/^(INPUT|TEXTAREA)$/.test(ev.target.tagName)) return;
+  const card = S.cards[S.active];
+  const list = (card && card.shortlist) || [];
+  const k = ev.key.toLowerCase();
+
+  if (k === "j" || ev.key === "ArrowDown") { ev.preventDefault(); focusCard(S.active + 1); }
+  else if (k === "k" || ev.key === "ArrowUp") { ev.preventDefault(); focusCard(S.active - 1); }
+  else if (k === "n") { ev.preventDefault(); act(S.active, "none"); }
+  else if (k === "s") { ev.preventDefault(); act(S.active, "skip"); }
+  else if (ev.key === "Enter" && list.length) { ev.preventDefault(); act(S.active, "confirm", list[0].node_id); }
+  else if (/^[1-5]$/.test(ev.key) && list[+ev.key - 1]) {
+    ev.preventDefault(); act(S.active, "confirm", list[+ev.key - 1].node_id);
+  }
+});
+
+$("go").addEventListener("click", async () => {
+  S.run = $("run").value.trim();
+  S.token = $("tok").value;
+  if (S.token) sessionStorage.setItem("feed_token", S.token);
+  if (!S.run || !S.token) { $("setup-msg").textContent = "Both fields are required."; return; }
+  try {
+    await load();
+    $("setup").hidden = true;
+    $("app").hidden = false;
+    focusCard(nextPending(-1));
+  } catch (e) {
+    $("setup-msg").textContent = e.message;
+  }
+});
+
+const qs = new URLSearchParams(location.search);
+if (qs.get("run")) $("run").value = qs.get("run");
+S.filter = qs.get("filter");
+const urlToken = qs.get("token") || sessionStorage.getItem("feed_token");
+if (urlToken) $("tok").value = urlToken;
+if (qs.get("run") && urlToken) $("go").click();
+</script>
+</body>
+</html>

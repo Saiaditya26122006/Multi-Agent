@@ -61,7 +61,7 @@ def record_evidence(
         f"Evidence: {evidence}. Source: {source}."
     )
 
-    return store(
+    result = store(
         content=content,
         source_type="assumption_lifecycle",
         epistemic_status=status_map.get(effect, "ASSUMPTION"),
@@ -75,6 +75,7 @@ def record_evidence(
             "source": source,
         },
     )
+    return result.id
 
 
 def get_assumption_status(assumption_id: str) -> dict:

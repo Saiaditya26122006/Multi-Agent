@@ -36,13 +36,14 @@ def store_ceo_message(
     if len(message.strip()) < 5:
         return None
 
-    return store(
+    result = store(
         content=f"CEO said: {message}",
         source_type="conversation",
         session_id=session_id,
         topic_tags=["ceo-message", channel],
         metadata={**(metadata or {}), "channel": channel, "role": "ceo"},
     )
+    return result.id
 
 
 def store_system_question(
@@ -64,7 +65,7 @@ def store_system_question(
     """
     from services.rag_service import store
 
-    return store(
+    result = store(
         content=f"System asked CEO: {question}",
         source_type="conversation",
         session_id=session_id,
@@ -72,6 +73,7 @@ def store_system_question(
         topic_tags=["system-question", agent_name],
         metadata={**(metadata or {}), "role": "system", "agent": agent_name},
     )
+    return result.id
 
 
 def store_ceo_answer(
@@ -95,13 +97,14 @@ def store_ceo_answer(
 
     content = f"Q: {question} | CEO answered: {answer}"
 
-    return store(
+    result = store(
         content=content,
         source_type="conversation",
         session_id=session_id,
         topic_tags=["ceo-answer", "qa-pair"],
         metadata={**(metadata or {}), "question": question, "role": "ceo"},
     )
+    return result.id
 
 
 def store_decision(
@@ -136,7 +139,7 @@ def store_decision(
     if decision_lower == "kill":
         source_type = "negative_knowledge"
 
-    return store(
+    result = store(
         content=content,
         source_type=source_type,
         session_id=session_id,
@@ -149,6 +152,7 @@ def store_decision(
             "reasoning": reasoning,
         },
     )
+    return result.id
 
 
 def store_correction(
@@ -171,12 +175,17 @@ def store_correction(
 
     Returns:
         Chunk ID of the new corrected fact.
+
+    Raises:
+        ValueError: Both facts were empty, so there is nothing to correct.
+        RagStoreError: The correction could not be written. Never swallowed —
+            a lost correction leaves the stale chunk authoritative.
     """
-    from services.rag_service import store, supersede
+    from services.rag_service import StoreOutcome, store, supersede
 
     content = f"CORRECTION: Was: {original_fact} → Now: {corrected_fact}"
 
-    new_id = store(
+    result = store(
         content=content,
         source_type="correction",
         session_id=session_id,
@@ -188,12 +197,21 @@ def store_correction(
         },
     )
 
+    if result.outcome is StoreOutcome.SKIPPED_EMPTY:
+        raise ValueError("[ConvStore] Refusing to store an empty correction")
+
+    # A duplicate means this exact correction is already stored. The old chunk
+    # must still be superseded by it — skipping that is what left stale facts
+    # authoritative before.
+    new_id = result.id or result.duplicate_of
+
     if new_id and original_chunk_id:
         supersede(original_chunk_id, new_id)
         logger.info(
-            "[ConvStore] Correction superseded %s → %s",
+            "[ConvStore] Correction superseded %s → %s (%s)",
             original_chunk_id,
             new_id,
+            result.outcome.value,
         )
 
     return new_id
@@ -226,7 +244,7 @@ def store_feedback(
     if output_summary:
         content = f"Output: {output_summary} | {content}"
 
-    return store(
+    result = store(
         content=content,
         source_type="feedback",
         session_id=session_id,
@@ -239,6 +257,7 @@ def store_feedback(
             "feedback": feedback,
         },
     )
+    return result.id
 
 
 def has_been_asked(question_topic: str, session_id: Optional[str] = None) -> bool:

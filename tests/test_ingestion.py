@@ -10,6 +10,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
+from services.rag_service import StoreOutcome, StoreResult
+
 from services.ingestion_pipeline import (
     _chunk_customers,
     _chunk_contradictions,
@@ -107,7 +109,9 @@ class TestEmptyFileProducesGap:
 class TestIngestAllCount:
     @patch("services.rag_service.batch_store")
     def test_ingest_all_ceo_data_count(self, mock_batch_store):
-        mock_batch_store.return_value = ["fake-id"] * 50
+        mock_batch_store.return_value = [
+            StoreResult(StoreOutcome.STORED, id="fake-id")
+        ] * 50
         result = ingest_all_ceo_data()
         total = result.get("_total", 0)
         assert total > 100

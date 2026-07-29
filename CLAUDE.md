@@ -126,6 +126,16 @@ All Agents ← rag_mixin.py/rag_service.py ← Semantic Retrieval (top-k cosine 
 | `database/migrations/add_knowledge_base.sql` | Table + indexes |
 | `database/migrations/add_knowledge_base_rpc.sql` | Vector similarity RPC function |
 
+Before writing a new caller of `store()`/`batch_store()`, read **"Storage Write Path
+— store() contract + persistence"** in `PROJECT_STATE.md` — it is the single source
+of truth for the return contract and failure behaviour.
+
+**Before building or wiring the Feed classifier**, read the **`degraded_target`
+CONTRACT** at the top of `PROJECT_STATE.md`. `match_bp_architecture` returns all nodes;
+the classifier — not the RPC — must refuse to auto-file into a node with
+`degraded_target = TRUE` and route that fact to human review instead. 89 of the 912
+architecture nodes are degraded.
+
 ### 12 RAG Layers (source_type values)
 
 | source_type | What It Stores |

@@ -70,6 +70,7 @@ def main() -> None:
     logger.info("Re-embedding %d canonical nodes (sync_batch=%s)", len(nodes), tag)
 
     stored = 0
+    skipped = 0
     for node in nodes:
         nid = node["node_id"]
         metadata = {
@@ -84,7 +85,7 @@ def main() -> None:
             "sync_batch": tag,
         }
         try:
-            store(
+            result = store(
                 content=_content(node),
                 source_type="ceo_doc",
                 section=nid,
@@ -92,7 +93,11 @@ def main() -> None:
                 confidence=1.0,
                 metadata=metadata,
             )
-            stored += 1
+            if result:
+                stored += 1
+            else:
+                skipped += 1
+                logger.warning("skipped %s: %s", nid, result.outcome.value)
             if stored % 100 == 0:
                 logger.info("  stored %d/%d", stored, len(nodes))
         except Exception as e:  # noqa: BLE001
@@ -108,8 +113,9 @@ def main() -> None:
     )
     ids = [(r.get("metadata") or {}).get("node_id") for r in all_arch]
     logger.info(
-        "DONE. stored=%d | arch rows=%d | unique node_ids=%d | expected=%d",
+        "DONE. stored=%d | skipped=%d | arch rows=%d | unique node_ids=%d | expected=%d",
         stored,
+        skipped,
         len(all_arch),
         len(set(ids)),
         len(nodes),

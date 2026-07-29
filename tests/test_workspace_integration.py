@@ -7,6 +7,8 @@ services (Redis, Supabase, LLM) mocked out.
 import pytest
 from unittest.mock import patch, MagicMock
 
+from services.rag_service import StoreOutcome, StoreResult
+
 
 class TestFeedWorkspaceFlow:
     """Test raw text -> workspace_router -> feed_handler -> mapped facts."""
@@ -101,7 +103,7 @@ class TestCorrectionSupersedes:
     @patch("services.rag_service.store")
     def test_correction_stores_new_and_supersedes_old(self, mock_store, mock_supersede):
         """Correction creates new chunk and marks old one as superseded."""
-        mock_store.return_value = "new-uuid-456"
+        mock_store.return_value = StoreResult(StoreOutcome.STORED, id="new-uuid-456")
 
         from services.conversation_store import store_correction
 
@@ -116,10 +118,29 @@ class TestCorrectionSupersedes:
         mock_store.assert_called_once()
         mock_supersede.assert_called_once_with("old-uuid-123", "new-uuid-456")
 
+    @patch("services.rag_service.supersede")
+    @patch("services.rag_service.store")
+    def test_correction_duplicate_still_supersedes(self, mock_store, mock_supersede):
+        """A duplicate correction must not leave the stale chunk authoritative."""
+        mock_store.return_value = StoreResult(
+            StoreOutcome.SKIPPED_DUPLICATE, duplicate_of="existing-uuid-999"
+        )
+
+        from services.conversation_store import store_correction
+
+        result = store_correction(
+            original_fact="Revenue target is $500K ARR",
+            corrected_fact="Revenue target is $750K ARR",
+            original_chunk_id="old-uuid-123",
+        )
+
+        assert result == "existing-uuid-999"
+        mock_supersede.assert_called_once_with("old-uuid-123", "existing-uuid-999")
+
     @patch("services.rag_service.store")
     def test_correction_without_original_id_only_stores(self, mock_store):
         """When original_chunk_id is not provided, store without supersede."""
-        mock_store.return_value = "new-uuid-789"
+        mock_store.return_value = StoreResult(StoreOutcome.STORED, id="new-uuid-789")
 
         from services.conversation_store import store_correction
 
@@ -134,7 +155,7 @@ class TestCorrectionSupersedes:
     @patch("services.rag_service.store")
     def test_correction_content_includes_both_facts(self, mock_store):
         """Stored correction content documents what changed."""
-        mock_store.return_value = "uuid-1"
+        mock_store.return_value = StoreResult(StoreOutcome.STORED, id="uuid-1")
 
         from services.conversation_store import store_correction
 
@@ -387,23 +408,29 @@ class TestInspectWorkspace:
 
 
 class TestNonScopeRouting:
-    """Test non-scope facts appear in queue."""
+    """Test non-scope facts appear in queue (backed by Supabase, not disk)."""
 
-    @patch("services.non_scope_router._load_non_scope")
-    def test_non_scope_items_in_queue(self, mock_load):
-        mock_load.return_value = {
-            "_meta": {"purpose": "test"},
-            "pending": [
-                {
-                    "id": "ns_0001",
-                    "fact": "Random unrelated thing",
-                    "reason": "no_match",
-                    "created_at": "2026-07-01T00:00:00Z",
+    @patch("services.rag_service._get_supabase")
+    def test_non_scope_items_in_queue(self, mock_sb):
+        row = {
+            "id": "8f14e45f-ceea-467a-9f1a-1f0f1f0f1f0f",
+            "content": "Random unrelated thing",
+            "session_id": None,
+            "confidence": 0.2,
+            "created_at": "2026-07-01T00:00:00Z",
+            "metadata": {
+                "non_scope": {
                     "status": "pending",
+                    "reason": "no_match",
+                    "confidence": 0.2,
                 }
-            ],
-            "resolved": [],
+            },
         }
+        query = MagicMock()
+        query.execute.return_value = MagicMock(data=[row])
+        mock_sb.return_value.table.return_value.select.return_value.eq.return_value.contains.return_value.eq.return_value.order.return_value = (
+            query
+        )
 
         from services.non_scope_router import get_non_scope_queue
 
@@ -411,15 +438,15 @@ class TestNonScopeRouting:
 
         assert len(queue) == 1
         assert queue[0]["fact"] == "Random unrelated thing"
+        assert queue[0]["reason"] == "no_match"
+        assert queue[0]["id"] == row["id"]
 
-    @patch("services.non_scope_router._save_non_scope")
-    @patch("services.non_scope_router._load_non_scope")
-    def test_route_to_non_scope_returns_id(self, mock_load, mock_save):
-        mock_load.return_value = {
-            "_meta": {"purpose": "test"},
-            "pending": [],
-            "resolved": [],
-        }
+    @patch("services.rag_service.store")
+    def test_route_to_non_scope_returns_id(self, mock_store):
+        from services.rag_service import StoreOutcome, StoreResult
+
+        chunk_id = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        mock_store.return_value = StoreResult(StoreOutcome.STORED, id=chunk_id)
 
         from services.non_scope_router import route_to_non_scope
 
@@ -428,8 +455,11 @@ class TestNonScopeRouting:
             "no_matching_node",
         )
 
-        assert result.startswith("ns_")
-        mock_save.assert_called_once()
+        assert result == chunk_id
+        kwargs = mock_store.call_args.kwargs
+        assert kwargs["epistemic_status"] == "MISSING"
+        assert "non-scope" in kwargs["topic_tags"]
+        assert kwargs["metadata"]["non_scope"]["status"] == "pending"
 
 
 class TestAutoModeRouting:

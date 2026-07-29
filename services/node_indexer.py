@@ -138,7 +138,7 @@ def ingest_nodes() -> dict:
         augmented_text = build_augmented_text(node)
         section = get_section_for_node(node_id)
 
-        chunk_id = store(
+        result = store(
             content=augmented_text,
             source_type=SOURCE_TYPE,
             section=section,
@@ -157,7 +157,8 @@ def ingest_nodes() -> dict:
             deduplicate=True,
         )
 
-        if chunk_id:
+        # A falsy result is now always a dedup skip — write failures raise.
+        if result:
             ingested += 1
         else:
             skipped += 1

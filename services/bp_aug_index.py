@@ -123,7 +123,7 @@ def index_node(node: dict) -> Optional[str]:
         from services.rag_service import store
 
         delete_node(node_id)  # drop stale copy if the node was edited
-        chunk_id = store(
+        result = store(
             content=text,
             source_type="ceo_doc",
             section=node_id.split(".")[1] if "." in node_id else None,
@@ -137,9 +137,10 @@ def index_node(node: dict) -> Optional[str]:
             deduplicate=False,
         )
         logger.info("[AugIndex] Indexed node %s into aug layer", node_id)
-        return chunk_id
+        return result.id
     except Exception as e:  # noqa: BLE001
-        logger.warning("[AugIndex] Failed to index node %s: %s", node_id, e)
+        # Per-node: one bad node must not abort a rebuild, but it is an error.
+        logger.error("[AugIndex] Failed to index node %s: %s", node_id, e)
         return None
 
 
@@ -167,7 +168,7 @@ def reindex_all() -> dict:
         if not text or text == "..":
             continue
         nid = node["node_id"]
-        cid = store(
+        result = store(
             content=text,
             source_type="ceo_doc",
             section=nid.split(".")[1] if "." in nid else None,
@@ -180,7 +181,7 @@ def reindex_all() -> dict:
             },
             deduplicate=False,
         )
-        if cid:
+        if result:
             ingested += 1
         if ingested % 100 == 0:
             logger.info("[AugIndex]   %d/%d", ingested, len(nodes))

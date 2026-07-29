@@ -111,8 +111,11 @@ class TestMapBatch:
 
 
 class TestStoreMappingResult:
-    @patch("services.rag_service.store", return_value="chunk_123")
+    @patch("services.rag_service.store")
     def test_stores_valid_mapping(self, mock_store):
+        from services.rag_service import StoreOutcome, StoreResult
+
+        mock_store.return_value = StoreResult(StoreOutcome.STORED, id="chunk_123")
         mapping = {
             "node_id": "BP.1.1.3",
             "node_title": "Core Product",

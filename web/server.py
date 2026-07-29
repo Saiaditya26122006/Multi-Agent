@@ -7,6 +7,7 @@ the same pipeline from a browser, synced with Telegram.
 import os
 import logging
 import asyncio
+import re
 import uuid
 import json
 from typing import Dict, Optional, Set
@@ -610,6 +611,9 @@ class SendMessageRequest(BaseModel):
 
     text: str
     token: str
+
+
+_TOPIC_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 
 
 class AddFactRequest(BaseModel):
@@ -1810,6 +1814,199 @@ def _get_session_key() -> str:
     return str(ceo_context.get("chat_id", 1))
 
 
+# Feed review batches live in Redis (services/feed_batch_store), which is the
+# documented home for ephemeral Feed state. Railway restarts containers
+# routinely; a module-level dict lost a reviewer's unreviewed cards every time.
+from services import feed_batch_store
+
+# The architecture (801 leaf vectors) is loaded once and reused. Loading costs
+# ~7.5s; doing it per upload would dominate the whole pipeline.
+_feed_architecture = None
+_feed_arch_lock = asyncio.Lock()
+
+
+async def _get_feed_architecture():
+    """Load and cache the BP architecture for the lifetime of the process."""
+    global _feed_architecture
+    async with _feed_arch_lock:
+        if _feed_architecture is None:
+            from services.feed_classifier_v3 import load_architecture
+
+            _feed_architecture = await asyncio.to_thread(load_architecture)
+    return _feed_architecture
+
+
+async def _run_feed_pipeline(
+    text: str, filename: str, session_key: str, run_id: str
+) -> None:
+    """Process one uploaded document in the background, then broadcast results.
+
+    Runs detached from the upload request. The pipeline is synchronous and
+    thread-parallel internally, so it goes to a worker thread to keep the event
+    loop free for the WebSocket that will carry the result back.
+    """
+    from services.feed_pipeline import process_document
+
+    # The pipeline is synchronous and runs on a worker thread, so its progress
+    # callback fires off-loop. Hop back onto this loop to reach the sockets.
+    loop = asyncio.get_running_loop()
+
+    def on_event(event: dict) -> None:
+        asyncio.run_coroutine_threadsafe(
+            manager.broadcast(run_id, event), loop
+        )
+
+    try:
+        arch = await _get_feed_architecture()
+        batch = await asyncio.to_thread(
+            process_document, text, filename, arch=arch, run_id=run_id,
+            on_event=on_event,
+        )
+        payload = batch.to_dict()
+        if not feed_batch_store.save_batch(run_id, payload):
+            logger.warning(
+                "Feed batch %s is process-local only — a restart will lose it", run_id
+            )
+
+        msg = (
+            f"**{filename}** — {payload['total_facts']} fact(s) in "
+            f"{payload['seconds']}s, ready to review.\n\n"
+            f"**{payload['proposed']}** have a suggested node · "
+            f"**{payload['no_proposal']}** need you to pick one\n\n"
+            f"Flagged: {payload['flagged_extraction']} by the extraction audit, "
+            f"{payload['flagged_degraded']} pointing at an incomplete node.\n\n"
+            f"_Nothing has been filed — each fact is stored when you confirm it._"
+        )
+    except Exception as exc:  # noqa: BLE001 — reported to the user, not swallowed
+        logger.error("Feed pipeline failed for %s: %s", filename, exc, exc_info=True)
+        feed_batch_store.save_batch(run_id, {"run_id": run_id, "error": str(exc)[:300]})
+        await manager.broadcast(
+            run_id, {"event": "failed", "run_id": run_id, "error": str(exc)[:300]}
+        )
+        msg = f"**{filename}** — processing failed: {str(exc)[:200]}"
+
+    await manager.broadcast(
+        session_key,
+        {
+            "role": "assistant",
+            "text": msg,
+            "timestamp": datetime.utcnow().isoformat(),
+            "channel": "system",
+            "workspace": "feed",
+            "run_id": run_id,
+        },
+    )
+
+
+@app.get("/api/feed/batch/{run_id}")
+async def get_feed_batch(run_id: str, token: str) -> dict:
+    """Fetch a Feed batch of review cards by run id."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    batch = feed_batch_store.get_batch(run_id)
+    if batch is None:
+        return {"status": "processing", "run_id": run_id}
+    return {"status": "done", "run_id": run_id, "batch": batch}
+
+
+@app.get("/api/feed/batches")
+async def list_feed_batches(token: str) -> dict:
+    """List the review batches this process is holding."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return {"batches": feed_batch_store.list_batches()}
+
+
+class ConfirmCardRequest(BaseModel):
+    """Payload for POST /api/feed/confirm."""
+
+    run_id: str
+    index: int
+    node_id: Optional[str] = None
+    action: str = "confirm"  # confirm | none | skip
+    confirmed_by: str = "reviewer"
+    token: str
+
+
+@app.post("/api/feed/confirm")
+async def confirm_feed_card(req: ConfirmCardRequest) -> dict:
+    """Resolve one review card.
+
+    `confirm` stores the fact at the chosen node — the ONLY path that writes
+    `knowledge_base.section`. `none` records that no candidate fitted, which is
+    a signal about the architecture (a node may be missing) and not a failure to
+    be retried silently. `skip` defers the card without recording anything.
+    """
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    batch = feed_batch_store.get_batch(req.run_id)
+    if not batch or "cards" not in batch:
+        raise HTTPException(status_code=404, detail="Unknown run_id")
+    card_data = next(
+        (c for c in batch["cards"] if c.get("index") == req.index), None
+    )
+    if card_data is None:
+        raise HTTPException(status_code=404, detail="Unknown card index")
+
+    if req.action in ("none", "skip"):
+        card_data["status"] = "rejected" if req.action == "none" else "awaiting_confirmation"
+        card_data["confirmed_by"] = req.confirmed_by if req.action == "none" else None
+        feed_batch_store.update_card(req.run_id, req.index, card_data)
+        logger.info(
+            "Feed card %s/%d marked %s by %s",
+            req.run_id,
+            req.index,
+            req.action,
+            req.confirmed_by,
+        )
+        return {"success": True, "action": req.action, "card": card_data}
+
+    if not req.node_id:
+        raise HTTPException(status_code=400, detail="node_id required to confirm")
+
+    from services.feed_pipeline import ReviewCard, confirm_card
+
+    known = {f.name for f in __import__("dataclasses").fields(ReviewCard)}
+    card = ReviewCard(**{k: v for k, v in card_data.items() if k in known})
+    try:
+        card = await asyncio.to_thread(
+            confirm_card, card, req.node_id, req.confirmed_by, req.run_id
+        )
+    except Exception as exc:  # noqa: BLE001 — surfaced to the reviewer
+        logger.error("Feed confirm failed for %s/%d: %s", req.run_id, req.index, exc)
+        raise HTTPException(status_code=500, detail=f"Store failed: {str(exc)[:200]}")
+
+    feed_batch_store.update_card(req.run_id, req.index, card.to_dict())
+    return {"success": True, "action": "confirm", "card": card.to_dict()}
+
+
+def _feed_page(name: str) -> FileResponse:
+    """Serve one of the Feed surfaces."""
+    return FileResponse(
+        str(STATIC_DIR / name),
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
+@app.get("/feed")
+async def feed_upload_page():
+    """Step 1 — drop a document in."""
+    return _feed_page("feed_upload.html")
+
+
+@app.get("/feed/results")
+async def feed_results_page():
+    """Step 2 — the batch split: filed / ready / flagged / no match."""
+    return _feed_page("feed_results.html")
+
+
+@app.get("/feed/review")
+async def feed_review_page():
+    """Step 3 — the review queue, optionally scoped by ?filter=."""
+    return _feed_page("feed_review.html")
+
+
 @app.post("/api/feed/upload")
 async def upload_feed_document(
     file: UploadFile = File(...), token: str = Form(...)
@@ -1850,8 +2047,16 @@ async def upload_feed_document(
         # defeating the entire point of "live" narration. to_thread() keeps
         # the loop free so trace events stream out as they're emitted.
         text = await asyncio.to_thread(extract_text, file_bytes, filename, session_key)
-        # Feed handler removed — rebuild pending. No fact extraction/matching.
-        batch = {"total_facts": 0}
+        batch = {"total_facts": 0, "run_id": None}
+        if text and text.strip():
+            run_id = f"feed-{uuid.uuid4().hex[:12]}"
+            batch = {"total_facts": None, "run_id": run_id, "status": "processing"}
+            # Fire and forget: chunking + classification take ~20s for a
+            # 20-fact document, far too long to hold the request open. The
+            # batch lands over the WebSocket when it's done.
+            asyncio.create_task(
+                _run_feed_pipeline(text, filename, session_key, run_id)
+            )
     except ExtractionError as e:
         await manager.broadcast(
             session_key,
@@ -1870,12 +2075,12 @@ async def upload_feed_document(
             status_code=500, detail=f"Failed to process {filename}"
         )
 
-    if batch.get("total_facts", 0) == 0:
+    if batch.get("run_id") is None:
         await manager.broadcast(
             session_key,
             {
                 "role": "assistant",
-                "text": f"No extractable facts found in {filename}.",
+                "text": f"No extractable text found in {filename}.",
                 "timestamp": datetime.utcnow().isoformat(),
                 "channel": "system",
                 "workspace": "feed",
@@ -1883,41 +2088,25 @@ async def upload_feed_document(
         )
         return {"status": "no_facts", "session_key": session_key, "batch": batch}
 
-    auto_filed = batch.get("auto_filed_count", 0)
-    review_count = len(batch.get("facts", []))
-    total = batch.get("total_facts", 0)
-
-    if auto_filed and review_count:
-        msg = (
-            f"**{filename}** — {total} fact(s) extracted.\n\n"
-            f"**{auto_filed} auto-filed** (high confidence) — type 'undo' to reverse.\n\n"
-            f"**{review_count} need review** — open the Process panel to approve/skip."
-        )
-    elif auto_filed and not review_count:
-        msg = (
-            f"**{filename}** — {total} fact(s) extracted, "
-            f"all {auto_filed} auto-filed (high confidence). "
-            f"Type 'undo' to reverse."
-        )
-    else:
-        msg = (
-            f"**{filename}** — {total} fact(s) extracted. "
-            f"Open the Process panel to review before storing."
-        )
-
     await manager.broadcast(
         session_key,
         {
             "role": "assistant",
-            "text": msg,
+            "text": (
+                f"**{filename}** received — extracting and filing facts. "
+                f"Results will appear here when it finishes."
+            ),
             "timestamp": datetime.utcnow().isoformat(),
             "channel": "system",
             "workspace": "feed",
         },
     )
-
-    status = "auto_filed" if auto_filed and not review_count else "awaiting_review"
-    return {"status": status, "session_key": session_key, "batch": batch}
+    return {
+        "status": "processing",
+        "session_key": session_key,
+        "run_id": batch["run_id"],
+        "batch": batch,
+    }
 
 
 class BulkApproveRequest(BaseModel):
@@ -2528,45 +2717,52 @@ async def add_knowledge_fact(req: AddFactRequest):
     if req.status not in ["CONFIRMED", "ASSUMPTION", "INFERRED", "CONTRADICTION"]:
         raise HTTPException(status_code=400, detail="Invalid status")
 
-    ceo_data_dir = Path(__file__).parent.parent / "ceo_data"
-    topic_file = ceo_data_dir / f"{req.topic}.json"
+    # Topic is a bare slug: it is a grouping key in metadata and (historically)
+    # a path component, so anything with a separator is rejected outright.
+    if not _TOPIC_RE.match(req.topic):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid topic — use lowercase letters, digits and underscores only",
+        )
+
+    # Facts go to Supabase, never to ceo_data/*.json: Railway's filesystem is
+    # ephemeral, so a local write is lost on the next deploy. ceo_data/*.json
+    # stays read-only seed data; load_all_ceo_data() merges these rows back in.
+    from services.rag_service import RagStoreError, StoreOutcome, store
 
     try:
-        if topic_file.exists():
-            with open(topic_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        else:
-            data = {
-                "_meta": {
-                    "source": "Web Interface",
-                    "created": datetime.utcnow().isoformat(),
-                    "last_updated": datetime.utcnow().isoformat(),
-                },
-                "facts": [],
-            }
-
-        if "facts" not in data:
-            data["facts"] = []
-
-        new_fact = {
-            "fact": req.fact.strip(),
-            "status": req.status,
-            "added_at": datetime.utcnow().isoformat(),
-        }
-        data["facts"].append(new_fact)
-
-        if "_meta" in data:
-            data["_meta"]["last_updated"] = datetime.utcnow().isoformat()
-
-        with open(topic_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-
-        logger.info(f"Added fact to {req.topic}: {req.fact[:50]}...")
-        return {"success": True, "topic": req.topic, "fact_added": req.fact}
-
+        result = await asyncio.to_thread(
+            store,
+            content=req.fact.strip(),
+            source_type="ceo_doc",
+            epistemic_status=req.status,
+            topic_tags=["ceo-fact", "manual-entry", req.topic],
+            metadata={"topic": req.topic, "origin": "web_add_fact"},
+        )
+    except RagStoreError as e:
+        logger.error(f"Error adding fact to {req.topic}: {e}")
+        raise HTTPException(status_code=500, detail="Fact was not stored")
     except Exception as e:
         logger.error(f"Error adding fact: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to add fact: {str(e)}")
+
+    if result.outcome is StoreOutcome.SKIPPED_DUPLICATE:
+        logger.info(f"Fact already in {req.topic}: {req.fact[:50]}...")
+        return {
+            "success": True,
+            "duplicate": True,
+            "topic": req.topic,
+            "fact_added": req.fact,
+            "chunk_id": result.duplicate_of,
+        }
+
+    logger.info(f"Added fact to {req.topic}: {req.fact[:50]}...")
+    return {
+        "success": True,
+        "topic": req.topic,
+        "fact_added": req.fact,
+        "chunk_id": result.id,
+    }
 
 
 # ─── Stored Data Mutations ──────────────────────────────────────────────────

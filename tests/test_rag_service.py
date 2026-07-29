@@ -7,6 +7,8 @@ Tests 5-14 require a live Supabase connection with knowledge_base table.
 
 import math
 import uuid
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from services.rag_service import (
@@ -18,6 +20,8 @@ from services.rag_service import (
     retrieve,
     supersede,
     Chunk,
+    RagStoreError,
+    StoreOutcome,
     VALID_SOURCE_TYPES,
 )
 
@@ -82,22 +86,24 @@ class TestFormatChunks:
 
 class TestStore:
     def test_store_returns_uuid(self):
-        chunk_id = store(
+        result = store(
             content=f"test_store_{uuid.uuid4().hex[:8]}",
             source_type="ceo_doc",
             section="test",
             epistemic_status="CONFIRMED",
             deduplicate=False,
         )
-        assert chunk_id is not None
-        assert len(chunk_id) == 36  # UUID format
+        assert result.outcome is StoreOutcome.STORED
+        assert result
+        assert len(result.id) == 36  # UUID format
 
     def test_store_deduplication(self):
         unique_content = f"dedup_test_{uuid.uuid4().hex[:8]}"
         id1 = store(content=unique_content, source_type="ceo_doc", deduplicate=True)
         id2 = store(content=unique_content, source_type="ceo_doc", deduplicate=True)
-        assert id1 is not None
-        assert id2 is None
+        assert id1
+        assert not id2
+        assert id2.outcome is StoreOutcome.SKIPPED_DUPLICATE
 
     def test_store_invalid_source_type_raises(self):
         with pytest.raises(ValueError):
@@ -105,10 +111,51 @@ class TestStore:
 
     def test_store_empty_content_skipped(self):
         result = store(content="", source_type="ceo_doc")
-        assert result is None
+        assert result.outcome is StoreOutcome.SKIPPED_EMPTY
+        assert not result
+        assert result.id is None
 
         result2 = store(content="   ", source_type="ceo_doc")
-        assert result2 is None
+        assert result2.outcome is StoreOutcome.SKIPPED_EMPTY
+        assert not result2
+
+    def test_store_duplicate_reports_existing_id(self):
+        content = f"duplicate_contract_test_{uuid.uuid4().hex[:8]}"
+        first = store(content=content, source_type="ceo_doc")
+        assert first.outcome is StoreOutcome.STORED
+        assert first
+
+        second = store(content=content, source_type="ceo_doc")
+        assert second.outcome is StoreOutcome.SKIPPED_DUPLICATE
+        assert not second
+        assert second.id is None
+        assert second.duplicate_of == first.id
+
+    def test_store_raises_when_insert_returns_no_data(self):
+        """Insert accepted but no row back — must raise, never return a skip."""
+
+        class _EmptyResult:
+            data = []
+
+        fake_table = MagicMock()
+        fake_table.insert.return_value.execute.return_value = _EmptyResult()
+
+        with patch("services.rag_service._get_supabase") as mock_sb, patch(
+            "services.rag_service.embed", return_value=[0.0] * 1024
+        ):
+            mock_sb.return_value.table.return_value = fake_table
+
+            with pytest.raises(RagStoreError) as excinfo:
+                store(
+                    content="content that must not vanish",
+                    source_type="ceo_doc",
+                    section="10",
+                    deduplicate=False,
+                )
+
+        message = str(excinfo.value)
+        assert "content that must not vanish" in message
+        assert "section=10" in message
 
 
 class TestBatchStore:
@@ -117,9 +164,60 @@ class TestBatchStore:
             {"content": f"batch_test_item_{i}_{uuid.uuid4().hex[:6]}", "source_type": "ceo_doc"}
             for i in range(5)
         ]
-        ids = batch_store(chunks)
-        assert len(ids) == 5
-        assert all(len(i) == 36 for i in ids)
+        results = batch_store(chunks)
+        assert len(results) == 5
+        assert all(r.outcome is StoreOutcome.STORED for r in results)
+        assert all(len(r.id) == 36 for r in results)
+
+    def test_batch_store_results_are_positionally_aligned(self):
+        """[valid, empty, valid] must map to [STORED, SKIPPED_EMPTY, STORED].
+
+        The old contract dropped skipped chunks entirely, so results[1] was
+        the second *valid* chunk's id — a length check alone does not catch it.
+        """
+        unique = uuid.uuid4().hex[:6]
+        chunks = [
+            {"content": f"aligned_first_{unique}", "source_type": "ceo_doc"},
+            {"content": "   ", "source_type": "ceo_doc"},
+            {"content": f"aligned_third_{unique}", "source_type": "ceo_doc"},
+        ]
+        results = batch_store(chunks)
+
+        assert len(results) == 3
+        assert results[0].outcome is StoreOutcome.STORED
+        assert results[1].outcome is StoreOutcome.SKIPPED_EMPTY
+        assert results[2].outcome is StoreOutcome.STORED
+        assert results[1].id is None
+        assert results[0].id != results[2].id
+
+    def test_batch_store_marks_invalid_source_type_in_place(self):
+        unique = uuid.uuid4().hex[:6]
+        chunks = [
+            {"content": f"valid_type_{unique}", "source_type": "ceo_doc"},
+            {"content": f"bogus_type_{unique}", "source_type": "not_a_real_type"},
+        ]
+        results = batch_store(chunks)
+
+        assert len(results) == 2
+        assert results[0].outcome is StoreOutcome.STORED
+        assert results[1].outcome is StoreOutcome.SKIPPED_INVALID_TYPE
+
+    def test_batch_store_reports_failure_not_empty_string(self):
+        fake_table = MagicMock()
+        fake_table.insert.return_value.execute.side_effect = RuntimeError("boom")
+
+        with patch("services.rag_service._get_supabase") as mock_sb, patch(
+            "services.rag_service.embed", return_value=[0.0] * 1024
+        ):
+            mock_sb.return_value.table.return_value = fake_table
+            results = batch_store(
+                [{"content": "will not land", "source_type": "ceo_doc"}]
+            )
+
+        assert len(results) == 1
+        assert results[0].outcome is StoreOutcome.FAILED
+        assert not results[0]
+        assert "boom" in results[0].error
 
 
 class TestRetrieve:
@@ -164,8 +262,8 @@ class TestRetrieve:
 
     def test_retrieve_excludes_superseded(self):
         unique = f"supersede_test_{uuid.uuid4().hex[:8]}"
-        old_id = store(content=f"old fact {unique}", source_type="ceo_doc", deduplicate=False)
-        new_id = store(content=f"new fact {unique}", source_type="ceo_doc", deduplicate=False)
+        old_id = store(content=f"old fact {unique}", source_type="ceo_doc", deduplicate=False).id
+        new_id = store(content=f"new fact {unique}", source_type="ceo_doc", deduplicate=False).id
         supersede(old_id, new_id)
 
         results = retrieve(query=f"fact {unique}", top_k=10, threshold=0.3)
@@ -179,11 +277,11 @@ class TestSupersede:
             content=f"to_supersede_{uuid.uuid4().hex[:8]}",
             source_type="ceo_doc",
             deduplicate=False,
-        )
+        ).id
         new_id = store(
             content=f"replacement_{uuid.uuid4().hex[:8]}",
             source_type="ceo_doc",
             deduplicate=False,
-        )
+        ).id
         result = supersede(old_id, new_id)
         assert result is True

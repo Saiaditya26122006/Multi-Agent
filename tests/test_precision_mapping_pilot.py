@@ -482,14 +482,13 @@ class TestPilotNonScopeRouting:
         assert result["is_non_scope"] is True
         assert result["node_id"] is None
 
-    @patch("services.non_scope_router._save_non_scope")
-    @patch("services.non_scope_router._load_non_scope")
-    def test_low_confidence_fact_routed(self, mock_load, mock_save):
-        mock_load.return_value = {
-            "_meta": {"purpose": "test"},
-            "pending": [],
-            "resolved": [],
-        }
+    @patch("services.rag_service.store")
+    def test_low_confidence_fact_routed(self, mock_store):
+        from services.rag_service import StoreOutcome, StoreResult
+
+        mock_store.return_value = StoreResult(
+            StoreOutcome.STORED, id="3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        )
 
         from services.non_scope_router import route_to_non_scope
 
@@ -498,17 +497,14 @@ class TestPilotNonScopeRouting:
             "no_matching_node",
         )
 
-        assert result.startswith("ns_")
-        mock_save.assert_called_once()
+        assert result == "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+        mock_store.assert_called_once()
 
-    @patch("services.non_scope_router._save_non_scope")
-    @patch("services.non_scope_router._load_non_scope")
-    def test_non_scope_item_has_correct_fields(self, mock_load, mock_save):
-        mock_load.return_value = {
-            "_meta": {"purpose": "test"},
-            "pending": [],
-            "resolved": [],
-        }
+    @patch("services.rag_service.store")
+    def test_non_scope_item_has_correct_fields(self, mock_store):
+        from services.rag_service import StoreOutcome, StoreResult
+
+        mock_store.return_value = StoreResult(StoreOutcome.STORED, id="chunk-1")
 
         from services.non_scope_router import route_to_non_scope
 
@@ -519,10 +515,10 @@ class TestPilotNonScopeRouting:
             session_id="test_session",
         )
 
-        saved_data = mock_save.call_args[0][0]
-        item = saved_data["pending"][0]
-        assert item["fact"] == "Irrelevant fact about weather"
-        assert item["reason"] == "no_matching_node"
-        assert item["confidence"] == 0.15
-        assert item["session_id"] == "test_session"
-        assert item["status"] == "pending"
+        kwargs = mock_store.call_args.kwargs
+        assert kwargs["content"] == "Irrelevant fact about weather"
+        assert kwargs["confidence"] == 0.15
+        assert kwargs["session_id"] == "test_session"
+        assert kwargs["epistemic_status"] == "MISSING"
+        assert kwargs["metadata"]["non_scope"]["reason"] == "no_matching_node"
+        assert kwargs["metadata"]["non_scope"]["status"] == "pending"

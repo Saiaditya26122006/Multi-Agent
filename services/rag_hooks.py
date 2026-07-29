@@ -43,7 +43,7 @@ def store_agent_insight(
 
     content = f"Agent insight ({agent_name}): {insight}"
 
-    return store(
+    result = store(
         content=content,
         source_type="agent_insight",
         section=section,
@@ -53,6 +53,7 @@ def store_agent_insight(
         topic_tags=["agent-insight", agent_name],
         metadata=metadata,
     )
+    return result.id
 
 
 def store_negative_knowledge(
@@ -88,7 +89,7 @@ def store_negative_knowledge(
         f"Reason: {reason}. Source: {source}."
     )
 
-    return store(
+    result = store(
         content=content,
         source_type="negative_knowledge",
         session_id=session_id,
@@ -101,6 +102,7 @@ def store_negative_knowledge(
             "source": source,
         },
     )
+    return result.id
 
 
 def store_contradiction_resolution(
@@ -140,7 +142,7 @@ def store_contradiction_resolution(
     if affects_agents:
         tags.extend(affects_agents)
 
-    return store(
+    result = store(
         content=content,
         source_type="contradiction_resolution",
         session_id=session_id,
@@ -155,6 +157,7 @@ def store_contradiction_resolution(
             "affects_agents": affects_agents or [],
         },
     )
+    return result.id
 
 
 def store_run_metadata(
@@ -211,7 +214,7 @@ def store_run_metadata(
 
     content = ". ".join(parts)
 
-    return store(
+    result = store(
         content=content,
         source_type="run_metadata",
         run_id=run_id,
@@ -228,6 +231,7 @@ def store_run_metadata(
             "quality_scores": quality_scores or {},
         },
     )
+    return result.id
 
 
 def store_external_research(
@@ -257,7 +261,7 @@ def store_external_research(
 
     content = f"External research [{query}]: {results_summary}"
 
-    return store(
+    result = store(
         content=content,
         source_type="external_research",
         section=section,
@@ -270,6 +274,7 @@ def store_external_research(
             "source_urls": source_urls or [],
         },
     )
+    return result.id
 
 
 def check_negative_knowledge(proposal: str, threshold: float = 0.65) -> Optional[str]:

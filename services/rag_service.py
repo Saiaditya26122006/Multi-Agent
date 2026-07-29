@@ -10,6 +10,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -55,6 +56,48 @@ VALID_EPISTEMIC_STATUSES = {
     "SUPERSEDED",
     "UNVERIFIED_EXTERNAL_CLAIM",
 }
+
+
+class StoreOutcome(str, Enum):
+    """Why a store()/batch_store() call ended the way it did.
+
+    STORED is the only outcome that means a new row exists. The SKIPPED_*
+    outcomes are legitimate no-ops, not failures. FAILED is produced only by
+    batch_store(); store() raises RagStoreError instead.
+    """
+
+    STORED = "stored"
+    SKIPPED_EMPTY = "skipped_empty"
+    SKIPPED_DUPLICATE = "skipped_duplicate"
+    SKIPPED_INVALID_TYPE = "skipped_invalid_type"
+    FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class StoreResult:
+    """Outcome of a single store attempt.
+
+    Truthy only when a new row was written, so `if result:` keeps the meaning
+    that `if chunk_id:` had before this type existed.
+    """
+
+    outcome: StoreOutcome
+    id: Optional[str] = None
+    duplicate_of: Optional[str] = None
+    error: Optional[str] = None
+
+    def __bool__(self) -> bool:
+        """True only for STORED — a skip or a failure is not a write."""
+        return self.outcome is StoreOutcome.STORED
+
+
+class RagStoreError(RuntimeError):
+    """An insert was attempted and did not produce a row.
+
+    Raised by store() when Supabase accepts the request but returns no data
+    (RLS rejection, swallowed constraint violation). Callers must not treat
+    this as a skip.
+    """
 
 
 @dataclass
@@ -126,7 +169,7 @@ def store(
     freshness_policy: Optional[str] = None,
     metadata: Optional[dict] = None,
     deduplicate: bool = True,
-) -> Optional[str]:
+) -> StoreResult:
     """Embed and store a content chunk in the knowledge base.
 
     Args:
@@ -144,7 +187,13 @@ def store(
         deduplicate: If True, skip insert if identical content exists.
 
     Returns:
-        The UUID of the inserted chunk, or None if deduplicated/skipped.
+        StoreResult — STORED with .id when a row was written, SKIPPED_EMPTY for
+        blank content, SKIPPED_DUPLICATE with .duplicate_of when the identical
+        content is already stored.
+
+    Raises:
+        ValueError: Invalid source_type or epistemic_status.
+        RagStoreError: The insert ran but produced no row.
     """
     if source_type not in VALID_SOURCE_TYPES:
         raise ValueError(
@@ -160,7 +209,7 @@ def store(
 
     if not content or not content.strip():
         logger.warning("[RAG] Skipping empty content")
-        return None
+        return StoreResult(StoreOutcome.SKIPPED_EMPTY)
 
     c_hash = content_hash(content)
 
@@ -174,8 +223,11 @@ def store(
             .execute()
         )
         if existing.data:
-            logger.debug("[RAG] Deduplicated — content already exists: %s", existing.data[0]["id"])
-            return None
+            existing_id = existing.data[0]["id"]
+            logger.debug("[RAG] Deduplicated — content already exists: %s", existing_id)
+            return StoreResult(
+                StoreOutcome.SKIPPED_DUPLICATE, duplicate_of=existing_id
+            )
 
     embedding = embed(content, input_type="search_document")
 
@@ -206,33 +258,50 @@ def store(
             section,
             epistemic_status,
         )
-        return chunk_id
+        return StoreResult(StoreOutcome.STORED, id=chunk_id)
 
-    logger.error("[RAG] Failed to store chunk: %s", result)
-    return None
+    # Supabase accepted the request but returned no row. Never silent: the
+    # content would otherwise vanish with only a log line behind it.
+    detail = (
+        f"[RAG] Insert returned no data — chunk NOT stored. "
+        f"source_type={source_type}, section={section}, "
+        f"epistemic_status={epistemic_status}, "
+        f"node_id={(metadata or {}).get('node_id')}, "
+        f"content={content[:200]!r}, raw_result={result}"
+    )
+    logger.error(detail)
+    raise RagStoreError(detail)
 
 
-def batch_store(chunks: list[dict]) -> list[str]:
+def batch_store(chunks: list[dict]) -> list[StoreResult]:
     """Store multiple chunks in a single batch operation.
 
     Args:
         chunks: List of dicts with same keys as store() kwargs.
 
     Returns:
-        List of inserted chunk IDs (empty strings for failures).
+        One StoreResult per input chunk, index-aligned with `chunks`:
+        STORED (with .id), SKIPPED_EMPTY, SKIPPED_INVALID_TYPE, or FAILED
+        (with .error). Never raises on a per-batch insert failure — bulk
+        callers need per-item outcomes — but every failure is logged.
     """
     if not chunks:
         return []
 
-    records = []
-    for chunk_data in chunks:
+    results: list[Optional[StoreResult]] = [None] * len(chunks)
+    records: list[dict] = []
+    record_index: list[int] = []
+
+    for idx, chunk_data in enumerate(chunks):
         content = chunk_data.get("content", "")
         if not content or not content.strip():
+            results[idx] = StoreResult(StoreOutcome.SKIPPED_EMPTY)
             continue
 
         source_type = chunk_data.get("source_type", "ceo_doc")
         if source_type not in VALID_SOURCE_TYPES:
             logger.warning("[RAG] Skipping invalid source_type: %s", source_type)
+            results[idx] = StoreResult(StoreOutcome.SKIPPED_INVALID_TYPE)
             continue
 
         embedding = embed(content, input_type="search_document")
@@ -256,31 +325,48 @@ def batch_store(chunks: list[dict]) -> list[str]:
             },
         }
         records.append(record)
+        record_index.append(idx)
 
     if not records:
-        return []
+        return [r for r in results if r is not None]
 
     supabase = _get_supabase()
 
     # Insert in chunks of 50 to avoid Supabase statement timeout on large batches
     BATCH_SIZE = 50
-    all_ids = []
     for i in range(0, len(records), BATCH_SIZE):
         batch = records[i:i + BATCH_SIZE]
+        batch_idx = record_index[i:i + BATCH_SIZE]
         try:
             result = supabase.table(TABLE_NAME).insert(batch).execute()
-            if result.data:
-                all_ids.extend(r["id"] for r in result.data)
+            rows = result.data or []
+            if len(rows) == len(batch):
+                for idx, row in zip(batch_idx, rows):
+                    results[idx] = StoreResult(StoreOutcome.STORED, id=row["id"])
             else:
-                logger.error("[RAG] Batch insert returned no data for chunk %d-%d", i, i + len(batch))
-                all_ids.extend("" for _ in batch)
-        except Exception as e:
-            logger.error("[RAG] Batch insert failed for chunk %d-%d: %s", i, i + len(batch), e)
-            all_ids.extend("" for _ in batch)
+                # A short result set means we cannot tell which records landed,
+                # so the whole batch is reported as failed rather than guessed at.
+                error = f"insert returned {len(rows)} row(s) for {len(batch)} record(s)"
+                logger.error(
+                    "[RAG] Batch insert incomplete for chunk %d-%d: %s",
+                    i,
+                    i + len(batch),
+                    error,
+                )
+                for idx in batch_idx:
+                    results[idx] = StoreResult(StoreOutcome.FAILED, error=error)
+        except Exception as e:  # noqa: BLE001 — per-item reporting, logged below
+            logger.error(
+                "[RAG] Batch insert failed for chunk %d-%d: %s", i, i + len(batch), e
+            )
+            for idx in batch_idx:
+                results[idx] = StoreResult(StoreOutcome.FAILED, error=str(e))
 
-    if all_ids:
-        logger.info("[RAG] Batch stored %d chunks", len([x for x in all_ids if x]))
-    return all_ids
+    final = [r for r in results if r is not None]
+    stored = sum(1 for r in final if r)
+    failed = sum(1 for r in final if r.outcome is StoreOutcome.FAILED)
+    logger.info("[RAG] Batch stored %d chunk(s), %d failed", stored, failed)
+    return final
 
 
 def retrieve(

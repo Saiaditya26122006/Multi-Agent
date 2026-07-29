@@ -77,7 +77,7 @@ def ingest_bp_architecture():
 
         # Store
         try:
-            chunk_id = store(
+            result = store(
                 content=content,
                 source_type="ceo_doc",
                 section=node_id,
@@ -85,7 +85,10 @@ def ingest_bp_architecture():
                 confidence=1.0,
                 metadata=metadata,
             )
-            stored_count += 1
+            if result:
+                stored_count += 1
+            else:
+                logger.warning(f"Skipped {node_id}: {result.outcome.value}")
             if stored_count % 50 == 0:
                 logger.info(f"  Stored {stored_count}/{len(nodes)}...")
         except Exception as e:

@@ -217,7 +217,12 @@ def store_mapping(mapping_result: dict, session_id: Optional[str] = None) -> Opt
         session_id: Current session ID.
 
     Returns:
-        Chunk ID if stored, None otherwise.
+        Chunk ID if stored, None if routed to non-scope or skipped as duplicate.
+
+    Raises:
+        RagStoreError: The mapping could not be written. Deliberately not
+            caught below — swallowing it would recreate the silent data loss
+            this path was fixed for.
     """
     if mapping_result.get("is_non_scope"):
         from services.non_scope_router import route_to_non_scope
@@ -230,10 +235,10 @@ def store_mapping(mapping_result: dict, session_id: Optional[str] = None) -> Opt
         )
         return None
 
-    try:
-        from services.rag_service import store
+    from services.rag_service import RagStoreError, store
 
-        return store(
+    try:
+        result = store(
             content=mapping_result["extracted_signal"],
             source_type="ceo_doc",
             section=mapping_result.get("section"),
@@ -253,6 +258,9 @@ def store_mapping(mapping_result: dict, session_id: Optional[str] = None) -> Opt
                 "secondary_nodes": mapping_result.get("secondary_nodes", []),
             },
         )
+        return result.id
+    except RagStoreError:
+        raise
     except Exception as e:
         logger.error("[PrecisionMapper] Error storing mapping: %s", e)
         return None

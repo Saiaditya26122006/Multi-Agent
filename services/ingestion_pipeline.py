@@ -516,19 +516,26 @@ def ingest_all_ceo_data() -> dict:
         chunks = chunker(data, section, topics)
 
         if chunks:
-            ids = batch_store(chunks)
-            stored_count = len([i for i in ids if i])
+            from services.rag_service import StoreOutcome
+
+            results = batch_store(chunks)
+            stored_count = len([r for r in results if r])
+            failed_count = len(
+                [r for r in results if r.outcome is StoreOutcome.FAILED]
+            )
             summary[file_path.name] = {
-                "status": "ok",
+                "status": "partial" if failed_count else "ok",
                 "chunks_generated": len(chunks),
                 "chunks_stored": stored_count,
+                "chunks_failed": failed_count,
             }
             total_chunks += stored_count
             logger.info(
-                "[Ingest] %s → %d chunks generated, %d stored",
+                "[Ingest] %s → %d chunks generated, %d stored, %d failed",
                 file_path.name,
                 len(chunks),
                 stored_count,
+                failed_count,
             )
         else:
             summary[file_path.name] = {"status": "empty", "chunks_generated": 0}
@@ -572,8 +579,7 @@ def ingest_raw_text(
         })
 
     if chunks:
-        ids = batch_store(chunks)
-        return len([i for i in ids if i])
+        return len([r for r in batch_store(chunks) if r])
 
     return 0
 

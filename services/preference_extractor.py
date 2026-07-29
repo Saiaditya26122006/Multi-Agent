@@ -140,7 +140,7 @@ def store_patterns(patterns: list[dict]) -> list[str]:
 
     ids = []
     for pattern in patterns:
-        chunk_id = store(
+        result = store(
             content=pattern["content"],
             source_type="preference_pattern",
             confidence=pattern["confidence"],
@@ -152,8 +152,8 @@ def store_patterns(patterns: list[dict]) -> list[str]:
                 "pattern_type": pattern["pattern_type"],
             },
         )
-        if chunk_id:
-            ids.append(chunk_id)
+        if result:
+            ids.append(result.id)
             logger.info(
                 "[Preferences] Stored pattern: %s (confidence=%.2f)",
                 pattern["theme"],

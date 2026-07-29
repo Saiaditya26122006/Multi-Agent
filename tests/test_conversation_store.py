@@ -64,7 +64,7 @@ class TestStoreCorrection:
             content=f"institutional pricing is twelve thousand euros per year for business schools {unique}",
             source_type="ceo_doc",
             deduplicate=False,
-        )
+        ).id
         assert old_id is not None
         new_id = store_correction(
             original_fact=f"institutional pricing is twelve thousand euros {unique}",
