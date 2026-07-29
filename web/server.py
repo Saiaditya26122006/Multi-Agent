@@ -45,6 +45,19 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 WEB_AUTH_TOKEN = os.getenv("WEB_AUTH_TOKEN", "changeme")
 
 
+_MAIN_LOOP: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _get_main_loop() -> Optional[asyncio.AbstractEventLoop]:
+    """The server's event loop, for scheduling work from worker threads."""
+    global _MAIN_LOOP
+    if _MAIN_LOOP is None:
+        from tools.trace_emitter import _main_loop as trace_loop
+
+        _MAIN_LOOP = trace_loop
+    return _MAIN_LOOP
+
+
 @app.on_event("startup")
 async def _register_main_loop() -> None:
     """Register this process's event loop with the trace emitter.
@@ -56,7 +69,9 @@ async def _register_main_loop() -> None:
     """
     from tools.trace_emitter import set_main_loop
 
-    set_main_loop(asyncio.get_running_loop())
+    global _MAIN_LOOP
+    _MAIN_LOOP = asyncio.get_running_loop()
+    set_main_loop(_MAIN_LOOP)
 
     # Keep the augmented BP-node index in sync with bp_architecture.json. Feed
     # node creation upserts incrementally, but a direct edit to the file would
@@ -479,9 +494,87 @@ def _load_bp_architecture() -> list[dict]:
     return [n for n in nodes if str(n.get("node_id", "")).startswith("BP.")]
 
 
+FEED_HELP = (
+    "**Feed** — paste text here, or upload a document.\n\n"
+    "- Paste any text and I'll extract the facts and match each to a node.\n"
+    "- `queue` — your batches and how many are still unreviewed\n"
+    "- `review` — open the newest review queue\n"
+    "- `upload` — the drop page for PDF / docx / txt\n\n"
+    "_Nothing is filed until you confirm it._"
+)
+
+# Below this a message is a command, not content worth extracting facts from.
+FEED_MIN_INGEST_CHARS = 40
+
+
+def _feed_link(path: str) -> str:
+    """A tokenised link to a Feed page, for chat replies."""
+    return f"{path}{'&' if '?' in path else '?'}token={WEB_AUTH_TOKEN}"
+
+
 def _dispatch_feed(text_lower: str, text: str, session_id: str) -> str:
-    # Feed handler deleted — rebuild pending.
-    return "Feed workspace is being rebuilt. Check back soon."
+    """Feed workspace: navigation commands, or ingest whatever was pasted.
+
+    Runs on a worker thread (see the asyncio.to_thread call in POST
+    /api/messages), so ingestion is scheduled onto the main loop rather than
+    awaited here — a real document takes minutes and the chat must answer now.
+    """
+    from services import feed_batch_store
+
+    stripped = text.strip()
+
+    if text_lower in ("", "help", "?", "feed"):
+        return FEED_HELP
+
+    if text_lower in ("upload", "file", "document", "doc"):
+        return f"[Open the upload page]({_feed_link('/feed')}) — PDF, docx, txt, xlsx or csv."
+
+    if text_lower in ("queue", "status", "batches"):
+        batches = feed_batch_store.list_batches()
+        if not batches:
+            return "No batches yet. Paste some text here, or [upload a document]" \
+                   f"({_feed_link('/feed')})."
+        lines = [
+            f"- **{b['source_document']}** — {b['resolved']}/{b['total_facts']} resolved "
+            f"([results]({_feed_link('/feed/results?run=' + b['run_id'])}))"
+            for b in batches
+        ]
+        return "**Your batches**\n\n" + "\n".join(lines)
+
+    if text_lower in ("review", "queue review", "open review"):
+        batches = feed_batch_store.list_batches()
+        pending = [b for b in batches if b["resolved"] < b["total_facts"]]
+        if not pending:
+            return "Nothing waiting for review."
+        b = pending[0]
+        left = b["total_facts"] - b["resolved"]
+        return (f"**{b['source_document']}** — {left} fact(s) to review. "
+                f"[Open the queue]({_feed_link('/feed/review?run=' + b['run_id'])})")
+
+    if text_lower == "facts":
+        return f"[Open the facts table]({_feed_link('/feed/facts')}) — every stored fact by node."
+
+    if len(stripped) < FEED_MIN_INGEST_CHARS:
+        return (f"That's too short to extract facts from. {FEED_HELP}")
+
+    # Anything else is content. Ingest it the same way an upload is ingested.
+    import uuid as _uuid
+
+    run_id = f"feed-{_uuid.uuid4().hex[:12]}"
+    loop = _get_main_loop()
+    if loop is None:
+        logger.error("[Feed] no event loop registered; cannot ingest pasted text")
+        return "Feed is still starting up — try again in a moment."
+
+    asyncio.run_coroutine_threadsafe(
+        _run_feed_pipeline(stripped, "pasted text", session_id, run_id), loop
+    )
+    words = len(stripped.split())
+    return (
+        f"Reading {words} words — extracting facts and matching nodes now.\n\n"
+        f"[Watch it live]({_feed_link('/feed/results?run=' + run_id)}) "
+        f"— results appear as each fact is classified. Nothing is filed until you confirm."
+    )
 
 
 def _dispatch_challenge(text_lower: str, text: str, session_id: str) -> str:
@@ -1981,6 +2074,234 @@ async def confirm_feed_card(req: ConfirmCardRequest) -> dict:
     return {"success": True, "action": "confirm", "card": card.to_dict()}
 
 
+@app.get("/api/facts/by-node")
+async def facts_by_node(token: str = "", populated_only: bool = False) -> dict:
+    """Fact counts per architecture node, joined to the node tree.
+
+    Counting happens here rather than in Postgres because PostgREST cannot
+    express GROUP BY. `section` is indexed, but we need every node — including
+    the empty ones, which are the interesting half of this view — so the query
+    is a projection of one column over the table and the rollup is done in
+    Python. At a few thousand rows that is cheaper than 912 round trips.
+    """
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    def _work() -> dict:
+        from collections import Counter
+
+        from services.feed_classifier_v3 import get_architecture_client
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        nodes, start = [], 0
+        arch_db = get_architecture_client()
+        while True:
+            resp = (
+                arch_db.table("bp_architecture")
+                .select("node_id,node_title,parent_node,degraded_target")
+                .range(start, start + 999)
+                .execute()
+            )
+            if not resp.data:
+                break
+            nodes += resp.data
+            start += 1000
+
+        rows, start = [], 0
+        supabase = _get_supabase()
+        while True:
+            resp = (
+                supabase.table(TABLE_NAME)
+                .select("section,metadata,superseded_by")
+                .range(start, start + 999)
+                .execute()
+            )
+            if not resp.data:
+                break
+            rows += resp.data
+            start += 1000
+
+        counts: Counter = Counter()
+        for row in rows:
+            if row.get("superseded_by"):
+                continue
+            meta = row.get("metadata") or {}
+            # Architecture index rows share source_type with real facts; they
+            # are the retrieval index, not Alex's data.
+            layer = meta.get("layer")
+            if isinstance(layer, str) and layer.startswith("bp_architecture"):
+                continue
+            # `section` is where a confirmed fact lands. metadata.node_id is the
+            # older path and is still the only marker on some legacy rows.
+            node_id = row.get("section") or meta.get("node_id")
+            if node_id:
+                counts[node_id] += 1
+
+        parents = {n["parent_node"] for n in nodes if n.get("parent_node")}
+        out = []
+        for n in nodes:
+            nid = n["node_id"]
+            if populated_only and not counts.get(nid):
+                continue
+            out.append({
+                "node_id": nid,
+                "title": n.get("node_title") or "",
+                "parent": n.get("parent_node"),
+                "depth": nid.count("."),
+                "is_leaf": nid not in parents,
+                "degraded": bool(n.get("degraded_target")),
+                "facts": counts.get(nid, 0),
+            })
+        out.sort(key=lambda r: [int(p) if p.isdigit() else p
+                                for p in r["node_id"].replace("BP.", "").split(".")])
+
+        leaves = [r for r in out if r["is_leaf"]]
+        unplaced = sum(v for k, v in counts.items()
+                       if k not in {n["node_id"] for n in nodes})
+        return {
+            "nodes": out,
+            "totals": {
+                "nodes": len(nodes),
+                "leaves": len(leaves),
+                "populated": sum(1 for r in out if r["facts"]),
+                "populated_leaves": sum(1 for r in leaves if r["facts"]),
+                "facts": sum(counts.values()),
+                "facts_outside_the_tree": unplaced,
+                "degraded": sum(1 for r in out if r["degraded"]),
+            },
+        }
+
+    try:
+        return await asyncio.to_thread(_work)
+    except Exception as e:
+        logger.error("[Facts] by-node failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)[:200])
+
+
+@app.get("/api/facts/node/{node_id:path}")
+async def facts_for_node(node_id: str, token: str = "", limit: int = 200) -> dict:
+    """Every stored fact filed at one node, with its provenance."""
+    if token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    def _work() -> dict:
+        from services.rag_service import _get_supabase, TABLE_NAME
+
+        supabase = _get_supabase()
+        rows = (
+            supabase.table(TABLE_NAME)
+            .select("id,content,section,epistemic_status,source_type,run_id,"
+                    "agent_name,metadata,created_at,superseded_by")
+            .eq("section", node_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        ).data or []
+
+        facts = []
+        for row in rows:
+            if row.get("superseded_by"):
+                continue
+            meta = row.get("metadata") or {}
+            facts.append({
+                "id": row["id"],
+                "content": row["content"],
+                "epistemic_status": row.get("epistemic_status"),
+                "source_type": row.get("source_type"),
+                "created_at": row.get("created_at"),
+                "run_id": row.get("run_id"),
+                # provenance — written by feed_pipeline.confirm_card()
+                "source_document": meta.get("source_document"),
+                "source_quote": meta.get("source_quote"),
+                "start_char": meta.get("start_char"),
+                "end_char": meta.get("end_char"),
+                # the two review signals, kept separate as ever
+                "needs_review": meta.get("needs_review"),
+                "verdict": meta.get("verdict"),
+                "degraded_target": meta.get("degraded_target"),
+                "degraded_reason": meta.get("degraded_reason"),
+                # the confirmation label
+                "proposed_node_id": meta.get("proposed_node_id"),
+                "confirmed_by": meta.get("confirmed_by"),
+                "rank_of_confirmed": meta.get("rank_of_confirmed"),
+                "accepted_proposal": meta.get("accepted_proposal"),
+            })
+        return {"node_id": node_id, "count": len(facts), "facts": facts}
+
+    try:
+        return await asyncio.to_thread(_work)
+    except Exception as e:
+        logger.error("[Facts] node %s failed: %s", node_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)[:200])
+
+
+class UndoCardRequest(BaseModel):
+    """Payload for POST /api/feed/undo."""
+
+    run_id: str
+    index: int
+    token: str
+
+
+@app.post("/api/feed/undo")
+async def undo_feed_card(req: UndoCardRequest) -> dict:
+    """Retract a confirmed fact: delete the stored row, reopen the card.
+
+    The counterpart to confirm_card(). Under review-assist every filing is a
+    human decision, so a human needs a way to take one back — and the row must
+    actually leave knowledge_base, not merely be unlinked from the card, or
+    Build keeps reading a fact nobody stands behind.
+    """
+    if req.token != WEB_AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    batch = feed_batch_store.get_batch(req.run_id)
+    if not batch or "cards" not in batch:
+        raise HTTPException(status_code=404, detail="Unknown run_id")
+    card = next((c for c in batch["cards"] if c.get("index") == req.index), None)
+    if card is None:
+        raise HTTPException(status_code=404, detail="Unknown card index")
+    if card.get("status") != "confirmed":
+        raise HTTPException(status_code=400, detail="Card is not confirmed")
+
+    stored_id = card.get("stored_id")
+    node = card.get("confirmed_node_id")
+
+    def _work() -> bool:
+        from services.rag_service import delete as rag_delete
+
+        if not stored_id:
+            # A duplicate confirmation returns SKIPPED_DUPLICATE with no id, so
+            # there is no row of ours to remove. Reopening the card is still
+            # correct; say so rather than reporting a delete that did not happen.
+            return False
+        return rag_delete(stored_id)
+
+    try:
+        deleted = await asyncio.to_thread(_work)
+    except Exception as exc:  # noqa: BLE001 — surfaced to the caller
+        logger.error("[Feed] undo failed for %s/%d: %s", req.run_id, req.index, exc)
+        raise HTTPException(status_code=500, detail=f"Undo failed: {str(exc)[:200]}")
+
+    card["status"] = "awaiting_confirmation"
+    for key in ("confirmed_node_id", "confirmed_by", "confirmed_at",
+                "rank_of_confirmed", "stored_id"):
+        card[key] = None
+    feed_batch_store.update_card(req.run_id, req.index, card)
+
+    logger.info(
+        "[Feed] undo %s/%d — row %s deleted=%s, card reopened (was %s)",
+        req.run_id, req.index, stored_id, deleted, node,
+    )
+    return {"success": True, "row_deleted": deleted, "was_filed_at": node, "card": card}
+
+
+@app.get("/feed/facts")
+async def feed_facts_page():
+    """The facts table — every stored fact against the architecture tree."""
+    return _feed_page("facts_table.html")
+
+
 def _feed_page(name: str) -> FileResponse:
     """Serve one of the Feed surfaces."""
     return FileResponse(
@@ -2768,6 +3089,35 @@ async def add_knowledge_fact(req: AddFactRequest):
 # ─── Stored Data Mutations ──────────────────────────────────────────────────
 
 
+def _record_move_correction(
+    content: str, from_node: Optional[str], to_node: str
+) -> None:
+    """Log a human re-filing into feed_corrections.
+
+    The table exists in Supabase (its migration was deleted from the repo along
+    with the old handler, but the table itself survived). Every move is a
+    labelled example — what was suggested vs where it actually belongs — and
+    that is the accumulation the auto-file decision depends on. Failure here is
+    logged, never raised: losing a training label must not fail the move.
+    """
+    if not from_node or from_node == to_node:
+        return
+    try:
+        # feed_corrections has RLS on and the anon role cannot insert, so this
+        # needs the service-role client — the same reason bp_architecture does.
+        from services.feed_classifier_v3 import get_architecture_client
+
+        get_architecture_client().table("feed_corrections").insert({
+            "original_node_id": from_node,
+            "corrected_node_id": to_node,
+            "fact_content": content[:2000],
+            "correction_type": "corrected",
+            "session_id": _get_session_key(),
+        }).execute()
+    except Exception as e:  # noqa: BLE001 — a lost label must not fail the move
+        logger.warning("[Facts] could not record move correction: %s", str(e)[:160])
+
+
 class StoredDataUpdateRequest(BaseModel):
     """Payload for PATCH /api/knowledge/stored/{id}."""
 
@@ -2816,17 +3166,28 @@ async def update_stored_row(row_id: str, req: StoredDataUpdateRequest):
 
         def _do_update():
             supabase = _get_supabase()
+            moved_from = None
             if meta_update:
                 current = (
                     supabase.table(TABLE_NAME)
-                    .select("metadata")
+                    .select("metadata, section, content")
                     .eq("id", row_id)
                     .single()
                     .execute()
                 )
                 meta = current.data.get("metadata") or {}
+                moved_from = current.data.get("section") or meta.get("node_id")
                 meta["node_id"] = req.node_id
+                meta["moved_from"] = moved_from
                 updates["metadata"] = meta
+                # `section` is the indexed column every reader filters on —
+                # retrieve(section=...), the facts table, coverage. Writing only
+                # metadata.node_id left a moved fact retrievable at its OLD node
+                # and invisible at its new one.
+                updates["section"] = req.node_id
+                _record_move_correction(
+                    current.data.get("content") or "", moved_from, req.node_id
+                )
 
             result = (
                 supabase.table(TABLE_NAME)

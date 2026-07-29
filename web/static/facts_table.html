@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Facts — where everything went</title>
+<link rel="stylesheet" href="/static/feed_shared.css">
+<style>
+main { max-width: 1080px; }
+.stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 18px; }
+.stat {
+  flex: 1 1 130px; background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 11px 13px;
+}
+.stat .n { font-size: 23px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stat .l { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.stat[data-tone="ok"] .n { color: var(--accent); }
+.stat[data-tone="warn"] .n { color: var(--warn); }
+.stat[data-tone="bad"] .n { color: var(--alert); }
+
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.toolbar input[type="text"] { flex: 1 1 220px; width: auto; }
+.toolbar button[aria-pressed="true"] { background: var(--key); color: var(--ink); border-color: var(--ink-3); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+thead th {
+  text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--ink-3); font-weight: 600; padding: 8px 10px;
+  border-bottom: 1px solid var(--line); position: sticky; top: 47px; background: var(--bg);
+}
+tbody tr { border-bottom: 1px solid var(--line); }
+tbody tr[data-has="1"] { cursor: pointer; }
+tbody tr[data-has="1"]:hover { background: var(--accent-soft); }
+tbody tr[data-has="0"] { color: var(--ink-3); }
+td { padding: 7px 10px; vertical-align: top; }
+td.id { font: 600 12.5px/1.5 var(--mono); white-space: nowrap; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; width: 1%; }
+td.n[data-zero="1"] { color: var(--ink-3); font-weight: 400; }
+.pill {
+  font-size: 10.5px; padding: 1px 7px; border-radius: 99px; border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.pill.deg { color: var(--alert); background: var(--alert-soft); }
+.pill.leaf { color: var(--ink-3); }
+.indent-1 { padding-left: 12px; } .indent-2 { padding-left: 26px; }
+.indent-3 { padding-left: 40px; } .indent-4 { padding-left: 54px; }
+
+.detail { background: var(--bg); }
+.detail td { padding: 0 10px 14px 26px; }
+.fact {
+  background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: 5px; padding: 10px 13px; margin-top: 8px;
+}
+.fact .txt { font-size: 14px; text-wrap: pretty; }
+.fact .prov {
+  font: 11.5px/1.6 var(--mono); color: var(--ink-2); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; margin-top: 7px;
+  overflow-x: auto;
+}
+.fact .meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; font-size: 11px; }
+.fact .meta span { padding: 2px 7px; border-radius: 99px; border: 1px solid var(--line); color: var(--ink-2); }
+.fact .meta .warnp { color: var(--warn); border-color: currentColor; background: var(--warn-soft); }
+.fact .meta .badp  { color: var(--alert); border-color: currentColor; background: var(--alert-soft); }
+.fact .meta .okp   { color: var(--accent); border-color: currentColor; background: var(--accent-soft); }
+.empty { color: var(--ink-3); font-style: italic; font-size: 13px; padding: 10px 0; }
+.note {
+  font-size: 12.5px; color: var(--ink-2); background: var(--card);
+  border-left: 3px solid var(--accent); border-radius: 0 4px 4px 0;
+  padding: 9px 12px; margin: 0 0 16px;
+}
+</style>
+</head>
+<body>
+
+<nav class="feed-nav">
+  <span class="brand">Feed</span>
+  <a class="step" href="#" id="nav-upload">Upload</a>
+  <span class="sep">·</span>
+  <a class="step" href="#" id="nav-facts" aria-current="page">Facts</a>
+  <span class="spacer"></span>
+  <span class="doc" id="navdoc"></span>
+</nav>
+
+<main>
+  <h1>Where everything went</h1>
+  <p class="lede">
+    Every fact stored in the knowledge base, against the architecture it was filed into.
+    Rows with a count are populated; the rest are empty nodes waiting for content.
+    Click any populated row to see its facts and where each came from.
+  </p>
+
+  <div class="stats" id="stats"></div>
+  <p class="note" id="note"></p>
+
+  <div class="toolbar">
+    <input type="text" id="q" placeholder="filter by node id or title…" autocomplete="off">
+    <button id="f-all" aria-pressed="true">All nodes</button>
+    <button id="f-pop" aria-pressed="false">Populated only</button>
+    <button id="f-leaf" aria-pressed="false">Leaves only</button>
+    <button id="f-deg" aria-pressed="false">Degraded only</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Node</th><th>Title</th><th style="text-align:right">Facts</th></tr>
+    </thead>
+    <tbody id="rows"><tr><td colspan="3" class="empty">Loading…</td></tr></tbody>
+  </table>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+let token = qs.get("token") || sessionStorage.getItem("feed_token") || "";
+if (token) sessionStorage.setItem("feed_token", token);
+const withTok = (p) => `${p}${p.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+let NODES = [], TOTALS = {}, mode = "all", query = "";
+const open = new Set();
+
+function stats() {
+  const t = TOTALS;
+  const emptyLeaves = t.leaves - t.populated_leaves;
+  $("stats").innerHTML = `
+    <div class="stat"><div class="n">${t.facts}</div><div class="l">facts stored</div></div>
+    <div class="stat" data-tone="ok"><div class="n">${t.populated_leaves}</div>
+      <div class="l">leaves populated</div></div>
+    <div class="stat" data-tone="warn"><div class="n">${emptyLeaves}</div>
+      <div class="l">leaves still empty</div></div>
+    <div class="stat" data-tone="bad"><div class="n">${t.degraded}</div>
+      <div class="l">degraded nodes</div></div>
+    <div class="stat"><div class="n">${(100 * t.populated_leaves / t.leaves).toFixed(1)}%</div>
+      <div class="l">leaf coverage</div></div>`;
+  $("note").innerHTML =
+    `${t.facts} fact${t.facts === 1 ? "" : "s"} across ${t.populated} of ${t.nodes} nodes. ` +
+    (t.facts_outside_the_tree
+      ? `<strong>${t.facts_outside_the_tree} fact(s) carry a node id that is not in the architecture</strong> — legacy rows filed before the Phase 0 load, or a renumbered id.`
+      : `Every stored fact points at a node that exists in the architecture.`);
+}
+
+function visible() {
+  const q = query.trim().toLowerCase();
+  return NODES.filter(n => {
+    if (mode === "pop" && !n.facts) return false;
+    if (mode === "leaf" && !n.is_leaf) return false;
+    if (mode === "deg" && !n.degraded) return false;
+    if (q && !n.node_id.toLowerCase().includes(q) && !n.title.toLowerCase().includes(q))
+      return false;
+    return true;
+  });
+}
+
+function render() {
+  const rows = visible();
+  if (!rows.length) { $("rows").innerHTML = `<tr><td colspan="3" class="empty">No nodes match.</td></tr>`; return; }
+  $("rows").innerHTML = rows.map(n => {
+    const pills = [
+      n.degraded ? `<span class="pill deg">degraded</span>` : "",
+      n.is_leaf ? "" : `<span class="pill leaf">has children</span>`,
+    ].join(" ");
+    const detail = open.has(n.node_id)
+      ? `<tr class="detail" data-for="${esc(n.node_id)}"><td colspan="3">
+           <div id="d-${esc(n.node_id).replace(/\./g, "_")}" class="empty">Loading facts…</div></td></tr>`
+      : "";
+    return `<tr data-node="${esc(n.node_id)}" data-has="${n.facts ? 1 : 0}">
+        <td class="id indent-${Math.min(n.depth, 4)}">${esc(n.node_id)}</td>
+        <td>${esc(n.title)} ${pills}</td>
+        <td class="n" data-zero="${n.facts ? 0 : 1}">${n.facts}</td>
+      </tr>${detail}`;
+  }).join("");
+  open.forEach(loadFacts);
+}
+
+async function loadFacts(nodeId) {
+  const box = document.getElementById(`d-${nodeId.replace(/\./g, "_")}`);
+  if (!box || box.dataset.loaded) return;
+  try {
+    const r = await fetch(withTok(`/api/facts/node/${encodeURIComponent(nodeId)}`));
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+    box.dataset.loaded = "1";
+    if (!data.facts.length) { box.className = "empty"; box.textContent = "No facts at this node."; return; }
+    box.className = "";
+    box.innerHTML = data.facts.map(f => {
+      const span = (f.start_char !== null && f.start_char !== undefined)
+        ? `[${f.start_char}:${f.end_char}]` : "";
+      const prov = f.source_document
+        ? `<div class="prov"><b>${esc(f.source_document)}</b> ${span} &nbsp;“${esc(f.source_quote || "")}”</div>`
+        : `<div class="prov muted">no provenance recorded — stored before Feed captured source spans</div>`;
+      const meta = [
+        f.epistemic_status ? `<span>${esc(f.epistemic_status)}</span>` : "",
+        f.confirmed_by ? `<span class="okp">confirmed by ${esc(f.confirmed_by)}</span>` : "",
+        f.accepted_proposal === false && f.proposed_node_id
+          ? `<span class="warnp">moved from ${esc(f.proposed_node_id)}</span>` : "",
+        f.rank_of_confirmed ? `<span>was option ${f.rank_of_confirmed}</span>` : "",
+        f.needs_review ? `<span class="warnp">extraction ${esc(f.verdict || "suspect")}</span>` : "",
+        f.degraded_target ? `<span class="badp">node ${esc(f.degraded_reason || "incomplete")}</span>` : "",
+        f.source_type ? `<span>${esc(f.source_type)}</span>` : "",
+      ].filter(Boolean).join("");
+      return `<div class="fact"><div class="txt">${esc(f.content)}</div>${prov}
+                <div class="meta">${meta}</div></div>`;
+    }).join("");
+  } catch (e) {
+    box.className = "empty"; box.textContent = `Failed: ${e.message}`;
+  }
+}
+
+$("rows").addEventListener("click", (ev) => {
+  const tr = ev.target.closest("tr[data-node]");
+  if (!tr || tr.dataset.has === "0") return;
+  const id = tr.dataset.node;
+  open.has(id) ? open.delete(id) : open.add(id);
+  render();
+});
+
+$("q").addEventListener("input", (e) => { query = e.target.value; render(); });
+[["f-all", "all"], ["f-pop", "pop"], ["f-leaf", "leaf"], ["f-deg", "deg"]].forEach(([id, m]) => {
+  $(id).addEventListener("click", () => {
+    mode = m;
+    ["f-all", "f-pop", "f-leaf", "f-deg"].forEach(x => $(x).ariaPressed = String(x === id));
+    render();
+  });
+});
+
+async function boot() {
+  $("nav-upload").href = withTok("/feed");
+  $("nav-facts").href = withTok("/feed/facts");
+  if (!token) {
+    $("rows").innerHTML = `<tr><td colspan="3" class="empty">No token — open from <a href="/feed">the upload page</a>.</td></tr>`;
+    return;
+  }
+  try {
+    const r = await fetch(withTok("/api/facts/by-node"));
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+    NODES = data.nodes; TOTALS = data.totals;
+    stats(); render();
+  } catch (e) {
+    $("rows").innerHTML = `<tr><td colspan="3" class="empty">${esc(e.message)}</td></tr>`;
+  }
+}
+boot();
+</script>
+</body>
+</html>
