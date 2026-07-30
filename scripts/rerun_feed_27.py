@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Re-run the 27-card reference paste and diff against the recorded baseline.
 
-The baseline is the live run feed-73eb3e7baa5b, whose 27 cards are still in the
-batch store. The paste itself was never persisted — only each card's verbatim
-quote and character span — so evaluation/feed_27_card_paste.txt is a
+The baseline is the live run feed-73eb3e7baa5b, snapshotted to
+evaluation/feed_27_baseline.json so the comparison outlives the batch store's
+7-day TTL. The paste itself was never persisted by that run — only each card's
+verbatim quote and character span — so evaluation/feed_27_card_paste.txt is a
 reconstruction from those spans, validated by re-locating all 27 quotes at their
-recorded offsets. See ``--verify-fixture``.
+recorded offsets. See ``--verify-fixture``. Runs recorded after
+FeedBatch.source_text was added carry their own input and need no fixture.
 
 Reports the five tracked errors explicitly, then every card's before/after node,
 then the flagged-card count so the remaining content debt is quantified.
@@ -13,6 +15,7 @@ then the flagged-card count so the remaining content debt is quantified.
     python scripts/rerun_feed_27.py                  # full re-run (~1-3 min)
     python scripts/rerun_feed_27.py --control        # same, all three fixes off
     python scripts/rerun_feed_27.py --verify-fixture # spans only, no LLM calls
+    python scripts/rerun_feed_27.py --snapshot       # re-copy the baseline from Redis
 
 The --control run exists because neither the chunker nor the judge is
 deterministic: two runs of the same text disagree on a handful of cards on their
@@ -42,6 +45,11 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 BASELINE_RUN = "feed-73eb3e7baa5b"
 FIXTURE = os.path.join(PROJECT_ROOT, "evaluation", "feed_27_card_paste.txt")
+
+# The baseline lived only in Redis under a 7-day TTL, which would have taken the
+# reference point for every future comparison with it. The snapshot is the
+# durable copy and is read in preference to Redis; `--snapshot` rewrites it.
+BASELINE_SNAPSHOT = os.path.join(PROJECT_ROOT, "evaluation", "feed_27_baseline.json")
 
 # The five measured errors this run is checking, keyed by the baseline card
 # numbers (1-based, as shown in the UI) the user reported them against.
@@ -83,6 +91,49 @@ def load_fixture() -> str:
     """Read the reconstructed paste, without its trailing newline."""
     with open(FIXTURE, encoding="utf-8") as handle:
         return handle.read().rstrip("\n")
+
+
+def load_baseline() -> dict[str, Any]:
+    """Return the baseline batch, from the committed snapshot if it exists.
+
+    Snapshot first, Redis second. The batch store is TTL'd, so a Redis-only
+    baseline stops existing a week after it was recorded and every comparison
+    that referenced it becomes unrunnable.
+
+    Returns:
+        The baseline batch payload.
+
+    Raises:
+        SystemExit: Neither the snapshot nor Redis has the batch.
+    """
+    if os.path.exists(BASELINE_SNAPSHOT):
+        with open(BASELINE_SNAPSHOT, encoding="utf-8") as handle:
+            return json.load(handle)
+
+    batch = feed_batch_store.get_batch(BASELINE_RUN)
+    if not batch:
+        raise SystemExit(
+            f"baseline {BASELINE_RUN} is in neither {BASELINE_SNAPSHOT} nor Redis "
+            "(the batch TTL has expired and no snapshot was taken)"
+        )
+    return batch
+
+
+def write_snapshot() -> None:
+    """Copy the baseline out of Redis into the committed snapshot file.
+
+    Raises:
+        SystemExit: The batch is no longer in Redis.
+    """
+    batch = feed_batch_store.get_batch(BASELINE_RUN)
+    if not batch:
+        raise SystemExit(f"{BASELINE_RUN} is no longer in Redis — nothing to snapshot")
+    with open(BASELINE_SNAPSHOT, "w", encoding="utf-8") as handle:
+        json.dump(batch, handle, indent=2)
+    print(
+        "snapshotted %s (%d cards) to %s"
+        % (BASELINE_RUN, len(batch.get("cards") or []), BASELINE_SNAPSHOT)
+    )
 
 
 def verify_fixture(text: str, baseline_cards: list[dict]) -> int:
@@ -183,9 +234,11 @@ def node_of(card: Optional[dict]) -> str:
 
 def main() -> None:
     """Re-run the reference paste and print the before/after report."""
-    baseline = feed_batch_store.get_batch(BASELINE_RUN)
-    if not baseline:
-        raise SystemExit(f"baseline batch {BASELINE_RUN} not found")
+    if "--snapshot" in sys.argv:
+        write_snapshot()
+        return
+
+    baseline = load_baseline()
     baseline_cards = baseline["cards"]
 
     # Batches recorded after source_text was added carry their own input, so

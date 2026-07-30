@@ -904,12 +904,14 @@ the first real test of it.
 
 ### KNOWN REGRESSION — card 26
 
-`"The company's Spanish customers pay in euros"` moved **BP.9.5.5 → BP.9.2.2**,
-fix-caused (control kept it at BP.9.5.5). Unjustified: BP.9.2.2 is a subscription
-price-tier node and the fact is a currency-denomination rule, not a tier. Sibling context
-is the only fix touching this card. Both nodes are in the BP.9 content-debt set, so the
-"before" was not right either — this is a wrong answer replacing a wrong answer, not a
-loss of a correct one. Unresolved.
+`"The company's Spanish customers pay in euros"` moves **off BP.9.5.5**, fix-caused —
+the control keeps it at BP.9.5.5 in every arm run. Unjustified: the fact is a
+currency-denomination rule and it lands on price/cost nodes. **The destination varies by
+run** (BP.9.2.2 in one fixed arm, BP.9.5.1 in another), which is itself the
+non-determinism the measurement rule is about. Sibling context is the only fix touching
+this card. Every node involved is in the BP.9 content-debt set, so the "before" was not
+right either — this is a wrong answer replacing a wrong answer, not a correct filing
+lost. Unresolved.
 
 Card 07 ("the renewal figure is not validated") landed on three different nodes across
 baseline/control/fixed (BP.10.1.5 / BP.9.2.3 / BP.2.4.4). It is unstable independent of
@@ -917,9 +919,15 @@ these fixes and is not counted either way.
 
 ### Totals
 
-- attribution across 27 baseline cards: **fix-caused 9, drift 7, unchanged 11**. Of the
-  9 fix-caused: 6 are the intended E1–E4 targets, 1 (card 17) moved back to its baseline
-  node, 2 are the collateral above.
+- attribution across 27 baseline cards: **fix-caused 9, drift 7, unchanged 11**.
+  Of the 9 fix-caused: 6 are the intended E1–E4 targets, 1 (card 17) moved back to its
+  baseline node, 2 are the collateral above.
+- **These counts are one arm pairing, not a constant.** Re-running control and fixed
+  reshuffles the unstable cards between "fix-caused" and "drift" — card 17 lands in
+  either bucket depending on the run. **E1–E4 are the stable core**: they came out
+  fix-caused in all three fixed runs. Treat the 9/7/11 split as the shape of the result,
+  not as a measurement to compare future runs against card-for-card. The committed
+  `evaluation/feed_27_{rerun,control}.json` are the third fixed arm and its control.
 - **classification calls 27 → 21** — grouping is a net reduction, as designed.
 - **cards flagged degraded 12 → 4** (control 8, so **8 → 4 is fix-attributable**).
   Remaining 4: BP.9.5.1 ×2 `placeholder_purpose`, BP.9.5.16 and BP.9.2.12

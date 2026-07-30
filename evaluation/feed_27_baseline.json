@@ -1,0 +1,2232 @@
+{
+  "run_id": "feed-73eb3e7baa5b",
+  "source_document": "pasted text",
+  "total_facts": 27,
+  "cards": [
+    {
+      "fact": "Pricing is an annual institutional subscription.",
+      "index": 0,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "Pricing is an annual institutional subscription.",
+      "start_char": 0,
+      "end_char": 48,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states exactly this.",
+      "degraded_target": true,
+      "degraded_reason": "placeholder_purpose",
+      "proposed_node_id": "BP.9.5.1",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.5.1",
+          "title": "Revenue Model",
+          "section_id": "BP.9.5",
+          "note": "This is the primary home for how revenue is structured \u2014 annual institutional subscription defines the revenue model architecture.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.5.3",
+          "title": "Unit Economics",
+          "section_id": "BP.9.5",
+          "note": "If the subscription price per institution is also being stated, unit economics would capture the per-unit revenue figure, but the fact alone is about structure not per-unit value.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.5.5",
+          "title": "Financial Assumptions",
+          "section_id": "BP.9.5",
+          "note": "The billing cadence (annual) and customer type (institutional) could be recorded as a financial assumption underpinning the model, secondary to the revenue model node.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.2983,
+          "leaves_in_induced_window": 10
+        },
+        {
+          "section_id": "BP.6.5",
+          "best_leaf_id": "BP.6.5.4",
+          "best_leaf_similarity": 0.2656,
+          "leaves_in_induced_window": 3
+        },
+        {
+          "section_id": "BP.8.2",
+          "best_leaf_id": "BP.8.2.4",
+          "best_leaf_similarity": 0.2346,
+          "leaves_in_induced_window": 1
+        }
+      ],
+      "section_margin": 0.0327,
+      "proposal_reason": "The fact asserts the pricing structure: customers are institutions, the billing cycle is annual, and the access model is subscription \u2014 this is a revenue model specification.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The single-department pricing tier is eight thousand.",
+      "index": 1,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "Eight thousand for a single department",
+      "start_char": 49,
+      "end_char": 87,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'Eight thousand for a single department'.",
+      "degraded_target": true,
+      "degraded_reason": "null_required_output",
+      "proposed_node_id": "BP.9.2.10",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.2.10",
+          "title": "Package Tier Architecture",
+          "section_id": "BP.9.2",
+          "note": "This node defines commercial package tier structure \u2014 a specific per-tier price point belongs here.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.2.12",
+          "title": "Pricing Metric Architecture",
+          "section_id": "BP.9.2",
+          "note": "This node explicitly covers department-based pricing models, making it the strongest match for a department-tier price.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.2.2",
+          "title": "Pricing Structure",
+          "section_id": "BP.9.2",
+          "note": "Pricing Structure governs how tiers and prices are structured \u2014 a tier price point is part of that specification.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.2.3",
+          "title": "Pricing Assumptions",
+          "section_id": "BP.9.2",
+          "note": "Pricing Assumptions could hold this if the $8,000 figure is treated as an assumed rather than validated price point.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 5,
+          "node_id": "BP.9.2.4",
+          "title": "Packaging Strategy",
+          "section_id": "BP.9.2",
+          "note": "Packaging Strategy governs how tiers are bundled \u2014 a single-department tier price is a packaging decision, though secondary to structure/metric nodes.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.2",
+          "best_leaf_id": "BP.9.2.12",
+          "best_leaf_similarity": 0.2975,
+          "leaves_in_induced_window": 11
+        },
+        {
+          "section_id": "BP.3.2",
+          "best_leaf_id": "BP.3.2.3",
+          "best_leaf_similarity": 0.1781,
+          "leaves_in_induced_window": 9
+        },
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.1759,
+          "leaves_in_induced_window": 6
+        }
+      ],
+      "section_margin": 0.1194,
+      "proposal_reason": "The fact asserts a specific dollar price ($8,000) assigned to a single-department tier, which is a concrete pricing tier data point.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The faculty pricing tier is twenty thousand.",
+      "index": 2,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "twenty thousand for a faculty",
+      "start_char": 89,
+      "end_char": 118,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'twenty thousand for a faculty'.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.9.2.2",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.2.2",
+          "title": "Pricing Structure",
+          "section_id": "BP.9.2",
+          "note": "A named tier with a specific price point is core pricing structure content \u2014 this is likely the best fit.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.2.1",
+          "title": "Pricing Model Definition",
+          "section_id": "BP.9.2",
+          "note": "If the plan treats faculty pricing as part of defining the overall pricing model (e.g. tiered vs. flat), it belongs here instead.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.2.10",
+          "title": "Package Tier Architecture",
+          "section_id": "BP.9.2",
+          "note": "Directly about package tier architecture \u2014 fits if faculty is a named package tier rather than a segment discount.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.2.3",
+          "title": "Pricing Assumptions",
+          "section_id": "BP.9.2",
+          "note": "Use this if the $20k figure is treated as an assumption underlying the pricing model rather than a committed structure.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 5,
+          "node_id": "BP.9.2.12",
+          "title": "Pricing Metric Architecture",
+          "section_id": "BP.9.2",
+          "note": "Relevant if faculty pricing is defined by a per-seat or per-department metric that drives the $20k figure.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.2",
+          "best_leaf_id": "BP.9.2.12",
+          "best_leaf_similarity": 0.2957,
+          "leaves_in_induced_window": 11
+        },
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.2058,
+          "leaves_in_induced_window": 9
+        },
+        {
+          "section_id": "BP.3.2",
+          "best_leaf_id": "BP.3.2.5",
+          "best_leaf_similarity": 0.1762,
+          "leaves_in_induced_window": 9
+        }
+      ],
+      "section_margin": 0.0899,
+      "proposal_reason": "The fact asserts a specific price point ($20,000) assigned to a named customer segment (faculty), which is a pricing tier definition.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The campus-wide pricing tier is forty-five thousand.",
+      "index": 3,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "forty-five thousand campus-wide",
+      "start_char": 120,
+      "end_char": 151,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'forty-five thousand campus-wide'.",
+      "degraded_target": true,
+      "degraded_reason": "null_required_output",
+      "proposed_node_id": "BP.9.2.10",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.2.10",
+          "title": "Package Tier Architecture",
+          "section_id": "BP.9.2",
+          "note": "This node defines the commercial package tier structure, and a campus-wide tier at $45K is a direct specification of that architecture.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.2.2",
+          "title": "Pricing Structure",
+          "section_id": "BP.9.2",
+          "note": "Pricing Structure governs how price points are organized across tiers \u2014 the $45K campus-wide figure is a core element of that structure.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.2.3",
+          "title": "Pricing Assumptions",
+          "section_id": "BP.9.2",
+          "note": "If $45K is a founder hypothesis rather than a validated price, it belongs here as a pricing assumption underlying the model.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.2.1",
+          "title": "Pricing Model Definition",
+          "section_id": "BP.9.2",
+          "note": "Pricing Model Definition covers how pricing is defined overall \u2014 the campus-wide tier price contributes to that definition, though it's more specific than model-level.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 5,
+          "node_id": "BP.9.2.14",
+          "title": "Procurement-Friendly Offer Architecture",
+          "section_id": "BP.9.2",
+          "note": "If campus-wide is framed as an institutional procurement package, this degraded node for procurement-friendly offer architecture could also fit.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.2",
+          "best_leaf_id": "BP.9.2.12",
+          "best_leaf_similarity": 0.2779,
+          "leaves_in_induced_window": 12
+        },
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.2596,
+          "leaves_in_induced_window": 8
+        },
+        {
+          "section_id": "BP.6.4",
+          "best_leaf_id": "BP.6.4.4",
+          "best_leaf_similarity": 0.1691,
+          "leaves_in_induced_window": 4
+        }
+      ],
+      "section_margin": 0.0183,
+      "proposal_reason": "The fact asserts a specific dollar amount ($45,000) for a campus-wide pricing tier \u2014 a concrete price point within a defined package/tier structure.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The company charges twelve thousand per institution.",
+      "index": 4,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "We charge twelve thousand per institution",
+      "start_char": 155,
+      "end_char": 196,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'We charge twelve thousand per institution', and 'the company' is the required rendering of 'we'.",
+      "degraded_target": true,
+      "degraded_reason": "placeholder_purpose",
+      "proposed_node_id": "BP.9.5.1",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.5.1",
+          "title": "Revenue Model",
+          "section_id": "BP.9.5",
+          "note": "This is the primary home for how the company charges customers; $12k per institution is a core revenue model specification.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.5.3",
+          "title": "Unit Economics",
+          "section_id": "BP.9.5",
+          "note": "If the plan treats per-institution price as the key unit, this fact is also an input to unit economics (revenue per unit).",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.5.5",
+          "title": "Financial Assumptions",
+          "section_id": "BP.9.5",
+          "note": "If $12k is an assumed rather than confirmed price, it belongs here as a financial assumption underlying the model.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.5.15",
+          "title": "Expansion Revenue Model",
+          "section_id": "BP.9.5",
+          "note": "Only relevant if the $12k figure relates specifically to expansion or upsell pricing rather than the base charge.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.4033,
+          "leaves_in_induced_window": 9
+        },
+        {
+          "section_id": "BP.7.5",
+          "best_leaf_id": "BP.7.5.3",
+          "best_leaf_similarity": 0.237,
+          "leaves_in_induced_window": 5
+        },
+        {
+          "section_id": "BP.7.6",
+          "best_leaf_id": "BP.7.6.3",
+          "best_leaf_similarity": 0.1858,
+          "leaves_in_induced_window": 2
+        }
+      ],
+      "section_margin": 0.1663,
+      "proposal_reason": "The fact asserts a specific price point \u2014 $12,000 charged per institution \u2014 which is a pricing/revenue model specification.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The company expects eighty percent renewal.",
+      "index": 5,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "expect eighty percent renewal",
+      "start_char": 201,
+      "end_char": 230,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'expect eighty percent renewal', and 'the company' is the required rendering of 'we'.",
+      "degraded_target": true,
+      "degraded_reason": "null_required_output",
+      "proposed_node_id": "BP.9.5.16",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.5.16",
+          "title": "Churn Assumptions",
+          "section_id": "BP.9.5",
+          "note": "Churn assumptions is the natural home for a renewal rate expectation, as 80% renewal implies 20% churn.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.5.5",
+          "title": "Financial Assumptions",
+          "section_id": "BP.9.5",
+          "note": "If the renewal rate is being used as an input to the broader financial model, it belongs here as a named financial assumption.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.5.15",
+          "title": "Expansion Revenue Model",
+          "section_id": "BP.9.5",
+          "note": "If the renewal expectation is framed as a driver of recurring/expansion revenue, this node covers that modelling assumption.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.5.3",
+          "title": "Unit Economics",
+          "section_id": "BP.9.5",
+          "note": "Unit economics depends on renewal rate for LTV calculations, so this is a plausible secondary home if the fact is framed in that context.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.15",
+          "best_leaf_similarity": 0.2014,
+          "leaves_in_induced_window": 9
+        },
+        {
+          "section_id": "BP.9.6",
+          "best_leaf_id": "BP.9.6.5",
+          "best_leaf_similarity": 0.1587,
+          "leaves_in_induced_window": 5
+        },
+        {
+          "section_id": "BP.9.4",
+          "best_leaf_id": "BP.9.4.5",
+          "best_leaf_similarity": 0.1556,
+          "leaves_in_induced_window": 9
+        }
+      ],
+      "section_margin": 0.0427,
+      "proposal_reason": "The fact asserts an 80% renewal rate as a company expectation \u2014 this is a retention/churn assumption feeding the financial model.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The renewal figure is not validated.",
+      "index": 6,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "None of this is validated",
+      "start_char": 232,
+      "end_char": 257,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source says 'None of this is validated', which covers the renewal figure among other things.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.10.1.5",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.10.1.5",
+          "title": "Validation Assumptions",
+          "section_id": "BP.10.1",
+          "note": "This node is purpose-built to register unvalidated assumptions underpinning the validation strategy, exactly the form this fact takes.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.2.4.4",
+          "title": "Why-Now Assumptions",
+          "section_id": "BP.2.4",
+          "note": "If the renewal figure underpins the why-now timing hypothesis, this is where unvalidated timing assumptions are logged \u2014 but only if renewal is a timing claim.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.5.3.5",
+          "title": "Funding Source Assumptions",
+          "section_id": "BP.5.3",
+          "note": "If the renewal figure is a funding-source assumption (e.g. renewal budget availability), this node captures unvalidated funding assumptions \u2014 but it prohibits treating it as budget availability evidence.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.5.3.9",
+          "title": "Budget Authority Acceptance Check",
+          "section_id": "BP.5.3",
+          "note": "If the renewal figure is one of several budget authority claims being audited for coherence, the acceptance check would surface its unvalidated status \u2014 but this node confirms completeness, it doesn't register individual assumptions.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.5.3",
+          "best_leaf_id": "BP.5.3.5",
+          "best_leaf_similarity": 0.2225,
+          "leaves_in_induced_window": 1
+        },
+        {
+          "section_id": "BP.10.1",
+          "best_leaf_id": "BP.10.1.5",
+          "best_leaf_similarity": 0.2179,
+          "leaves_in_induced_window": 5
+        },
+        {
+          "section_id": "BP.2.4",
+          "best_leaf_id": "BP.2.4.4",
+          "best_leaf_similarity": 0.2161,
+          "leaves_in_induced_window": 2
+        }
+      ],
+      "section_margin": 0.0046,
+      "proposal_reason": "The fact asserts that a specific figure \u2014 the renewal figure \u2014 lacks validation status, which is an unvalidated assumption that needs to be logged as such with a falsification condition.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The twelve thousand per institution charge figure is not validated.",
+      "index": 7,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "We charge twelve thousand per institution and expect eighty percent renewal. None of this is validated.",
+      "start_char": 155,
+      "end_char": 258,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source says 'None of this is validated' after stating the twelve thousand charge, so the charge figure is also not validated.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.9.2.3",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.2.3",
+          "title": "Pricing Assumptions",
+          "section_id": "BP.9.2",
+          "note": "Pricing Assumptions is the right home for recording that the $12k/institution figure is an unvalidated assumption, and its prohibited_claims explicitly bar validation claims.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.2.7",
+          "title": "Pricing Evidence Requirements",
+          "section_id": "BP.9.2",
+          "note": "Pricing Evidence Requirements documents what evidence is needed before a pricing figure can be considered validated \u2014 filing here frames the gap rather than the assumption itself.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.2.8",
+          "title": "Prohibited Pricing Inferences",
+          "section_id": "BP.9.2",
+          "note": "Prohibited Pricing Inferences could record that treating $12k as validated is a prohibited inference, but that is a governance rule, not where the raw fact lives.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.5.5",
+          "title": "Financial Assumptions",
+          "section_id": "BP.9.5",
+          "note": "Financial Assumptions could hold this if $12k feeds directly into financial modelling, but it is more precisely a pricing assumption than a financial-model assumption.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.2",
+          "best_leaf_id": "BP.9.2.8",
+          "best_leaf_similarity": 0.2774,
+          "leaves_in_induced_window": 5
+        },
+        {
+          "section_id": "BP.5.2",
+          "best_leaf_id": "BP.5.2.6",
+          "best_leaf_similarity": 0.276,
+          "leaves_in_induced_window": 2
+        },
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.2739,
+          "leaves_in_induced_window": 8
+        }
+      ],
+      "section_margin": 0.0014,
+      "proposal_reason": "The fact asserts that a specific per-institution price figure ($12,000) has not been validated \u2014 this is a statement about the validation status of a pricing assumption.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "EpistemicOS evaluates manuscript claims.",
+      "index": 8,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "EpistemicOS evaluates manuscript claims.",
+      "start_char": 260,
+      "end_char": 300,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states exactly this.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.1.1.2",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.1.1.2",
+          "title": "Unit of Analysis",
+          "section_id": "BP.1.1",
+          "note": "This node is explicitly for stating that the primary unit of analysis is the atomic manuscript claim \u2014 filing here defines what EpistemicOS evaluates.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.1.1.3",
+          "title": "Core Diagnostic Function",
+          "section_id": "BP.1.1",
+          "note": "If the fact is read as describing the core functional role (evaluating = diagnosing claim-level weaknesses), this node covers that functional framing.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.1.1.1",
+          "title": "Product Identity",
+          "section_id": "BP.1.1",
+          "note": "The fact could contribute to a one-sentence product identity definition, but only if it is part of the broader canonical product statement rather than a unit-of-analysis precision.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.1.8.3",
+          "title": "Claim Extraction and Classification Architecture",
+          "section_id": "BP.1.8",
+          "note": "If 'evaluates manuscript claims' refers to the claim extraction and classification mechanism specifically, this technical architecture node is the right home.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.1.1",
+          "best_leaf_id": "BP.1.1.1",
+          "best_leaf_similarity": 0.4975,
+          "leaves_in_induced_window": 4
+        },
+        {
+          "section_id": "BP.1.8",
+          "best_leaf_id": "BP.1.8.2",
+          "best_leaf_similarity": 0.4607,
+          "leaves_in_induced_window": 7
+        },
+        {
+          "section_id": "BP.8.3",
+          "best_leaf_id": "BP.8.3.1",
+          "best_leaf_similarity": 0.3931,
+          "leaves_in_induced_window": 2
+        }
+      ],
+      "section_margin": 0.0368,
+      "proposal_reason": "The fact asserts that EpistemicOS evaluates manuscript claims \u2014 this is a statement about the unit of analysis (claims) being the thing the system operates on, which is the core definition of what BP.1.1.2 exists to capture.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "EpistemicOS evaluates manuscript claims before external review.",
+      "index": 9,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "This happens before external review.",
+      "start_char": 301,
+      "end_char": 337,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'This happens before external review', referring to EpistemicOS evaluating manuscript claims.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.1.1.1",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.1.1.1",
+          "title": "Product Identity",
+          "section_id": "BP.1.1",
+          "note": "This is the core product identity node \u2014 'pre-submission' maps directly to 'before external review' and this fact contributes to the one-sentence definition of EpistemicOS.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.1.1.2",
+          "title": "Unit of Analysis",
+          "section_id": "BP.1.1",
+          "note": "If the emphasis is on 'manuscript claims' as the unit being evaluated, this node defines exactly that \u2014 claims as the primary unit of analysis.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.1.1.3",
+          "title": "Core Diagnostic Function",
+          "section_id": "BP.1.1",
+          "note": "If the emphasis is on what EpistemicOS *does* (evaluates), this node covers the core diagnostic function, though it requires the output to focus on making weaknesses visible rather than the timing.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.1.1.9",
+          "title": "Diagnostic Capability Map",
+          "section_id": "BP.1.1",
+          "note": "The capability map node captures the full scope of what the system evaluates and could incorporate the pre-submission timing constraint, but it is more granular than this high-level fact.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.1.1",
+          "best_leaf_id": "BP.1.1.1",
+          "best_leaf_similarity": 0.495,
+          "leaves_in_induced_window": 4
+        },
+        {
+          "section_id": "BP.1.8",
+          "best_leaf_id": "BP.1.8.4",
+          "best_leaf_similarity": 0.4174,
+          "leaves_in_induced_window": 7
+        },
+        {
+          "section_id": "BP.8.3",
+          "best_leaf_id": "BP.8.3.1",
+          "best_leaf_similarity": 0.3835,
+          "leaves_in_induced_window": 2
+        }
+      ],
+      "section_margin": 0.0776,
+      "proposal_reason": "The fact asserts that EpistemicOS evaluates manuscript claims before external review \u2014 this is a timing/scope statement about when the system operates (pre-submission, before external review) combined with what it operates on (manuscript claims), which together define the product's identity.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "Business schools are the assumed primary buyer.",
+      "index": 10,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "Business schools are the assumed primary buyer.",
+      "start_char": 339,
+      "end_char": 386,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states exactly this.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.5.3.1",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.5.3.1",
+          "title": "Economic Buyer Identification",
+          "section_id": "BP.5.3",
+          "note": "This node is built exactly for identifying the economic buyer actor type and institution type, which is what this fact states.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.5.3.5",
+          "title": "Funding Source Assumptions",
+          "section_id": "BP.5.3",
+          "note": "If the emphasis is on 'assumed' and the fact is being filed as an unvalidated hypothesis rather than an identification, this funding-source assumption register is the alternative home.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.5.2.1",
+          "title": "Buying Centre Composition",
+          "section_id": "BP.5.2",
+          "note": "Business schools as buyer also partially defines buying-centre composition at the institution-type level, but this node focuses on roles within the buying process rather than who the buyer is.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.6.6.3",
+          "title": "Buyer Adoption Sequence",
+          "section_id": "BP.6.6",
+          "note": "If the fact is being used to anchor the buyer adoption sequence, business schools as primary buyer defines the first actor in that sequence \u2014 but this node requires sequencing logic, not just identification.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.5.3",
+          "best_leaf_id": "BP.5.3.1",
+          "best_leaf_similarity": 0.3621,
+          "leaves_in_induced_window": 4
+        },
+        {
+          "section_id": "BP.6.6",
+          "best_leaf_id": "BP.6.6.3",
+          "best_leaf_similarity": 0.3067,
+          "leaves_in_induced_window": 7
+        },
+        {
+          "section_id": "BP.5.2",
+          "best_leaf_id": "BP.5.2.1",
+          "best_leaf_similarity": 0.3049,
+          "leaves_in_induced_window": 8
+        }
+      ],
+      "section_margin": 0.0554,
+      "proposal_reason": "The fact asserts that business schools are the assumed primary buyer \u2014 an identification of the economic buyer type, labelled implicitly as an assumption rather than validated.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "Business schools allocate budget through the research dean.",
+      "index": 11,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "They allocate budget through the research dean.",
+      "start_char": 387,
+      "end_char": 434,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'They allocate budget through the research dean', with 'they' referring to business schools.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.5.3.2",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.5.3.2",
+          "title": "Budget Ownership",
+          "section_id": "BP.5.3",
+          "note": "This node is exactly for defining which role owns the relevant budget line by institution type \u2014 the research dean at business schools is precisely that budget ownership statement.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.5.3.1",
+          "title": "Economic Buyer Identification",
+          "section_id": "BP.5.3",
+          "note": "If the research dean is also the actor who can authorise expenditure (not just own the budget line), this node captures that economic buyer identification \u2014 choose this if the dean has direct purchase authority, BP.5.3.2 if they merely control allocation.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.5.3.4",
+          "title": "Budget Approval Logic",
+          "section_id": "BP.5.3",
+          "note": "If the point is that budget flows *through* the dean as an approval stage rather than that the dean owns the line, this approval-logic map node is the better fit.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.5.3.5",
+          "title": "Funding Source Assumptions",
+          "section_id": "BP.5.3",
+          "note": "Only if this is an unvalidated assumption about funding source rather than a confirmed structural fact about how business schools operate.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.5.3",
+          "best_leaf_id": "BP.5.3.2",
+          "best_leaf_similarity": 0.2555,
+          "leaves_in_induced_window": 9
+        },
+        {
+          "section_id": "BP.7.4",
+          "best_leaf_id": "BP.7.4.11",
+          "best_leaf_similarity": 0.2251,
+          "leaves_in_induced_window": 2
+        },
+        {
+          "section_id": "BP.5.5",
+          "best_leaf_id": "BP.5.5.2",
+          "best_leaf_similarity": 0.2093,
+          "leaves_in_induced_window": 7
+        }
+      ],
+      "section_margin": 0.0304,
+      "proposal_reason": "The fact asserts that in business schools, budget allocation is channelled through the research dean \u2014 identifying which role/function owns or controls the budget line for this institution type.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The faculty tier is twenty thousand.",
+      "index": 12,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "The faculty tier is twenty thousand.",
+      "start_char": 436,
+      "end_char": 472,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states exactly 'The faculty tier is twenty thousand'.",
+      "degraded_target": true,
+      "degraded_reason": "null_required_output",
+      "proposed_node_id": "BP.9.2.10",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.2.10",
+          "title": "Package Tier Architecture",
+          "section_id": "BP.9.2",
+          "note": "This node defines the commercial package tier architecture \u2014 a named tier with a price point belongs here.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.2.2",
+          "title": "Pricing Structure",
+          "section_id": "BP.9.2",
+          "note": "Pricing Structure governs how price levels are set; a specific tier price is part of that structure.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.2.1",
+          "title": "Pricing Model Definition",
+          "section_id": "BP.9.2",
+          "note": "Pricing Model Definition could house this if the faculty tier is a foundational model element rather than a structural detail.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.2.3",
+          "title": "Pricing Assumptions",
+          "section_id": "BP.9.2",
+          "note": "Pricing Assumptions could hold this if $20,000 is treated as an assumed price point rather than a confirmed tier specification.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 5,
+          "node_id": "BP.9.2.12",
+          "title": "Pricing Metric Architecture",
+          "section_id": "BP.9.2",
+          "note": "Pricing Metric Architecture covers seat- or department-based models, relevant only if 'faculty' implies a seat- or role-based metric.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.2",
+          "best_leaf_id": "BP.9.2.10",
+          "best_leaf_similarity": 0.2829,
+          "leaves_in_induced_window": 4
+        },
+        {
+          "section_id": "BP.3.2",
+          "best_leaf_id": "BP.3.2.7",
+          "best_leaf_similarity": 0.2692,
+          "leaves_in_induced_window": 9
+        },
+        {
+          "section_id": "BP.1.7",
+          "best_leaf_id": "BP.1.7.2",
+          "best_leaf_similarity": 0.2471,
+          "leaves_in_induced_window": 3
+        }
+      ],
+      "section_margin": 0.0137,
+      "proposal_reason": "The fact asserts a specific price point ($20,000) for a 'faculty tier', which is a named pricing tier \u2014 making it a concrete tier-level price specification.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "Deans approve most software purchases.",
+      "index": 13,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "Deans approve most software purchases.",
+      "start_char": 473,
+      "end_char": 511,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states exactly this.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.5.3.4",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.5.3.4",
+          "title": "Budget Approval Logic",
+          "section_id": "BP.5.3",
+          "note": "This node maps the approval logic including who the approval actors are at each decision stage \u2014 deans approving software purchases is exactly this kind of approval-actor claim.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.5.3.1",
+          "title": "Economic Buyer Identification",
+          "section_id": "BP.5.3",
+          "note": "If deans are the ones who control or authorise the budget for software, this identifies the economic buyer \u2014 the distinction from BP.5.3.4 is whether the focus is on the actor's authority role vs. the approval process stage.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.5.3.3",
+          "title": "Spending Authority",
+          "section_id": "BP.5.3",
+          "note": "Deans approving 'most' purchases implies a spending authority threshold at which dean approval is required \u2014 file here if the fact is specifically about the dean's approval limit rather than the process map.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.5.3.2",
+          "title": "Budget Ownership",
+          "section_id": "BP.5.3",
+          "note": "If the fact is interpreted as deans owning the relevant budget line, this node captures that \u2014 but BP.5.3.4 is a better fit since the fact emphasises the approval act, not budget ownership per se.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.5.3",
+          "best_leaf_id": "BP.5.3.4",
+          "best_leaf_similarity": 0.2727,
+          "leaves_in_induced_window": 4
+        },
+        {
+          "section_id": "BP.3.6",
+          "best_leaf_id": "BP.3.6.8",
+          "best_leaf_similarity": 0.2683,
+          "leaves_in_induced_window": 3
+        },
+        {
+          "section_id": "BP.5.6",
+          "best_leaf_id": "BP.5.6.8",
+          "best_leaf_similarity": 0.2681,
+          "leaves_in_induced_window": 3
+        }
+      ],
+      "section_margin": 0.0044,
+      "proposal_reason": "The fact asserts that deans are the approval actors for software purchases \u2014 this is a claim about who authorises expenditure and the approval logic governing spending decisions within the institution.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "Anything above the faculty tier of twenty thousand needs the finance committee.",
+      "index": 14,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "Anything above that needs the finance committee.",
+      "start_char": 512,
+      "end_char": 560,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source says 'Anything above that needs the finance committee', where 'that' refers to twenty thousand, consistent with the faculty tier.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.9.6.1",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.6.1",
+          "title": "Financial Gate Criteria",
+          "section_id": "BP.9.6",
+          "note": "Financial Gate Criteria is the closest fit \u2014 this threshold IS a financial gate criterion specifying when escalation to the finance committee is required.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.6.8",
+          "title": "Controller Review and Decision Logic",
+          "section_id": "BP.9.6",
+          "note": "Controller Review and Decision Logic could hold this if the architecture treats the finance-committee trigger as part of the controller's decision routing logic.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.6.6",
+          "title": "Financial Decision Dependencies",
+          "section_id": "BP.9.6",
+          "note": "Financial Decision Dependencies could capture this if the $20k threshold is framed as a dependency that gates downstream financial decisions.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.6.4",
+          "title": "Financial Blockers",
+          "section_id": "BP.9.6",
+          "note": "Financial Blockers is a weaker fit \u2014 the threshold could be filed here only if exceeding it is treated as a blocker to spending approval.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.6",
+          "best_leaf_id": "BP.9.6.10",
+          "best_leaf_similarity": 0.3197,
+          "leaves_in_induced_window": 12
+        },
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.7",
+          "best_leaf_similarity": 0.2533,
+          "leaves_in_induced_window": 7
+        },
+        {
+          "section_id": "BP.5.5",
+          "best_leaf_id": "BP.5.5.7",
+          "best_leaf_similarity": 0.2367,
+          "leaves_in_induced_window": 6
+        }
+      ],
+      "section_margin": 0.0664,
+      "proposal_reason": "The fact asserts a spending-authority rule: expenditures above the faculty tier of $20,000 require finance committee approval \u2014 this is an internal financial governance / approval-authority threshold.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The speaker would never pay twelve thousand for the product.",
+      "index": 15,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "I would never pay twelve thousand for this.",
+      "start_char": 562,
+      "end_char": 605,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'I would never pay twelve thousand for this', and 'the speaker' is the required rendering of 'I'.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.9.1.4",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.1.4",
+          "title": "Value Capture Logic",
+          "section_id": "BP.9.1",
+          "note": "This is a WTP boundary observation directly relevant to the capture model's 'buyer will pay' dimension \u2014 though the node prohibits treating it as validated buyer acceptance.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.1.5",
+          "title": "Business Model Assumptions",
+          "section_id": "BP.9.1",
+          "note": "If the $12k price is a current or assumed price point, this fact challenges a business model assumption and belongs in the assumption register as a falsification signal.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.1.8",
+          "title": "Prohibited Business Model Inferences",
+          "section_id": "BP.9.1",
+          "note": "This fact could anchor a prohibited-inference entry: WTP signals from individual speakers must not be generalised to all buyers without separate evidence.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.1",
+          "best_leaf_id": "BP.9.1.8",
+          "best_leaf_similarity": 0.1568,
+          "leaves_in_induced_window": 1
+        },
+        {
+          "section_id": "BP.4.2",
+          "best_leaf_id": "BP.4.2.8",
+          "best_leaf_similarity": 0.1558,
+          "leaves_in_induced_window": 1
+        },
+        {
+          "section_id": "BP.5.2",
+          "best_leaf_id": "BP.5.2.8",
+          "best_leaf_similarity": 0.1456,
+          "leaves_in_induced_window": 1
+        }
+      ],
+      "section_margin": 0.001,
+      "proposal_reason": "The fact asserts a specific price point ($12,000) that a speaker would refuse to pay, which is a willingness-to-pay (WTP) signal \u2014 a data point about buyer price sensitivity and capture acceptability relevant to pricing and value capture architecture.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The speaker's whole training budget is eight thousand.",
+      "index": 16,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "My whole training budget is eight thousand.",
+      "start_char": 606,
+      "end_char": 649,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'My whole training budget is eight thousand', and 'the speaker' is the required rendering of 'my'.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.5.3.6",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.5.3.6",
+          "title": "Budget Constraints",
+          "section_id": "BP.5.3",
+          "note": "A fixed spending ceiling of $8 000 is a budget constraint that may limit or delay purchasing \u2014 exactly what this node collects.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.5.3.3",
+          "title": "Spending Authority",
+          "section_id": "BP.5.3",
+          "note": "If the speaker is the economic buyer, $8 000 defines their spending authority threshold \u2014 file here if the focus is on their approval limit rather than a constraint.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.5.3.5",
+          "title": "Funding Source Assumptions",
+          "section_id": "BP.5.3",
+          "note": "If $8 000 is an assumed available pot rather than a confirmed limit, it belongs here as an unvalidated funding-source assumption.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.5.3.2",
+          "title": "Budget Ownership",
+          "section_id": "BP.5.3",
+          "note": "Use this node if the $8 000 figure is being used to identify which budget line (e.g. a training budget line) owns spend for this product.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.5.3",
+          "best_leaf_id": "BP.5.3.3",
+          "best_leaf_similarity": 0.1971,
+          "leaves_in_induced_window": 9
+        },
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.1693,
+          "leaves_in_induced_window": 9
+        },
+        {
+          "section_id": "BP.11",
+          "best_leaf_id": "BP.11.7",
+          "best_leaf_similarity": 0.1611,
+          "leaves_in_induced_window": 1
+        }
+      ],
+      "section_margin": 0.0278,
+      "proposal_reason": "The fact asserts a specific dollar ceiling on a buyer's training budget \u2014 a constraint on how much a prospective customer can spend, which is buyer-side budget information.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The company is leaning toward per-institution pricing.",
+      "index": 17,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "We are leaning toward per-institution pricing",
+      "start_char": 651,
+      "end_char": 696,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'We are leaning toward per-institution pricing', and 'the company' is the required rendering of 'we'.",
+      "degraded_target": true,
+      "degraded_reason": "null_required_output",
+      "proposed_node_id": "BP.9.2.12",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.2.12",
+          "title": "Pricing Metric Architecture",
+          "section_id": "BP.9.2",
+          "note": "This node explicitly covers seat-, manuscript-, and department-based pricing models \u2014 per-institution is exactly the kind of pricing metric architecture it defines.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.2.1",
+          "title": "Pricing Model Definition",
+          "section_id": "BP.9.2",
+          "note": "The top-level Pricing Model Definition node is where the chosen pricing basis (per-institution) would be formally specified as the governing model.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.2.2",
+          "title": "Pricing Structure",
+          "section_id": "BP.9.2",
+          "note": "Pricing Structure covers how pricing is organised; per-institution vs. per-seat vs. per-use is a structural choice that belongs here if BP.9.2.12 is too granular.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.2.3",
+          "title": "Pricing Assumptions",
+          "section_id": "BP.9.2",
+          "note": "Pricing Assumptions is the right home if the per-institution lean is treated as an unconfirmed working assumption rather than a committed model choice.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 5,
+          "node_id": "BP.9.5.1",
+          "title": "Revenue Model",
+          "section_id": "BP.9.5",
+          "note": "Revenue Model could absorb this if the broader revenue architecture (not just pricing metric) is what's being defined, but BP.9.2 nodes are more precise.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.3738,
+          "leaves_in_induced_window": 6
+        },
+        {
+          "section_id": "BP.7.5",
+          "best_leaf_id": "BP.7.5.3",
+          "best_leaf_similarity": 0.3062,
+          "leaves_in_induced_window": 2
+        },
+        {
+          "section_id": "BP.9.2",
+          "best_leaf_id": "BP.9.2.12",
+          "best_leaf_similarity": 0.2826,
+          "leaves_in_induced_window": 12
+        }
+      ],
+      "section_margin": 0.0676,
+      "proposal_reason": "The fact asserts a preferred pricing unit/metric \u2014 per-institution \u2014 which is a founder hypothesis about how pricing will be structured (the charge basis), not yet validated.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "Nothing is signed regarding per-institution pricing.",
+      "index": 18,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "though nothing is signed.",
+      "start_char": 698,
+      "end_char": 723,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'though nothing is signed'.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.9.2.5",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.2.5",
+          "title": "Discount and Negotiation Logic",
+          "section_id": "BP.9.2",
+          "note": "This is the best fit: unsigned per-institution pricing is a state of discount/negotiation logic \u2014 no deal has been concluded, which belongs in the governance of how negotiation and pricing commitments are (or aren't yet) formalized.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.2.3",
+          "title": "Pricing Assumptions",
+          "section_id": "BP.9.2",
+          "note": "Per-institution pricing as an assumption rather than a signed reality belongs here if the plan treats it as a working pricing hypothesis rather than a contracted outcome.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.2.2",
+          "title": "Pricing Structure",
+          "section_id": "BP.9.2",
+          "note": "If per-institution pricing is part of the pricing structure (e.g., a tier or variant), the absence of signed agreements is a constraint on that structure's current status.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.7.2.11",
+          "title": "DPA Readiness",
+          "section_id": "BP.7.2",
+          "note": "Only relevant if the unsigned status is being recorded as a DPA/contractual readiness gap rather than a pricing fact \u2014 a weaker fit.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.2",
+          "best_leaf_id": "BP.9.2.8",
+          "best_leaf_similarity": 0.2477,
+          "leaves_in_induced_window": 10
+        },
+        {
+          "section_id": "BP.7.2",
+          "best_leaf_id": "BP.7.2.3",
+          "best_leaf_similarity": 0.1741,
+          "leaves_in_induced_window": 4
+        },
+        {
+          "section_id": "BP.4.2",
+          "best_leaf_id": "BP.4.2.8",
+          "best_leaf_similarity": 0.163,
+          "leaves_in_induced_window": 2
+        }
+      ],
+      "section_margin": 0.0736,
+      "proposal_reason": "The fact asserts that no per-institution pricing agreement has been signed \u2014 i.e., the commercial pricing negotiation/deal status is unsigned, which is an absence-of-signed-contracts condition relevant to how per-institution pricing is governed or negotiated.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The core problem is whether claims withstand epistemic scrutiny, not writing quality.",
+      "index": 19,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "The core problem is not writing quality. The core problem is whether claims withstand epistemic scrutiny",
+      "start_char": 725,
+      "end_char": 829,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states both sentences in this order, supporting the combined claim.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.1.2.1",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.1.2.1",
+          "title": "Writing Assistance Exclusion",
+          "section_id": "BP.1.2",
+          "note": "This is exactly the node for stating that EpistemicOS targets claim-level epistemic scrutiny, not writing quality \u2014 the required output is an explicit writing-assistance exclusion.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.2.1.1",
+          "title": "Problem Statement",
+          "section_id": "BP.2.1",
+          "note": "If the fact is being filed as part of framing the problem (what the product addresses vs. what it ignores), it could anchor the one-sentence problem statement \u2014 but only as a bounded candidate claim, not a validated one.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.1.2.9",
+          "title": "Non-Scope Acceptance Check",
+          "section_id": "BP.1.2",
+          "note": "If the writing-quality exclusion is already stated elsewhere and this fact is confirming the boundary is coherent, it belongs in the non-scope acceptance checklist \u2014 but this is a downstream confirmation node, not a primary filing target.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.1.1.7",
+          "best_leaf_id": "BP.1.1.7.1",
+          "best_leaf_similarity": 0.2998,
+          "leaves_in_induced_window": 7
+        },
+        {
+          "section_id": "BP.1.2",
+          "best_leaf_id": "BP.1.2.4",
+          "best_leaf_similarity": 0.2751,
+          "leaves_in_induced_window": 7
+        },
+        {
+          "section_id": "BP.2.1",
+          "best_leaf_id": "BP.2.1.7",
+          "best_leaf_similarity": 0.2613,
+          "leaves_in_induced_window": 6
+        }
+      ],
+      "section_margin": 0.0247,
+      "proposal_reason": "The fact asserts that the core evaluative standard for EpistemicOS is epistemic soundness of claims, not prose or writing quality \u2014 this is a boundary/exclusion statement distinguishing the product's diagnostic purpose from writing-improvement tools.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "EpistemicOS's unit of analysis is the atomic manuscript claim, not the manuscript as a general text object.",
+      "index": 20,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "Its unit of analysis is the atomic manuscript claim, not the manuscript as a general text object.",
+      "start_char": 831,
+      "end_char": 928,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states exactly this.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.1.1.2",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.1.1.2",
+          "title": "Unit of Analysis",
+          "section_id": "BP.1.1",
+          "note": "This node's required output is exactly this statement \u2014 the atomic manuscript claim as primary unit of analysis, distinguished from the manuscript as a general text object.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.1.8.3",
+          "title": "Claim Extraction and Classification Architecture",
+          "section_id": "BP.1.8",
+          "note": "Claim extraction architecture depends on and references the claim as the unit of analysis, but this node is about the extraction method, not the definition itself.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.1.1.1",
+          "title": "Product Identity",
+          "section_id": "BP.1.1",
+          "note": "Product identity could incorporate this as a definitional element, but its required output is a one-sentence product definition, not a unit-of-analysis statement.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.1.1",
+          "best_leaf_id": "BP.1.1.2",
+          "best_leaf_similarity": 0.669,
+          "leaves_in_induced_window": 5
+        },
+        {
+          "section_id": "BP.1.8",
+          "best_leaf_id": "BP.1.8.2",
+          "best_leaf_similarity": 0.3819,
+          "leaves_in_induced_window": 8
+        },
+        {
+          "section_id": "BP.8.3",
+          "best_leaf_id": "BP.8.3.1",
+          "best_leaf_similarity": 0.3354,
+          "leaves_in_induced_window": 2
+        }
+      ],
+      "section_margin": 0.2871,
+      "proposal_reason": "The fact asserts that EpistemicOS's unit of analysis is the atomic manuscript claim, not the manuscript as a general text object \u2014 this is precisely an internal product-architecture boundary definition.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "All figures below are per institution per year.",
+      "index": 21,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "All figures below are per institution per year.",
+      "start_char": 930,
+      "end_char": 977,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states exactly 'All figures below are per institution per year'.",
+      "degraded_target": true,
+      "degraded_reason": "placeholder_purpose",
+      "proposed_node_id": "BP.9.5.5",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.5.5",
+          "title": "Financial Assumptions",
+          "section_id": "BP.9.5",
+          "note": "This is a financial assumption (the per-institution-per-year denominator) that belongs in the assumptions register alongside other modelling scope definitions.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.5.3",
+          "title": "Unit Economics",
+          "section_id": "BP.9.5",
+          "note": "Unit economics are inherently expressed per unit (here: per institution per year), so this qualifier could anchor the unit-economics section.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.5.4",
+          "title": "Financial Model Structure",
+          "section_id": "BP.9.5",
+          "note": "Financial model structure governs how the model is framed, including the temporal and entity-level granularity of all figures.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.5.10",
+          "title": "Gross Margin Assumptions",
+          "section_id": "BP.9.5",
+          "note": "If this note accompanies gross-margin figures, it belongs here as a scoping assumption for those specific numbers.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 5,
+          "node_id": "BP.9.5.2",
+          "title": "Cost Structure",
+          "section_id": "BP.9.5",
+          "note": "If the figures in question are cost items, this scope qualifier belongs in the cost structure section alongside those figures.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.3317,
+          "leaves_in_induced_window": 11
+        },
+        {
+          "section_id": "BP.7.5",
+          "best_leaf_id": "BP.7.5.3",
+          "best_leaf_similarity": 0.2424,
+          "leaves_in_induced_window": 8
+        },
+        {
+          "section_id": "BP.6.5",
+          "best_leaf_id": "BP.6.5.4",
+          "best_leaf_similarity": 0.2067,
+          "leaves_in_induced_window": 8
+        }
+      ],
+      "section_margin": 0.0893,
+      "proposal_reason": "The fact asserts a unit-of-measure scope qualifier \u2014 'per institution per year' \u2014 which is a financial modelling assumption that defines how figures are denominated in the financial model.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "Setup is two thousand per institution per year.",
+      "index": 22,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "Setup is two thousand",
+      "start_char": 978,
+      "end_char": 999,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'Setup is two thousand' and earlier establishes all figures are per institution per year.",
+      "degraded_target": true,
+      "degraded_reason": "placeholder_purpose",
+      "proposed_node_id": "BP.9.5.1",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.5.1",
+          "title": "Revenue Model",
+          "section_id": "BP.9.5",
+          "note": "Setup fee is a direct revenue model input \u2014 this is the most natural home for a per-institution annual pricing figure.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.5.3",
+          "title": "Unit Economics",
+          "section_id": "BP.9.5",
+          "note": "If setup cost is being modelled as a per-unit revenue or cost input, unit economics is the right level of granularity.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.5.5",
+          "title": "Financial Assumptions",
+          "section_id": "BP.9.5",
+          "note": "A $2k/institution/year figure is precisely the kind of number filed as a financial assumption underlying the model.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.5.2",
+          "title": "Cost Structure",
+          "section_id": "BP.9.5",
+          "note": "Only relevant if setup is treated as a cost line rather than a revenue line \u2014 less likely given the phrasing.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.3113,
+          "leaves_in_induced_window": 7
+        },
+        {
+          "section_id": "BP.7.6",
+          "best_leaf_id": "BP.7.6.3",
+          "best_leaf_similarity": 0.2835,
+          "leaves_in_induced_window": 7
+        },
+        {
+          "section_id": "BP.7.5",
+          "best_leaf_id": "BP.7.5.3",
+          "best_leaf_similarity": 0.2832,
+          "leaves_in_induced_window": 3
+        }
+      ],
+      "section_margin": 0.0278,
+      "proposal_reason": "The fact asserts a specific pricing figure \u2014 $2,000 per institution per year \u2014 which is a setup/onboarding fee, a component of the revenue model or pricing structure.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "Support is three thousand per institution per year.",
+      "index": 23,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "support is three thousand",
+      "start_char": 1001,
+      "end_char": 1026,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'support is three thousand' and earlier establishes all figures are per institution per year.",
+      "degraded_target": true,
+      "degraded_reason": "null_required_output",
+      "proposed_node_id": "BP.9.5.12",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.5.12",
+          "title": "Support Cost per Institution",
+          "section_id": "BP.9.5",
+          "note": "This node is explicitly for support cost per institution \u2014 the fact is its core content.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.5.2",
+          "title": "Cost Structure",
+          "section_id": "BP.9.5",
+          "note": "If BP.9.5.12 rolls up into the broader cost structure, this is the parent node where the figure would also appear.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.5.5",
+          "title": "Financial Assumptions",
+          "section_id": "BP.9.5",
+          "note": "The $3k/institution/year figure is a financial assumption; this node governs the set of such assumptions.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.5.3",
+          "title": "Unit Economics",
+          "section_id": "BP.9.5",
+          "note": "Support cost per unit feeds unit economics directly, so this node is a plausible secondary home.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.4283,
+          "leaves_in_induced_window": 9
+        },
+        {
+          "section_id": "BP.7.5",
+          "best_leaf_id": "BP.7.5.3",
+          "best_leaf_similarity": 0.2582,
+          "leaves_in_induced_window": 4
+        },
+        {
+          "section_id": "BP.7.6",
+          "best_leaf_id": "BP.7.6.3",
+          "best_leaf_similarity": 0.2396,
+          "leaves_in_induced_window": 2
+        }
+      ],
+      "section_margin": 0.1701,
+      "proposal_reason": "The fact asserts a specific dollar figure ($3,000) for the cost of supporting one institution per year, which is a cost assumption input to financial modelling.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "Training is one thousand per institution per year.",
+      "index": 24,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "training is one thousand.",
+      "start_char": 1028,
+      "end_char": 1053,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source states 'training is one thousand' and earlier establishes all figures are per institution per year.",
+      "degraded_target": true,
+      "degraded_reason": "placeholder_purpose",
+      "proposed_node_id": "BP.9.5.1",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.5.1",
+          "title": "Revenue Model",
+          "section_id": "BP.9.5",
+          "note": "Training fee of $1k/institution/year is a direct component of the revenue model pricing structure.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.5.5",
+          "title": "Financial Assumptions",
+          "section_id": "BP.9.5",
+          "note": "If this figure is an assumed price rather than a confirmed one, it belongs here as a financial assumption underlying the model.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.5.3",
+          "title": "Unit Economics",
+          "section_id": "BP.9.5",
+          "note": "Per-institution annual training revenue feeds directly into unit economics calculations.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.5.2",
+          "title": "Cost Structure",
+          "section_id": "BP.9.5",
+          "note": "Only fits here if training is treated as a cost line rather than a revenue line \u2014 less likely given the phrasing.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.7.5",
+          "best_leaf_id": "BP.7.5.3",
+          "best_leaf_similarity": 0.2751,
+          "leaves_in_induced_window": 5
+        },
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.12",
+          "best_leaf_similarity": 0.2667,
+          "leaves_in_induced_window": 4
+        },
+        {
+          "section_id": "BP.7.6",
+          "best_leaf_id": "BP.7.6.3",
+          "best_leaf_similarity": 0.2304,
+          "leaves_in_induced_window": 3
+        }
+      ],
+      "section_margin": 0.0084,
+      "proposal_reason": "The fact asserts a specific price point \u2014 $1,000 per institution per year \u2014 which is a revenue or pricing assumption, not a compliance, deployment, or cost-structure item.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The company's Spanish customers pay in euros.",
+      "index": 25,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "Our Spanish customers pay in euros.",
+      "start_char": 1055,
+      "end_char": 1090,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source explicitly states 'Our Spanish customers pay in euros,' directly supporting this claim.",
+      "degraded_target": true,
+      "degraded_reason": "placeholder_purpose",
+      "proposed_node_id": "BP.9.5.5",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.5.5",
+          "title": "Financial Assumptions",
+          "section_id": "BP.9.5",
+          "note": "Currency denomination by customer geography is a financial assumption that belongs in the assumptions register governing the financial model.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.9.2.3",
+          "title": "Pricing Assumptions",
+          "section_id": "BP.9.2",
+          "note": "If the euro denomination affects how prices are quoted or invoiced to Spanish customers, it fits as a pricing assumption.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.9.5.4",
+          "title": "Financial Model Structure",
+          "section_id": "BP.9.5",
+          "note": "Euro billing for a customer segment is a structural input to the financial model \u2014 fits here if the model has a multi-currency architecture section.",
+          "degraded": true,
+          "degraded_reason": "placeholder_purpose"
+        },
+        {
+          "rank": 4,
+          "node_id": "BP.9.2.1",
+          "title": "Pricing Model Definition",
+          "section_id": "BP.9.2",
+          "note": "If currency is treated as part of the pricing model definition (e.g. invoice currency per region), this node could house it.",
+          "degraded": false,
+          "degraded_reason": null
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.5",
+          "best_leaf_id": "BP.9.5.14",
+          "best_leaf_similarity": 0.162,
+          "leaves_in_induced_window": 6
+        },
+        {
+          "section_id": "BP.9.6",
+          "best_leaf_id": "BP.9.6.14",
+          "best_leaf_similarity": 0.1351,
+          "leaves_in_induced_window": 6
+        },
+        {
+          "section_id": "BP.9.2",
+          "best_leaf_id": "BP.9.2.13",
+          "best_leaf_similarity": 0.1152,
+          "leaves_in_induced_window": 10
+        }
+      ],
+      "section_margin": 0.0269,
+      "proposal_reason": "The fact asserts that Spanish customers pay in euros \u2014 this is a currency denomination assumption for a specific customer segment, relevant to financial modelling inputs such as pricing, revenue, and FX assumptions.",
+      "checks": [
+        "check_node_degraded"
+      ],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    },
+    {
+      "fact": "The US pilot is priced in dollars.",
+      "index": 26,
+      "status": "awaiting_confirmation",
+      "source_document": "pasted text",
+      "source_quote": "The US pilot is priced in dollars.",
+      "start_char": 1091,
+      "end_char": 1125,
+      "needs_review": false,
+      "verdict": "faithful",
+      "review_reason": "The source explicitly states 'The US pilot is priced in dollars,' directly supporting this claim.",
+      "degraded_target": false,
+      "degraded_reason": null,
+      "proposed_node_id": "BP.9.6.16",
+      "shortlist": [
+        {
+          "rank": 1,
+          "node_id": "BP.9.6.16",
+          "title": "Pilot Financing Strategy",
+          "section_id": "BP.9.6",
+          "note": "This node explicitly governs paid pilot revenue hypotheses and pilot contract value ranges \u2014 the dollar-denomination of the US pilot is a direct input to the pilot financing strategy.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 2,
+          "node_id": "BP.10.1.3",
+          "title": "Pilot Design",
+          "section_id": "BP.10.1",
+          "note": "Pilot design covers participant criteria and intervention structure; pricing currency could be filed here if treated as a pilot design parameter, but the node is not focused on financial terms.",
+          "degraded": false,
+          "degraded_reason": null
+        },
+        {
+          "rank": 3,
+          "node_id": "BP.10.2.13",
+          "title": "Pilot Conversion Criteria",
+          "section_id": "BP.10.2",
+          "note": "Pilot conversion criteria could touch on pricing conditions, but this node's definition is degraded and pricing denomination is not its core focus.",
+          "degraded": true,
+          "degraded_reason": "null_required_output"
+        }
+      ],
+      "candidate_sections": [
+        {
+          "section_id": "BP.9.6",
+          "best_leaf_id": "BP.9.6.16",
+          "best_leaf_similarity": 0.277,
+          "leaves_in_induced_window": 3
+        },
+        {
+          "section_id": "BP.10.2",
+          "best_leaf_id": "BP.10.2.10",
+          "best_leaf_similarity": 0.256,
+          "leaves_in_induced_window": 3
+        },
+        {
+          "section_id": "BP.10.1",
+          "best_leaf_id": "BP.10.1.3",
+          "best_leaf_similarity": 0.1933,
+          "leaves_in_induced_window": 4
+        }
+      ],
+      "section_margin": 0.021,
+      "proposal_reason": "The fact asserts that the US pilot's pricing denomination is USD \u2014 a pilot-specific pricing specification that belongs to the pilot financing or pricing hypothesis architecture.",
+      "checks": [],
+      "confirmed_node_id": null,
+      "confirmed_by": null,
+      "confirmed_at": null,
+      "rank_of_confirmed": null,
+      "stored_id": null
+    }
+  ],
+  "proposed": 27,
+  "no_proposal": 0,
+  "flagged_extraction": 0,
+  "flagged_degraded": 12,
+  "seconds": 169.46
+}

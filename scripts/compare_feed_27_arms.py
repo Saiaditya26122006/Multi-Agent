@@ -6,6 +6,9 @@ would the run have changed it anyway? The control arm is the current code with
 dedupe, grouping and sibling context all switched off, run on the same text, so a
 card that moves in the control moved on its own.
 
+All three arms are read from evaluation/, never from Redis: the baseline batch is
+TTL'd and would otherwise take this comparison with it when it expired.
+
     python scripts/rerun_feed_27.py --control   # writes evaluation/feed_27_control.json
     python scripts/rerun_feed_27.py             # writes evaluation/feed_27_rerun.json
     python scripts/compare_feed_27_arms.py
@@ -22,8 +25,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
 
-from services import feed_batch_store  # noqa: E402
-from scripts.rerun_feed_27 import BASELINE_RUN, match_new, node_of  # noqa: E402
+from scripts.rerun_feed_27 import load_baseline, match_new, node_of  # noqa: E402
 
 
 def load(name: str) -> list[dict[str, Any]]:
@@ -35,10 +37,7 @@ def load(name: str) -> list[dict[str, Any]]:
 
 def main() -> None:
     """Print the three-way table and the attribution summary."""
-    baseline = feed_batch_store.get_batch(BASELINE_RUN)
-    if not baseline:
-        raise SystemExit(f"baseline batch {BASELINE_RUN} not found")
-    baseline_cards = baseline["cards"]
+    baseline_cards = load_baseline()["cards"]
     control = load("feed_27_control.json")
     fixed = load("feed_27_rerun.json")
 
