@@ -126,6 +126,29 @@ INTERVIEW = (
 # so any of these in a fact means the extractor inferred an identity.
 ROLE_WORDS = ["ceo", "founder", "alex", "the sales lead", "the chief"]
 
+# --------------------------------------------------- splitting guard rails
+#
+# Both of these guard the group tagging added for group classification. Grouping
+# tells the classifier that several facts came from one list; it must never
+# become a licence to fuse them into one fact, or to let one member's units
+# leak onto another.
+
+# Distinct claims that share a subject and sit in one sentence. Grouping them is
+# correct; merging them into one fact is not — three tiers are three prices.
+OVER_MERGE = (
+    "Pricing is an annual institutional subscription. Eight thousand for a "
+    "single department, twenty thousand for a faculty, forty-five thousand "
+    "campus-wide."
+)
+
+# Two currencies in adjacent sentences. Each amount must keep its own currency;
+# a fact that says the Spanish price is in dollars, or drops the currency
+# entirely, is the failure this case exists to catch.
+CURRENCY_BLEED = (
+    "Our Spanish customers pay in euros. The US pilot is priced in dollars. "
+    "Setup is two thousand euros in Spain and three thousand dollars in the US."
+)
+
 CASES = [
     ("1. Ten words, one claim", TINY, "expect 1 fact", [], []),
     ("2. Three sentences, two distinct claims", TWO_CLAIMS, "expect 2 facts", [], []),
@@ -150,6 +173,14 @@ CASES = [
      "a customer is speaking, NOT Alex - 'I' must never become 'the CEO'. "
      "A fact like 'The CEO would never pay twelve thousand' would be backwards.",
      ["speaker", "never pay"], ROLE_WORDS),
+    ("10. NO OVER-MERGING (group tagging must not fuse a list)", OVER_MERGE,
+     "expect one fact per tier - all three amounts present as separate claims, "
+     "sharing a group label but never merged into one fact",
+     ["eight thousand", "twenty thousand", "forty-five thousand"], []),
+    ("11. NO CURRENCY BLEED", CURRENCY_BLEED,
+     "expect each amount to keep its own currency - euros with Spain, dollars "
+     "with the US, and no amount left without its currency",
+     ["euro", "dollar"], []),
 ]
 
 DANGLING = ("this ", "it ", "they ", "that change", "those ", "the new minimum")
@@ -182,7 +213,8 @@ def show(
         mark = "  !!" if f.needs_review else "    "
         print(textwrap.fill(f"{f.index + 1}. {f.fact}", 72,
                             initial_indent=mark, subsequent_indent="       "))
-        print(f"       span {span}  verdict={f.verdict}")
+        group = f" group={f.group_id}:{f.group_label!r}" if f.group_id else ""
+        print(f"       span {span}  verdict={f.verdict}{group}")
         if f.needs_review:
             print(f"       FLAGGED: {f.review_reason}")
         if f.fact.lower().startswith(DANGLING):

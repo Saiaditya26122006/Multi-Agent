@@ -51,7 +51,7 @@ import logging
 import os
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 import boto3
 import numpy as np
@@ -181,6 +181,43 @@ wrong. A node whose title repeats a phrase from the fact is NOT thereby correct.
 
 If the fact would VIOLATE a node's prohibited_claims, rank it last and say so.
 
+=== NEIGHBOURING FACTS ===
+
+You may also be given the facts extracted either side of this one. They are
+CONTEXT ONLY — you are filing the target fact, never a neighbour. Use them for
+two decisions, and nothing else.
+
+1. SUBSUMED. If everything the target fact asserts is already asserted by a
+   neighbour that says MORE, the target is a partial of that neighbour and must
+   not be filed at all. Set "subsumed_by" to that neighbour's label and return an
+   empty candidates list.
+
+     target    "EpistemicOS evaluates manuscript claims."
+     neighbour "EpistemicOS evaluates manuscript claims before external review."
+     -> subsumed: the neighbour asserts the same thing plus when it happens.
+
+   Subsumed means STRICTLY CONTAINED. Two facts that overlap but each add
+   something are both real facts — file the target normally.
+
+     "The faculty tier is twenty thousand" and "Anything above the faculty tier
+     needs the finance committee" share a subject and subsume neither way.
+
+   A neighbour that is merely more general does NOT subsume a more specific
+   target. Direction matters: the SUBSUMING fact is the one that says more.
+
+2. PRIMARY CLAIM. When the target fact merges a main assertion with a
+   subordinate or contrastive clause ("X, not Y", "X rather than Y", "X, unlike
+   Y"), rank against the MAIN assertion. The subordinate clause says what the
+   claim is not; it is not the claim.
+
+     "The core problem is whether claims withstand epistemic scrutiny, not
+      writing quality."
+     -> the claim is what the core problem IS. File it at the node whose
+        required output is the problem statement. Do NOT file it at a node about
+        writing-quality scope just because that phrase appears.
+
+   State in your reason which part you took as the main assertion.
+
 === WHAT MAKES A GOOD SHORTLIST ===
 A human will scan your top few and click one. So:
   - Rank the genuinely plausible nodes first, best first.
@@ -197,6 +234,47 @@ for this fact. Not a justification of your ranking.
 Return one JSON object, nothing else:
 
 {"reason": "<one sentence: what the fact actually asserts>",
+ "subsumed_by": "<neighbour label, or null>",
+ "candidates": [{"node_id": "<id>", "note": "<one sentence to the human>"}, ...]}
+
+Write "reason" first and let the ranking follow from it."""
+
+
+GROUP_RANK_PROMPT = """You help a human file a LIST of atomic business facts into \
+a business-plan architecture. You do NOT decide — you produce the shortlist they \
+confirm from, so your job is to RANK and ANNOTATE, never to commit.
+
+These facts were ONE list in the source document, split into atomic claims. They
+belong together: the parallel values of one pricing table, the line items of one
+cost breakdown. Your job is to choose ONE shortlist for the WHOLE list.
+
+This matters because filing the members separately is how a single table ends up
+scattered across three nodes. Whatever node the list belongs at, every member
+belongs at that same node. Do not try to separate them.
+
+You are given every member of the list and the complete candidate nodes from the
+most plausible sections. Each node carries:
+  purpose               what the node is for
+  required_output       what must eventually be written there
+  evidence_requirement  what kind of evidence that output needs
+  prohibited_claims     inferences that must NOT be made at this node
+
+=== HOW TO RANK ===
+Ask: is this LIST, as a whole, part of the REQUIRED OUTPUT of the node? Read
+required_output before you look at any title. A node that fits one member but not
+the others is the wrong node — the right one covers the whole set.
+
+If the list would VIOLATE a node's prohibited_claims, rank it last and say so.
+Return AT MOST 5 candidates, best first. If nothing fits the list, return an
+empty list.
+
+Each note is ONE short sentence to the human: what filing this list at that node
+would mean.
+
+=== OUTPUT ===
+Return one JSON object, nothing else:
+
+{"reason": "<one sentence: what this list collectively asserts>",
  "candidates": [{"node_id": "<id>", "note": "<one sentence to the human>"}, ...]}
 
 Write "reason" first and let the ranking follow from it."""
@@ -429,18 +507,46 @@ def _describe(node: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _build_judge_input(fact: str, candidate_ids: list[str], arch: Architecture) -> str:
-    """Compose the judge's user message: the fact plus every candidate node."""
+def _build_judge_input(
+    fact: str,
+    candidate_ids: list[str],
+    arch: Architecture,
+    siblings: Optional[Sequence[str]] = None,
+) -> str:
+    """Compose the judge's user message: the fact plus every candidate node.
+
+    Siblings, when given, are labelled S1..Sn and clearly marked as context. The
+    labels are what the judge returns in ``subsumed_by``, so they must be stable
+    within one call.
+    """
     blocks = [_describe(arch.nodes[n]) for n in candidate_ids]
+    parts = [f"FACT TO FILE:\n{fact}"]
+    if siblings:
+        listing = "\n".join(f"  S{i + 1}. {s}" for i, s in enumerate(siblings))
+        parts.append(
+            "NEIGHBOURING FACTS (context only — do not file these):\n" + listing
+        )
+    parts.append(
+        f"CANDIDATE NODES ({len(candidate_ids)}):\n\n" + "\n---\n".join(blocks)
+    )
+    return "\n\n".join(parts)
+
+
+def _build_group_input(
+    facts: Sequence[str], candidate_ids: list[str], arch: Architecture
+) -> str:
+    """Compose the group judge's user message: every member plus the candidates."""
+    blocks = [_describe(arch.nodes[n]) for n in candidate_ids]
+    listing = "\n".join(f"  {i + 1}. {f}" for i, f in enumerate(facts))
     return (
-        f"FACT TO FILE:\n{fact}\n\n"
-        f"CANDIDATE NODES ({len(candidate_ids)}):\n\n"
-        + "\n---\n".join(blocks)
+        f"LIST TO FILE ({len(facts)} facts from one list):\n{listing}\n\n"
+        f"CANDIDATE NODES ({len(candidate_ids)}):\n\n" + "\n---\n".join(blocks)
     )
 
 
 PROPOSED = "proposed"
 NO_PROPOSAL = "no_proposal"
+SUBSUMED = "subsumed"
 SHORTLIST_SIZE = 5
 
 
@@ -472,6 +578,9 @@ class Proposal:
     section_margin: Optional[float]
     considered_leaf_ids: list[str]
     reason: str = ""
+    subsumed_by: Optional[str] = None
+    group_id: Optional[str] = None
+    group_size: int = 1
 
     @property
     def proposed_node_id(self) -> Optional[str]:
@@ -483,6 +592,92 @@ class Proposal:
         return asdict(self)
 
 
+def _rank_from_parsed(
+    parsed: dict[str, Any], arch: Architecture, shortlist_size: int
+) -> list[ProposedNode]:
+    """Turn a judge response's candidate list into ranked nodes.
+
+    Unknown node ids are dropped with a warning rather than trusted — a
+    hallucinated id would otherwise become a proposal a human might accept.
+
+    Args:
+        parsed: The parsed judge response.
+        arch: A loaded Architecture.
+        shortlist_size: Maximum candidates to keep.
+
+    Returns:
+        Ranked nodes, best first.
+    """
+    ranked: list[ProposedNode] = []
+    for item in parsed.get("candidates", []):
+        if not isinstance(item, dict):
+            continue
+        node_id = str(item.get("node_id", "")).strip()
+        node = arch.nodes.get(node_id)
+        if node is None:
+            logger.warning(
+                "[ClassifierV3] judge proposed unknown node %r, dropped", node_id[:60]
+            )
+            continue
+        ranked.append(
+            ProposedNode(
+                rank=len(ranked) + 1,
+                node_id=node_id,
+                title=node.get("node_title"),
+                section_id=parent_of(node_id),
+                note=str(item.get("note", "")).strip(),
+                degraded=bool(node.get("degraded_target")),
+                degraded_reason=node.get("degraded_reason"),
+            )
+        )
+        if len(ranked) >= shortlist_size:
+            break
+    return ranked
+
+
+def _resolve_subsumed_by(
+    parsed: dict[str, Any], siblings: Optional[Sequence[str]]
+) -> Optional[str]:
+    """Resolve a judge's ``subsumed_by`` label to the sibling fact it names.
+
+    Accepts "S2", "2", or the sibling's text. Returns None when the field is
+    absent, null, or does not resolve — an unresolvable label must not silently
+    drop a fact, so the caller treats it as "not subsumed".
+
+    Args:
+        parsed: The parsed judge response.
+        siblings: The sibling facts passed into this call, in label order.
+
+    Returns:
+        The subsuming sibling's text, or None.
+    """
+    raw = parsed.get("subsumed_by")
+    if raw is None or not siblings:
+        return None
+    label = str(raw).strip()
+    if not label or label.lower() in ("null", "none", "false", ""):
+        return None
+
+    digits = label.lstrip("Ss").strip(". ")
+    if digits.isdigit():
+        position = int(digits) - 1
+        if 0 <= position < len(siblings):
+            return siblings[position]
+        logger.warning(
+            "[ClassifierV3] subsumed_by %r is out of range for %d siblings",
+            label,
+            len(siblings),
+        )
+        return None
+
+    for sibling in siblings:
+        if label == sibling or label in sibling:
+            return sibling
+
+    logger.warning("[ClassifierV3] could not resolve subsumed_by %r", label[:80])
+    return None
+
+
 def propose(
     fact: str,
     arch: Architecture,
@@ -490,6 +685,7 @@ def propose(
     sections_to_consider: int = 3,
     shortlist_size: int = SHORTLIST_SIZE,
     model_id: Optional[str] = None,
+    siblings: Optional[Sequence[str]] = None,
 ) -> Proposal:
     """Produce a ranked shortlist for one fact. Files nothing, decides nothing.
 
@@ -514,9 +710,14 @@ def propose(
         sections_to_consider: How many sections' leaves the judge sees.
         shortlist_size: Maximum candidates returned to the human.
         model_id: Bedrock model id. Defaults to CLAUDE_SONNET_MODEL.
+        siblings: Adjacent facts from the same document, as context. Enables the
+            two sibling-dependent outcomes: SUBSUMED (this fact is a strict
+            partial of a neighbour and should not be filed) and primary-claim
+            selection on a fact that merges a main and a subordinate clause.
 
     Returns:
-        A Proposal carrying the ranked candidates and the sections behind them.
+        A Proposal carrying the ranked candidates and the sections behind them,
+        or decision=SUBSUMED with no candidates when a neighbour contains it.
     """
     if fact_vector is None:
         from services.embedding_service import embed
@@ -547,33 +748,31 @@ def propose(
             reason="retrieval surfaced no candidate leaves",
         )
 
-    raw = _call_llm(RANK_PROMPT, _build_judge_input(fact, candidate_ids, arch), model)
+    raw = _call_llm(
+        RANK_PROMPT, _build_judge_input(fact, candidate_ids, arch, siblings), model
+    )
     parsed = _parse_json_object(raw)
 
-    ranked: list[ProposedNode] = []
-    for item in parsed.get("candidates", []):
-        if not isinstance(item, dict):
-            continue
-        node_id = str(item.get("node_id", "")).strip()
-        node = arch.nodes.get(node_id)
-        if node is None:
-            logger.warning(
-                "[ClassifierV3] judge proposed unknown node %r, dropped", node_id[:60]
-            )
-            continue
-        ranked.append(
-            ProposedNode(
-                rank=len(ranked) + 1,
-                node_id=node_id,
-                title=node.get("node_title"),
-                section_id=parent_of(node_id),
-                note=str(item.get("note", "")).strip(),
-                degraded=bool(node.get("degraded_target")),
-                degraded_reason=node.get("degraded_reason"),
-            )
+    subsumed_by = _resolve_subsumed_by(parsed, siblings)
+    if subsumed_by is not None:
+        logger.info(
+            "[ClassifierV3] %r is subsumed by %r — not filed",
+            fact[:60],
+            subsumed_by[:60],
         )
-        if len(ranked) >= shortlist_size:
-            break
+        return Proposal(
+            fact=fact,
+            decision=SUBSUMED,
+            candidates=[],
+            sections=sections,
+            section_margin=margin,
+            considered_leaf_ids=candidate_ids,
+            reason=str(parsed.get("reason", "")).strip()
+            or "fully contained in an adjacent fact",
+            subsumed_by=subsumed_by,
+        )
+
+    ranked = _rank_from_parsed(parsed, arch, shortlist_size)
 
     return Proposal(
         fact=fact,
@@ -584,6 +783,104 @@ def propose(
         considered_leaf_ids=candidate_ids,
         reason=str(parsed.get("reason", "")).strip()
         or ("no candidate fit — the human should browse the tree" if not ranked else ""),
+    )
+
+
+def propose_group(
+    facts: Sequence[str],
+    arch: Architecture,
+    group_id: Optional[str] = None,
+    group_vector: Optional[list[float]] = None,
+    sections_to_consider: int = 3,
+    shortlist_size: int = SHORTLIST_SIZE,
+    model_id: Optional[str] = None,
+) -> Proposal:
+    """Produce ONE shortlist for a whole list of facts the chunker grouped.
+
+    A pricing table split into three atomic facts is one filing decision, not
+    three. Classified independently the members diverge — measured on the
+    reference run, three pricing tiers from one sentence landed on two different
+    nodes and three cost line items on two others — and that divergence is
+    indistinguishable downstream from the source actually disagreeing with
+    itself.
+
+    Costs one embedding and one judge call for the whole group instead of one of
+    each per member, so grouping REDUCES calls.
+
+    Args:
+        facts: Every member of the group, in source order. Must be non-empty.
+        arch: A loaded Architecture.
+        group_id: The group's id, recorded on the returned Proposal.
+        group_vector: Pre-computed embedding of the joined members.
+        sections_to_consider: How many sections' leaves the judge sees.
+        shortlist_size: Maximum candidates returned to the human.
+        model_id: Bedrock model id. Defaults to CLAUDE_SONNET_MODEL.
+
+    Returns:
+        One Proposal, to be applied to every member of the group. ``fact`` holds
+        the joined members, since the proposal describes the list, not one member.
+
+    Raises:
+        ValueError: ``facts`` is empty.
+    """
+    if not facts:
+        raise ValueError("propose_group requires at least one fact")
+
+    joined = " ".join(facts)
+    if group_vector is None:
+        from services.embedding_service import embed
+
+        group_vector = embed(joined, input_type="search_query")
+
+    model = model_id or os.getenv(DEFAULT_MODEL_ENV, DEFAULT_MODEL)
+    sections = rank_sections(group_vector, arch, top_n=max(sections_to_consider, 2))
+    margin = (
+        round(sections[0].best_leaf_similarity - sections[1].best_leaf_similarity, 4)
+        if len(sections) > 1
+        else None
+    )
+    chosen = sections[:sections_to_consider]
+
+    candidate_ids: list[str] = []
+    for section in chosen:
+        candidate_ids += arch.siblings.get(section.section_id, [])
+
+    if not candidate_ids:
+        return Proposal(
+            fact=joined,
+            decision=NO_PROPOSAL,
+            candidates=[],
+            sections=sections,
+            section_margin=margin,
+            considered_leaf_ids=[],
+            reason="retrieval surfaced no candidate leaves",
+            group_id=group_id,
+            group_size=len(facts),
+        )
+
+    raw = _call_llm(
+        GROUP_RANK_PROMPT, _build_group_input(facts, candidate_ids, arch), model
+    )
+    parsed = _parse_json_object(raw)
+    ranked = _rank_from_parsed(parsed, arch, shortlist_size)
+
+    logger.info(
+        "[ClassifierV3] group %s (%d facts) -> %s",
+        group_id or "?",
+        len(facts),
+        ranked[0].node_id if ranked else "no proposal",
+    )
+    return Proposal(
+        fact=joined,
+        decision=PROPOSED if ranked else NO_PROPOSAL,
+        candidates=ranked,
+        sections=sections,
+        section_margin=margin,
+        considered_leaf_ids=candidate_ids,
+        reason=str(parsed.get("reason", "")).strip()
+        or ("no candidate fit — the human should browse the tree" if not ranked else ""),
+        group_id=group_id,
+        group_size=len(facts),
     )
 
 

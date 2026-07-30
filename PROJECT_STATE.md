@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-Last updated: 2026-07-28
+Last updated: 2026-07-30
 
 ---
 
@@ -116,6 +116,59 @@ distorted extraction pointing at a degraded node produces both. Verified end to 
 on `ceo_data/deck.txt` (37/37 rows carried both fields) and on a real 793-word
 Source-of-Truth excerpt, which is the run that first exercised
 `degraded_target` on real data.
+
+---
+
+## ⛔ MEASUREMENT RULE — one before/after run proves nothing on this pipeline
+
+**Read this before quoting any accuracy number, in this file or out of it.** This is a
+measurement requirement, not a caveat.
+
+Both stages of the Feed path are LLM calls with no fixed seed: `chunk_text` decides
+where to split, and `propose()` decides where a fact goes. Neither is deterministic.
+**Measured 2026-07-30:** the 27-card reference paste was run through the current code
+with all three classification fixes DISABLED, and **7 of 27 cards (26%) landed on a
+different node than the recorded baseline** — no code change involved, same input, same
+day. The chunker also re-split differently, returning 26 facts where the baseline
+returned 27, and re-worded claims it had worded another way ("the faculty pricing tier
+is twenty thousand" came back as "the faculty subscription price is twenty thousand").
+
+### The rule
+
+A two-arm comparison — recorded run vs. new run — **cannot distinguish a fix from
+drift**, because a quarter of the cards move on their own. Every future change to the
+chunker or classifier must be measured with three arms on the same input, same session:
+
+```
+baseline   the recorded run being improved on
+control    current code, fixes under test DISABLED   (process_document(
+                                                        collapse_duplicates=False,
+                                                        group_facts=False,
+                                                        sibling_context=False))
+fixed      current code, fixes ENABLED
+```
+
+A change is **fix-caused** only when `fixed` differs from `control`. When `control`
+already differs from `baseline`, that card drifted and the fix is not implicated either
+way. `scripts/compare_feed_27_arms.py` prints this table and the attribution; the three
+`process_document` flags exist for the control arm and for nothing else.
+
+### This retroactively weakens earlier numbers
+
+**Every single-run figure recorded in this file before 2026-07-30 was measured two-arm
+or one-arm, and carries an unquantified ±drift of this magnitude.** That includes the
+accuracy, recall and per-mechanism numbers in "Feed classifier — measured accuracy,
+cost, latency", "Retrieval — hybrid measured", "Operational-term enrichment" and the
+LOCKED CONCLUSION section. Their *direction* is likely sound — several rest on
+differences far larger than 26% of cards — but no individual percentage in them should
+be quoted as precise, and none should be used to claim a small improvement. Re-measure
+with three arms before relying on any of them.
+
+Reproducibility depends on the input being recoverable: `FeedBatch.source_text` now
+persists the extracted text on the batch record. Batches written before that field
+existed carry only per-card quotes and spans, from which an input can be reconstructed
+but only by inferring the separator characters between spans — see
+`evaluation/feed_27_card_paste.txt`.
 
 ---
 
@@ -808,6 +861,81 @@ The decisive evidence is that the two mechanisms that worked both worked by
 Auto-file is therefore a **data-accumulation** problem. The review tool is what
 generates that data, which makes shipping it the prerequisite rather than a
 consolation.
+
+## Feed classification — three fixes, measured three-arm (2026-07-30)
+
+Three fixes to the classification path, addressing measured errors on the 27-card
+reference run `feed-73eb3e7baa5b`. All numbers below are three-arm (see the MEASUREMENT
+RULE above); E1–E4 reproduced identically across three `fixed` runs.
+
+| Fix | What it does | Where |
+|---|---|---|
+| C — dedupe | collapses near-identical facts before classification | `services/fact_dedupe.py` |
+| A — group classification | one call, one node for a list the chunker grouped | `propose_group()`, chunker `group` field |
+| B — sibling context | SUBSUMED outcome + primary-claim selection | `propose(siblings=...)` |
+
+### Fixed — verified fix-caused
+
+| # | Error | Baseline | Control | Fixed |
+|---|---|---|---|---|
+| E1 | card 09 filed as its own fact though subsumed by card 10 | BP.1.1.2 | BP.1.1.3 | **SUBSUMED, not filed** |
+| E2 | cards 03/13 are one claim on two nodes | 9.2.2 / 9.2.10 | 9.2.3 / 9.2.10 | **one card, BP.9.2.2** |
+| E3 | pricing list 02/03/04 scattered | 9.2.10 / 9.2.2 / 9.2.10 | 9.2.2 / 9.2.3 / 9.2.3 | **all BP.9.2.2** |
+| E4 | cost list 23/24/25 scattered | 9.5.1 / 9.5.12 / 9.5.1 | 9.5.2 / 9.5.12 / 9.5.3 | **all BP.9.5.2** |
+
+The control column is why these count: each error persists with the fixes off, so the
+node convergence is attributable to the fix and not to the run.
+
+### E5 — NOT fixed. Symptom gone for an unrelated reason
+
+Card 20 ("the core problem is whether claims withstand epistemic scrutiny, not writing
+quality") was filed at BP.1.2.1 Writing Assistance Exclusion — the subordinate clause
+rather than the primary claim. It no longer files there, but **the primary-claim rule is
+not what changed it**: `control` had already moved it to BP.1.1.1 with all fixes off.
+On re-chunk the sentence splits into two facts, so the merged-contrast condition the rule
+exists to handle never arises and the rule is never exercised. Across three fixed runs
+the negative clause was judged SUBSUMED twice and filed at BP.1.2.1 once — and that
+placement is arguably *correct*, since a scope-exclusion statement is what BP.1.2.1 is
+for (cf. `43965e8`, which deliberately routes non-scope exclusions to BP.1.2).
+
+**Do not record E5 as fixed and do not rely on the primary-claim rule.** It is written
+and shipped but unproven; the next merged contrast that survives chunking as one fact is
+the first real test of it.
+
+### KNOWN REGRESSION — card 26
+
+`"The company's Spanish customers pay in euros"` moved **BP.9.5.5 → BP.9.2.2**,
+fix-caused (control kept it at BP.9.5.5). Unjustified: BP.9.2.2 is a subscription
+price-tier node and the fact is a currency-denomination rule, not a tier. Sibling context
+is the only fix touching this card. Both nodes are in the BP.9 content-debt set, so the
+"before" was not right either — this is a wrong answer replacing a wrong answer, not a
+loss of a correct one. Unresolved.
+
+Card 07 ("the renewal figure is not validated") landed on three different nodes across
+baseline/control/fixed (BP.10.1.5 / BP.9.2.3 / BP.2.4.4). It is unstable independent of
+these fixes and is not counted either way.
+
+### Totals
+
+- attribution across 27 baseline cards: **fix-caused 9, drift 7, unchanged 11**. Of the
+  9 fix-caused: 6 are the intended E1–E4 targets, 1 (card 17) moved back to its baseline
+  node, 2 are the collateral above.
+- **classification calls 27 → 21** — grouping is a net reduction, as designed.
+- **cards flagged degraded 12 → 4** (control 8, so **8 → 4 is fix-attributable**).
+  Remaining 4: BP.9.5.1 ×2 `placeholder_purpose`, BP.9.5.16 and BP.9.2.12
+  `null_required_output`. That is content debt needing Alex, not a classifier defect.
+- **"Correctness" is not measured.** There is no answer key for this paste, so
+  "N cards stayed correct" cannot be claimed. The 15/12 split quoted in earlier
+  discussion is the unflagged/flagged split, not a correctness label. Building a keyed
+  fixture is the prerequisite for any accuracy claim on this path.
+
+### Chunker suite
+
+Extended from 9 to 11 cases: **10 — no over-merging** (a grouped pricing list must stay
+one fact per tier) and **11 — no currency bleed** (each amount keeps its own currency).
+Both guard the new group tagging, which must never license fusing a list or leaking one
+member's units onto another. All 11 pass: strength markers fully retained on cases 4–11,
+6/6 identity checks pass, no unresolved references.
 
 ## Known Gaps
 

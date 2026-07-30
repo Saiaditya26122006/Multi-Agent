@@ -40,13 +40,16 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Optional
 
 from services import rag_service
+from services.fact_dedupe import dedupe
 from services.feed_classifier_v3 import (
     NO_PROPOSAL,
     PROPOSED,
+    SUBSUMED,
     Architecture,
     Proposal,
     load_architecture,
     propose,
+    propose_group,
 )
 from services.semantic_chunker import chunk_text
 
@@ -61,12 +64,19 @@ SOURCE_TYPE = "ceo_doc"
 STATUS_AWAITING = "awaiting_confirmation"
 STATUS_CONFIRMED = "confirmed"
 STATUS_REJECTED = "rejected"
+STATUS_SUBSUMED = "subsumed"
 
 # What the reviewer has to check on this card. Independent of each other and of
 # whether a shortlist exists.
 CHECK_FACT = "check_extraction"
 CHECK_NODE = "check_node_degraded"
 CHECK_NO_MATCH = "no_candidate_matched"
+
+# How many facts either side of the target go into the classifier as context.
+# One is enough for the two outcomes it enables: subsumption is between adjacent
+# partials of one sentence, and primary-claim selection reads the target itself.
+# Wider context measurably dilutes the prompt without adding a decision.
+SIBLING_WINDOW = 1
 
 
 @dataclass
@@ -87,6 +97,12 @@ class ReviewCard:
     needs_review: bool = False
     verdict: Optional[str] = None
     review_reason: Optional[str] = None
+
+    # --- collapsed and grouped facts ---
+    merged_spans: list[dict[str, Any]] = field(default_factory=list)
+    group_id: Optional[str] = None
+    group_label: Optional[str] = None
+    subsumed_by: Optional[str] = None
 
     # --- signal 2: target node completeness (architecture) ---
     degraded_target: bool = False
@@ -114,7 +130,17 @@ class ReviewCard:
 
 @dataclass
 class FeedBatch:
-    """The result of processing one document: a stack of review cards."""
+    """The result of processing one document: a stack of review cards.
+
+    ``source_text`` carries the extracted text the cards came from. Without it a
+    run is not reproducible: cards record only each fact's verbatim quote and its
+    character span, and reconstructing an input from 27 spans — which is what
+    re-running the reference paste actually required — recovers the separator
+    characters between spans by inference, not by reading them. It costs little:
+    a document's text is a fraction of the JSON of the cards derived from it
+    (~400KB of cards for a 170-fact document), so it does not move the batch
+    meaningfully against feed_batch_store.MAX_PAYLOAD_BYTES.
+    """
 
     run_id: str
     source_document: str
@@ -125,6 +151,11 @@ class FeedBatch:
     flagged_extraction: int
     flagged_degraded: int
     seconds: float
+    source_text: str = ""
+    duplicates_collapsed: int = 0
+    subsumed: int = 0
+    groups: int = 0
+    classification_calls: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         """Return the batch as a plain dict."""
@@ -150,6 +181,15 @@ def _apply_proposal(card: ReviewCard, proposal: Proposal) -> ReviewCard:
     card.degraded_target = bool(top and top.degraded)
     card.degraded_reason = top.degraded_reason if top else None
 
+    # A subsumed fact is not a filing decision the reviewer has to make: its
+    # content is already on another card. It carries no checks for that reason —
+    # adding one would put it back in the queue it was removed from.
+    if proposal.decision == SUBSUMED:
+        card.status = STATUS_SUBSUMED
+        card.subsumed_by = proposal.subsumed_by
+        card.checks = []
+        return card
+
     checks: list[str] = []
     if card.needs_review:
         checks.append(CHECK_FACT)
@@ -161,9 +201,105 @@ def _apply_proposal(card: ReviewCard, proposal: Proposal) -> ReviewCard:
     return card
 
 
-def _propose_one(card: ReviewCard, arch: Architecture, **kwargs: Any) -> ReviewCard:
+def _propose_one(
+    card: ReviewCard,
+    arch: Architecture,
+    siblings: Optional[list[str]] = None,
+    **kwargs: Any,
+) -> ReviewCard:
     """Build the shortlist for a single card. Runs on a worker thread."""
-    return _apply_proposal(card, propose(card.fact, arch, **kwargs))
+    return _apply_proposal(card, propose(card.fact, arch, siblings=siblings, **kwargs))
+
+
+def _propose_group(
+    cards: list[ReviewCard], arch: Architecture, **kwargs: Any
+) -> list[ReviewCard]:
+    """Classify one group with a single call and apply the result to every member.
+
+    Runs on a worker thread. The proposal describes the list, so every member
+    gets the same shortlist; the per-card fields that are not about the target
+    node (fidelity verdict, provenance) are untouched.
+
+    Args:
+        cards: The group's cards, in source order. Must be non-empty.
+        arch: A loaded Architecture.
+        **kwargs: Passed through to propose_group.
+
+    Returns:
+        The same cards, each carrying the group's proposal.
+    """
+    proposal = propose_group(
+        [c.fact for c in cards], arch, group_id=cards[0].group_id, **kwargs
+    )
+    for card in cards:
+        _apply_proposal(card, proposal)
+    return cards
+
+
+def _partition(
+    cards: list[ReviewCard],
+) -> tuple[list[list[ReviewCard]], list[ReviewCard]]:
+    """Split cards into groups to classify together and singletons.
+
+    Group membership comes from the chunker. A group of one is not a group and
+    falls through to the singleton path, where it still gets sibling context.
+
+    Args:
+        cards: All cards for the document, in source order.
+
+    Returns:
+        (groups, singletons) — groups in first-appearance order, each with its
+        members in source order.
+    """
+    order: list[str] = []
+    grouped: dict[str, list[ReviewCard]] = {}
+    for card in cards:
+        if not card.group_id:
+            continue
+        if card.group_id not in grouped:
+            grouped[card.group_id] = []
+            order.append(card.group_id)
+        grouped[card.group_id].append(card)
+
+    groups = [grouped[g] for g in order if len(grouped[g]) > 1]
+    kept = {id(c) for members in groups for c in members}
+    singletons = [c for c in cards if id(c) not in kept]
+    return groups, singletons
+
+
+def _siblings_of(
+    card: ReviewCard, cards: list[ReviewCard], window: int = SIBLING_WINDOW
+) -> list[str]:
+    """The facts adjacent to a card, as classification context.
+
+    Adjacency is by position in the document plus span overlap: a fact whose
+    quote covers this card's quote is a neighbour however far apart their indices
+    ended up, and that is exactly the shape a subsuming fact has.
+
+    Args:
+        card: The card being classified.
+        cards: All cards for the document, in source order.
+        window: How many positions either side to include.
+
+    Returns:
+        Neighbour fact texts in source order, excluding the card itself.
+    """
+    position = cards.index(card)
+    picked: list[ReviewCard] = []
+    for other in cards[max(0, position - window) : position + window + 1]:
+        if other is not card:
+            picked.append(other)
+
+    if card.start_char is not None and card.end_char is not None:
+        for other in cards:
+            if other is card or other in picked:
+                continue
+            if other.start_char is None or other.end_char is None:
+                continue
+            if other.start_char <= card.start_char and other.end_char >= card.end_char:
+                picked.append(other)
+
+    return [c.fact for c in sorted(picked, key=lambda c: c.index)]
 
 
 def bucket_of(card: ReviewCard) -> str:
@@ -179,6 +315,8 @@ def bucket_of(card: ReviewCard) -> str:
     """
     if card.status == STATUS_CONFIRMED:
         return "confirmed"
+    if card.status == STATUS_SUBSUMED:
+        return "subsumed"
     if card.status == STATUS_REJECTED or not card.shortlist:
         return "nofit"
     return "look" if card.checks else "ready"
@@ -201,6 +339,10 @@ def _card_event(card: ReviewCard) -> dict[str, Any]:
         "source_document": card.source_document,
         "start_char": card.start_char,
         "end_char": card.end_char,
+        "group_id": card.group_id,
+        "group_label": card.group_label,
+        "subsumed_by": card.subsumed_by,
+        "merged_count": len(card.merged_spans or []),
     }
 
 
@@ -212,6 +354,9 @@ def process_document(
     run_id: Optional[str] = None,
     max_workers: int = MAX_WORKERS,
     on_event: Optional[Callable[[dict[str, Any]], None]] = None,
+    collapse_duplicates: bool = True,
+    group_facts: bool = True,
+    sibling_context: bool = True,
     **proposer_kwargs: Any,
 ) -> FeedBatch:
     """Chunk a document and build a review card for every fact.
@@ -230,7 +375,17 @@ def process_document(
             thread-safe — the server hands it a `run_coroutine_threadsafe` shim.
             Exceptions from it are logged and swallowed: a broken viewer must
             never take down an ingest.
+        collapse_duplicates: Collapse near-identical facts before classifying.
+        group_facts: Classify a list the chunker grouped with one call and one
+            node, instead of once per member.
+        sibling_context: Show the classifier each fact's neighbours, enabling the
+            SUBSUMED outcome and primary-claim selection.
         **proposer_kwargs: Passed through to propose (sections_to_consider etc.).
+
+    The three flags above exist to be turned OFF for measurement — an ablation
+    run on a fixed input isolates what a fix changed from what the LLM would have
+    changed anyway between two runs. Production leaves them on; there is no
+    caller that should be setting them.
 
     Returns:
         A FeedBatch of cards, every one awaiting confirmation.
@@ -251,19 +406,31 @@ def process_document(
     if arch is None:
         arch = load_architecture(supabase_client)
 
-    facts = chunk_text(text)
+    extracted = chunk_text(text)
+    if collapse_duplicates:
+        facts, duplicate_drops = dedupe(extracted)
+    else:
+        facts, duplicate_drops = list(extracted), []
+    if not group_facts:
+        for fact in facts:
+            fact.group_id = None
     emit(
         "extracted",
         words=len(text.split()),
         chars=len(text),
         facts=len(facts),
         flagged=sum(1 for f in facts if f.needs_review),
+        duplicates_collapsed=len(duplicate_drops),
+        groups=len({f.group_id for f in facts if f.group_id}),
     )
     logger.info(
-        "[FeedPipeline] %s: %d facts extracted, %d flagged by the fidelity audit",
+        "[FeedPipeline] %s: %d facts extracted, %d collapsed as duplicates, "
+        "%d flagged by the fidelity audit, %d group(s)",
         source_document,
-        len(facts),
+        len(extracted),
+        len(duplicate_drops),
         sum(1 for f in facts if f.needs_review),
+        len({f.group_id for f in facts if f.group_id}),
     )
 
     cards = [
@@ -277,6 +444,9 @@ def process_document(
             needs_review=f.needs_review,
             verdict=f.verdict,
             review_reason=f.review_reason,
+            merged_spans=list(f.merged_spans),
+            group_id=f.group_id,
+            group_label=f.group_label,
         )
         for f in facts
     ]
@@ -295,35 +465,70 @@ def process_document(
             total=len(cards),
         )
 
+    groups: list[list[ReviewCard]] = []
+    singletons: list[ReviewCard] = []
     if cards:
+        groups, singletons = _partition(cards)
+        logger.info(
+            "[FeedPipeline] %s: %d classification call(s) for %d cards "
+            "(%d group(s), %d singletons)",
+            source_document,
+            len(groups) + len(singletons),
+            len(cards),
+            len(groups),
+            len(singletons),
+        )
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            futures = {
-                pool.submit(_propose_one, c, arch, **proposer_kwargs): c for c in cards
-            }
+            futures: dict[Any, list[ReviewCard]] = {}
+            for members in groups:
+                job = pool.submit(_propose_group, members, arch, **proposer_kwargs)
+                futures[job] = members
+            for card in singletons:
+                futures[
+                    pool.submit(
+                        _propose_one,
+                        card,
+                        arch,
+                        siblings=_siblings_of(card, cards) if sibling_context else None,
+                        **proposer_kwargs,
+                    )
+                ] = [card]
+
             for future in as_completed(futures, timeout=TOTAL_TIMEOUT):
-                target = futures[future]
+                targets = futures[future]
                 try:
                     future.result(timeout=CALL_TIMEOUT)
-                except Exception as exc:  # noqa: BLE001 — logged, card preserved
+                except Exception as exc:  # noqa: BLE001 — logged, cards preserved
                     logger.error(
-                        "[FeedPipeline] proposal failed for fact %d: %s",
-                        target.index,
+                        "[FeedPipeline] proposal failed for fact(s) %s: %s",
+                        [t.index for t in targets],
                         str(exc)[:200],
                     )
-                    target.checks = [CHECK_NO_MATCH]
-                    target.proposal_reason = f"proposer raised: {str(exc)[:160]}"
-                emit("classified", **_card_event(target))
+                    for target in targets:
+                        target.checks = [CHECK_NO_MATCH]
+                        target.proposal_reason = f"proposer raised: {str(exc)[:160]}"
+                for target in targets:
+                    emit("classified", **_card_event(target))
 
+    live = [c for c in cards if c.status != STATUS_SUBSUMED]
     batch = FeedBatch(
         run_id=run_id,
         source_document=source_document,
         total_facts=len(cards),
         cards=cards,
-        proposed=sum(1 for c in cards if c.proposed_node_id),
-        no_proposal=sum(1 for c in cards if not c.proposed_node_id),
-        flagged_extraction=sum(1 for c in cards if c.needs_review),
-        flagged_degraded=sum(1 for c in cards if c.degraded_target),
+        # Subsumed cards are excluded from both proposal counts: they are not
+        # awaiting a filing decision, so counting them as "no proposal" would
+        # inflate the review queue with cards the reviewer never sees.
+        proposed=sum(1 for c in live if c.proposed_node_id),
+        no_proposal=sum(1 for c in live if not c.proposed_node_id),
+        flagged_extraction=sum(1 for c in live if c.needs_review),
+        flagged_degraded=sum(1 for c in live if c.degraded_target),
         seconds=round(time.perf_counter() - started, 2),
+        source_text=text,
+        duplicates_collapsed=len(duplicate_drops),
+        subsumed=sum(1 for c in cards if c.status == STATUS_SUBSUMED),
+        groups=len({c.group_id for c in cards if c.group_id}),
+        classification_calls=len(groups) + len(singletons),
     )
     emit(
         "done",
@@ -332,16 +537,24 @@ def process_document(
         no_proposal=batch.no_proposal,
         flagged_extraction=batch.flagged_extraction,
         flagged_degraded=batch.flagged_degraded,
+        duplicates_collapsed=batch.duplicates_collapsed,
+        subsumed=batch.subsumed,
+        groups=batch.groups,
+        classification_calls=batch.classification_calls,
         seconds=batch.seconds,
     )
     logger.info(
-        "[FeedPipeline] %s: %d cards in %.1fs — %d with a shortlist, %d without "
+        "[FeedPipeline] %s: %d cards in %.1fs — %d with a shortlist, %d without, "
+        "%d collapsed as duplicates, %d subsumed, %d classification call(s) "
         "(run_id=%s). Nothing stored; awaiting confirmation.",
         source_document,
         batch.total_facts,
         batch.seconds,
         batch.proposed,
         batch.no_proposal,
+        batch.duplicates_collapsed,
+        batch.subsumed,
+        batch.classification_calls,
         run_id,
     )
     return batch
@@ -371,8 +584,17 @@ def confirm_card(
 
     Returns:
         The card, updated with the stored id and confirmation metadata.
+
+    Raises:
+        ValueError: The card was marked subsumed. Its content is already on
+            another card, so filing it would write the same claim twice.
     """
     from datetime import datetime, timezone
+
+    if card.status == STATUS_SUBSUMED:
+        raise ValueError(
+            f"fact {card.index} is subsumed by another fact and must not be filed"
+        )
 
     rank = next(
         (
@@ -402,6 +624,12 @@ def confirm_card(
             "start_char": card.start_char,
             "end_char": card.end_char,
             "fact_index": card.index,
+            # Every other place in the document this same claim was made, from
+            # the pre-classification dedupe. Provenance for a collapsed fact
+            # must survive the collapse.
+            "merged_spans": card.merged_spans,
+            "group_id": card.group_id,
+            "group_label": card.group_label,
             # signal 1 — extraction fidelity
             "needs_review": card.needs_review,
             "verdict": card.verdict,

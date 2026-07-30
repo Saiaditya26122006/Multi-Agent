@@ -28,6 +28,7 @@ import logging
 import os
 import time
 from dataclasses import asdict, dataclass
+from dataclasses import field as dataclass_field
 from typing import Any, Optional
 
 import boto3
@@ -59,7 +60,8 @@ EXTRACT_PROMPT = """You split raw business text into atomic facts.
 
 An atomic fact is ONE self-contained claim. Return a JSON array; each element is:
   {"fact": "<the claim, rewritten to stand alone>",
-   "source_quote": "<the exact substring of the input this came from>"}
+   "source_quote": "<the exact substring of the input this came from>",
+   "group": "<label of the list or frame this came from, or null>"}
 
 === PRESERVE EPISTEMIC STRENGTH — the most important rule ===
 
@@ -137,6 +139,31 @@ One fact = one thing that could independently be true or false.
   - A claim spanning two sentences stays one fact.
   - Do NOT merge distinct claims. "We target business schools and our price is
     12k a year" is TWO facts: target segment, and pricing.
+
+=== GROUPS — say when several facts came from ONE list ===
+
+When you split a single list, or several facts inherit ONE frame stated once
+(a shared subject, unit, scope, currency or qualifier), give every member of that
+set the SAME short "group" label naming the thing they share. Use null for a fact
+that does not belong to such a set — most facts are null.
+
+  "Eight thousand for a department, twenty thousand for a faculty, forty-five
+   thousand campus-wide"
+        -> three facts, all with "group": "subscription price tiers"
+
+  "All figures below are per institution per year. Setup is two thousand,
+   support is three thousand, training is one thousand."
+        -> the three cost facts share "group": "per-institution annual cost items"
+           (the framing sentence itself is its own fact, group null)
+
+The label is a description of the list, not of one member. Two facts that merely
+share a topic are NOT a group: "our price is twelve thousand" and "we expect
+eighty percent renewal" are two unrelated claims that happen to sit in one
+paragraph. A group means the source wrote ONE list, and you split it.
+
+Never let a group change what a fact says. Grouping is a note about where the
+fact came from; the fact itself must still stand alone, with its own qualifier
+carried over from the frame ("Setup is two thousand per institution per year").
 
 === OTHER RULES ===
 
@@ -220,6 +247,13 @@ class Fact:
         needs_review: True when the verification pass did not return "faithful".
         verdict: The verification verdict, or None when verification was skipped.
         review_reason: Why the verifier flagged it, when it did.
+        group_label: The model's name for the list or frame this fact was split
+            out of, or None when it stands alone.
+        group_id: Stable id shared by every member of one group, or None. Only
+            assigned when a label has two or more members — a group of one is
+            not a group.
+        merged_spans: Provenance of near-duplicate facts collapsed into this one
+            by services.fact_dedupe. Empty until dedupe runs.
     """
 
     fact: str
@@ -230,6 +264,9 @@ class Fact:
     needs_review: bool = False
     verdict: Optional[str] = None
     review_reason: Optional[str] = None
+    group_label: Optional[str] = None
+    group_id: Optional[str] = None
+    merged_spans: list[dict[str, Any]] = dataclass_field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Return the fact as a plain dict."""
@@ -358,6 +395,44 @@ def _locate(quote: str, source: str, search_from: int) -> tuple[Optional[int], O
     return None, None
 
 
+def _assign_group_ids(facts: list[Fact]) -> None:
+    """Turn the model's free-text group labels into stable ids, in place.
+
+    A label claimed by only one fact is dropped: the whole point of a group is
+    that its members are classified together, and a group of one is just a fact.
+    Labels are matched case- and whitespace-insensitively because the model
+    re-types them per element and will not always match itself exactly.
+
+    Args:
+        facts: Facts carrying ``group_label`` from extraction.
+    """
+    counts: dict[str, int] = {}
+    for f in facts:
+        key = " ".join((f.group_label or "").lower().split())
+        if key:
+            counts[key] = counts.get(key, 0) + 1
+
+    ids: dict[str, str] = {}
+    for f in facts:
+        key = " ".join((f.group_label or "").lower().split())
+        if not key or counts[key] < 2:
+            f.group_id = None
+            continue
+        if key not in ids:
+            ids[key] = f"g{len(ids) + 1}"
+        f.group_id = ids[key]
+
+    if ids:
+        logger.info(
+            "[Chunker] %d group(s) tagged: %s",
+            len(ids),
+            ", ".join(
+                f"{gid}={sum(1 for f in facts if f.group_id == gid)} facts"
+                for gid in sorted(set(ids.values()))
+            ),
+        )
+
+
 def _verify(facts: list[Fact], source: str, model_id: str) -> None:
     """Audit each fact against the source and set review fields in place.
 
@@ -463,6 +538,7 @@ def chunk_text(
         start, end = _locate(quote, text, cursor)
         if start is not None:
             cursor = start
+        raw_group = item.get("group")
         facts.append(
             Fact(
                 fact=claim,
@@ -470,20 +546,28 @@ def chunk_text(
                 start_char=start,
                 end_char=end,
                 index=len(facts),
+                group_label=str(raw_group).strip() or None
+                if isinstance(raw_group, str)
+                else None,
             )
         )
+
+    _assign_group_ids(facts)
 
     if verify:
         _verify(facts, text, model)
 
     flagged = sum(1 for f in facts if f.needs_review)
     unlocated = sum(1 for f in facts if f.start_char is None)
+    grouped = sum(1 for f in facts if f.group_id)
     logger.info(
-        "[Chunker] %d chars -> %d facts (%d flagged, %d without a span) using %s",
+        "[Chunker] %d chars -> %d facts (%d flagged, %d without a span, "
+        "%d in a group) using %s",
         len(text),
         len(facts),
         flagged,
         unlocated,
+        grouped,
         model,
     )
     return facts

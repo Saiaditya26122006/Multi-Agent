@@ -146,6 +146,9 @@ const BUCKETS = [
   { key: "ready",     tone: "ready", label: "Ready to confirm", st: "ready" },
   { key: "look",      tone: "look",  label: "Needs a look",     st: "flagged" },
   { key: "nofit",     tone: "none",  label: "No match",         st: "no match" },
+  // Not a review state: these facts are already covered by another card, so
+  // they are shown for provenance and are never filed.
+  { key: "subsumed",  tone: "none",  label: "Already covered",  st: "covered" },
 ];
 
 const CARDS = new Map();   // index -> card-ish object
@@ -160,7 +163,7 @@ function wireNav() {
 }
 
 function tally() {
-  const t = { confirmed: 0, ready: 0, look: 0, nofit: 0, processing: 0 };
+  const t = { confirmed: 0, ready: 0, look: 0, nofit: 0, subsumed: 0, processing: 0 };
   CARDS.forEach(c => { t[c.bucket] = (t[c.bucket] || 0) + 1; });
   return t;
 }
@@ -171,7 +174,8 @@ function renderCounts(bumped) {
   $("summary").innerHTML =
     `<b>${done} of ${total || CARDS.size} processed</b> — ` +
     `${t.confirmed} filed, ${t.ready} ready to confirm, ` +
-    `${t.look} need a look, ${t.nofit} with no match.`;
+    `${t.look} need a look, ${t.nofit} with no match` +
+    (t.subsumed ? `, ${t.subsumed} already covered.` : ".");
   $("counts").innerHTML = BUCKETS.map(b => `
     <div class="count${bumped === b.key ? " bump" : ""}" data-tone="${b.tone}">
       <div class="n">${t[b.key] || 0}</div><div class="l">${b.label}</div>
