@@ -1071,10 +1071,62 @@ STORAGE below. Storing the paragraph whole and attaching it to several nodes get
 
 | | Fact pipeline | Passage pipeline |
 |---|---|---|
-| unit | one atomic claim | one paragraph / labelled block |
-| splitter | LLM, varies run to run | **deterministic string operation, no model** |
+| unit | one atomic claim | one **unit of meaning** — claim block, definition, procedure, table |
+| splitter | LLM returns claim text | LLM returns **boundaries**; the code slices |
 | nodes per unit | 1 | up to `MAX_ATTACHMENTS` (2) |
 | justification | a note | **a span of the passage, checked as a substring** |
+
+### The splitter — an LLM chooses boundaries, never text (2026-07-31)
+
+Replaces the blank-line/labelled-block splitter, which could not see meaning: it cut a
+nine-step protocol into nine passages because the author bulleted them, and could not
+tell a table's rows from nine unrelated lines. A unit of meaning is not always marked
+with a blank line, and that is the thing being divided on.
+
+**The model returns each passage's opening 6-10 words, not its text.** The code locates
+them and every passage is `text[cut_i:cut_i+1]` — a slice. Two properties follow by
+construction rather than by trusting a copy:
+
+- `source[start_char:end_char] == text` — nothing generated can reach storage.
+- Boundaries are **contiguous**: passage *i* ends where *i+1* begins, so no text can be
+  dropped, duplicated or reordered whatever the model returns.
+
+Asking for openings rather than whole passages is what makes that work. A model asked to
+copy a nine-bullet protocol back will eventually normalise a space; asked for its first
+eight words, it will not. An opening that cannot be located, or that resolves at or
+before the previous cut, is dropped with a warning — its text merges into the previous
+passage. A boundary is lost; text never is.
+
+**Measured on the three reference documents, 3 runs each:**
+
+| document | expected | LLM splitter | structural (old) | boundaries identical ×3 | violations |
+|---|---|---|---|---|---|
+| four Claim blocks | 4 | 4, 4, 4 | 4 | yes | 0 |
+| chain + nine bullets | 2 | 2, 2, 2 | **9** ✗ | yes | 0 |
+| 2×2 table + comment | 2 | 2, 2, 2 | 2 | yes | 0 |
+
+`span_verified` true on every passage of every run; no text lost in any run.
+
+**`_snap_to_line_start` exists because of a measured two-character instability.** On the
+first pass, doc 2 came out 2-of-3 identical: one run returned the protocol's opening as
+`"Parse the manuscript…"` rather than `"- Parse the manuscript…"`, putting the boundary
+on the wrong side of the bullet. A marker belongs to the item it marks, so a cut now
+moves back to its line start when only marker characters (≤4, whitespace/bullets/`1.`
+punctuation) precede it. Backwards only, within one line, over non-content only. All
+three documents are 3/3 identical after it.
+
+⚠️ **Labels vary run to run** — `'volume vs coverage claim'` /
+`'volume vs coverage market failure claim'`. They are free-text metadata and never touch
+the passage text; boundaries are what had to be stable.
+
+⚠️ **Three runs on three short documents is evidence, not proof.** A long document has
+more boundaries and more chances to disagree.
+
+`split_passages_structural()` is kept as the fallback when the model call fails — losing
+Alex's document to a Bedrock timeout is worse than splitting it bluntly — and as the
+deterministic reference the table above compares against. It logs at `error` and says
+the boundaries will follow blank lines rather than meaning.
+`split_passages(text, use_llm=False)` forces it for comparison runs.
 
 ### An attachment must be earned by a span
 

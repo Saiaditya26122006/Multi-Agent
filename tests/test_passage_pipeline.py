@@ -18,8 +18,10 @@ from services.feed_classifier_v3 import Architecture
 from services.passage_chunker import (
     MIN_PASSAGE_CHARS,
     Passage,
+    _anchor_cuts,
+    _passages_from_cuts,
     audit_passages,
-    split_passages,
+    split_passages_structural,
 )
 from services.passage_classifier import (
     LEVEL_LEAF,
@@ -75,20 +77,22 @@ def arch() -> Architecture:
     )
 
 
-class TestSplitting:
+class TestStructuralSplitting:
+    """The deterministic fallback. No LLM — these must not make a Bedrock call."""
+
     def test_claim_1_block_is_one_passage(self):
-        passages = split_passages(CLAIM_1)
+        passages = split_passages_structural(CLAIM_1)
         assert len(passages) == 1
         assert passages[0].text == CLAIM_1
 
     def test_every_passage_is_a_slice_of_the_source(self):
         doc = "First paragraph, long enough to stand alone as a unit.\n\n" + CLAIM_1
-        for p in split_passages(doc):
+        for p in split_passages_structural(doc):
             assert doc[p.start_char : p.end_char] == p.text
 
     def test_blank_line_starts_a_new_passage(self):
         doc = "A" * 60 + "\n\n" + "B" * 60
-        passages = split_passages(doc)
+        passages = split_passages_structural(doc)
         assert len(passages) == 2
         assert passages[0].text == "A" * 60
 
@@ -97,44 +101,149 @@ class TestSplitting:
             "Some opening prose that runs on for a while here.\n"
             "Claim 2 — the second one, which is also long."
         )
-        passages = split_passages(doc)
+        passages = split_passages_structural(doc)
         assert len(passages) == 2
         assert passages[1].text.startswith("Claim 2")
 
     def test_label_is_captured(self):
-        assert split_passages(CLAIM_1)[0].label == "Claim 1"
+        assert split_passages_structural(CLAIM_1)[0].label == "Claim 1"
 
     def test_unlabelled_passage_has_no_label(self):
         doc = "Just an ordinary paragraph with no label on the front of it at all."
-        assert split_passages(doc)[0].label is None
+        assert split_passages_structural(doc)[0].label is None
+
+
+class TestAnchorCuts:
+    """The LLM path's boundary derivation, without the LLM.
+
+    The model returns openings; these tests cover what the code does with them,
+    which is where text could be lost, duplicated or reordered.
+    """
+
+    DOC = "Alpha one two three. Beta four five six. Gamma seven eight nine."
+
+    def test_openings_become_ordered_cuts(self):
+        items = [
+            {"opening": "Alpha one two", "label": "a"},
+            {"opening": "Beta four five", "label": "b"},
+        ]
+        beta = self.DOC.index("Beta")
+        assert _anchor_cuts(self.DOC, items) == [(0, "a"), (beta, "b")]
+
+    def test_first_cut_is_forced_to_zero(self):
+        """Text before the model's first opening must not be orphaned."""
+        items = [{"opening": "Beta four five", "label": "b"}]
+        cuts = _anchor_cuts(self.DOC, items)
+        assert cuts[0][0] == 0
+
+    def test_an_unfindable_opening_is_dropped(self):
+        items = [
+            {"opening": "Alpha one two", "label": "a"},
+            {"opening": "text that is not in the document", "label": "ghost"},
+            {"opening": "Gamma seven eight", "label": "c"},
+        ]
+        assert [c[1] for c in _anchor_cuts(self.DOC, items)] == ["a", "c"]
+
+    def test_a_backwards_opening_is_dropped(self):
+        """Out-of-order openings would reorder the document."""
+        items = [
+            {"opening": "Gamma seven eight", "label": "c"},
+            {"opening": "Alpha one two", "label": "a"},
+        ]
+        cuts = _anchor_cuts(self.DOC, items)
+        assert [c[0] for c in cuts] == sorted(c[0] for c in cuts)
+
+    def test_whitespace_normalised_opening_is_recovered(self):
+        doc = "Alpha one\ntwo three. Beta four five six."
+        items = [{"opening": "Alpha one two three", "label": "a"}]
+        assert _anchor_cuts(doc, items)[0][0] == 0
+
+    def test_garbage_elements_are_skipped(self):
+        items = ["nonsense", {"label": "no opening"}, {"opening": "Beta four five"}]
+        assert len(_anchor_cuts(self.DOC, items)) >= 1
+
+    def test_no_usable_openings_returns_nothing(self):
+        assert _anchor_cuts(self.DOC, [{"opening": "absent"}]) == []
+
+    def test_a_cut_snaps_back_over_a_list_marker(self):
+        """A bullet belongs to the item it marks, whichever side the model cut."""
+        doc = "Intro sentence here.\n- Parse the manuscript.\n- Discard the rest."
+        with_marker = _anchor_cuts(
+            doc, [{"opening": "Intro sentence"}, {"opening": "- Parse the manuscript"}]
+        )
+        without_marker = _anchor_cuts(
+            doc, [{"opening": "Intro sentence"}, {"opening": "Parse the manuscript"}]
+        )
+        assert [c[0] for c in with_marker] == [c[0] for c in without_marker]
+        assert doc[with_marker[1][0]] == "-"
+
+    def test_snapping_never_crosses_content(self):
+        doc = "Alpha one two three. Beta four five six."
+        cuts = _anchor_cuts(doc, [{"opening": "Beta four five"}])
+        assert doc[cuts[-1][0] :].startswith("Beta")
+
+
+class TestCutsToPassages:
+    """Cuts become contiguous verbatim slices — the guarantee, in code."""
+
+    DOC = (
+        "Alpha one two three four five six seven eight. "
+        "Beta nine ten eleven twelve thirteen fourteen fifteen."
+    )
+
+    def test_passages_are_contiguous_and_verbatim(self):
+        cut = self.DOC.index("Beta")
+        passages = _passages_from_cuts(self.DOC, [(0, "a"), (cut, "b")])
+        assert len(passages) == 2
+        for p in passages:
+            assert self.DOC[p.start_char : p.end_char] == p.text
+            assert p.span_verified
+        assert passages[0].end_char <= passages[1].start_char
+
+    def test_no_character_is_lost(self):
+        """Only separator whitespace may differ between input and output."""
+        cut = self.DOC.index("Beta")
+        passages = _passages_from_cuts(self.DOC, [(0, "a"), (cut, "b")])
+        joined = "".join(p.text for p in passages)
+        assert joined.replace(" ", "") == self.DOC.replace(" ", "")
+
+    def test_llm_label_wins_over_the_structural_one(self):
+        passages = _passages_from_cuts(self.DOC, [(0, "model label")])
+        assert passages[0].label == "model label"
+
+    def test_missing_label_falls_back_to_the_structural_one(self):
+        doc = "Claim 1 — something that is long enough to be its own passage here."
+        passages = _passages_from_cuts(doc, [(0, None)])
+        assert passages[0].label == "Claim 1"
 
     def test_separators_are_not_stored(self):
         doc = "A" * 60 + "\n\n\n   " + "B" * 60
-        for p in split_passages(doc):
+        for p in split_passages_structural(doc):
             assert p.text == p.text.strip()
 
     def test_short_block_folds_into_the_previous_one(self):
         doc = "A" * 60 + "\n\nshort"
-        passages = split_passages(doc)
+        passages = split_passages_structural(doc)
         assert len(passages) == 1
         assert "short" in passages[0].text
 
     def test_empty_input(self):
-        assert split_passages("") == []
-        assert split_passages("   \n\n  ") == []
+        assert split_passages_structural("") == []
+        assert split_passages_structural("   \n\n  ") == []
 
     def test_splitting_is_deterministic(self):
         doc = CLAIM_1 + "\n\n" + "B" * 80
-        first = [(p.start_char, p.end_char) for p in split_passages(doc)]
+        first = [(p.start_char, p.end_char) for p in split_passages_structural(doc)]
         assert all(
-            [(p.start_char, p.end_char) for p in split_passages(doc)] == first
+            [(p.start_char, p.end_char) for p in split_passages_structural(doc)]
+            == first
             for _ in range(3)
         )
 
 
 class TestVerbatimAudit:
     def test_sliced_passages_pass(self):
-        passages = split_passages(CLAIM_1)
+        passages = split_passages_structural(CLAIM_1)
         assert audit_passages(passages, CLAIM_1) == []
         assert all(p.span_verified for p in passages)
 
