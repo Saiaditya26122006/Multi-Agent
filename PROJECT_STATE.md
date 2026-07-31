@@ -1047,10 +1047,19 @@ live so the two can be compared on the same input.
     FEED_UNIT=passage python main.py   # passage_pipeline
 
 `web/server.feed_unit()` reads the flag; an unrecognised value logs and falls back to
-fact. **The default stays `fact` until the passage write path is proven end to end** —
-see "Not yet verified" below. The risk is specific, not theoretical: `store()` dedupes on
-a content hash that ignores `section`, so four attachments of one passage collapsing into
-one row would leave three nodes silently empty.
+fact.
+
+**The default stays `fact`, and the reason changed on 2026-07-31.** The original reason —
+an unproven write path — is resolved (see "The write path", below). The current reason is
+**coverage**: on a four-block claim document, passage mode attached **1 of 4 blocks**
+where fact mode found homes for **5 of its 8 fragments**. The passage judge's span test is
+stricter, and against a candidate pool that lacks the right section it returns nothing
+rather than forcing a fit. That is correct behaviour and it is still a regression in what
+reaches a reviewer.
+
+⚠️ That measurement is on a **reconstructed** document, not Alex's paste — only the two
+sentences it was built around are verbatim. Flip the default only after both modes have
+been run on the real document.
 
 ### Why
 
@@ -1175,10 +1184,48 @@ and pre-existing ids and the response cannot distinguish them.
   fact card's field names so filters and counts stay one code path. Each attachment
   renders with its reason and the passage with the earning span `<mark>`ed.
 
+### PARENT FALLBACK — the routing rule that was never on the live path (2026-07-31)
+
+Routing has been stated as **leaf → section → review** since v3. It was not implemented
+where it mattered. `propose()` built its candidate pool as
+
+    for section in chosen:
+        candidate_ids += arch.siblings.get(section.section_id, [])
+
+and `arch.siblings` maps a section to its **leaves**. The section node itself was never
+in the list, so a fact belonging to a section but to no single leaf under it had no legal
+target and fell straight through to "no candidate matched". The rule existed in
+`classify()` as `PARENT_PARKED` — a path explicitly not used for filing — and nowhere on
+the path that files.
+
+`candidate_pool()` and `is_section()` now live in `feed_classifier_v3` and are shared by
+`propose()`, `propose_group()` and `passage_classifier.attach()`; the passage-local
+duplicate is deleted. Parents are labelled in the rendered candidate list, both rank
+prompts say to rank a parent only when no leaf covers the content, and `ProposedNode`
+carries `level: "leaf" | "section"` so a section-level filing is distinguishable
+downstream from a leaf filing.
+
+Verified firing in fact mode — 3 of 8 cards on the test document now carry a section
+fallback that could not previously be offered:
+
+    [02] BP.2.1.1 (leaf)   shortlist: [BP.2.1.1 leaf, BP.2.1.5 leaf, BP.2.1 section]
+    [05] BP.1.1.9 (leaf)   shortlist: [BP.1.1.9 leaf, BP.1.8.4 leaf, BP.1.8 section]
+    [08] BP.1.2.1 (leaf)   shortlist: [BP.1.2.1 leaf, BP.1.2 section, BP.1.5.3.1 leaf]
+
+⚠️ **It does not rescue a fact whose section was never retrieved, and that is the
+common case.** On the passage run all six retrieved sections were in the pool (68
+candidates shown, `dropped: []`, so nothing was filtered by the gates) and the judge
+declined every one — because BP.8.1 and BP.8.4 were not among them. The parent fallback
+fixes "the right section was shown but only its leaves were selectable". It cannot reach
+a section sitting at induced rank 21 or 58. The BP.8 retrieval gap now blocks both
+pipelines rather than one.
+
 ### Still not verified
 
 Ingest, confirm and retrieval are covered. The review queue (`/feed/review`) and the
-batch-list view were not exercised in passage mode.
+batch-list view were not exercised in passage mode. Neither mode has been run on Alex's
+actual multi-block document — every passage measurement to date is on the Claim-1 block
+or on a reconstruction.
 
 ## VERBATIM STORAGE — the chunker no longer writes prose (2026-07-31)
 

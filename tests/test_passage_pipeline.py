@@ -26,7 +26,6 @@ from services.passage_classifier import (
     LEVEL_SECTION,
     Attachment,
     _attachments_from,
-    _candidate_ids,
     _locate_span,
     highlight,
 )
@@ -305,17 +304,63 @@ class TestSpanEarnsTheAttachment:
 
 
 class TestCandidatePool:
-    def test_section_itself_is_offered_as_a_target(self, arch):
-        from services.passage_classifier import SectionCandidate
+    """The parent fallback: a section must be a legal target, in BOTH pipelines."""
 
-        section = SectionCandidate(
+    def _section(self):
+        from services.feed_classifier_v3 import SectionCandidate
+
+        return SectionCandidate(
             section_id="BP.8.1",
             best_leaf_id="BP.8.1.4",
             best_leaf_similarity=0.2,
             leaves_in_induced_window=1,
         )
-        ids = _candidate_ids(arch, [section])
+
+    def test_section_itself_is_offered_as_a_target(self, arch):
+        from services.feed_classifier_v3 import candidate_pool
+
+        ids = candidate_pool(arch, [self._section()])
         assert "BP.8.1.4" in ids and "BP.8.1" in ids
+
+    def test_leaves_come_before_the_parent(self, arch):
+        from services.feed_classifier_v3 import candidate_pool
+
+        ids = candidate_pool(arch, [self._section()])
+        assert ids.index("BP.8.1.4") < ids.index("BP.8.1")
+
+    def test_is_section_distinguishes_parent_from_leaf(self, arch):
+        from services.feed_classifier_v3 import is_section
+
+        assert is_section(arch, "BP.8.1") is True
+        assert is_section(arch, "BP.8.1.4") is False
+
+    def test_the_fact_pipeline_ranks_a_section_as_section_level(self, arch):
+        """A parent chosen by the fact judge is recorded as level=section."""
+        from services.feed_classifier_v3 import _rank_from_parsed
+
+        parsed = {
+            "candidates": [
+                {"note": "belongs in the section, no leaf covers it",
+                 "fit": "fits", "node_id": "BP.8.1"}
+            ]
+        }
+        ranked = _rank_from_parsed(parsed, arch, 5)
+        assert [(c.node_id, c.level, c.section_id) for c in ranked] == [
+            ("BP.8.1", "section", "BP.8.1")
+        ]
+
+    def test_the_fact_pipeline_ranks_a_leaf_as_leaf_level(self, arch):
+        from services.feed_classifier_v3 import _rank_from_parsed
+
+        parsed = {
+            "candidates": [
+                {"note": "covers it", "fit": "fits", "node_id": "BP.8.1.4"}
+            ]
+        }
+        ranked = _rank_from_parsed(parsed, arch, 5)
+        assert [(c.node_id, c.level, c.section_id) for c in ranked] == [
+            ("BP.8.1.4", "leaf", "BP.8.1")
+        ]
 
 
 class TestLocateSpan:

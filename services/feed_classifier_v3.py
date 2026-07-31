@@ -250,6 +250,17 @@ two decisions, and nothing else.
 
    State in your reason which part you took as the main assertion.
 
+=== LEAVES AND PARENTS ===
+
+Most candidates are leaves. Some are the PARENT section of a group of leaves, and
+are labelled as such. Rank a parent ONLY when the fact belongs in that section but
+no single leaf under it covers it — a fact about the section's theme rather than
+about one node's required output. Prefer a leaf whenever one genuinely fits.
+
+A parent is a real answer, not a consolation. "This belongs in BP.8.4 but none of
+its leaves is specifically about it" is far more useful to the human than an empty
+shortlist, and far safer than forcing it onto the least-bad leaf.
+
 === WHAT MAKES A GOOD SHORTLIST ===
 A human will scan your top few and click one. So:
   - Rank the genuinely plausible nodes first, best first.
@@ -330,6 +341,10 @@ the others is the wrong node — the right one covers the whole set.
 If the list would VIOLATE a node's prohibited_claims, say so and mark it poor.
 Return AT MOST 5 candidates, best first. If nothing fits the list, return an
 empty list.
+
+Some candidates are the PARENT section of a group of leaves and are labelled as
+such. Rank a parent ONLY when the list belongs in that section but no single leaf
+under it covers it. Prefer a leaf whenever one genuinely fits.
 
 Each note is ONE short sentence to the human: what filing this list at that node
 would mean.
@@ -585,6 +600,43 @@ def _describe(node: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def candidate_pool(
+    arch: Architecture, sections: Sequence[SectionCandidate]
+) -> list[str]:
+    """Every leaf in the chosen sections, plus each SECTION NODE itself.
+
+    The section node is the parent fallback. Routing has always been stated as
+    leaf -> section -> review, but `propose()` built its pool from
+    ``arch.siblings`` alone, which contains only leaves — so a fact that belonged
+    to a section but to no single leaf under it had no legal target and fell
+    straight through to review. The rule existed in `classify()` (PARENT_PARKED)
+    and nowhere on the path that actually files.
+
+    A section is only a filing target when no leaf earns the fact; the judge is
+    told this and each parent is labelled in the rendered candidate list.
+
+    Args:
+        arch: A loaded Architecture.
+        sections: The chosen sections, in rank order.
+
+    Returns:
+        Candidate node ids: each section's leaves, then the section itself.
+    """
+    ids: list[str] = []
+    for section in sections:
+        for leaf in arch.siblings.get(section.section_id, []):
+            if leaf not in ids:
+                ids.append(leaf)
+        if section.section_id in arch.nodes and section.section_id not in ids:
+            ids.append(section.section_id)
+    return ids
+
+
+def is_section(arch: Architecture, node_id: str) -> bool:
+    """True when a node has leaves under it, i.e. it is a parent not a leaf."""
+    return bool(arch.siblings.get(node_id))
+
+
 def _build_judge_input(
     fact: str,
     candidate_ids: list[str],
@@ -600,7 +652,15 @@ def _build_judge_input(
     what the judge returns in ``subsumed_by``, so they must be stable within one
     call.
     """
-    blocks = [_describe(arch.nodes[n]) for n in candidate_ids]
+    blocks = [
+        _describe(arch.nodes[n])
+        + (
+            "\nNOTE: this is a PARENT section — prefer a leaf under it."
+            if is_section(arch, n)
+            else ""
+        )
+        for n in candidate_ids
+    ]
     parts = [f"FACT TO FILE (verbatim segment of the source):\n{fact}"]
     if passage:
         parts.append(
@@ -626,7 +686,15 @@ def _build_group_input(
     passage: Optional[str] = None,
 ) -> str:
     """Compose the group judge's user message: every member plus the candidates."""
-    blocks = [_describe(arch.nodes[n]) for n in candidate_ids]
+    blocks = [
+        _describe(arch.nodes[n])
+        + (
+            "\nNOTE: this is a PARENT section — prefer a leaf under it."
+            if is_section(arch, n)
+            else ""
+        )
+        for n in candidate_ids
+    ]
     listing = "\n".join(f"  {i + 1}. {f}" for i, f in enumerate(facts))
     parts = [f"LIST TO FILE ({len(facts)} verbatim segments from one list):\n{listing}"]
     if passage:
@@ -709,6 +777,11 @@ class ProposedNode:
     note: str
     degraded: bool
     degraded_reason: Optional[str]
+    # "leaf" or "section". A section-level match is the parent fallback: the
+    # fact belongs in that section but no leaf under it covers it. Recorded so
+    # the reviewer can see they are being offered a parent, and so a
+    # section-level filing is distinguishable downstream from a leaf filing.
+    level: str = "leaf"
 
 
 @dataclass
@@ -803,15 +876,18 @@ def _rank_from_parsed(
             )
             continue
 
+        section_level = is_section(arch, node_id)
         ranked.append(
             ProposedNode(
                 rank=len(ranked) + 1,
                 node_id=node_id,
                 title=node.get("node_title"),
-                section_id=parent_of(node_id),
+                # A section IS its own section; only a leaf has a parent above it.
+                section_id=node_id if section_level else parent_of(node_id),
                 note=note,
                 degraded=bool(node.get("degraded_target")),
                 degraded_reason=node.get("degraded_reason"),
+                level="section" if section_level else "leaf",
             )
         )
         if len(ranked) >= shortlist_size:
@@ -923,9 +999,7 @@ def propose(
     )
     chosen = sections[:sections_to_consider]
 
-    candidate_ids: list[str] = []
-    for section in chosen:
-        candidate_ids += arch.siblings.get(section.section_id, [])
+    candidate_ids = candidate_pool(arch, chosen)
 
     if not candidate_ids:
         return Proposal(
@@ -1037,9 +1111,7 @@ def propose_group(
     )
     chosen = sections[:sections_to_consider]
 
-    candidate_ids: list[str] = []
-    for section in chosen:
-        candidate_ids += arch.siblings.get(section.section_id, [])
+    candidate_ids = candidate_pool(arch, chosen)
 
     if not candidate_ids:
         return Proposal(

@@ -1917,15 +1917,22 @@ from services import feed_batch_store
 # document into atomic claims and filed each at one node. Both are live so the
 # two can be compared on the same input:
 #
-#     FEED_UNIT=passage python main.py  # the passage pipeline
 #     FEED_UNIT=fact python main.py     # the default
+#     FEED_UNIT=passage python main.py  # the passage pipeline
 #
-# FACT is the default until the passage write path is proven end to end.
-# `confirm_passage` writes one row per attachment, and `rag_service.store`
-# dedupes on a content hash that ignores `section` — so four attachments of one
-# passage collapsing to a single row, leaving three nodes silently empty, is a
-# real failure mode with only unit coverage behind it. See PROJECT_STATE,
-# "PASSAGE PIPELINE — Not yet verified".
+# The passage WRITE path is verified — a 4-node direct write produced 4 rows with
+# no collapse, and POST /api/feed/confirm with two node_ids produced 2 rows, 2
+# sections, 1 text body. FACT is still the default for a different reason:
+# **coverage**. On a four-block claim document passage mode attached 1 of 4
+# blocks where fact mode found homes for 5 of its 8 fragments. The passage
+# judge's span test is stricter, and against a candidate pool that lacks the
+# right section it returns nothing rather than forcing a fit. Correct behaviour,
+# but not something to ship as the live path on one reconstructed input.
+#
+# Flip only after both modes have been run on Alex's real document.
+#
+# Also still fact-shaped and untested in passage mode: the review queue at
+# /feed/review and the batch-list view.
 UNIT_PASSAGE = "passage"
 UNIT_FACT = "fact"
 DEFAULT_UNIT = UNIT_FACT

@@ -49,6 +49,8 @@ from services.feed_classifier_v3 import (
     _describe,
     _note_rejects,
     _parse_json_object,
+    candidate_pool,
+    is_section,
     parent_of,
     rank_sections,
 )
@@ -223,32 +225,12 @@ class PassageProposal:
         return payload
 
 
-def _candidate_ids(
-    arch: Architecture, sections: Sequence[SectionCandidate]
-) -> list[str]:
-    """Every leaf in the chosen sections, plus each section node itself.
-
-    The section is included so the judge has a legal target when a passage
-    populates a section but no single leaf under it — the "no leaf, section
-    matches" routing rule. It is rendered as a parent so the judge knows to prefer
-    a leaf.
-    """
-    ids: list[str] = []
-    for section in sections:
-        for leaf in arch.siblings.get(section.section_id, []):
-            if leaf not in ids:
-                ids.append(leaf)
-        if section.section_id in arch.nodes and section.section_id not in ids:
-            ids.append(section.section_id)
-    return ids
-
-
 def _build_input(passage: str, candidate_ids: list[str], arch: Architecture) -> str:
     """Compose the judge's user message: the passage plus every candidate node."""
     blocks = []
     for node_id in candidate_ids:
         described = _describe(arch.nodes[node_id])
-        if arch.siblings.get(node_id):
+        if is_section(arch, node_id):
             described += "\nNOTE: this is a PARENT section — prefer a leaf under it."
         blocks.append(described)
     return (
@@ -382,7 +364,7 @@ def _attachments_from(
             Attachment(
                 node_id=node_id,
                 title=node.get("node_title"),
-                level=LEVEL_SECTION if arch.siblings.get(node_id) else LEVEL_LEAF,
+                level=LEVEL_SECTION if is_section(arch, node_id) else LEVEL_LEAF,
                 span=passage[start:end],
                 span_start=start,
                 span_end=end,
@@ -426,7 +408,7 @@ def attach(
 
     model = model_id or os.getenv(DEFAULT_MODEL_ENV, DEFAULT_MODEL)
     sections = rank_sections(passage_vector, arch, top_n=max(sections_to_consider, 2))
-    candidate_ids = _candidate_ids(arch, sections)
+    candidate_ids = candidate_pool(arch, sections)
 
     if not candidate_ids:
         logger.warning("[Passages] no candidate nodes for passage %r", passage[:60])
