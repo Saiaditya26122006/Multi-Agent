@@ -77,6 +77,13 @@
   border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; margin-top: 6px;
 }
 .fc .why .src { font: 11px var(--mono); color: var(--ink-3); display: block; margin-top: 6px; }
+/* Passage cards: one passage, several attachments, each with the span that
+   earned it marked inside the passage. */
+.fc .atts { margin-top: 5px; border-left: 2px solid var(--line); padding-left: 9px; }
+.fc .atts details { margin-top: 3px; }
+.fc .atts summary { font: 12px/1.5 var(--mono); color: var(--ink-2); }
+.fc .atts summary b { font-weight: 600; }
+.fc mark { background: var(--warn-soft); color: inherit; padding: 0 1px; border-radius: 2px; }
 .fc .flags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .fc .flag { font-size: 11px; padding: 2px 7px; border-radius: 99px; border: 1px solid currentColor; }
 .fc .flag.fact { background: var(--warn-soft); color: var(--warn); }
@@ -203,6 +210,23 @@ function cardHTML(c) {
            <span class="src">${esc(c.source_document || "")} [${span}] “${esc(c.source_quote || "")}”</span>
          </div></details>`
     : "";
+  if (c.passage) {
+    const over = c.overflow
+      ? `<span class="flag node">${c.overflow} more node(s) qualified than the cap allows</span>`
+      : "";
+    return `<article class="fc" data-b="${esc(c.bucket)}" data-i="${c.index}">
+        <div class="top">
+          <span class="n">${String(c.index + 1).padStart(2, "0")}</span>
+          <span class="q">${c.label ? `<b>${esc(c.label)}</b> — ` : ""}${esc(c.fact)}</span>
+          <span class="st">${st}</span>
+        </div>
+        ${attachmentsHTML(c)}
+        ${flags || over ? `<div class="flags">${flags}${over}</div>` : ""}
+        ${c.why ? `<details><summary>what this passage does ▾</summary>
+             <div class="why">${esc(c.why)}</div></details>` : ""}
+      </article>`;
+  }
+
   return `<article class="fc" data-b="${esc(c.bucket)}" data-i="${c.index}">
       <div class="top">
         <span class="n">${String(c.index + 1).padStart(2, "0")}</span>
@@ -211,6 +235,56 @@ function cardHTML(c) {
       </div>
       ${node}${flags ? `<div class="flags">${flags}</div>` : ""}${why}
     </article>`;
+}
+
+// A passage card carries `text` and an `attachments` list where a fact card
+// carries `fact` and one node. Mapped into the fact card's field names so the
+// renderer, the filters and the counts stay one code path.
+function passageView(c) {
+  const atts = c.attachments || [];
+  const top = atts[0] || {};
+  return {
+    index: c.index,
+    passage: true,
+    fact: c.text,
+    label: c.label,
+    attachments: atts,
+    bucket: c.bucket,
+    node_id: (c.confirmed_node_ids || []).length
+      ? c.confirmed_node_ids.join(", ")
+      : top.node_id,
+    node_title: top.title,
+    why: c.summary,
+    checks: c.checks,
+    overflow: c.overflow,
+    degraded_reason: top.degraded_reason,
+    source_document: c.source_document,
+    start_char: c.start_char,
+    end_char: c.end_char,
+  };
+}
+
+// The passage with its earning span marked. Offsets index the passage, so the
+// text is escaped in three pieces — escaping first would move them.
+function markSpan(text, a) {
+  const s = a.span_start, e = a.span_end;
+  if (!(Number.isInteger(s) && Number.isInteger(e) && s >= 0 && s < e && e <= text.length))
+    return esc(text);
+  return `${esc(text.slice(0, s))}<mark>${esc(text.slice(s, e))}</mark>${esc(text.slice(e))}`;
+}
+
+function attachmentsHTML(c) {
+  if (!c.attachments || !c.attachments.length)
+    return c.bucket === "nofit" ? `<div class="node muted">no node populated</div>` : "";
+  return `<div class="atts">` + c.attachments.map(a => `
+      <details>
+        <summary>→ <b>${esc(a.node_id)}</b> ${esc(a.title || "")}
+          ${a.degraded ? `<span class="flag node">incomplete node</span>` : ""}</summary>
+        <div class="why">${esc(a.reason || "")}
+          <div class="src">earned by: “${esc(a.span || "")}” [${a.span_start}:${a.span_end}]</div>
+          <div class="src">${markSpan(c.fact, a)}</div>
+        </div>
+      </details>`).join("") + `</div>`;
 }
 
 function renderStream() {
@@ -272,6 +346,30 @@ function handle(ev) {
       $("live-text").textContent =
         `${ev.words.toLocaleString()} words → ${ev.facts} facts. Classifying…`;
       break;
+    // Passage mode emits split/passage/attached where fact mode emits
+    // extracted/chunked/classified. The card shape differs too, so passage
+    // events are normalised into the same view model here.
+    case "split":
+      total = ev.passages;
+      $("live-text").textContent =
+        `${ev.passages} passage(s). Finding the nodes each one populates…`;
+      break;
+    case "passage":
+      enqueue(() => {
+        CARDS.set(ev.index, { ...passageView(ev), bucket: "processing" });
+        renderCounts();
+      });
+      break;
+    case "attached":
+      enqueue(() => {
+        const prev = CARDS.get(ev.index) || {};
+        CARDS.set(ev.index, { ...prev, ...passageView(ev) });
+        renderCounts(ev.bucket);
+        const t = tally();
+        $("live-text").textContent =
+          `${CARDS.size - (t.processing || 0)} of ${total} attached…`;
+      });
+      break;
     case "chunked":
       enqueue(() => {
         CARDS.set(ev.index, { ...ev, bucket: "processing" });
@@ -319,6 +417,17 @@ async function loadExisting() {
     if (data.status !== "done") return false;      // still running — the socket carries it
     if (data.batch.error) { $("summary").textContent = `Failed: ${data.batch.error}`; return true; }
     DOC = data.batch.source_document || "";
+    if (data.batch.unit === "passage" || data.batch.total_passages != null) {
+      total = data.batch.total_passages;
+      (data.batch.cards || []).forEach(c => {
+        const bucket = c.status === "confirmed" ? "confirmed"
+              : (c.status === "rejected" || !(c.attachments || []).length) ? "nofit"
+              : (c.checks && c.checks.length) ? "look" : "ready";
+        CARDS.set(c.index, passageView({ ...c, bucket }));
+      });
+      wireNav(); renderCounts(); renderStream();
+      return true;
+    }
     total = data.batch.total_facts;
     (data.batch.cards || []).forEach(c => {
       const top = (c.shortlist || [])[0] || {};

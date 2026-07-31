@@ -819,6 +819,19 @@ downstream component can lift.
 
 (A ninth, margin-gated top-2 recovery, is a variant of 5 and moved precision *down*.)
 
+**Re-derived on 2026-07-31 and added here so it is not re-derived a third time.**
+Mechanism 6 was measured again on passages rather than facts, and mechanism 7 was
+proposed again before this section was read. Both were already settled above. The one
+new datum: **the aggregate hybrid gain hides a per-section regression on the sections
+that motivated it.** On the Claim-1 passage, BP.8.1's induced section rank goes 21 → 45
+under RRF and BP.8.4 goes 58 → 63; on the competitor roster BP.8.1 goes 26 → 32. Lexical
+fusion moves those sections *away* while lifting the average, because the terms it needs
+are absent from the corpus entirely — `manusights`, `dossier`, `scholarsreview`,
+`refineink`, `typo` and `archetype` appear in **0 of 801** node texts, so BM25 scores them
+zero, while `benchmark` (7 nodes), `reviewer` (23) and `competitor` (7) sit mostly on
+other sections and pull toward them. Do not read the table above as "hybrid helps
+everywhere".
+
 Mechanisms 7 and 8 are the only two that generalised — both lifted the oblique
 paraphrase set alongside bucket-a rather than only the written test phrasing.
 `proof_burden` was tested and **rejected**: 543 of 912 nodes share the value
@@ -1051,7 +1064,7 @@ STORAGE below. Storing the paragraph whole and attaching it to several nodes get
 |---|---|---|
 | unit | one atomic claim | one paragraph / labelled block |
 | splitter | LLM, varies run to run | **deterministic string operation, no model** |
-| nodes per unit | 1 | up to `MAX_ATTACHMENTS` (4) |
+| nodes per unit | 1 | up to `MAX_ATTACHMENTS` (2) |
 | justification | a note | **a span of the passage, checked as a substring** |
 
 ### An attachment must be earned by a span
@@ -1082,11 +1095,16 @@ do the same.
 ### Measured on the Claim-1 block, two runs
 
 - **1 passage, 0 verbatim violations, character-identical to the input**, span verified.
-- **4 attachments, each with a span re-checked as a real substring.** Same four nodes in
-  the same order across both runs.
-- **BP.1.1.3 was NOT attached** — and it was in the 58-node candidate pool, so the judge
-  genuinely declined it rather than never seeing it. The negative test passes for the
-  right reason.
+- **Ranks 1-2 are reproducible; ranks 3-4 were not.** Across four runs BP.8.3.1 and
+  BP.8.3.3 came out first and second every time with identical spans, while ranks 3-4
+  differed in *every* run: BP.8.3.5+BP.1.2.1, then BP.1.1.3+BP.1.2.1, then
+  BP.1.8.6+BP.1.1.9. Each quoted a real span, so the span gate cannot filter them — they
+  are judgement calls the judge does not repeat. **BP.1.1.3, the node this passage was
+  explicitly not meant to reach, leaked in through that tail.**
+- **`MAX_ATTACHMENTS` is therefore 2**, not 4 — the reproducible part of the ranking.
+  Everything past it is counted in `overflow` and raises `CHECK_OVERFLOW`, so a passage
+  that genuinely populates more nodes is visible rather than silently truncated. Three
+  runs at the cap produced identical nodes, spans and character offsets.
 
 **The expected nodes were mostly never candidates.** Expected roughly BP.8.4.1 / BP.8.3.3
 / BP.8.1.4; got BP.8.3.1, BP.8.3.3, BP.8.3.5, BP.1.2.1 — one exact hit.
@@ -1105,16 +1123,62 @@ already 6 here against the fact path's 3; BP.8.4 at rank 58 would need ~58.
 the judge found three distinct earning spans in one paragraph and quoted each correctly.
 
 ⚠️ **Multi-node attachment raises the cost of the retrieval gap.** With one node per fact
-a retrieval miss lost one filing. A passage that should populate four nodes but only sees
-two sections loses half its attachments, silently. Hybrid lexical + vector retrieval is
-the fix that matters most now.
+a retrieval miss lost one filing. A passage that should populate several nodes but only
+sees two sections loses attachments silently. **Hybrid retrieval is NOT the answer** —
+see the re-derivation note under the LOCKED CONCLUSION: it moves BP.8.1 and BP.8.4
+further away, not closer.
 
-### Not yet verified
+### The write path — verified end to end (2026-07-31)
 
-`confirm_passage` writes to the canonical Supabase and has **unit coverage only** — no
-end-to-end write was run, so `_already_attached`, the `deduplicate=False` path and
-`retrieve_at_node` are untested against live rows. One supervised write before trusting
-them.
+Two supervised writes to canonical Supabase, both confirmed by querying the table rather
+than by trusting the return value.
+
+**Direct (`confirm_passage`, 4 nodes, run `passage-supervised-verify-01`):**
+
+    row count            : 4  (expected 4)
+    distinct sections    : ['BP.1.1.3', 'BP.1.2.1', 'BP.8.3.1', 'BP.8.3.3']
+    distinct passage text: 1     all text == source : True     NO COLLAPSE : True
+
+All four rows carry identical content (`sha1 17037f166941`, 319 chars) and different
+`attachment_span` metadata. The `deduplicate=False` + `_already_attached` scoping is what
+makes that work; `store()`'s global content hash would have written one row and dropped
+three. `retrieve_at_node` returns the whole passage with the span marked and
+`also_attached_to` naming the siblings.
+
+**Through the endpoint (`POST /api/feed/confirm`, `node_ids` of 2, run
+`passage-endpoint-verify-02`):**
+
+    200  unit=passage  stored=2  status=confirmed
+    BP.5.4.2  len=302  identical_to_source=True
+    BP.5.4.3  len=302  identical_to_source=True
+    row count 2 · distinct sections 2 · distinct text bodies 1 · PASS
+
+`node_ids` with more than one entry against a **fact** batch returns 400.
+
+**Re-confirming a passage is idempotent.** The first endpoint attempt ran against a
+passage the direct write had already stored: it returned `stored: 2` having written
+**zero** new rows, because `_already_attached` found the existing pair and returned their
+ids. Correct behaviour, with one wrinkle worth knowing — `stored_ids` mixes newly written
+and pre-existing ids and the response cannot distinguish them.
+
+### The confirm path is passage-aware (2026-07-31)
+
+- `ConfirmCardRequest` takes `node_ids: list[str]`; `node_id` still works and
+  `targets()` normalises both. A single `node_id` could not express multi-node
+  attachment, which is the entire point of the pipeline.
+- The endpoint **dispatches on the batch's own `unit`, not on `feed_unit()`**. A batch
+  ingested as passages must confirm as passages even if the process was since restarted
+  under the other flag — the cards in Redis outlive the environment variable. Older
+  batches without the field are sniffed by the presence of `attachments`.
+- `feed_results.html` handles `split`/`passage`/`attached` alongside
+  `extracted`/`chunked`/`classified`, and `passageView()` maps a passage card into the
+  fact card's field names so filters and counts stay one code path. Each attachment
+  renders with its reason and the passage with the earning span `<mark>`ed.
+
+### Still not verified
+
+Ingest, confirm and retrieval are covered. The review queue (`/feed/review`) and the
+batch-list view were not exercised in passage mode.
 
 ## VERBATIM STORAGE — the chunker no longer writes prose (2026-07-31)
 

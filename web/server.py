@@ -2058,14 +2058,32 @@ async def list_feed_batches(token: str) -> dict:
 
 
 class ConfirmCardRequest(BaseModel):
-    """Payload for POST /api/feed/confirm."""
+    """Payload for POST /api/feed/confirm.
+
+    `node_id` files one fact at one node — the fact pipeline's shape. `node_ids`
+    files one passage at several — the passage pipeline's whole point, which a
+    single `node_id` cannot express. Either may be sent; `node_ids` wins when
+    both are, and a lone `node_id` is accepted in passage mode as a one-element
+    list so an older client is not broken by the addition.
+    """
 
     run_id: str
     index: int
     node_id: Optional[str] = None
+    node_ids: Optional[list[str]] = None
     action: str = "confirm"  # confirm | none | skip
     confirmed_by: str = "reviewer"
     token: str
+
+    def targets(self) -> list[str]:
+        """The nodes to file at, in request order, de-duplicated."""
+        chosen = self.node_ids if self.node_ids else ([self.node_id] if self.node_id else [])
+        seen: list[str] = []
+        for node in chosen:
+            node = (node or "").strip()
+            if node and node not in seen:
+                seen.append(node)
+        return seen
 
 
 @app.post("/api/feed/confirm")
@@ -2102,23 +2120,73 @@ async def confirm_feed_card(req: ConfirmCardRequest) -> dict:
         )
         return {"success": True, "action": req.action, "card": card_data}
 
-    if not req.node_id:
-        raise HTTPException(status_code=400, detail="node_id required to confirm")
+    targets = req.targets()
+    if not targets:
+        raise HTTPException(
+            status_code=400, detail="node_id or node_ids required to confirm"
+        )
+
+    # Dispatch on the batch's own unit, not on the process default. A batch
+    # ingested as passages must be confirmed as passages even if the server has
+    # since been restarted with the other flag — the cards in Redis have the
+    # shape they were written with, and outlive the environment variable.
+    unit = batch.get("unit") or ("passage" if "attachments" in card_data else UNIT_FACT)
+
+    import dataclasses
+
+    if unit == UNIT_PASSAGE:
+        from services.passage_pipeline import PassageCard, confirm_passage
+
+        known = {f.name for f in dataclasses.fields(PassageCard)}
+        card = PassageCard(**{k: v for k, v in card_data.items() if k in known})
+        try:
+            card = await asyncio.to_thread(
+                confirm_passage, card, targets, req.confirmed_by, req.run_id
+            )
+        except Exception as exc:  # noqa: BLE001 — surfaced to the reviewer
+            logger.error(
+                "Passage confirm failed for %s/%d: %s", req.run_id, req.index, exc
+            )
+            raise HTTPException(status_code=500, detail=f"Store failed: {str(exc)[:200]}")
+
+        feed_batch_store.update_card(req.run_id, req.index, card.to_dict())
+        return {
+            "success": True,
+            "action": "confirm",
+            "unit": unit,
+            "stored": len(card.stored_ids),
+            "nodes": card.confirmed_node_ids,
+            "card": card.to_dict(),
+        }
+
+    if len(targets) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="a fact files at one node; node_ids with more than one entry "
+            "requires a passage batch",
+        )
 
     from services.feed_pipeline import ReviewCard, confirm_card
 
-    known = {f.name for f in __import__("dataclasses").fields(ReviewCard)}
+    known = {f.name for f in dataclasses.fields(ReviewCard)}
     card = ReviewCard(**{k: v for k, v in card_data.items() if k in known})
     try:
         card = await asyncio.to_thread(
-            confirm_card, card, req.node_id, req.confirmed_by, req.run_id
+            confirm_card, card, targets[0], req.confirmed_by, req.run_id
         )
     except Exception as exc:  # noqa: BLE001 — surfaced to the reviewer
         logger.error("Feed confirm failed for %s/%d: %s", req.run_id, req.index, exc)
         raise HTTPException(status_code=500, detail=f"Store failed: {str(exc)[:200]}")
 
     feed_batch_store.update_card(req.run_id, req.index, card.to_dict())
-    return {"success": True, "action": "confirm", "card": card.to_dict()}
+    return {
+        "success": True,
+        "action": "confirm",
+        "unit": unit,
+        "stored": 1 if card.stored_id else 0,
+        "nodes": [card.confirmed_node_id] if card.confirmed_node_id else [],
+        "card": card.to_dict(),
+    }
 
 
 @app.get("/api/facts/by-node")

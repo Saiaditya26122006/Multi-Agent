@@ -55,10 +55,21 @@ from services.feed_classifier_v3 import (
 
 logger = logging.getLogger(__name__)
 
-# Ceiling on attachments per passage. Four is the point past which a "passage
-# about everything" is more likely than a passage that genuinely populates five
-# required_outputs — beyond it, the reviewer is being asked to check a spray.
-MAX_ATTACHMENTS = 4
+# Ceiling on attachments per passage.
+#
+# Measured, not chosen: four runs of the Claim-1 block agreed exactly on ranks
+# 1-2 (BP.8.3.1 and BP.8.3.3, same spans every run) and disagreed on ranks 3-4 in
+# every single run — BP.8.3.5+BP.1.2.1, then BP.1.1.3+BP.1.2.1, then
+# BP.1.8.6+BP.1.1.9. The tail is where BP.1.1.3 leaked in, a node the passage was
+# explicitly not meant to reach. Every one of those quoted a real span, so the
+# span gate cannot filter them: they are judgement calls the judge does not make
+# the same way twice.
+#
+# Two is therefore the reproducible part of the ranking. Everything past it is
+# recorded as `overflow` and raises CHECK_OVERFLOW rather than being filed, so a
+# passage that genuinely populates more nodes is visible to the reviewer instead
+# of silently truncated.
+MAX_ATTACHMENTS = 2
 
 # Sections whose leaves the judge sees. Higher than the fact path's 3: a passage
 # legitimately spans several areas of the plan, and the whole point here is to
