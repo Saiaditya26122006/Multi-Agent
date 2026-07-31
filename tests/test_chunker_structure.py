@@ -110,3 +110,58 @@ class TestLinksSurviveDedupe:
         fact.relationships = {"supports": [1]}
         _redirect_collapsed_links([fact, _fact(1)], [])
         assert fact.relationships == {"supports": [1]}
+
+
+class TestDedupeKeepsGroupMembership:
+    """A collapsed duplicate must not un-group the list it belonged to.
+
+    A list member and a later ungrouped restatement of it are one claim. The
+    restatement is usually the longer phrasing, so it wins the collapse — and
+    before this, the surviving fact carried no group_id, so the list lost a
+    member and that member filed alone. Measured as the pricing list scattering
+    across BP.9.5.1 and BP.9.2.2.
+    """
+
+    def _fact(self, index, text, group_id=None, group_label=None):
+        f = Fact(
+            fact=text,
+            source_quote=text,
+            start_char=index * 100,
+            end_char=index * 100 + len(text),
+            index=index,
+        )
+        f.group_id, f.group_label = group_id, group_label
+        return f
+
+    def test_survivor_inherits_the_group_of_the_fact_it_replaced(self):
+        from services.fact_dedupe import dedupe
+
+        member = self._fact(0, "twenty thousand for a faculty", "g1", "price tiers")
+        restatement = self._fact(1, "The faculty tier is twenty thousand")
+        survivors, drops = dedupe([member, restatement])
+
+        assert len(survivors) == 1
+        assert len(drops) == 1
+        assert survivors[0].group_id == "g1"
+        assert survivors[0].group_label == "price tiers"
+
+    def test_an_existing_group_is_not_overwritten(self):
+        from services.fact_dedupe import dedupe
+
+        first = self._fact(0, "twenty thousand for a faculty tier", "g1", "tiers")
+        second = self._fact(1, "The faculty tier is twenty thousand now", "g2", "other")
+        survivors, _ = dedupe([first, second])
+
+        assert survivors[0].group_id in ("g1", "g2")
+        assert survivors[0].group_id == ("g2" if survivors[0].index == 1 else "g1")
+
+    def test_two_ungrouped_facts_stay_ungrouped(self):
+        from services.fact_dedupe import dedupe
+
+        survivors, _ = dedupe(
+            [
+                self._fact(0, "the faculty tier is twenty thousand"),
+                self._fact(1, "The faculty tier is twenty thousand euros"),
+            ]
+        )
+        assert survivors[0].group_id is None

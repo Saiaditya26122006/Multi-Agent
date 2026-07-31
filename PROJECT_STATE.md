@@ -875,6 +875,48 @@ Auto-file is therefore a **data-accumulation** problem. The review tool is what
 generates that data, which makes shipping it the prerequisite rather than a
 consolation.
 
+## VERBATIM EXTRACTION COSTS RETRIEVAL — isolated A/B (2026-07-31)
+
+**The same three claims retrieve a different neighbourhood depending only on whether
+they are verbatim or rewritten.** `propose_group` on the pricing tiers:
+
+    rewritten (old chunker)   sections BP.9.2, BP.9.5, BP.3.2  -> files at BP.9.2.2
+    verbatim  (now)           sections BP.3.2, BP.1.7, BP.2.6  -> NO MATCH
+
+Nothing differs but the wording. `"The single-department pricing tier is eight
+thousand."` carries *pricing*, *tier*, *subscription* — the vocabulary that reaches
+BP.9.2. `"Eight thousand for a single department"` is what the author actually wrote and
+carries none of it. The self-contained rewrites the old chunker produced were, among
+other things, **query expansion**, and removing them removed that.
+
+This is the same root cause as the passage-mode coverage regression (1 of 4 blocks
+attached versus fact mode's 5 of 8) — now isolated to a controlled A/B on identical
+claims rather than inferred from a document.
+
+**It does not argue for going back.** Storing words Alex never wrote is the thing
+verbatim storage exists to stop, and it is not negotiable against a retrieval score. It
+does mean the retrieval gap is now wider than the locked conclusion measured, because
+every number in that table was taken on *rewritten* facts. Any future retrieval work
+must be measured on verbatim text or it is measuring a pipeline that no longer exists.
+
+⚠️ **The labelled sets are rewritten-era.** `evaluation/gold_shortlists.json`,
+`gold_standard.json` and the bucket-a/paraphrase facts were all written against the old
+extraction. Recall numbers taken on them overstate what the current pipeline achieves.
+
+### E3 — group membership fixed, list still unfiled
+
+`fact_dedupe` collapsed a list member into a later ungrouped restatement of the same
+claim — the restatement is the longer phrasing, so it won — and the survivor carried no
+`group_id`. The list silently lost a member, which then filed alone: that is what
+scattered the pricing tiers across BP.9.5.1 and BP.9.2.2. Fixed: **the survivor inherits
+`group_id`/`group_label` from the fact it replaced when it has none.** The group is a
+property of the claim, not of the wording that survived.
+
+Verified: all three tiers are back in one group, classified in one call, with one shared
+outcome. **E3's stated goal — all three on one node — still does not hold**, because that
+one shared outcome is now "no match" for the reason above. Consistent and unfiled beats
+scattered, but it is not the fix landing.
+
 ## MEASURED NEGATIVES (2026-07-31)
 
 Two things measured and deliberately NOT built. Recorded at the same weight as the

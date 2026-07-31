@@ -237,6 +237,26 @@ def dedupe(
             winner = match
 
         winner.merged_spans.append(_as_span(loser).__dict__)
+
+        # Group membership survives the collapse. A list member and a later
+        # ungrouped restatement of it are one claim, and the restatement is
+        # usually the longer phrasing — so the survivor is the ungrouped one and
+        # the list silently loses a member, which then files alone. That is what
+        # scattered the pricing list across BP.9.5.1 and BP.9.2.2 after facts
+        # became verbatim: the group is a property of the CLAIM, not of the
+        # wording that survived.
+        if getattr(winner, "group_id", None) is None:
+            winner.group_id = getattr(loser, "group_id", None)
+            winner.group_label = getattr(loser, "group_label", None)
+            if winner.group_id:
+                logger.info(
+                    "[Dedupe] fact %d inherited group %s from the fact it "
+                    "replaced (%d)",
+                    winner.index,
+                    winner.group_id,
+                    loser.index,
+                )
+
         drops.append(
             {
                 "dropped_index": loser.index,
