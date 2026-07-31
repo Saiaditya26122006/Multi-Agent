@@ -875,6 +875,56 @@ Auto-file is therefore a **data-accumulation** problem. The review tool is what
 generates that data, which makes shipping it the prerequisite rather than a
 consolation.
 
+## MEASURED NEGATIVES (2026-07-31)
+
+Two things measured and deliberately NOT built. Recorded at the same weight as the
+positives: a negative result nobody wrote down gets rebuilt.
+
+### Prohibition gate — 0 of 51 violations, not built
+
+`prohibited_claims_inference_patterns` is advisory: it is rendered into the judge prompt
+(`_describe`) and nothing checks the judge's answer against it. 834 of 912 nodes carry
+one, 799 distinct, median 77 chars. The old `web/handlers/feed_handler.py` had
+`_check_prohibition_violation` as a real gate; it was lost with that file.
+
+`scripts/measure_prohibition_violations.py` replays already-recorded proposals — no
+pipeline change, so it measures what shipped — and asks once per (fact, proposed node)
+whether the fact asserts what that node forbids. One pair per call, reason before
+verdict, biased to "false" when in doubt.
+
+    pairs checked        : 51
+    no prohibition rule  : 8
+    errors               : 0
+    VIOLATIONS           : 0        rate 0.0%
+
+**Not built.** The rule-of-three upper bound at n=51 is **~5.9%** at 95% confidence, so
+the rate is low but not provably zero. 0% is also consistent with the advisory text
+already doing the job — the judge is shown the rule and told to respect it. A gate would
+cost one Bedrock call per filing to insure against a failure that is not occurring.
+
+⚠️ n=51, from one document. **Re-run it if Alex's real paste is prohibition-dense**;
+the script takes `--limit` and needs no setup. Restoring the old regex gate is not the
+option to reach for — it was four hardcoded patterns against 799 distinct rules.
+
+### Candidate ordering — a real bug, no detectable effect on drift
+
+`load_architecture` paginated with `.range()` over an **unordered** query. That is a
+correctness bug on its own: PostgREST has no stable row order without `order by`, so
+successive pages could skip or repeat rows. It also left `arch.siblings` in whatever
+order the API returned — **42 of 91 sections were not in node_id order** — which
+scrambles the repeating slot sequence every section shares and which the judge reads as
+its candidate list.
+
+Fixed with `.order("node_id")` plus `node_sort_key`, which sorts numerically so
+`BP.8.1.2` precedes `BP.8.1.10`. **18 sections have ≥10 leaves and would still have been
+scrambled by a plain lexicographic sort.** All 91 sections are now in slot order.
+
+**The drift hypothesis did not survive contact.** Three-arm attribution after the fix:
+`fix-caused=8, drift=10, unchanged=9`, against 7 drift before. Per the MEASUREMENT RULE
+that split is not a card-for-card measurement, so this is not evidence that drift rose
+either. **Read it as: candidate order is not a meaningful contributor to run-to-run
+drift.** The fix is kept for the pagination bug, not for the drift.
+
 ## Feed classification — three fixes, measured three-arm (2026-07-30)
 
 Three fixes to the classification path, addressing measured errors on the 27-card

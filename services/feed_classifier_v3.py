@@ -486,11 +486,37 @@ def get_architecture_client() -> Any:
     return get_architecture_client._client
 
 
+def node_sort_key(node_id: str) -> tuple:
+    """Sort key that orders BP.8.1.2 before BP.8.1.10.
+
+    Lexicographic ordering puts ".10" before ".2", which scrambles the slot
+    sequence in every section with ten or more children — and those are the
+    sections where the ordering matters most. Numeric segments sort as numbers;
+    anything non-numeric falls back to its string.
+    """
+    parts: list[tuple[int, Any]] = []
+    for piece in node_id.split("."):
+        if piece.isdigit():
+            parts.append((0, int(piece)))
+        else:
+            parts.append((1, piece))
+    return tuple(parts)
+
+
 def load_architecture(supabase_client: Any = None) -> Architecture:
     """Load every node, build the childless-leaf matrix and the sibling index.
 
     A "leaf" is a node with no children, not a node at depth >= 3. BP.11.7 sits
     at depth 2 with zero children and is a legitimate filing target.
+
+    **The query is ordered, and that is a correctness requirement, not tidiness.**
+    PostgREST `.range()` pagination over an unordered query has no stable row
+    order, so successive pages could repeat or skip rows. It also left
+    ``siblings`` in whatever order the API happened to return — 42 of 91 sections
+    came back out of node_id order — which scrambled the repeating slot sequence
+    (taxonomy, classification, assumptions, evidence requirements, prohibited
+    inferences, acceptance check) that every section shares and that the judge
+    sees as its candidate list.
     """
     supabase_client = supabase_client or get_architecture_client()
     rows: list[dict[str, Any]] = []
@@ -499,6 +525,7 @@ def load_architecture(supabase_client: Any = None) -> Architecture:
         resp = (
             supabase_client.table("bp_architecture")
             .select(ARCH_COLUMNS)
+            .order("node_id")
             .range(start, start + 99)
             .execute()
         )
@@ -536,6 +563,10 @@ def load_architecture(supabase_client: Any = None) -> Architecture:
     siblings: dict[str, list[str]] = {}
     for r in leaf_rows:
         siblings.setdefault(parent_of(r["node_id"]), []).append(r["node_id"])
+    # Sorted numerically, not lexicographically: the judge reads this list in
+    # order and the slot sequence is only legible if .2 precedes .10.
+    for section in siblings:
+        siblings[section].sort(key=node_sort_key)
 
     logger.info(
         "[ClassifierV3] %d nodes, %d embedded leaves, %d sibling groups",

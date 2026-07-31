@@ -1,0 +1,660 @@
+{
+  "checked": 51,
+  "violations": 0,
+  "rate": 0.0,
+  "results": [
+    {
+      "fact": "The company expects eighty percent renewal.",
+      "node_id": "BP.9.5.16",
+      "runs": [
+        "feed_27_rerun.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "",
+      "title": "Churn Assumptions",
+      "skipped": "node has no prohibition rule"
+    },
+    {
+      "fact": "Pricing is an annual institutional subscription.",
+      "node_id": "BP.9.5.1",
+      "runs": [
+        "feed_27_rerun.json",
+        "feed_27_control.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim revenue model is validated or commercially viable.",
+      "title": "Revenue Model",
+      "violates": false,
+      "reason": "The fact simply describes the pricing structure (annual institutional subscription); it does not claim the revenue model is validated or commercially viable."
+    },
+    {
+      "fact": "The campus-wide subscription price is forty-five thousand per year.",
+      "node_id": "BP.9.2.2",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim pricing structure is validated or commercially viable.",
+      "title": "Pricing Structure",
+      "violates": false,
+      "reason": "The fact simply states a price point; it does not claim that price is validated, tested, or commercially viable."
+    },
+    {
+      "fact": "The faculty subscription price is twenty thousand per year.",
+      "node_id": "BP.9.2.2",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim pricing structure is validated or commercially viable.",
+      "title": "Pricing Structure",
+      "violates": false,
+      "reason": "The fact states a specific price point but does not claim that price is validated or commercially viable — it simply names a number."
+    },
+    {
+      "fact": "The single-department subscription price is eight thousand per year.",
+      "node_id": "BP.9.2.2",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim pricing structure is validated or commercially viable.",
+      "title": "Pricing Structure",
+      "violates": false,
+      "reason": "The fact states the price point for a single-department subscription but does not claim that this pricing structure is validated or commercially viable — it simply names a number."
+    },
+    {
+      "fact": "The company charges twelve thousand per institution.",
+      "node_id": "BP.9.5.1",
+      "runs": [
+        "feed_27_rerun.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim revenue model is validated or commercially viable.",
+      "title": "Revenue Model",
+      "violates": false,
+      "reason": "The fact states a pricing figure for the revenue model but does not claim the model is validated or commercially viable — it simply describes what is charged."
+    },
+    {
+      "fact": "EpistemicOS evaluates manuscript claims before external review.",
+      "node_id": "BP.1.1.1",
+      "runs": [
+        "feed_27_rerun.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim market demand, PMF, feasibility, diagnostic validity, or publication improvement.",
+      "title": "Product Identity",
+      "violates": false,
+      "reason": "The fact describes a functional capability of EpistemicOS (evaluating manuscript claims prior to external review), which is a statement about product identity and what the product does — it does not claim market demand, PMF, feasibility, diagnostic validity, or publication improvement."
+    },
+    {
+      "fact": "Business schools are the assumed primary buyer of EpistemicOS.",
+      "node_id": "BP.8.3.5",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not infer buyer acceptance from positioning assumptions.",
+      "title": "Positioning Assumptions",
+      "violates": false,
+      "reason": "The fact states that business schools are the assumed primary buyer — it asserts a positioning assumption about who the buyer is, but does not infer that those buyers accept or will accept the product from that assumption."
+    },
+    {
+      "fact": "Business schools allocate budget for software through the research dean.",
+      "node_id": "BP.5.3.2",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not infer WTP or procurement readiness from budget ownership identification.",
+      "title": "Budget Ownership",
+      "violates": false,
+      "reason": "The fact identifies where budget is allocated (research dean owns/controls the budget), which is a budget ownership identification, but it does not infer willingness to pay or procurement readiness from that ownership — it simply states the allocation mechanism."
+    },
+    {
+      "fact": "The speaker's whole training budget is eight thousand.",
+      "node_id": "BP.5.3.6",
+      "runs": [
+        "feed_27_rerun.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not treat constraint identification as evidence of purchase impossibility or procurement readiness.",
+      "title": "Budget Constraints",
+      "violates": false,
+      "reason": "The fact simply states the size of the training budget, which identifies a constraint but does not treat that constraint as evidence that purchase is impossible or that procurement is ready."
+    },
+    {
+      "fact": "Anything above the faculty tier price of twenty thousand requires the finance committee to approve.",
+      "node_id": "BP.5.3.3",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not treat spending authority threshold as evidence of willingness to spend at that level.",
+      "title": "Spending Authority",
+      "violates": false,
+      "reason": "The fact states a procedural approval requirement for spending above a threshold, describing the authority structure itself; it does not treat that threshold as evidence of willingness to spend at that level."
+    },
+    {
+      "fact": "Deans approve most software purchases.",
+      "node_id": "BP.5.3.4",
+      "runs": [
+        "feed_27_rerun.json",
+        "feed_27_control.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not treat mapped approval logic as evidence of procurement readiness.",
+      "title": "Budget Approval Logic",
+      "violates": false,
+      "reason": "The fact states who approves software purchases, describing approval logic without treating that mapped approval logic as evidence that procurement is ready or imminent."
+    },
+    {
+      "fact": "The company is leaning toward per-institution pricing, though nothing is signed.",
+      "node_id": "BP.9.2.1",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim pricing model definition is validated or commercially viable.",
+      "title": "Pricing Model Definition",
+      "violates": false,
+      "reason": "The fact describes a tentative internal preference for a pricing structure with no contracts signed, and does not claim the pricing model is validated or commercially viable."
+    },
+    {
+      "fact": "EpistemicOS's unit of analysis is the atomic manuscript claim, not the manuscript as a general text object.",
+      "node_id": "BP.1.1.2",
+      "runs": [
+        "feed_27_rerun.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not infer pricing, validation unit, or workflow adoption from unit definition.",
+      "title": "Unit of Analysis",
+      "violates": false,
+      "reason": "The fact defines the unit of analysis as the atomic manuscript claim, and does not infer pricing, validation unit, or workflow adoption from that definition."
+    },
+    {
+      "fact": "The setup cost is two thousand per institution per year.",
+      "node_id": "BP.9.5.2",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim cost structure is validated or commercially viable.",
+      "title": "Cost Structure",
+      "violates": false,
+      "reason": "The fact states a specific cost figure for the setup, which is a neutral description of cost structure; it does not claim the cost structure is validated or commercially viable."
+    },
+    {
+      "fact": "The training cost is one thousand per institution per year.",
+      "node_id": "BP.9.5.2",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim cost structure is validated or commercially viable.",
+      "title": "Cost Structure",
+      "violates": false,
+      "reason": "The fact states a specific price point for the training cost, but does not claim this cost structure is validated or commercially viable — it simply names a number."
+    },
+    {
+      "fact": "The core problem EpistemicOS addresses is whether claims withstand epistemic scrutiny.",
+      "node_id": "BP.1.1.3",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim truth determination, reviewer replacement, acceptance prediction, or autonomous decision-making.",
+      "title": "Core Diagnostic Function",
+      "violates": false,
+      "reason": "The fact describes the problem domain EpistemicOS addresses (epistemic scrutiny of claims), which is a characterization of scope or purpose, not a claim that the system determines truth, replaces reviewers, predicts acceptance, or makes autonomous decisions."
+    },
+    {
+      "fact": "The company's Spanish customers pay in euros.",
+      "node_id": "BP.9.2.2",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim pricing structure is validated or commercially viable.",
+      "title": "Pricing Structure",
+      "violates": false,
+      "reason": "The fact states a payment currency detail about Spanish customers and does not claim the pricing structure is validated or commercially viable."
+    },
+    {
+      "fact": "The support cost is three thousand per institution per year.",
+      "node_id": "BP.9.5.2",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim cost structure is validated or commercially viable.",
+      "title": "Cost Structure",
+      "violates": false,
+      "reason": "The fact states a specific support cost figure but does not claim that cost structure is validated or commercially viable — it is simply a data point about pricing."
+    },
+    {
+      "fact": "expect eighty percent renewal",
+      "node_id": "BP.9.5.16",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "",
+      "title": "Churn Assumptions",
+      "skipped": "node has no prohibition rule"
+    },
+    {
+      "fact": "The US pilot is priced in dollars.",
+      "node_id": "BP.9.2.2",
+      "runs": [
+        "feed_27_rerun.json"
+      ],
+      "rule": "Must not claim pricing structure is validated or commercially viable.",
+      "title": "Pricing Structure",
+      "violates": false,
+      "reason": "The fact states only the currency denomination of the US pilot pricing, making no claim that the pricing structure is validated or commercially viable."
+    },
+    {
+      "fact": "Eight thousand for a single department",
+      "node_id": "BP.9.5.1",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim revenue model is validated or commercially viable.",
+      "title": "Revenue Model",
+      "violates": false,
+      "reason": "The fact states a price point or revenue figure ('eight thousand for a single department') but does not claim the revenue model is validated or commercially viable — it is merely a data point about pricing with no assertion of validation or viability."
+    },
+    {
+      "fact": "forty-five thousand campus-wide",
+      "node_id": "BP.9.2.2",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim pricing structure is validated or commercially viable.",
+      "title": "Pricing Structure",
+      "violates": false,
+      "reason": "The fact is an incomplete fragment ('forty-five thousand campus-wide') that states no conclusion about pricing structure being validated or commercially viable."
+    },
+    {
+      "fact": "We charge twelve thousand per institution",
+      "node_id": "BP.9.5.1",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim revenue model is validated or commercially viable.",
+      "title": "Revenue Model",
+      "violates": false,
+      "reason": "The fact states a pricing point (what is charged per institution) but does not claim the revenue model is validated or commercially viable — it simply describes the pricing structure."
+    },
+    {
+      "fact": "None of this is validated.",
+      "node_id": "BP.2.5.5",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not treat hypothesis assumption completeness as validation. Must not present hypothesis assumptions as evidence or confirmed observations.",
+      "title": "Hypothesis Assumptions",
+      "violates": false,
+      "reason": "The fact simply states that nothing is validated, which is an acknowledgment of lack of validation — it does not treat assumption completeness as validation nor present hypothesis assumptions as evidence or confirmed observations."
+    },
+    {
+      "fact": "EpistemicOS evaluates manuscript claims.",
+      "node_id": "BP.1.1.3",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim truth determination, reviewer replacement, acceptance prediction, or autonomous decision-making.",
+      "title": "Core Diagnostic Function",
+      "violates": false,
+      "reason": "The fact states that EpistemicOS evaluates manuscript claims, which describes an assessment function but does not claim truth determination, reviewer replacement, acceptance prediction, or autonomous decision-making — none of the forbidden inferences are made."
+    },
+    {
+      "fact": "twenty thousand for a faculty",
+      "node_id": "BP.9.5.1",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim revenue model is validated or commercially viable.",
+      "title": "Revenue Model",
+      "violates": false,
+      "reason": "The fact is an incomplete fragment ('twenty thousand for a faculty') that states a price point or figure but makes no claim about the revenue model being validated or commercially viable."
+    },
+    {
+      "fact": "They allocate budget through the research dean.",
+      "node_id": "BP.5.3.2",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not infer WTP or procurement readiness from budget ownership identification.",
+      "title": "Budget Ownership",
+      "violates": false,
+      "reason": "The fact states how budget is allocated (through the research dean), which identifies budget ownership/flow — it does not infer willingness to pay or procurement readiness from that ownership."
+    },
+    {
+      "fact": "The faculty tier is twenty thousand.",
+      "node_id": "BP.9.2.2",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim pricing structure is validated or commercially viable.",
+      "title": "Pricing Structure",
+      "violates": false,
+      "reason": "The fact simply states a price point for the faculty tier without claiming it is validated or commercially viable."
+    },
+    {
+      "fact": "Business schools are the assumed primary buyer.",
+      "node_id": "BP.5.3.1",
+      "runs": [
+        "feed_27_control.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not infer economic buyer identity from title or seniority alone.",
+      "title": "Economic Buyer Identification",
+      "violates": false,
+      "reason": "The fact asserts that business schools are the primary buyer, but it does so based on institutional type rather than inferring buyer identity from title or seniority of an individual — the rule forbids inferring economic buyer identity from title or seniority alone, which is not the move being made here."
+    },
+    {
+      "fact": "Anything above that needs the finance committee.",
+      "node_id": "BP.9.6.4",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim financial blockers is validated or commercially viable.",
+      "title": "Financial Blockers",
+      "violates": false,
+      "reason": "The fact states that purchases above a certain threshold require finance committee approval, which describes a financial blocker process; it does not claim that financial blockers are validated or commercially viable."
+    },
+    {
+      "fact": "My whole training budget is eight thousand.",
+      "node_id": "BP.5.3.6",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not treat constraint identification as evidence of purchase impossibility or procurement readiness.",
+      "title": "Budget Constraints",
+      "violates": false,
+      "reason": "The fact simply states a budget amount — it identifies a financial constraint but does not draw any inference about whether a purchase is impossible or whether procurement is ready."
+    },
+    {
+      "fact": "We are leaning toward per-institution pricing, though nothing is signed.",
+      "node_id": "BP.9.2.1",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim pricing model definition is validated or commercially viable.",
+      "title": "Pricing Model Definition",
+      "violates": false,
+      "reason": "The fact expresses a tentative directional preference for per-institution pricing with explicit acknowledgment that nothing is finalized, and does not claim the pricing model is validated or commercially viable."
+    },
+    {
+      "fact": "support is three thousand",
+      "node_id": "BP.9.5.12",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "",
+      "title": "Support Cost per Institution",
+      "skipped": "node has no prohibition rule"
+    },
+    {
+      "fact": "The core problem is whether claims withstand epistemic scrutiny.",
+      "node_id": "BP.1.8.3",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not assert extraction accuracy or recall without evaluation evidence.",
+      "title": "Claim Extraction and Classification Architecture",
+      "violates": false,
+      "reason": "The fact states a philosophical/conceptual problem about epistemic scrutiny of claims; it does not assert anything about extraction accuracy or recall, with or without evaluation evidence."
+    },
+    {
+      "fact": "All figures below are per institution per year.",
+      "node_id": "BP.9.5.5",
+      "runs": [
+        "feed_27_control.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim financial assumptions is validated or commercially viable.",
+      "title": "Financial Assumptions",
+      "violates": false,
+      "reason": "The fact simply clarifies the unit of measurement for financial figures (per institution per year); it makes no claim that financial assumptions are validated or commercially viable."
+    },
+    {
+      "fact": "Its unit of analysis is the atomic manuscript claim, not the manuscript as a general text object.",
+      "node_id": "BP.1.1.2",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not infer pricing, validation unit, or workflow adoption from unit definition.",
+      "title": "Unit of Analysis",
+      "violates": false,
+      "reason": "The fact defines the unit of analysis as the atomic manuscript claim, which is purely a definitional statement about what entity is being analyzed; it does not infer pricing, validation unit, or workflow adoption from that definition."
+    },
+    {
+      "fact": "The single-department pricing tier is eight thousand.",
+      "node_id": "BP.9.2.10",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "",
+      "title": "Package Tier Architecture",
+      "skipped": "node has no prohibition rule"
+    },
+    {
+      "fact": "Setup is two thousand",
+      "node_id": "BP.9.2.2",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim pricing structure is validated or commercially viable.",
+      "title": "Pricing Structure",
+      "violates": false,
+      "reason": "The fact simply states a setup price point; it does not claim the pricing structure is validated or commercially viable."
+    },
+    {
+      "fact": "The campus-wide pricing tier is forty-five thousand.",
+      "node_id": "BP.9.2.10",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "",
+      "title": "Package Tier Architecture",
+      "skipped": "node has no prohibition rule"
+    },
+    {
+      "fact": "The core problem is not writing quality.",
+      "node_id": "BP.1.2.1",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim prose improvement, editing, rewriting, or writing-assistant competition.",
+      "title": "Writing Assistance Exclusion",
+      "violates": false,
+      "reason": "The fact asserts that writing quality is not the core problem being addressed, which is a statement about problem framing and does not claim prose improvement, editing, rewriting, or writing-assistant competition."
+    },
+    {
+      "fact": "training is one thousand",
+      "node_id": "BP.9.5.1",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim revenue model is validated or commercially viable.",
+      "title": "Revenue Model",
+      "violates": false,
+      "reason": "The fact 'training is one thousand' states a number (likely a price or cost figure) but does not claim the revenue model is validated or commercially viable."
+    },
+    {
+      "fact": "The faculty pricing tier is twenty thousand.",
+      "node_id": "BP.9.2.2",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim pricing structure is validated or commercially viable.",
+      "title": "Pricing Structure",
+      "violates": false,
+      "reason": "The fact simply states a price point for the faculty tier; it does not claim the pricing structure is validated or commercially viable."
+    },
+    {
+      "fact": "Our Spanish customers pay in euros.",
+      "node_id": "BP.9.5.1",
+      "runs": [
+        "feed_27_control.json"
+      ],
+      "rule": "Must not claim revenue model is validated or commercially viable.",
+      "title": "Revenue Model",
+      "violates": false,
+      "reason": "The fact states a payment currency detail about Spanish customers, which is an operational/geographic observation and does not claim the revenue model is validated or commercially viable."
+    },
+    {
+      "fact": "The faculty tier is twenty thousand.",
+      "node_id": "BP.9.2.10",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "",
+      "title": "Package Tier Architecture",
+      "skipped": "node has no prohibition rule"
+    },
+    {
+      "fact": "The US pilot is priced in dollars.",
+      "node_id": "BP.9.6.16",
+      "runs": [
+        "feed_27_control.json",
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not treat pilot revenue hypothesis as contracted revenue. Must not cite pilot financing as a substitute for equity or grant funding without justification.",
+      "title": "Pilot Financing Strategy",
+      "violates": false,
+      "reason": "The fact states only that the US pilot is priced in dollars, which is a currency denomination detail; it does not treat pilot revenue as contracted revenue nor cite pilot financing as a substitute for equity or grant funding."
+    },
+    {
+      "fact": "The renewal figure is not validated.",
+      "node_id": "BP.10.1.5",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not treat assumption completeness as validation design validation.",
+      "title": "Validation Assumptions",
+      "violates": false,
+      "reason": "The fact states that a specific figure (the renewal figure) lacks validation — it identifies a gap in validation, but does not treat assumption completeness as equivalent to validation design validation."
+    },
+    {
+      "fact": "The company is leaning toward per-institution pricing.",
+      "node_id": "BP.9.2.12",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "",
+      "title": "Pricing Metric Architecture",
+      "skipped": "node has no prohibition rule"
+    },
+    {
+      "fact": "The twelve thousand per institution charge figure is not validated.",
+      "node_id": "BP.9.2.3",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim pricing assumptions is validated or commercially viable.",
+      "title": "Pricing Assumptions",
+      "violates": false,
+      "reason": "The fact states that the pricing figure is NOT validated, which is the opposite of claiming it is validated or commercially viable — it explicitly denies validation rather than asserting it."
+    },
+    {
+      "fact": "EpistemicOS evaluates manuscript claims.",
+      "node_id": "BP.1.1.2",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not infer pricing, validation unit, or workflow adoption from unit definition.",
+      "title": "Unit of Analysis",
+      "violates": false,
+      "reason": "The fact states what EpistemicOS evaluates (manuscript claims), which is a unit-of-analysis definition; it does not infer pricing, validation unit, or workflow adoption from that definition."
+    },
+    {
+      "fact": "Business schools allocate budget through the research dean.",
+      "node_id": "BP.5.3.2",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not infer WTP or procurement readiness from budget ownership identification.",
+      "title": "Budget Ownership",
+      "violates": false,
+      "reason": "The fact states who controls the budget allocation (the research dean), which is a budget ownership identification — it does not make any inference about willingness to pay or procurement readiness from that ownership."
+    },
+    {
+      "fact": "Support is three thousand per institution per year.",
+      "node_id": "BP.9.5.12",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "",
+      "title": "Support Cost per Institution",
+      "skipped": "node has no prohibition rule"
+    },
+    {
+      "fact": "Anything above the faculty tier of twenty thousand needs the finance committee.",
+      "node_id": "BP.9.6.1",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim financial gate criteria is validated or commercially viable.",
+      "title": "Financial Gate Criteria",
+      "violates": false,
+      "reason": "The fact states a procedural threshold requiring finance committee approval for amounts above twenty thousand, which is a description of how the financial gate works — it does not claim the criteria are validated or commercially viable."
+    },
+    {
+      "fact": "The speaker would never pay twelve thousand for the product.",
+      "node_id": "BP.9.1.4",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim buyers will pay, can afford, possess budget authority, will accept payment trigger, or will renew without separate evidence. Must not conflate capture model design with WTP validation.",
+      "title": "Value Capture Logic",
+      "violates": false,
+      "reason": "The fact states a single individual's refusal to pay a specific price — it asserts a willingness-to-pay data point (negative) but does not claim buyers will pay, can afford, have budget authority, will accept a payment trigger, or will renew, nor does it conflate capture model design with WTP validation."
+    },
+    {
+      "fact": "Nothing is signed regarding per-institution pricing.",
+      "node_id": "BP.9.2.5",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim discount and negotiation logic is validated or commercially viable.",
+      "title": "Discount and Negotiation Logic",
+      "violates": false,
+      "reason": "The fact states that no contracts have been signed for per-institution pricing, which is a neutral observation about the current state of agreements — it does not claim that discount and negotiation logic is validated or commercially viable."
+    },
+    {
+      "fact": "The core problem is whether claims withstand epistemic scrutiny, not writing quality.",
+      "node_id": "BP.1.2.1",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim prose improvement, editing, rewriting, or writing-assistant competition.",
+      "title": "Writing Assistance Exclusion",
+      "violates": false,
+      "reason": "The fact asserts that the core problem is about epistemic scrutiny rather than writing quality, which is a statement about the nature of the problem being solved — it does not claim prose improvement, editing, rewriting, or writing-assistant competition."
+    },
+    {
+      "fact": "Setup is two thousand per institution per year.",
+      "node_id": "BP.9.5.1",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim revenue model is validated or commercially viable.",
+      "title": "Revenue Model",
+      "violates": false,
+      "reason": "The fact states a pricing figure for the revenue model but does not claim the model is validated or commercially viable — it is simply describing the setup cost structure."
+    },
+    {
+      "fact": "Training is one thousand per institution per year.",
+      "node_id": "BP.9.5.1",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim revenue model is validated or commercially viable.",
+      "title": "Revenue Model",
+      "violates": false,
+      "reason": "The fact states a price point for the training offering but does not claim the revenue model is validated or commercially viable."
+    },
+    {
+      "fact": "The company's Spanish customers pay in euros.",
+      "node_id": "BP.9.5.5",
+      "runs": [
+        "feed_27_baseline.json"
+      ],
+      "rule": "Must not claim financial assumptions is validated or commercially viable.",
+      "title": "Financial Assumptions",
+      "violates": false,
+      "reason": "The fact states a currency detail about Spanish customers, which is a basic operational observation and does not claim that any financial assumption is validated or commercially viable."
+    }
+  ]
+}
