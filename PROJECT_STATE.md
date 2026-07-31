@@ -886,21 +886,23 @@ RULE above); E1–E4 reproduced identically across three `fixed` runs.
 The control column is why these count: each error persists with the fixes off, so the
 node convergence is attributable to the fix and not to the run.
 
-### E5 — NOT fixed. Symptom gone for an unrelated reason
+### E5 — FIXED, guard-caused (2026-07-31)
 
 Card 20 ("the core problem is whether claims withstand epistemic scrutiny, not writing
 quality") was filed at BP.1.2.1 Writing Assistance Exclusion — the subordinate clause
-rather than the primary claim. It no longer files there, but **the primary-claim rule is
-not what changed it**: `control` had already moved it to BP.1.1.1 with all fixes off.
-On re-chunk the sentence splits into two facts, so the merged-contrast condition the rule
-exists to handle never arises and the rule is never exercised. Across three fixed runs
-the negative clause was judged SUBSUMED twice and filed at BP.1.2.1 once — and that
-placement is arguably *correct*, since a scope-exclusion statement is what BP.1.2.1 is
-for (cf. `43965e8`, which deliberately routes non-scope exclusions to BP.1.2).
+rather than the primary claim. It now files at **BP.1.1.3**, and the rejection guard
+(`_rank_from_parsed`, see "Judge rejection guard" below) is what moved it: the judge
+marked `BP.1.8.3` `fit: poor` in its own note — *"Claim extraction architecture
+references the claim unit definition, so this fact could inform that specification, but
+that node is about extraction method, not …"* — and the gate dropped it, leaving
+BP.1.1.3. The drop is in the arm log, not inferred.
 
-**Do not record E5 as fixed and do not rely on the primary-claim rule.** It is written
-and shipped but unproven; the next merged contrast that survives chunking as one fact is
-the first real test of it.
+**The primary-claim rule is still unproven and is not what fixed this.** `control` had
+already moved the card off BP.1.2.1 with all three earlier fixes off, and on re-chunk the
+sentence splits into two facts, so the merged-contrast condition the rule exists to
+handle never arises. The next merged contrast that survives chunking as one fact is the
+first real test of that rule. E5's symptom is resolved by a different mechanism than the
+one written for it.
 
 ### KNOWN REGRESSION — card 26
 
@@ -936,6 +938,92 @@ these fixes and is not counted either way.
   "N cards stayed correct" cannot be claimed. The 15/12 split quoted in earlier
   discussion is the unflagged/flagged split, not a correctness label. Building a keyed
   fixture is the prerequisite for any accuracy claim on this path.
+
+## Judge rejection guard + comprehension-first extraction (2026-07-31)
+
+### The bug
+
+`propose()` returned shortlists whose top candidate carried a note arguing against its
+own node, and the card surfaced as `ready`. Reproduced on HEAD twice: the depth-engine
+roster paste produced **5 cards, all `ready`, all BP.1.1.9**, every note reading
+
+> "Filing here treats the depth-engine archetype and its four tools as part of the
+> diagnostic capability map, **but this node covers internal EpistemicOS capabilities,
+> not external tool archetypes — a weak fit.**"
+
+Cause is ordering, not reasoning. The candidate object was `{"node_id", "note"}` — the id
+was emitted first, so the note could only ever rationalise a node already chosen. Same
+class as the chunker verifier's reason-before-verdict bug.
+
+### The fix — structural, in two places
+
+**Prompt.** Each candidate now emits `note` → `fit` → `node_id`, in that order, so the
+annotation is written before the id it justifies. `fit` is a verdict on the note just
+written (`fits` / `poor`), a candidate whose note argues against its node must be marked
+`poor`, and a `poor` candidate must be **deleted, not ranked lower**. All-poor returns an
+empty list. `JUDGE_PROMPT` gets the single-choice equivalent: a reason that says poor,
+weak or wrong forces `choice: "none"`.
+
+**Code.** `_rank_from_parsed()` drops every `fit: poor` candidate, plus a lexical
+backstop (`_note_rejects`) for when the model writes the rejection in prose and labels it
+`fits` anyway. An *unrecognised* `fit` falls back to the note rather than counting as a
+rejection — one stray word must not empty a good shortlist. An emptied shortlist is
+`NO_PROPOSAL` → `CHECK_NO_MATCH` → bucket `nofit`; `ready` is unreachable on a rejected
+node because `bucket_of` tests `not card.shortlist` first.
+
+Prompt guidance alone would not have held. The gate is what makes the guarantee.
+
+### Attribution evidence — four guard drops on the 27-card paste
+
+All four are the judge's own `fit: poor` verdict, enforced by the gate. HEAD arm: zero.
+
+| Node dropped | The note that rejected it | Effect |
+|---|---|---|
+| `BP.9.6.1` | "this node is about the product's own financial governance" | card 15 → BP.5.3.3 |
+| `BP.1.8.3` | "that node is about extraction method, not …" | card 20 → BP.1.1.3 (**E5**) |
+| `BP.1.1.6` | timing read as a decision-boundary statement | — |
+| `BP.1.1.4` | "defines what the system processes, not the epistemic problem" | — |
+
+Depth-engine roster, 3/3 fixed runs: **1 card, `nofit`**, with a reason that supports its
+own verdict — *"a competitive/alternatives taxonomy claim that belongs in BP.6.2 …, which
+is absent from this candidate list"*. That is a retrieval miss surfaced honestly, not a
+filing at a rejected node. It is also the first statement of the BP.8.1 reachability
+problem.
+
+**The 27-card arm comparison is weak evidence for this fix and must not be quoted as
+strong.** A fourth arm (HEAD, all flags on) differs from the fixed arm on 10 of 27 cards,
+but measured run-to-run drift on this input is ~26% (~7 cards), and the paste contains no
+rejecting-note case at all. The four logged drops are the attribution; the 27-card set is
+a regression check only. E1–E5 all hold under the new code.
+
+### Comprehension-first extraction
+
+The chunker reads the whole passage in one call and already knows its argument structure;
+it was discarding it. Every fact now carries `role`
+(`claim|evidence|recommendation|assessment|definition`) and `relationships`
+(`supports|supported_by|contrasts_with|about`, referencing other facts of the same
+passage by `Fact.index`). Persisted on the card, in `_card_event`, and in `confirm_card`
+metadata.
+
+**Links are metadata for retrieval, never a merge.** Each linked fact is still split,
+classified and filed independently at its own node.
+
+Set-membership rule, folded in: a list of members under one predicate is ONE fact with
+`role=definition`; a list of distinct values splits per value.
+
+| Case | HEAD | Fixed |
+|---|---|---|
+| worked example (claim/evidence/recommendation/assessment) | 6 facts, no structure | **4 facts, roles and links exact, 3/3 runs identical** |
+| depth-engine roster | **5 facts** | **1 fact, `definition`** |
+| pricing tiers (Test A) | 3 facts | **3 facts, 1 group, 1 call, all BP.9.2.2** — no regression |
+
+Degradation is one-directional: an unresolvable link is dropped, not guessed; an unknown
+role becomes `None`; dedupe collapses are followed via `_redirect_collapsed_links()`. A
+passage the model cannot structure yields exactly today's behaviour.
+
+Tests: `tests/test_judge_rejection_guard.py` (17), `tests/test_chunker_structure.py`
+(19). Both are deterministic and make no Bedrock call — the guarantee has to hold on
+whatever the model returns, including the shapes it returns rarely.
 
 ### Chunker suite
 

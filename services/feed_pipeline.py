@@ -98,6 +98,14 @@ class ReviewCard:
     verdict: Optional[str] = None
     review_reason: Optional[str] = None
 
+    # --- argument structure (chunker) ---
+    # What this fact does in its passage, and which other facts of the same
+    # passage it relates to (by `index`). Metadata for retrieval: it never
+    # affects which node this card is filed at, and every linked fact is a
+    # separate card filed separately.
+    role: Optional[str] = None
+    relationships: dict[str, list[int]] = field(default_factory=dict)
+
     # --- collapsed and grouped facts ---
     merged_spans: list[dict[str, Any]] = field(default_factory=list)
     group_id: Optional[str] = None
@@ -199,6 +207,39 @@ def _apply_proposal(card: ReviewCard, proposal: Proposal) -> ReviewCard:
         checks.append(CHECK_NO_MATCH)
     card.checks = checks
     return card
+
+
+def _redirect_collapsed_links(facts: list[Any], drops: list[dict[str, Any]]) -> None:
+    """Point relationships at the survivor after dedupe collapsed their target.
+
+    dedupe keeps each fact's index as the chunker assigned it and does not
+    renumber, so a link into a collapsed fact would name an index no card
+    carries. The claim itself survives on the fact it merged into, so the link
+    follows it there; a target that resolves to nothing live is dropped rather
+    than left dangling.
+
+    Args:
+        facts: The surviving facts.
+        drops: dedupe's drop records, each with ``dropped_index``/``kept_index``.
+    """
+    if not drops:
+        return
+    redirect = {d["dropped_index"]: d["kept_index"] for d in drops}
+    live = {f.index for f in facts}
+
+    for fact in facts:
+        if not fact.relationships:
+            continue
+        rewired: dict[str, list[int]] = {}
+        for relation, targets in fact.relationships.items():
+            picked: list[int] = []
+            for target in targets:
+                mapped = redirect.get(target, target)
+                if mapped != fact.index and mapped in live and mapped not in picked:
+                    picked.append(mapped)
+            if picked:
+                rewired[relation] = picked
+        fact.relationships = rewired
 
 
 def _propose_one(
@@ -343,6 +384,8 @@ def _card_event(card: ReviewCard) -> dict[str, Any]:
         "group_label": card.group_label,
         "subsumed_by": card.subsumed_by,
         "merged_count": len(card.merged_spans or []),
+        "role": card.role,
+        "relationships": card.relationships,
     }
 
 
@@ -409,6 +452,7 @@ def process_document(
     extracted = chunk_text(text)
     if collapse_duplicates:
         facts, duplicate_drops = dedupe(extracted)
+        _redirect_collapsed_links(facts, duplicate_drops)
     else:
         facts, duplicate_drops = list(extracted), []
     if not group_facts:
@@ -447,6 +491,8 @@ def process_document(
             merged_spans=list(f.merged_spans),
             group_id=f.group_id,
             group_label=f.group_label,
+            role=f.role,
+            relationships=dict(f.relationships),
         )
         for f in facts
     ]
@@ -462,6 +508,8 @@ def process_document(
             end_char=card.end_char,
             needs_review=card.needs_review,
             verdict=card.verdict,
+            role=card.role,
+            relationships=card.relationships,
             total=len(cards),
         )
 
@@ -630,6 +678,11 @@ def confirm_card(
             "merged_spans": card.merged_spans,
             "group_id": card.group_id,
             "group_label": card.group_label,
+            # argument structure, from the chunker. `relationships` holds the
+            # fact indices of this run, so it is only meaningful alongside
+            # `fact_index` and `source_document`.
+            "role": card.role,
+            "relationships": card.relationships,
             # signal 1 — extraction fidelity
             "needs_review": card.needs_review,
             "verdict": card.verdict,

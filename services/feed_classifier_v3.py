@@ -159,7 +159,11 @@ covers it, and what you ruled out and why>",
  "confidence": "<high or low>"}
 
 Write "reason" FIRST and let the choice follow from it. Do not pick a node and \
-then justify it."""
+then justify it.
+
+If your reason says the fit is poor, weak or wrong, or that the node does not \
+cover what the fact asserts, then "choice" MUST be "none". A choice that \
+contradicts its own reason makes both untrustworthy."""
 
 
 RANK_PROMPT = """You help a human file one atomic business fact into a \
@@ -230,14 +234,39 @@ A human will scan your top few and click one. So:
 Each note is ONE short sentence, written to the human: what this node would mean
 for this fact. Not a justification of your ranking.
 
+=== THE NOTE DECIDES THE NODE, NEVER THE REVERSE ===
+
+Within every candidate you write "note" first, then "fit", then "node_id". That
+order is the rule, not formatting: the note is the reasoning and the ranking is
+its conclusion. A note written after the id can only be a justification of a node
+you had already picked.
+
+"fit" is a verdict on what you just wrote in the note:
+  "fits"  the note describes this node covering this fact
+  "poor"  the note describes a mismatch — wrong subject, external thing filed as
+          an internal one, the fact is about something this node does not cover,
+          or filing here would misrepresent the fact
+
+A candidate whose note argues against its own node MUST be marked "poor", and a
+"poor" candidate MUST NOT appear in the list at all — delete it, do not rank it
+lower. Never hand a human a ranked node annotated with the reason it is wrong:
+they act on the rank, not on the note, and one shortlist that contradicts itself
+makes every other ranking untrustworthy.
+
+If every candidate you considered is poor, return an empty list. That is a
+correct and useful answer.
+
 === OUTPUT ===
 Return one JSON object, nothing else:
 
 {"reason": "<one sentence: what the fact actually asserts>",
  "subsumed_by": "<neighbour label, or null>",
- "candidates": [{"node_id": "<id>", "note": "<one sentence to the human>"}, ...]}
+ "candidates": [{"note": "<one sentence to the human>",
+                 "fit": "<fits or poor>",
+                 "node_id": "<id>"}, ...]}
 
-Write "reason" first and let the ranking follow from it."""
+Write "reason" first and let the ranking follow from it. Inside each candidate
+write "note", then "fit", then "node_id", in that order."""
 
 
 GROUP_RANK_PROMPT = """You help a human file a LIST of atomic business facts into \
@@ -264,20 +293,35 @@ Ask: is this LIST, as a whole, part of the REQUIRED OUTPUT of the node? Read
 required_output before you look at any title. A node that fits one member but not
 the others is the wrong node — the right one covers the whole set.
 
-If the list would VIOLATE a node's prohibited_claims, rank it last and say so.
+If the list would VIOLATE a node's prohibited_claims, say so and mark it poor.
 Return AT MOST 5 candidates, best first. If nothing fits the list, return an
 empty list.
 
 Each note is ONE short sentence to the human: what filing this list at that node
 would mean.
 
+=== THE NOTE DECIDES THE NODE, NEVER THE REVERSE ===
+
+Within every candidate write "note" first, then "fit", then "node_id". The note
+is the reasoning; the ranking is its conclusion.
+
+  "fits"  the note describes this node covering this list
+  "poor"  the note describes a mismatch
+
+A candidate whose note argues against its own node MUST be marked "poor", and a
+"poor" candidate MUST NOT appear in the list at all — delete it, do not rank it
+lower. If every candidate is poor, return an empty list.
+
 === OUTPUT ===
 Return one JSON object, nothing else:
 
 {"reason": "<one sentence: what this list collectively asserts>",
- "candidates": [{"node_id": "<id>", "note": "<one sentence to the human>"}, ...]}
+ "candidates": [{"note": "<one sentence to the human>",
+                 "fit": "<fits or poor>",
+                 "node_id": "<id>"}, ...]}
 
-Write "reason" first and let the ranking follow from it."""
+Write "reason" first and let the ranking follow from it. Inside each candidate
+write "note", then "fit", then "node_id", in that order."""
 
 
 def _get_bedrock():
@@ -549,6 +593,57 @@ NO_PROPOSAL = "no_proposal"
 SUBSUMED = "subsumed"
 SHORTLIST_SIZE = 5
 
+# The judge's per-candidate verdict on its own note.
+FIT_OK = "fits"
+FIT_POOR = "poor"
+
+# Phrases that mean a note has judged its own node wrong. The judge is asked to
+# say so in `fit`; this is the backstop for when it writes the rejection in prose
+# and labels the candidate "fits" anyway — which is the observed failure, not a
+# hypothetical one: five cards shipped as ready carrying notes reading "A POOR
+# FIT since these are external competitor tools, not internal capabilities".
+# Matching is substring, lowercase, and deliberately errs toward dropping: a
+# false positive costs one shortlist entry, a false negative files a fact at a
+# node its own annotation rejects.
+_REJECTING_PHRASES = (
+    "poor fit",
+    "poor match",
+    "bad fit",
+    "weak fit",
+    "not a fit",
+    "not a good fit",
+    "not a strong fit",
+    "does not fit",
+    "doesn't fit",
+    "do not fit",
+    "don't fit",
+    "does not belong",
+    "doesn't belong",
+    "does not cover",
+    "doesn't cover",
+    "wrong node",
+    "wrong section",
+    "wrong place",
+    "not the right node",
+    "not the right place",
+    "misfile",
+    "misfiling",
+    "misrepresent",
+    "mischaracteris",
+    "mischaracteriz",
+    "ill-suited",
+    "unsuitable",
+    "not appropriate",
+    "would be incorrect",
+    "would be wrong",
+)
+
+
+def _note_rejects(note: str) -> bool:
+    """True when a candidate's own note argues against the node it annotates."""
+    lowered = note.lower()
+    return any(phrase in lowered for phrase in _REJECTING_PHRASES)
+
 
 @dataclass
 class ProposedNode:
@@ -597,8 +692,20 @@ def _rank_from_parsed(
 ) -> list[ProposedNode]:
     """Turn a judge response's candidate list into ranked nodes.
 
-    Unknown node ids are dropped with a warning rather than trusted — a
-    hallucinated id would otherwise become a proposal a human might accept.
+    Two kinds of candidate are dropped rather than trusted:
+
+    * **Unknown node ids.** A hallucinated id would otherwise become a proposal
+      a human might accept.
+    * **Candidates the judge's own note rejects.** A note reading "a poor fit,
+      these are external competitor tools" attached to a ranked node is not a
+      ranking — it is an argument against the node, and shipping it as rank 1
+      produces a confident wrong filing. The judge marks these ``fit: poor``;
+      when it writes the rejection in prose and marks the candidate ``fits``
+      anyway, ``_note_rejects`` catches it.
+
+    Dropping every candidate is a real and correct outcome: it leaves an empty
+    shortlist, which ``propose`` reports as NO_PROPOSAL and the pipeline shows
+    as "no match" rather than as a node to confirm.
 
     Args:
         parsed: The parsed judge response.
@@ -606,7 +713,7 @@ def _rank_from_parsed(
         shortlist_size: Maximum candidates to keep.
 
     Returns:
-        Ranked nodes, best first.
+        Ranked nodes, best first. Possibly empty.
     """
     ranked: list[ProposedNode] = []
     for item in parsed.get("candidates", []):
@@ -619,13 +726,37 @@ def _rank_from_parsed(
                 "[ClassifierV3] judge proposed unknown node %r, dropped", node_id[:60]
             )
             continue
+
+        note = str(item.get("note", "")).strip()
+        fit = str(item.get("fit", "")).strip().lower()
+        if fit and fit not in (FIT_OK, FIT_POOR):
+            # An unrecognised verdict is not read as a rejection — that would
+            # let one stray word empty a good shortlist. The note still decides.
+            logger.warning(
+                "[ClassifierV3] unrecognised fit %r on %s, judging by the note",
+                fit[:40],
+                node_id,
+            )
+            fit = ""
+
+        if fit == FIT_POOR or _note_rejects(note):
+            logger.warning(
+                "[ClassifierV3] dropped %s: %s | note: %r",
+                node_id,
+                "judge marked the fit poor"
+                if fit == FIT_POOR
+                else f"note rejects its own node (fit={fit or 'absent'})",
+                note[:160],
+            )
+            continue
+
         ranked.append(
             ProposedNode(
                 rank=len(ranked) + 1,
                 node_id=node_id,
                 title=node.get("node_title"),
                 section_id=parent_of(node_id),
-                note=str(item.get("note", "")).strip(),
+                note=note,
                 degraded=bool(node.get("degraded_target")),
                 degraded_reason=node.get("degraded_reason"),
             )

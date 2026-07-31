@@ -19,6 +19,14 @@ Three rules drive the design:
    epistemic strength (a preference stays a preference, a hedge stays a hedge),
    and a second pass audits every fact against the source. Facts that fail are
    returned with ``needs_review=True``, never silently dropped or corrected.
+4. **Comprehension is free; discarding it is the waste.** The model reads the
+   whole passage in one call, so it already knows which statements are claims,
+   which are the evidence for them and which are recommendations that follow.
+   Each fact therefore carries a ``role`` and ``relationships`` to the other
+   facts of its passage. These are metadata for retrieval — every fact is still
+   split, classified and filed independently, and an undeterminable link is
+   omitted rather than guessed, which degrades to the behaviour before the
+   fields existed.
 """
 
 from __future__ import annotations
@@ -56,12 +64,33 @@ VALID_VERDICTS = {
     "distorted",
 }
 
+# What a fact is doing in the passage it came from, and how it relates to the
+# other facts in that passage. The chunker reads the whole text in one call, so
+# it already has the argument structure; these fields stop it being discarded.
+VALID_ROLES = {
+    "claim",
+    "evidence",
+    "recommendation",
+    "assessment",
+    "definition",
+}
+VALID_RELATIONS = {
+    "supports",
+    "supported_by",
+    "contrasts_with",
+    "about",
+}
+
 EXTRACT_PROMPT = """You split raw business text into atomic facts.
 
 An atomic fact is ONE self-contained claim. Return a JSON array; each element is:
-  {"fact": "<the claim, rewritten to stand alone>",
+  {"id": <int, from 1, in output order>,
+   "fact": "<the claim, rewritten to stand alone>",
    "source_quote": "<the exact substring of the input this came from>",
-   "group": "<label of the list or frame this came from, or null>"}
+   "group": "<label of the list or frame this came from, or null>",
+   "role": "<claim | evidence | recommendation | assessment | definition>",
+   "relationships": {"supports": [ids], "supported_by": [ids],
+                     "contrasts_with": [ids], "about": [ids]}}
 
 === PRESERVE EPISTEMIC STRENGTH — the most important rule ===
 
@@ -125,12 +154,69 @@ Resolving a pronoun to a referent named IN the text stays correct and required:
 model" when the text names that tier. Resolving a reference is not the same as
 inventing an identity.
 
+=== READ THE ARGUMENT BEFORE YOU SPLIT ===
+
+You are given the whole passage at once, so read it as an argument before you cut
+it up. Work out which statements are the claims, which are the evidence offered
+for those claims, which are recommendations that follow from that evidence, and
+which are judgements about the other statements. Then split, and carry that
+structure out with the facts.
+
+ROLES — what this fact is doing in the passage
+  claim           an assertion about how things are
+  evidence        an observation, measurement or example offered in support
+  recommendation  what someone should do
+  assessment      a judgement ABOUT another statement — its strength, importance
+                  or status, rather than about the world
+  definition      what something is, or what a named set contains
+
+RELATIONSHIPS — reference the "id" of other facts from THIS passage
+  supports        this fact is evidence for those facts
+  supported_by    those facts are the evidence for this one
+  contrasts_with  this fact is set against those ("X, not Y", "unlike Y")
+  about           this fact is a judgement about those facts
+
+Only link what the passage actually establishes. A link it does not make is a
+defect; an omitted link is not. If you cannot tell, omit it — leave the list out
+entirely rather than guessing.
+
+Roles and links are metadata about the argument. They never change what a fact
+SAYS, never merge two facts into one, and never excuse a fact from standing
+alone. Every fact is still filed independently.
+
+  Passage:
+    Claim 1 — "We assess the argument, not the apparatus." The demonstrable
+    market failure is that volume != coverage: the highest-output tool scored
+    zero. EpistemicOS should lead with reviewer-risk coverage and explicitly
+    refuse to compete on reference-and-typo count. This is the single strongest
+    exhibit in the benchmark.
+
+  1  claim           "EpistemicOS assesses the argument, not the apparatus."
+                     supported_by [2]
+  2  evidence        "The demonstrable market failure is that volume does not
+                      equal coverage: the highest-output tool scored zero."
+                     supports [1, 3]
+  3  recommendation  "EpistemicOS should lead with reviewer-risk coverage and
+                      explicitly refuse to compete on reference-and-typo count."
+                     supported_by [2]
+  4  assessment      "The volume-versus-coverage result is the single strongest
+                      exhibit in the benchmark."
+                     about [2]
+
 === SPLITTING ===
 
 One fact = one thing that could independently be true or false.
 
-  - Split a list of parallel values into one fact per value.
+  - Split a list of DISTINCT VALUES into one fact per value — each value is
+    separately true or false.
     "8k for a department, 20k for a faculty" -> two facts.
+  - A list of SET MEMBERS under one predicate is ONE fact, role "definition".
+    The membership is the claim; the members are not separate claims.
+    "The depth engine archetype contains four tools: ManuSights Dossier,
+     PaperReview.ai, RefineInk, Reviewer3"  -> ONE fact.
+    The test: does the passage predicate something DIFFERENT of each item
+    (different prices, dates, costs -> split), or are they interchangeable
+    members of one named set (-> one fact)?
   - Keep a claim together with its own qualifier, scope, condition or exception.
     "Spain and the EU only, for the first eighteen months" is ONE fact.
     Splitting a claim from its qualifier creates two claims the source never made.
@@ -175,6 +261,8 @@ carried over from the frame ("Setup is two thousand per institution per year").
     it is used to locate the fact in the source. Never paraphrase inside it.
   - Keep numbers exactly as written.
   - Skip pure filler that asserts nothing (greetings, "as discussed", headers).
+  - "id" must be unique within your array and must match the element's position.
+    Relationships may only reference ids you actually emit.
 
 Return ONLY the JSON array. No markdown fences, no commentary."""
 
@@ -254,6 +342,13 @@ class Fact:
             not a group.
         merged_spans: Provenance of near-duplicate facts collapsed into this one
             by services.fact_dedupe. Empty until dedupe runs.
+        role: What this fact does in its passage — one of VALID_ROLES, or None
+            when the model did not say or said something unrecognised.
+        relationships: Links to other facts from the same passage, keyed by a
+            member of VALID_RELATIONS, valued as ``Fact.index`` lists. Only
+            relations with at least one resolved target appear; a fact with no
+            determinable links carries an empty dict, which is the common case
+            and is not a defect.
     """
 
     fact: str
@@ -267,6 +362,8 @@ class Fact:
     group_label: Optional[str] = None
     group_id: Optional[str] = None
     merged_spans: list[dict[str, Any]] = dataclass_field(default_factory=list)
+    role: Optional[str] = None
+    relationships: dict[str, list[int]] = dataclass_field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         """Return the fact as a plain dict."""
@@ -433,6 +530,79 @@ def _assign_group_ids(facts: list[Fact]) -> None:
         )
 
 
+def _parse_role(raw: Any, position: int) -> Optional[str]:
+    """Validate one element's role, or None.
+
+    An unrecognised role is dropped rather than kept: a role nothing downstream
+    understands is worse than no role, and no role is exactly what facts carried
+    before this field existed.
+    """
+    role = str(raw or "").strip().lower()
+    if not role:
+        return None
+    if role not in VALID_ROLES:
+        logger.warning(
+            "[Chunker] element %d: unrecognised role %r, dropped", position, role[:40]
+        )
+        return None
+    return role
+
+
+def _resolve_relationships(
+    facts: list[Fact], raw: dict[int, Any], id_map: dict[int, int]
+) -> None:
+    """Map the model's element ids onto fact indices, in place.
+
+    The model numbers its own output from 1; this turns those numbers into
+    ``Fact.index`` values, which is what survives into the review card and the
+    stored metadata. Elements the parse skipped are absent from ``id_map``, so
+    links pointing at them resolve to nothing and are dropped.
+
+    A link to an id that was never emitted, or to the fact itself, is dropped
+    rather than repaired. An invented edge would be indistinguishable from one
+    the passage established, and a missing edge only degrades to the behaviour
+    before this field existed.
+
+    Args:
+        facts: The parsed facts, in output order.
+        raw: The ``relationships`` object each fact came with, keyed by index.
+        id_map: The model's element id -> ``Fact.index``.
+    """
+    for fact in facts:
+        links = raw.get(fact.index)
+        if not isinstance(links, dict):
+            continue
+        resolved: dict[str, list[int]] = {}
+        for relation, targets in links.items():
+            name = str(relation).strip().lower()
+            if name not in VALID_RELATIONS:
+                logger.debug(
+                    "[Chunker] fact %d: unknown relation %r dropped",
+                    fact.index,
+                    str(relation)[:40],
+                )
+                continue
+            if not isinstance(targets, list):
+                continue
+            picked: list[int] = []
+            for target in targets:
+                try:
+                    mapped = id_map[int(target)]
+                except (TypeError, ValueError, KeyError):
+                    logger.debug(
+                        "[Chunker] fact %d: %s -> %r names no emitted fact, dropped",
+                        fact.index,
+                        name,
+                        target,
+                    )
+                    continue
+                if mapped != fact.index and mapped not in picked:
+                    picked.append(mapped)
+            if picked:
+                resolved[name] = picked
+        fact.relationships = resolved
+
+
 def _verify(facts: list[Fact], source: str, model_id: str) -> None:
     """Audit each fact against the source and set review fields in place.
 
@@ -525,6 +695,12 @@ def chunk_text(
 
     facts: list[Fact] = []
     cursor = 0
+    # The model's element id -> the index the fact ended up with, and the raw
+    # links each fact arrived with. Relationships are resolved in a second pass
+    # because a fact can reference one that appears after it.
+    id_map: dict[int, int] = {}
+    raw_links: dict[int, Any] = {}
+
     for i, item in enumerate(items):
         if not isinstance(item, dict):
             logger.warning("[Chunker] Skipping non-object element at %d: %r", i, item)
@@ -539,19 +715,40 @@ def chunk_text(
         if start is not None:
             cursor = start
         raw_group = item.get("group")
+        index = len(facts)
+
+        # Fall back to position when the model omits or repeats an id: an
+        # element that cannot be addressed can still be filed, it just cannot be
+        # linked to.
+        try:
+            element_id = int(item["id"])
+        except (KeyError, TypeError, ValueError):
+            element_id = i + 1
+        if element_id in id_map:
+            logger.warning(
+                "[Chunker] duplicate element id %d at position %d, not addressable",
+                element_id,
+                i,
+            )
+        else:
+            id_map[element_id] = index
+        raw_links[index] = item.get("relationships")
+
         facts.append(
             Fact(
                 fact=claim,
                 source_quote=quote,
                 start_char=start,
                 end_char=end,
-                index=len(facts),
+                index=index,
                 group_label=str(raw_group).strip() or None
                 if isinstance(raw_group, str)
                 else None,
+                role=_parse_role(item.get("role"), i),
             )
         )
 
+    _resolve_relationships(facts, raw_links, id_map)
     _assign_group_ids(facts)
 
     if verify:
@@ -560,14 +757,18 @@ def chunk_text(
     flagged = sum(1 for f in facts if f.needs_review)
     unlocated = sum(1 for f in facts if f.start_char is None)
     grouped = sum(1 for f in facts if f.group_id)
+    roled = sum(1 for f in facts if f.role)
+    linked = sum(1 for f in facts if f.relationships)
     logger.info(
         "[Chunker] %d chars -> %d facts (%d flagged, %d without a span, "
-        "%d in a group) using %s",
+        "%d in a group, %d with a role, %d linked) using %s",
         len(text),
         len(facts),
         flagged,
         unlocated,
         grouped,
+        roled,
+        linked,
         model,
     )
     return facts
