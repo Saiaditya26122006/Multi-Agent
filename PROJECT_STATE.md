@@ -1025,6 +1025,97 @@ Tests: `tests/test_judge_rejection_guard.py` (17), `tests/test_chunker_structure
 (19). Both are deterministic and make no Bedrock call — the guarantee has to hold on
 whatever the model returns, including the shapes it returns rarely.
 
+## PASSAGE PIPELINE — store whole, attach to many (2026-07-31)
+
+A second ingest unit. The fact pipeline is unchanged and remains the DEFAULT; both are
+live so the two can be compared on the same input.
+
+    FEED_UNIT=fact    python main.py   # default — feed_pipeline, the atomic-claim path
+    FEED_UNIT=passage python main.py   # passage_pipeline
+
+`web/server.feed_unit()` reads the flag; an unrecognised value logs and falls back to
+fact. **The default stays `fact` until the passage write path is proven end to end** —
+see "Not yet verified" below. The risk is specific, not theoretical: `store()` dedupes on
+a content hash that ignores `section`, so four attachments of one passage collapsing into
+one row would leave three nodes silently empty.
+
+### Why
+
+Asking "which single node does this claim belong to" has no answer for a real paragraph.
+Alex's Claim-1 block states a differentiation claim, decides a positioning stance, and
+reports a benchmark result. Filing it at one node loses two of the three, and splitting
+it into three claims to avoid that is what forced the rewriting removed in VERBATIM
+STORAGE below. Storing the paragraph whole and attaching it to several nodes gets both.
+
+| | Fact pipeline | Passage pipeline |
+|---|---|---|
+| unit | one atomic claim | one paragraph / labelled block |
+| splitter | LLM, varies run to run | **deterministic string operation, no model** |
+| nodes per unit | 1 | up to `MAX_ATTACHMENTS` (4) |
+| justification | a note | **a span of the passage, checked as a substring** |
+
+### An attachment must be earned by a span
+
+The judge returns, per node, the substring of the passage that populates that node's
+`required_output`. `_attachments_from` checks the span really is in the passage and drops
+the attachment when it is not. That check is the whole difference between multi-node
+attachment and topic spraying: a merely *related* node has nothing to quote, so it cannot
+produce a span, so it cannot attach. Four refusal paths — unknown node id, `fit: poor` or
+a reason that rejects its own node (the guard from `feed_classifier_v3`, imported rather
+than reimplemented), a span not present, and a duplicate node.
+
+Over the cap, qualifying attachments are dropped and counted in `overflow`, which raises
+`CHECK_OVERFLOW` so the reviewer knows the passage was crowded.
+
+### Storage
+
+One row per attachment, each holding the WHOLE passage; the span travels in metadata and
+is what `highlight()` / `retrieve_at_node()` mark. Retrieval filters on `section`, so a
+row per node is what makes a passage visible at each of them.
+
+⚠️ `rag_service.store` dedupes on a **global content hash that ignores `section`**, so the
+second attachment of one passage would be swallowed as a duplicate of the first. The
+natural key here is (passage, node), so `passage_pipeline._already_attached` does that
+check and `store` is called with `deduplicate=False`. Any future multi-node writer must
+do the same.
+
+### Measured on the Claim-1 block, two runs
+
+- **1 passage, 0 verbatim violations, character-identical to the input**, span verified.
+- **4 attachments, each with a span re-checked as a real substring.** Same four nodes in
+  the same order across both runs.
+- **BP.1.1.3 was NOT attached** — and it was in the 58-node candidate pool, so the judge
+  genuinely declined it rather than never seeing it. The negative test passes for the
+  right reason.
+
+**The expected nodes were mostly never candidates.** Expected roughly BP.8.4.1 / BP.8.3.3
+/ BP.8.1.4; got BP.8.3.1, BP.8.3.3, BP.8.3.5, BP.1.2.1 — one exact hit.
+
+    section rank for the Claim-1 passage, of 91:
+      BP.8.3    5   retrieved
+      BP.8.1   21   NOT retrieved  -> BP.8.1.4 never shown to the judge
+      BP.8.4   58   NOT retrieved  -> BP.8.4.1 never shown to the judge
+
+This is the BP.8.1 vocabulary gap (see the diagnosis section), now also hitting BP.8.4:
+`required_output: "Differentiation Claim Inventory specification and audit trail."` is the
+title nominalised three times and matches no natural language. `DEFAULT_SECTIONS` is
+already 6 here against the fact path's 3; BP.8.4 at rank 58 would need ~58.
+
+**The attachment mechanism is not the bottleneck — the candidate pool is.** Given BP.8.3
+the judge found three distinct earning spans in one paragraph and quoted each correctly.
+
+⚠️ **Multi-node attachment raises the cost of the retrieval gap.** With one node per fact
+a retrieval miss lost one filing. A passage that should populate four nodes but only sees
+two sections loses half its attachments, silently. Hybrid lexical + vector retrieval is
+the fix that matters most now.
+
+### Not yet verified
+
+`confirm_passage` writes to the canonical Supabase and has **unit coverage only** — no
+end-to-end write was run, so `_already_attached`, the `deduplicate=False` path and
+`retrieve_at_node` are untested against live rows. One supervised write before trusting
+them.
+
 ## VERBATIM STORAGE — the chunker no longer writes prose (2026-07-31)
 
 **CONTRACT: a stored fact is an exact substring of its source document.**

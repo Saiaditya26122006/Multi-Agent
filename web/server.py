@@ -1912,6 +1912,37 @@ def _get_session_key() -> str:
 # routinely; a module-level dict lost a reviewer's unreviewed cards every time.
 from services import feed_batch_store
 
+# Which unit an upload is ingested as. PASSAGE stores each paragraph verbatim and
+# attaches it to every node it populates; FACT is the older pipeline that cut a
+# document into atomic claims and filed each at one node. Both are live so the
+# two can be compared on the same input:
+#
+#     FEED_UNIT=passage python main.py  # the passage pipeline
+#     FEED_UNIT=fact python main.py     # the default
+#
+# FACT is the default until the passage write path is proven end to end.
+# `confirm_passage` writes one row per attachment, and `rag_service.store`
+# dedupes on a content hash that ignores `section` — so four attachments of one
+# passage collapsing to a single row, leaving three nodes silently empty, is a
+# real failure mode with only unit coverage behind it. See PROJECT_STATE,
+# "PASSAGE PIPELINE — Not yet verified".
+UNIT_PASSAGE = "passage"
+UNIT_FACT = "fact"
+DEFAULT_UNIT = UNIT_FACT
+
+
+def feed_unit() -> str:
+    """The ingest unit for this process, from FEED_UNIT. Defaults to passage."""
+    unit = (os.getenv("FEED_UNIT") or DEFAULT_UNIT).strip().lower()
+    if unit not in (UNIT_PASSAGE, UNIT_FACT):
+        logger.warning(
+            "FEED_UNIT=%r is not %r or %r — using %r",
+            unit, UNIT_PASSAGE, UNIT_FACT, DEFAULT_UNIT,
+        )
+        return DEFAULT_UNIT
+    return unit
+
+
 # The architecture (801 leaf vectors) is loaded once and reused. Loading costs
 # ~7.5s; doing it per upload would dominate the whole pipeline.
 _feed_architecture = None
@@ -1938,7 +1969,11 @@ async def _run_feed_pipeline(
     thread-parallel internally, so it goes to a worker thread to keep the event
     loop free for the WebSocket that will carry the result back.
     """
-    from services.feed_pipeline import process_document
+    unit = feed_unit()
+    if unit == UNIT_PASSAGE:
+        from services.passage_pipeline import process_document
+    else:
+        from services.feed_pipeline import process_document
 
     # The pipeline is synchronous and runs on a worker thread, so its progress
     # callback fires off-loop. Hop back onto this loop to reach the sockets.
@@ -1956,20 +1991,32 @@ async def _run_feed_pipeline(
             on_event=on_event,
         )
         payload = batch.to_dict()
+        payload["unit"] = unit
         if not feed_batch_store.save_batch(run_id, payload):
             logger.warning(
                 "Feed batch %s is process-local only — a restart will lose it", run_id
             )
 
-        msg = (
-            f"**{filename}** — {payload['total_facts']} fact(s) in "
-            f"{payload['seconds']}s, ready to review.\n\n"
-            f"**{payload['proposed']}** have a suggested node · "
-            f"**{payload['no_proposal']}** need you to pick one\n\n"
-            f"Flagged: {payload['flagged_extraction']} by the extraction audit, "
-            f"{payload['flagged_degraded']} pointing at an incomplete node.\n\n"
-            f"_Nothing has been filed — each fact is stored when you confirm it._"
-        )
+        if unit == UNIT_PASSAGE:
+            msg = (
+                f"**{filename}** — {payload['total_passages']} passage(s) in "
+                f"{payload['seconds']}s, ready to review.\n\n"
+                f"**{payload['attached']}** have suggested nodes "
+                f"({payload['total_attachments']} attachment(s) in total) · "
+                f"**{payload['unattached']}** need you to pick\n\n"
+                f"_Your text is stored exactly as written. Each passage is filed "
+                f"at every node you confirm._"
+            )
+        else:
+            msg = (
+                f"**{filename}** — {payload['total_facts']} fact(s) in "
+                f"{payload['seconds']}s, ready to review.\n\n"
+                f"**{payload['proposed']}** have a suggested node · "
+                f"**{payload['no_proposal']}** need you to pick one\n\n"
+                f"Flagged: {payload['flagged_extraction']} by the extraction audit, "
+                f"{payload['flagged_degraded']} pointing at an incomplete node.\n\n"
+                f"_Nothing has been filed — each fact is stored when you confirm it._"
+            )
     except Exception as exc:  # noqa: BLE001 — reported to the user, not swallowed
         logger.error("Feed pipeline failed for %s: %s", filename, exc, exc_info=True)
         feed_batch_store.save_batch(run_id, {"run_id": run_id, "error": str(exc)[:300]})

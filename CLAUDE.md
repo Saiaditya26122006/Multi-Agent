@@ -29,7 +29,8 @@
 pip install -r requirements.txt
 streamlit run app.py
 pytest tests/
-python main.py  # starts web server + pipeline
+python main.py  # starts web server + pipeline (Feed ingests as FACTS by default)
+FEED_UNIT=passage python main.py  # passage pipeline — verbatim, multi-node attachment
 python -m services.ingestion_pipeline  # ingest CEO data into RAG
 ```
 
