@@ -183,6 +183,10 @@ CASES = [
      ["euro", "dollar"], []),
 ]
 
+# Openings that used to mark a defect — a fact the chunker failed to make
+# self-contained. Segments are now stored VERBATIM, so an unresolved reference is
+# the correct output and is reported as information, not as a fault. The
+# classifier resolves it from the passage; see feed_pipeline._passage_for.
 DANGLING = ("this ", "it ", "they ", "that change", "those ", "the new minimum")
 
 
@@ -218,7 +222,7 @@ def show(
         if f.needs_review:
             print(f"       FLAGGED: {f.review_reason}")
         if f.fact.lower().startswith(DANGLING):
-            print("       ** unresolved reference at start of fact **")
+            print("       (unresolved reference — expected; resolved at classify)")
         print()
 
     blob = " ".join(f.fact.lower() for f in facts)

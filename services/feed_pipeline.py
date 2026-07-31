@@ -17,15 +17,30 @@ That inverts where the value sits. Each confirmation writes a
 real-language ground truth this project has never had, and the only honest basis
 for deciding whether auto-file is ever viable.
 
-**The two-signal contract is unchanged; it now applies to every card.**
-``needs_review`` (extraction fidelity, from the chunker) and ``degraded_target``
-(node completeness, from the architecture) stay separate fields with separate
-reasons. They no longer route anything — everything goes to the human anyway —
-so they are pure annotations telling the reviewer *what to check*:
+**Facts are stored verbatim.** A card's ``fact`` is an exact substring of the
+source document, never a rewrite of it — see the semantic_chunker docstring for
+why. This module owns the last two links in that chain: ``verify_card_spans``
+asserts ``text[start:end] == fact`` on the objects that actually reach storage,
+and ``confirm_card`` refuses to write a card whose span did not verify.
 
-    needs_review=T  ->  check the FACT   (re-read the source quote)
+Because segments are verbatim, they are not self-contained: a card may read "It
+replaced the per-seat model". ``_passage_for`` hands the classifier the
+surrounding source so it can resolve that internally. The resolution decides the
+node and never enters the stored text.
+
+**The two-signal contract holds, with signal 1 redefined.** ``needs_review`` and
+``degraded_target`` stay separate fields with separate reasons. They route
+nothing — everything goes to the human anyway — so they tell the reviewer *what
+to check*:
+
+    needs_review=T  ->  check the FACT   (the span did not verify)
     degraded=T      ->  check the NODE   (Alex must author the missing field)
     both            ->  two separate problems, both shown
+
+Signal 1 used to mean "the LLM audit judged this rewrite unfaithful". With
+nothing rewritten there is no rewrite to be unfaithful, so it now means "this
+text could not be shown to be the author's", which is decided by string
+comparison rather than by a model.
 
 Facts are proposed in parallel; measured 7.2x at 8 workers with no throttling.
 """
@@ -72,6 +87,13 @@ CHECK_FACT = "check_extraction"
 CHECK_NODE = "check_node_degraded"
 CHECK_NO_MATCH = "no_candidate_matched"
 
+# Characters of source either side of a segment handed to the classifier as the
+# passage. Facts are stored verbatim, so the referent of "It" or the frame a
+# fragment depends on lives in the source, not in the fact. 600 covers the
+# paragraph a segment was cut from in the reference documents without pushing the
+# candidate node descriptions out of the prompt.
+PASSAGE_WINDOW = 600
+
 # How many facts either side of the target go into the classifier as context.
 # One is enough for the two outcomes it enables: subsumption is between adjacent
 # partials of one sentence, and primary-claim selection reads the target itself.
@@ -97,6 +119,11 @@ class ReviewCard:
     needs_review: bool = False
     verdict: Optional[str] = None
     review_reason: Optional[str] = None
+
+    # True when source_text[start_char:end_char] == fact was checked and held.
+    # Facts are stored verbatim, so this is the claim that the stored text is the
+    # author's text. confirm_card refuses to write a card without it.
+    span_verified: bool = False
 
     # --- argument structure (chunker) ---
     # What this fact does in its passage, and which other facts of the same
@@ -209,6 +236,46 @@ def _apply_proposal(card: ReviewCard, proposal: Proposal) -> ReviewCard:
     return card
 
 
+def verify_card_spans(cards: list[ReviewCard], text: str) -> list[ReviewCard]:
+    """Set ``span_verified`` on every card, and return the ones that failed.
+
+    The single assertion the verbatim design rests on::
+
+        text[card.start_char:card.end_char] == card.fact
+
+    Checked here rather than trusted from the chunker because this is the last
+    point that holds both the cards and the text they came from, and because the
+    property has to be true of the object that reaches storage, not of an earlier
+    one. A card that fails is kept and shown — the reviewer should see that the
+    extraction broke — but ``confirm_card`` will not write it.
+
+    Args:
+        cards: The cards for one document.
+        text: The source text they were cut from.
+
+    Returns:
+        The cards whose text is not an exact substring. Empty is expected.
+    """
+    failed: list[ReviewCard] = []
+    for card in cards:
+        if card.start_char is None or card.end_char is None:
+            card.span_verified = False
+            failed.append(card)
+            continue
+        card.span_verified = text[card.start_char : card.end_char] == card.fact
+        if not card.span_verified:
+            failed.append(card)
+            logger.error(
+                "[FeedPipeline] card %d is not verbatim: source[%d:%d]=%r fact=%r",
+                card.index,
+                card.start_char,
+                card.end_char,
+                text[card.start_char : card.end_char][:100],
+                card.fact[:100],
+            )
+    return failed
+
+
 def _redirect_collapsed_links(facts: list[Any], drops: list[dict[str, Any]]) -> None:
     """Point relationships at the survivor after dedupe collapsed their target.
 
@@ -242,14 +309,65 @@ def _redirect_collapsed_links(facts: list[Any], drops: list[dict[str, Any]]) -> 
         fact.relationships = rewired
 
 
+def _passage_for(
+    cards: list[ReviewCard], text: str, window: int = PASSAGE_WINDOW
+) -> Optional[str]:
+    """The stretch of source around one or more segments, for comprehension.
+
+    Facts are stored verbatim, so a card's own text may be "It replaced the
+    per-seat model" with the referent one sentence earlier. This is what the
+    classifier reads to resolve that. It is never stored and never rewritten into
+    the fact.
+
+    The window is trimmed to whitespace so it does not begin or end mid-word,
+    and a document shorter than the window is returned whole.
+
+    Args:
+        cards: The card(s) being classified. Spans are unioned.
+        text: The full source document.
+        window: Characters of context either side.
+
+    Returns:
+        The passage, or None when no card carries a span to centre it on.
+    """
+    spans = [
+        (c.start_char, c.end_char)
+        for c in cards
+        if c.start_char is not None and c.end_char is not None
+    ]
+    if not spans or not text:
+        return None
+    if len(text) <= window:
+        return text
+
+    start = max(0, min(s for s, _ in spans) - window)
+    end = min(len(text), max(e for _, e in spans) + window)
+
+    # Advance/retreat only when the clip landed INSIDE a word. Trimming a cut
+    # that already sits on a boundary would eat the first or last token, which
+    # at window=0 is the segment itself.
+    if start > 0 and not text[start - 1].isspace():
+        space = text.find(" ", start)
+        if 0 <= space < end:
+            start = space + 1
+    if end < len(text) and not text[end].isspace():
+        space = text.rfind(" ", start, end)
+        if space > start:
+            end = space
+    return text[start:end].strip() or None
+
+
 def _propose_one(
     card: ReviewCard,
     arch: Architecture,
     siblings: Optional[list[str]] = None,
+    passage: Optional[str] = None,
     **kwargs: Any,
 ) -> ReviewCard:
     """Build the shortlist for a single card. Runs on a worker thread."""
-    return _apply_proposal(card, propose(card.fact, arch, siblings=siblings, **kwargs))
+    return _apply_proposal(
+        card, propose(card.fact, arch, siblings=siblings, passage=passage, **kwargs)
+    )
 
 
 def _propose_group(
@@ -497,11 +615,22 @@ def process_document(
         for f in facts
     ]
 
+    unverified = verify_card_spans(cards, text)
+    if unverified:
+        logger.error(
+            "[FeedPipeline] %s: %d card(s) are NOT exact substrings of the "
+            "source and will be refused at confirm: %s",
+            source_document,
+            len(unverified),
+            [c.index for c in unverified],
+        )
+
     for card in cards:
         emit(
             "chunked",
             index=card.index,
             fact=card.fact,
+            span_verified=card.span_verified,
             source_document=card.source_document,
             source_quote=card.source_quote,
             start_char=card.start_char,
@@ -529,7 +658,13 @@ def process_document(
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             futures: dict[Any, list[ReviewCard]] = {}
             for members in groups:
-                job = pool.submit(_propose_group, members, arch, **proposer_kwargs)
+                job = pool.submit(
+                    _propose_group,
+                    members,
+                    arch,
+                    passage=_passage_for(members, text),
+                    **proposer_kwargs,
+                )
                 futures[job] = members
             for card in singletons:
                 futures[
@@ -538,6 +673,7 @@ def process_document(
                         card,
                         arch,
                         siblings=_siblings_of(card, cards) if sibling_context else None,
+                        passage=_passage_for([card], text),
                         **proposer_kwargs,
                     )
                 ] = [card]
@@ -636,12 +772,22 @@ def confirm_card(
     Raises:
         ValueError: The card was marked subsumed. Its content is already on
             another card, so filing it would write the same claim twice.
+        ValueError: The card's span was not verified, i.e. its text was not shown
+            to be an exact substring of the source. Storing it would put words in
+            Alex's mouth, which is the one thing this pipeline may not do.
     """
     from datetime import datetime, timezone
 
     if card.status == STATUS_SUBSUMED:
         raise ValueError(
             f"fact {card.index} is subsumed by another fact and must not be filed"
+        )
+
+    if not card.span_verified:
+        raise ValueError(
+            f"fact {card.index} is not a verified verbatim span of its source "
+            f"(start={card.start_char}, end={card.end_char}) and must not be "
+            f"stored: {card.fact[:80]!r}"
         )
 
     rank = next(
@@ -672,6 +818,10 @@ def confirm_card(
             "start_char": card.start_char,
             "end_char": card.end_char,
             "fact_index": card.index,
+            # The content is a verbatim substring of the source document at this
+            # span. Anything reading this row can reproduce it from the source.
+            "verbatim": True,
+            "span_verified": card.span_verified,
             # Every other place in the document this same claim was made, from
             # the pre-classification dedupe. Provenance for a collapsed fact
             # must survive the collapse.

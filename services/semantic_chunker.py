@@ -1,32 +1,41 @@
-"""Semantic chunker — split raw text into atomic, self-contained facts.
+"""Semantic chunker — divide raw text into VERBATIM segments at meaning boundaries.
 
-Front of the Feed pipeline. Takes a block of text Alex uploaded and returns one
-claim per fact, split at MEANING boundaries rather than at a fixed word count.
+Front of the Feed pipeline. Takes a block of text Alex uploaded and returns the
+pieces of it, cut where the meaning changes. It does not write any prose.
 
 Standalone: this module knows nothing about the classifier, bp_architecture, or
 knowledge_base. It does not write to any datastore.
 
-Three rules drive the design:
+**The stored text is the author's text.** Alex wrote "We assess the argument, not
+the apparatus." An earlier version of this module stored "EpistemicOS assesses
+the argument, not the apparatus" — a sentence he never wrote, in a system whose
+entire premise is claim fidelity. Rewriting is now forbidden outright: no pronoun
+resolution, no supplied subjects, no rephrasing, not one character.
 
-1. **Splitting is semantic, so an LLM does it.** A 10-word input with one claim
-   returns one fact; an 800-word document returns as many facts as it contains
-   claims. No length heuristic is involved at any point.
-2. **Provenance is computed, not generated.** The model returns a verbatim quote
-   from the source; this module locates that quote with ``str.find`` to derive
-   character offsets. Asking a model for character indices produces confident
-   wrong numbers — models do not count characters reliably.
-3. **A distorted fact is worse than a missing one.** Extraction preserves
-   epistemic strength (a preference stays a preference, a hedge stays a hedge),
-   and a second pass audits every fact against the source. Facts that fail are
-   returned with ``needs_review=True``, never silently dropped or corrected.
+Four rules drive the design:
+
+1. **Cutting is semantic, so an LLM does it. Writing is not, so it does not.**
+   The model chooses where the boundaries fall and nothing else. A 10-word input
+   with one claim returns one segment; an 800-word document returns as many
+   segments as it contains claims. No length heuristic is involved at any point.
+2. **The text is sliced, not generated.** The model returns the substring it
+   chose; this module locates it with ``str.find`` and then takes
+   ``source[start:end]`` as the fact. So ``source[f.start_char:f.end_char] ==
+   f.fact`` holds by construction, not by trusting the model to copy correctly —
+   and ``audit_spans`` asserts it anyway. A segment that cannot be located is
+   flagged UNLOCATED and refused by the write path.
+3. **A segment that reads awkwardly alone is correct.** "It replaced the
+   per-seat model" stays exactly that. Comprehension is separated from storage:
+   the classifier receives the segment *plus the surrounding passage*, resolves
+   the reference internally to decide where it belongs, and leaves the text
+   alone. That is what a person does when asked where something files.
 4. **Comprehension is free; discarding it is the waste.** The model reads the
    whole passage in one call, so it already knows which statements are claims,
    which are the evidence for them and which are recommendations that follow.
-   Each fact therefore carries a ``role`` and ``relationships`` to the other
-   facts of its passage. These are metadata for retrieval — every fact is still
-   split, classified and filed independently, and an undeterminable link is
-   omitted rather than guessed, which degrades to the behaviour before the
-   fields existed.
+   Each fact carries a ``role`` and ``relationships`` to the other facts of its
+   passage — which is what makes an unresolved segment usable later: its span,
+   its neighbours and its links are all stored with it. An undeterminable link
+   is omitted rather than guessed.
 """
 
 from __future__ import annotations
@@ -51,18 +60,16 @@ MAX_TOKENS = 8192
 MAX_RETRIES = 3
 RETRY_BACKOFF = (1, 3, 8)
 
-# Facts audited per verification call. A whole real document in one request
-# times out on Bedrock's default 60s read timeout — see _verify.
-VERIFY_BATCH_SIZE = 25
 
-FAITHFUL = "faithful"
-VALID_VERDICTS = {
-    FAITHFUL,
-    "strengthened",
-    "weakened",
-    "unsupported",
-    "distorted",
-}
+# Span audit outcomes. The old LLM fidelity audit (faithful / strengthened /
+# weakened / unsupported / distorted) judged whether a REWRITE had drifted from
+# the source. Nothing is rewritten now, so four of those five verdicts are
+# unreachable by construction and the fifth is decidable without a model: either
+# the segment is a substring of the source or it is not. The audit is therefore a
+# string comparison, not a Bedrock call — cheaper, and it cannot itself be wrong.
+VERBATIM = "verbatim"
+UNLOCATED = "unlocated"
+VALID_VERDICTS = {VERBATIM, UNLOCATED}
 
 # What a fact is doing in the passage it came from, and how it relates to the
 # other facts in that passage. The chunker reads the whole text in one call, so
@@ -81,88 +88,77 @@ VALID_RELATIONS = {
     "about",
 }
 
-EXTRACT_PROMPT = """You split raw business text into atomic facts.
+EXTRACT_PROMPT = """You divide raw business text into segments. You do not rewrite it.
 
-An atomic fact is ONE self-contained claim. Return a JSON array; each element is:
+Return a JSON array; each element is:
   {"id": <int, from 1, in output order>,
-   "fact": "<the claim, rewritten to stand alone>",
-   "source_quote": "<the exact substring of the input this came from>",
+   "segment": "<an EXACT substring of the input, copied character for character>",
    "group": "<label of the list or frame this came from, or null>",
    "role": "<claim | evidence | recommendation | assessment | definition>",
    "relationships": {"supports": [ids], "supported_by": [ids],
                      "contrasts_with": [ids], "about": [ids]}}
 
-=== PRESERVE EPISTEMIC STRENGTH — the most important rule ===
+=== VERBATIM — the rule everything else is subordinate to ===
 
-Extract what was said, at the strength it was said. Never upgrade or downgrade
-how strongly a claim is held. A fact that reads cleanly but asserts more than
-the source did is a defect, worse than omitting it.
+"segment" must appear in the input EXACTLY as you write it. Copy it; do not
+retype it from memory. It is looked up in the source with an exact string search
+and discarded if it is not found.
 
-  "we might move to Berlin"      -> "The company might move to Berlin."
-                                 NOT "The company is moving to Berlin."
-  "I'd rather find out in October"
-                                 -> "The CEO would rather find out in October."
-                                 NOT "The CEO expects to find out in October."
-  "we're leaning toward per-seat"
-                                 -> "The company is leaning toward per-seat pricing."
-                                 NOT "The company chose per-seat pricing."
-  "I suspect churn is seasonal"  -> "The CEO suspects churn is seasonal."
-                                 NOT "Churn is seasonal."
-  "roughly 40%"                  -> "roughly 40%"            NOT "40%"
-  "up to fifteen percent"        -> "up to fifteen percent"  NOT "fifteen percent"
-  "Sales think the price is high"
-                                 -> "Sales think the price is high."
-                                 NOT "The price is high."
+FORBIDDEN, without exception:
+  - Resolving a pronoun. "It replaced the per-seat model" stays exactly that.
+    Never "The new pricing tier replaced the per-seat model."
+  - Supplying a subject the text does not contain. "We assess the argument, not
+    the apparatus." stays exactly that. Never "EpistemicOS assesses the
+    argument, not the apparatus."
+  - Rephrasing, tidying, expanding an abbreviation, fixing grammar, changing
+    punctuation, normalising whitespace, or making a fragment into a sentence.
+  - Adding or removing a single character.
 
-Specifically:
-  - A preference stays a preference. A plan stays a plan. They are different.
-  - A hedge (might, maybe, probably, I think, seems, appears) stays hedged.
-  - A possibility never becomes a certainty.
-  - An opinion stays attributed to whoever holds it.
-  - A question or an open item is not a decision.
-  - Approximations, ranges and bounds keep their qualifier.
-  - Conditionals keep their condition ("if the pilot works, we hire two more").
+A segment that reads awkwardly on its own is CORRECT. Later stages are given the
+surrounding passage and resolve references themselves; they need the author's
+words, not your improvement of them. The author wrote what they wrote.
 
-=== NEVER INFER WHO THE SPEAKER IS — hard rule, no exceptions ===
+If a claim cannot be captured as one exact substring, emit the smallest exact
+substring that carries it, or omit it. Never invent connective text to join two
+spans.
 
-Render first person literally:
-  "I", "me", "my"        -> "the speaker"
-  "we", "us", "our"      -> "the company"  (when it clearly means the organisation)
+=== WHERE TO CUT ===
 
-NEVER map a first-person pronoun to a name, role, title or job. Not "the CEO",
-not "the founder", not "Alex", not "the sales lead" — even when the surrounding
-text makes it feel obvious.
+Cut at meaning boundaries. One segment = one thing that could independently be
+true or false.
 
-  "I would rather find out in October"
-        -> "The speaker would rather find out in October."
-        NOT "The CEO would rather find out in October."
-  "That is the gap I am most worried about"
-        -> "The gap the speaker is most worried about is ..."
-        NOT "The gap the CEO is most worried about is ..."
+  - Cut a list of DISTINCT VALUES into one segment per value — each value is
+    separately true or false.
+    "8k for a department, 20k for a faculty" -> two segments:
+      "8k for a department"  and  "20k for a faculty"
+  - A list of SET MEMBERS under one predicate is ONE segment, role "definition".
+    The membership is the claim; the members are not separate claims.
+    "The depth engine archetype contains four tools: ManuSights Dossier,
+     PaperReview.ai, RefineInk, Reviewer3"  -> ONE segment, the whole sentence.
+    The test: does the passage predicate something DIFFERENT of each item
+    (different prices, dates, costs -> cut), or are they interchangeable members
+    of one named set (-> one segment)?
+  - Keep a claim together with its own qualifier, scope, condition or exception.
+    "Spain and the EU only, for the first eighteen months" is ONE segment.
+    Cutting a claim from its qualifier creates two claims the source never made.
+  - A reason ("because...", "which is why...") becomes its own segment only when
+    it asserts something independently checkable. Otherwise keep it attached.
+  - A claim spanning two sentences stays one segment.
+  - Do NOT join distinct claims into one segment. "We target business schools and
+    our price is 12k a year" is TWO segments: the target, and the price.
+  - Segments follow source order and must not overlap.
+  - Skip pure filler that asserts nothing (greetings, "as discussed", headers).
+    Skipping is how you drop text — never by rewriting around it.
 
-Why this is absolute: this pipeline ingests third-party documents — customer
-interviews, emails, research notes, meeting transcripts — where the speaker is
-NOT the person who uploaded the file. A customer saying "I would never pay that"
-turned into "The CEO would never pay that" is a clean-looking fact that asserts
-the opposite of the truth, and nothing downstream can detect it.
+=== READ THE ARGUMENT BEFORE YOU CUT ===
 
-The only exception: if the text itself names or titles the speaker, you may use
-what the text says. Never supply an identity the text does not state.
+You are given the whole passage at once, so read it as an argument first. Work
+out which statements are the claims, which are the evidence offered for them,
+which are recommendations following from that evidence, and which are judgements
+about the other statements. Then cut, and carry that structure out with the
+segments.
 
-Resolving a pronoun to a referent named IN the text stays correct and required:
-"It replaced the per-seat model" -> "The new pricing tier replaced the per-seat
-model" when the text names that tier. Resolving a reference is not the same as
-inventing an identity.
-
-=== READ THE ARGUMENT BEFORE YOU SPLIT ===
-
-You are given the whole passage at once, so read it as an argument before you cut
-it up. Work out which statements are the claims, which are the evidence offered
-for those claims, which are recommendations that follow from that evidence, and
-which are judgements about the other statements. Then split, and carry that
-structure out with the facts.
-
-ROLES — what this fact is doing in the passage
+ROLES — what this segment is doing in the passage
   claim           an assertion about how things are
   evidence        an observation, measurement or example offered in support
   recommendation  what someone should do
@@ -170,19 +166,17 @@ ROLES — what this fact is doing in the passage
                   or status, rather than about the world
   definition      what something is, or what a named set contains
 
-RELATIONSHIPS — reference the "id" of other facts from THIS passage
-  supports        this fact is evidence for those facts
-  supported_by    those facts are the evidence for this one
-  contrasts_with  this fact is set against those ("X, not Y", "unlike Y")
-  about           this fact is a judgement about those facts
+RELATIONSHIPS — reference the "id" of other segments from THIS passage
+  supports        this segment is evidence for those segments
+  supported_by    those segments are the evidence for this one
+  contrasts_with  this segment is set against those ("X, not Y", "unlike Y")
+  about           this segment is a judgement about those segments
 
 Only link what the passage actually establishes. A link it does not make is a
-defect; an omitted link is not. If you cannot tell, omit it — leave the list out
-entirely rather than guessing.
+defect; an omitted link is not. If you cannot tell, omit it.
 
-Roles and links are metadata about the argument. They never change what a fact
-SAYS, never merge two facts into one, and never excuse a fact from standing
-alone. Every fact is still filed independently.
+Roles and links are metadata about the argument. They never change the text of a
+segment and never merge two segments into one.
 
   Passage:
     Claim 1 — "We assess the argument, not the apparatus." The demonstrable
@@ -191,150 +185,73 @@ alone. Every fact is still filed independently.
     refuse to compete on reference-and-typo count. This is the single strongest
     exhibit in the benchmark.
 
-  1  claim           "EpistemicOS assesses the argument, not the apparatus."
+  1  claim           "We assess the argument, not the apparatus."
                      supported_by [2]
-  2  evidence        "The demonstrable market failure is that volume does not
-                      equal coverage: the highest-output tool scored zero."
-                     supports [1, 3]
+  2  evidence        "The demonstrable market failure is that volume != coverage:
+                      the highest-output tool scored zero."      supports [1, 3]
   3  recommendation  "EpistemicOS should lead with reviewer-risk coverage and
                       explicitly refuse to compete on reference-and-typo count."
                      supported_by [2]
-  4  assessment      "The volume-versus-coverage result is the single strongest
-                      exhibit in the benchmark."
+  4  assessment      "This is the single strongest exhibit in the benchmark."
                      about [2]
 
-=== SPLITTING ===
+Note segment 4: "This" is left as "This". Resolving it is the next stage's job,
+and it has the passage to do it with.
 
-One fact = one thing that could independently be true or false.
+=== GROUPS — say when several segments came from ONE list ===
 
-  - Split a list of DISTINCT VALUES into one fact per value — each value is
-    separately true or false.
-    "8k for a department, 20k for a faculty" -> two facts.
-  - A list of SET MEMBERS under one predicate is ONE fact, role "definition".
-    The membership is the claim; the members are not separate claims.
-    "The depth engine archetype contains four tools: ManuSights Dossier,
-     PaperReview.ai, RefineInk, Reviewer3"  -> ONE fact.
-    The test: does the passage predicate something DIFFERENT of each item
-    (different prices, dates, costs -> split), or are they interchangeable
-    members of one named set (-> one fact)?
-  - Keep a claim together with its own qualifier, scope, condition or exception.
-    "Spain and the EU only, for the first eighteen months" is ONE fact.
-    Splitting a claim from its qualifier creates two claims the source never made.
-  - A reason ("because...", "which is why...") becomes its own fact only when it
-    asserts something independently checkable. Otherwise keep it attached.
-  - A claim spanning two sentences stays one fact.
-  - Do NOT merge distinct claims. "We target business schools and our price is
-    12k a year" is TWO facts: target segment, and pricing.
-
-=== GROUPS — say when several facts came from ONE list ===
-
-When you split a single list, or several facts inherit ONE frame stated once
-(a shared subject, unit, scope, currency or qualifier), give every member of that
-set the SAME short "group" label naming the thing they share. Use null for a fact
-that does not belong to such a set — most facts are null.
+When you cut a single list, or several segments inherit ONE frame stated once (a
+shared subject, unit, scope, currency or qualifier), give every member of that
+set the SAME short "group" label naming the thing they share. Use null for a
+segment that does not belong to such a set — most segments are null.
 
   "Eight thousand for a department, twenty thousand for a faculty, forty-five
    thousand campus-wide"
-        -> three facts, all with "group": "subscription price tiers"
+        -> three segments, all with "group": "subscription price tiers"
 
   "All figures below are per institution per year. Setup is two thousand,
    support is three thousand, training is one thousand."
-        -> the three cost facts share "group": "per-institution annual cost items"
-           (the framing sentence itself is its own fact, group null)
+        -> the three cost segments share "group": "per-institution annual cost items"
+           (the framing sentence is its own segment, group null)
 
-The label is a description of the list, not of one member. Two facts that merely
-share a topic are NOT a group: "our price is twelve thousand" and "we expect
-eighty percent renewal" are two unrelated claims that happen to sit in one
-paragraph. A group means the source wrote ONE list, and you split it.
+The label describes the list, not one member. Two segments that merely share a
+topic are NOT a group. A group means the source wrote ONE list, and you cut it.
 
-Never let a group change what a fact says. Grouping is a note about where the
-fact came from; the fact itself must still stand alone, with its own qualifier
-carried over from the frame ("Setup is two thousand per institution per year").
+The group label is the ONLY place you may write words of your own, and it is
+metadata — it never becomes part of any segment.
 
 === OTHER RULES ===
 
-  - Every fact must be SELF-CONTAINED. Resolve pronouns and references from the
-    surrounding text. "This raised churn to 8%" becomes "The new pricing tier
-    raised churn to 8%." Resolving a reference is required; it is not the same
-    as adding information.
-  - source_quote must be copied EXACTLY from the input, character for character —
-    it is used to locate the fact in the source. Never paraphrase inside it.
-  - Keep numbers exactly as written.
-  - Skip pure filler that asserts nothing (greetings, "as discussed", headers).
-  - "id" must be unique within your array and must match the element's position.
+  - "id" must be unique within your array and match the element's position.
     Relationships may only reference ids you actually emit.
+  - Keep numbers exactly as written. You are copying, so this is automatic.
 
 Return ONLY the JSON array. No markdown fences, no commentary."""
-
-VERIFY_PROMPT = """You audit extracted facts against the text they came from.
-
-You receive the full source text and a numbered list of facts, each with the
-quote it was drawn from. For each fact decide whether the source supports THAT
-claim at THAT strength.
-
-Return a JSON array, one element per fact, in the same order:
-  {"index": <int>, "reason": "<one short sentence>", "verdict": "<verdict>"}
-
-Write "reason" FIRST, then choose "verdict" to match what you just wrote. The
-verdict is a conclusion drawn from the reason, not an independent judgement. If
-your reason says the source supports the claim, the verdict is "faithful" — a
-verdict that contradicts its own reason makes both untrustworthy.
-
-VERDICTS
-
-  faithful      The source supports this claim at this strength.
-  strengthened  The fact asserts more confidence, certainty or commitment than
-                the source did. A preference became a plan; a hedge became a
-                statement; an opinion became a fact; "roughly 40%" became "40%".
-  weakened      The fact hedges something the source stated plainly.
-  unsupported   The fact asserts something the source does not say at all.
-  distorted     The fact changes the meaning — wrong subject, wrong number,
-                negation flipped, condition dropped.
-
-RULES
-
-  - Resolving a pronoun from elsewhere in the source is CORRECT, not unsupported.
-    Source "It replaced the per-seat model" -> fact "The new pricing tier
-    replaced the per-seat model" is faithful when the source names that tier.
-  - Judge strength, not style. Rewording is fine; changing how strongly the
-    claim is held is not.
-  - Dropping a qualifier ("only", "up to", "roughly", "if X") is strengthened.
-  - "the speaker" (for I/me/my) and "the company" (for we/us/our) are the
-    REQUIRED extractor convention, NOT invented identities. Never flag them.
-    Source "We are leaning toward X" -> fact "The company is leaning toward X"
-    is FAITHFUL. Source "I would rather Y" -> "The speaker would rather Y" is
-    FAITHFUL. These renderings appear in almost every document; flagging them
-    would bury the real problems in noise.
-  - What IS unsupported is a NAME, ROLE or TITLE the source never states:
-    "The CEO would rather ...", "The founder decided ...", "Alex prefers ..."
-    from a source that only says "I" or "we". Flag those.
-  - Judge against the WHOLE source, not the quote alone. A qualifier stated once
-    for a group carries to its members: if the source says "Pricing is an annual
-    subscription" and later lists "eight thousand for a department", then "the
-    department tier costs eight thousand per year" is FAITHFUL. Do not flag a
-    detail that an adjacent sentence establishes.
-  - Your verdict must match your reason. If your reasoning concludes the source
-    supports the claim, return "faithful". Never return a non-faithful verdict
-    alongside a reason that says the fact is accurate.
-  - When the source genuinely supports the claim as written, say faithful. Do
-    not invent problems.
-
-Return ONLY the JSON array."""
 
 
 @dataclass
 class Fact:
-    """One atomic claim extracted from a source text.
+    """One segment of a source text, held verbatim.
+
+    ``fact`` is not generated. It is sliced out of the source at
+    ``[start_char:end_char]``, so ``source[f.start_char:f.end_char] == f.fact``
+    holds for every located fact by construction rather than by trust. The model
+    chooses where the cuts go; it never supplies the text.
 
     Attributes:
-        fact: The self-contained claim, with references resolved.
-        source_quote: The verbatim span of the source the claim came from.
-        start_char: Offset of source_quote in the source, or None if not located.
+        fact: The segment, character-for-character as the author wrote it.
+            Pronouns are NOT resolved and subjects are NOT supplied — a segment
+            reading "It replaced the per-seat model" is correct and stays that
+            way. Comprehension happens at classification time, from the passage.
+        source_quote: The same span. Retained because the stored metadata,
+            `rerun_feed_27.py` and the roundtrip check all read it; with verbatim
+            segments it is equal to ``fact`` and not an independent field.
+        start_char: Offset of the segment in the source, or None if not located.
         end_char: End offset (exclusive), or None if not located.
         index: Position in the returned sequence, 0-based.
-        needs_review: True when the verification pass did not return "faithful".
-        verdict: The verification verdict, or None when verification was skipped.
-        review_reason: Why the verifier flagged it, when it did.
+        needs_review: True when the segment could not be located in the source.
+        verdict: VERBATIM when the span was verified, UNLOCATED when not.
+        review_reason: Why the span audit flagged it, when it did.
         group_label: The model's name for the list or frame this fact was split
             out of, or None when it stands alone.
         group_id: Stable id shared by every member of one group, or None. Only
@@ -603,83 +520,98 @@ def _resolve_relationships(
         fact.relationships = resolved
 
 
-def _verify(facts: list[Fact], source: str, model_id: str) -> None:
-    """Audit each fact against the source and set review fields in place.
+def audit_spans(facts: list[Fact], source: str) -> list[Fact]:
+    """Assert that every fact is an exact substring of its source, in place.
 
-    A verification failure marks every fact ``needs_review`` — an unaudited fact
-    must not be mistaken for an audited one.
+    The guarantee this module exists to provide::
 
-    Audited in batches. A real 800-word document yields ~170 facts, and sending
-    all of them plus the source in one request produced a Bedrock read timeout
-    that failed the whole pass and flagged every fact as unaudited. Batching
-    also contains the blast radius: one timed-out batch costs its own facts
-    their verdict, not the document's.
+        source[f.start_char:f.end_char] == f.fact
+
+    ``chunk_text`` slices the text out of the source, so a mismatch here means a
+    bug in this module rather than a model that paraphrased. It is checked
+    anyway: the whole design rests on it, and an unchecked invariant is a belief.
+
+    A fact whose span could not be located keeps the model's text but is flagged
+    ``needs_review`` with verdict UNLOCATED, and ``feed_pipeline.confirm_card``
+    refuses to store it. Not storing a claim Alex made is recoverable; storing
+    words he did not write is what this change exists to stop.
+
+    Args:
+        facts: The facts to audit.
+        source: The text they were cut from.
+
+    Returns:
+        The facts that failed the audit. Empty is the expected result.
     """
-    if not facts:
-        return
-
-    by_index: dict[int, dict] = {}
-    failed: set[int] = set()
-
-    for start in range(0, len(facts), VERIFY_BATCH_SIZE):
-        batch = facts[start : start + VERIFY_BATCH_SIZE]
-        listing = "\n".join(
-            f'{f.index}. FACT: {f.fact}\n   QUOTE: "{f.source_quote}"' for f in batch
-        )
-        payload = (
-            f'SOURCE TEXT:\n"""\n{source}\n"""\n\nFACTS TO AUDIT:\n{listing}'
-        )
-        try:
-            results = _parse_json_array(_call_llm(VERIFY_PROMPT, payload, model_id))
-        except Exception as exc:  # noqa: BLE001 — degrade to "unaudited", never silent
-            logger.error(
-                "[Chunker] Verification batch %d-%d failed: %s",
-                batch[0].index,
-                batch[-1].index,
-                exc,
-            )
-            failed.update(f.index for f in batch)
-            continue
-
-        for item in results:
-            if isinstance(item, dict) and isinstance(item.get("index"), int):
-                by_index[item["index"]] = item
-
+    failures: list[Fact] = []
     for f in facts:
-        if f.index in failed:
+        if f.start_char is None or f.end_char is None:
             f.needs_review = True
-            f.verdict = None
-            f.review_reason = "verification pass failed — fact is unaudited"
+            f.verdict = UNLOCATED
+            f.review_reason = (
+                "segment could not be located in the source, so it cannot be "
+                "shown to be the author's words — not storable"
+            )
+            failures.append(f)
+            logger.error(
+                "[Chunker] fact %d has no span in the source: %r",
+                f.index,
+                f.fact[:100],
+            )
             continue
-        item = by_index.get(f.index)
-        if item is None:
+
+        if source[f.start_char : f.end_char] != f.fact:
             f.needs_review = True
-            f.review_reason = "verifier returned no verdict for this fact"
+            f.verdict = UNLOCATED
+            f.review_reason = (
+                "span does not match the stored text — the fact is not verbatim"
+            )
+            failures.append(f)
+            logger.error(
+                "[Chunker] fact %d span mismatch: source[%d:%d]=%r fact=%r",
+                f.index,
+                f.start_char,
+                f.end_char,
+                source[f.start_char : f.end_char][:100],
+                f.fact[:100],
+            )
             continue
-        verdict = str(item.get("verdict", "")).strip().lower()
-        if verdict not in VALID_VERDICTS:
-            f.needs_review = True
-            f.verdict = None
-            f.review_reason = f"verifier returned an unrecognised verdict: {verdict!r}"
-            continue
-        f.verdict = verdict
-        f.needs_review = verdict != FAITHFUL
-        f.review_reason = str(item.get("reason", "")).strip() or None
+
+        f.verdict = VERBATIM
+        f.needs_review = False
+        f.review_reason = None
+
+    if failures:
+        logger.error(
+            "[Chunker] %d of %d facts failed the verbatim audit",
+            len(failures),
+            len(facts),
+        )
+    return failures
 
 
 def chunk_text(
     text: str, model_id: Optional[str] = None, verify: bool = True
 ) -> list[Fact]:
-    """Split raw text into atomic, self-contained facts.
+    """Divide raw text into verbatim segments at meaning boundaries.
+
+    Nothing is rewritten. Each returned fact is an exact substring of ``text``:
+    pronouns are left unresolved, missing subjects are left missing, and a
+    segment that reads awkwardly alone is returned that way. Understanding the
+    segment is the classifier's job, and it is given the surrounding passage to
+    do it with.
 
     Args:
-        text: The raw text to split. Any length; splitting is semantic.
+        text: The raw text to divide. Any length; the cuts are semantic.
         model_id: Bedrock model id. Defaults to CLAUDE_SONNET_MODEL.
-        verify: Run the fidelity audit. Facts that fail are returned with
-            ``needs_review=True``; they are never dropped or rewritten.
+        verify: Accepted for compatibility and ignored — the span audit is a
+            string comparison, always runs, and costs nothing. There is no
+            longer an LLM verification pass to switch off.
 
     Returns:
-        Facts in source order, each carrying its character span in the source.
+        Facts in source order, each carrying its character span. Any fact whose
+        span could not be verified is flagged ``needs_review`` with verdict
+        UNLOCATED and is refused by the write path.
         Empty list when the input contains no assertable claim.
 
     Raises:
@@ -705,15 +637,21 @@ def chunk_text(
         if not isinstance(item, dict):
             logger.warning("[Chunker] Skipping non-object element at %d: %r", i, item)
             continue
-        claim = (item.get("fact") or "").strip()
-        quote = (item.get("source_quote") or "").strip()
-        if not claim:
-            logger.warning("[Chunker] Skipping element with empty fact at %d", i)
+        # "segment" is the field the prompt asks for; "fact" is accepted so a
+        # model that reverts to the old key still produces a located span rather
+        # than a dropped one.
+        segment = (item.get("segment") or item.get("fact") or "").strip()
+        if not segment:
+            logger.warning("[Chunker] Skipping element with empty segment at %d", i)
             continue
 
-        start, end = _locate(quote, text, cursor)
+        start, end = _locate(segment, text, cursor)
         if start is not None:
             cursor = start
+            # The stored text is sliced from the source, never taken from the
+            # model. This is what makes source[start:end] == fact a property of
+            # the code rather than a promise the prompt makes.
+            segment = text[start:end]
         raw_group = item.get("group")
         index = len(facts)
 
@@ -736,8 +674,8 @@ def chunk_text(
 
         facts.append(
             Fact(
-                fact=claim,
-                source_quote=quote,
+                fact=segment,
+                source_quote=segment,
                 start_char=start,
                 end_char=end,
                 index=index,
@@ -750,9 +688,7 @@ def chunk_text(
 
     _resolve_relationships(facts, raw_links, id_map)
     _assign_group_ids(facts)
-
-    if verify:
-        _verify(facts, text, model)
+    audit_spans(facts, text)
 
     flagged = sum(1 for f in facts if f.needs_review)
     unlocated = sum(1 for f in facts if f.start_char is None)

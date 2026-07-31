@@ -1025,7 +1025,90 @@ Tests: `tests/test_judge_rejection_guard.py` (17), `tests/test_chunker_structure
 (19). Both are deterministic and make no Bedrock call — the guarantee has to hold on
 whatever the model returns, including the shapes it returns rarely.
 
+## VERBATIM STORAGE — the chunker no longer writes prose (2026-07-31)
+
+**CONTRACT: a stored fact is an exact substring of its source document.**
+
+    source[fact.start_char:fact.end_char] == fact.fact
+
+Alex wrote *"We assess the argument, not the apparatus."* The pipeline stored
+*"EpistemicOS assesses the argument, not the apparatus"* — a sentence he never wrote, in
+a system whose premise is claim fidelity. The chunker had been resolving pronouns,
+supplying subjects and rephrasing to make each fact self-contained. That is now
+forbidden outright.
+
+### Split, don't rewrite
+
+The model chooses where the cuts fall and nothing else. It returns the substring it
+picked; `chunk_text` locates it and takes `text[start:end]` as the fact, so the invariant
+is a property of the code rather than a promise the prompt makes. A model that
+paraphrases produces an unlocatable segment, which is flagged, not stored.
+
+Three gates, in order:
+
+| Gate | Where | Does |
+|---|---|---|
+| `audit_spans()` | `semantic_chunker` | verdict VERBATIM or UNLOCATED; never rewrites or silently drops |
+| `verify_card_spans()` | `feed_pipeline` | asserts the invariant on the objects that reach storage; sets `span_verified` |
+| `confirm_card()` | `feed_pipeline` | **raises** on `span_verified == False` — the write path cannot emit non-verbatim text |
+
+### Comprehension is separated from storage
+
+Verbatim segments are not self-contained, by design. `propose(passage=...)` and
+`propose_group(passage=...)` carry ±`PASSAGE_WINDOW` (600) chars of source; the judge
+resolves "it"/"we"/"this" internally, files on that understanding, and leaves the text
+alone. Retrieval still embeds the segment alone.
+
+    stored   'It replaced the per-seat model.'      (verbatim, unresolved)
+    node     BP.9.2.1
+    note     "a change from per-seat to a new model is precisely the kind of
+              content that belongs in pricing..."
+
+On the 27-card paste, **8 of 25 cards begin with an unresolved reference and route
+normally** (16 ready / 7 look / 2 nofit). `role` and `relationships` are what make those
+cards usable later: the span, the neighbours and the links are all stored with the text.
+
+### Measured
+
+Zero verbatim violations across every run — 38 cards over five inputs (Claim-1 passage,
+depth-engine roster, pricing paragraph, pronoun case, and the 27-card reference paste of
+real prose). `span_verified` True on all of them.
+
+**Segment text was byte-identical across two runs** on all three test inputs. Verbatim
+cutting is markedly more stable than rewriting — there is less for the model to vary.
+Node assignment still drifts; that is the classifier, untouched here.
+
+Regression: the pricing paragraph still cuts to three tier segments, one group, one
+classification call, one node. The roster is still 1 fact, `role=definition`.
+
+### What this removed, and one thing to watch
+
+**The LLM fidelity audit is gone.** Its verdicts — `strengthened`, `weakened`,
+`unsupported`, `distorted`, `faithful` — all judge whether a *rewrite* drifted from the
+source. With nothing rewritten, four are unreachable by construction and the fifth is a
+string comparison. Replaced by `audit_spans()`: deterministic, free, and it cannot itself
+be wrong. Verdicts are now `verbatim` / `unlocated`, and `VERIFY_PROMPT`,
+`VERIFY_BATCH_SIZE` and `_verify()` are deleted. This drops one Bedrock call per 25
+facts. There is no LLM check on split *quality*; that is a different question and is not
+built.
+
+`chunk_text(verify=...)` is accepted and ignored, documented as such rather than silently
+dropped.
+
+⚠️ **`subsumed` measured 0 on the 27-card paste, down from 2.** Segments are
+non-overlapping by construction, so E1's failure mode — one fact being a strict partial
+of another — can no longer be created, which is why the mechanism that caught it stops
+firing. That reads as prevention rather than regression, but the SUBSUMED path is now
+largely unexercised by this fixture. Recorded, not assumed.
+
 ### Chunker suite
+
+⚠️ Written against the rewriting chunker. Cases 1–9 test preservation of epistemic
+strength and refusal to infer speaker identity — both now guaranteed by copying rather
+than by instruction, so those cases can no longer fail for the reason they were written.
+`scripts/test_semantic_chunker.py`'s "unresolved reference" marker was relabelled as
+informational: it is now the correct output. The suite needs rewriting around split
+quality and span fidelity.
 
 Extended from 9 to 11 cases: **10 — no over-merging** (a grouped pricing list must stay
 one fact per tier) and **11 — no currency bleed** (each amount keeps its own currency).

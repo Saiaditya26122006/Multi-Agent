@@ -185,6 +185,34 @@ wrong. A node whose title repeats a phrase from the fact is NOT thereby correct.
 
 If the fact would VIOLATE a node's prohibited_claims, rank it last and say so.
 
+=== THE FACT IS A VERBATIM SEGMENT — read the passage to understand it ===
+
+The fact is an exact substring of the author's document. It was cut out, never
+rewritten, so it may begin with "It", "This", "We" or "They", may lack a subject,
+and may read as a fragment. That is intended and is not a defect to work around.
+
+You are given THE PASSAGE it was cut from. Use it to work out what the segment
+actually asserts: resolve the pronouns, recover the implied subject, carry over a
+qualifier the passage states once for a list. Do that reasoning internally and
+file the segment on the strength of it.
+
+  passage  "The new tier launched in March. It replaced the per-seat model."
+  segment  "It replaced the per-seat model"
+  -> read as: the new tier replaced the per-seat model. File it where a pricing
+     model change belongs, not where an unidentified "it" belongs.
+
+Two hard limits on that resolution:
+
+  - **Never rewrite the segment.** Not in your reason, not in a note, not
+    anywhere. The author's words are what gets stored; your resolution exists
+    only to place them.
+  - **File the segment, never the passage.** The passage contains other claims
+    with other homes. You are placing this segment alone.
+
+If the passage does not resolve the reference, say so in your reason and rank on
+what the segment does assert. An unresolvable segment is a candidate for review,
+not a licence to guess a subject.
+
 === NEIGHBOURING FACTS ===
 
 You may also be given the facts extracted either side of this one. They are
@@ -273,9 +301,15 @@ GROUP_RANK_PROMPT = """You help a human file a LIST of atomic business facts int
 a business-plan architecture. You do NOT decide — you produce the shortlist they \
 confirm from, so your job is to RANK and ANNOTATE, never to commit.
 
-These facts were ONE list in the source document, split into atomic claims. They
+These facts were ONE list in the source document, cut into atomic claims. They
 belong together: the parallel values of one pricing table, the line items of one
 cost breakdown. Your job is to choose ONE shortlist for the WHOLE list.
+
+Each member is a VERBATIM segment of the author's document — cut out, never
+rewritten — so a member may read as a fragment ("twenty thousand for a faculty")
+and the frame it depends on may sit in the passage rather than in the member. You
+are given THE PASSAGE. Use it to understand what the list asserts; never rewrite
+a member, and never file the passage.
 
 This matters because filing the members separately is how a single table ends up
 scattered across three nodes. Whatever node the list belongs at, every member
@@ -556,15 +590,24 @@ def _build_judge_input(
     candidate_ids: list[str],
     arch: Architecture,
     siblings: Optional[Sequence[str]] = None,
+    passage: Optional[str] = None,
 ) -> str:
     """Compose the judge's user message: the fact plus every candidate node.
 
-    Siblings, when given, are labelled S1..Sn and clearly marked as context. The
-    labels are what the judge returns in ``subsumed_by``, so they must be stable
-    within one call.
+    The passage, when given, is the source text around the segment. It is what
+    lets the judge resolve "it" and "we" in a verbatim segment without anyone
+    rewriting the segment to do it. Siblings are labelled S1..Sn; the labels are
+    what the judge returns in ``subsumed_by``, so they must be stable within one
+    call.
     """
     blocks = [_describe(arch.nodes[n]) for n in candidate_ids]
-    parts = [f"FACT TO FILE:\n{fact}"]
+    parts = [f"FACT TO FILE (verbatim segment of the source):\n{fact}"]
+    if passage:
+        parts.append(
+            "THE PASSAGE IT WAS CUT FROM (for comprehension only — resolve "
+            "references from it, never file it, never rewrite the segment):\n"
+            f'"""\n{passage}\n"""'
+        )
     if siblings:
         listing = "\n".join(f"  S{i + 1}. {s}" for i, s in enumerate(siblings))
         parts.append(
@@ -577,15 +620,25 @@ def _build_judge_input(
 
 
 def _build_group_input(
-    facts: Sequence[str], candidate_ids: list[str], arch: Architecture
+    facts: Sequence[str],
+    candidate_ids: list[str],
+    arch: Architecture,
+    passage: Optional[str] = None,
 ) -> str:
     """Compose the group judge's user message: every member plus the candidates."""
     blocks = [_describe(arch.nodes[n]) for n in candidate_ids]
     listing = "\n".join(f"  {i + 1}. {f}" for i, f in enumerate(facts))
-    return (
-        f"LIST TO FILE ({len(facts)} facts from one list):\n{listing}\n\n"
+    parts = [f"LIST TO FILE ({len(facts)} verbatim segments from one list):\n{listing}"]
+    if passage:
+        parts.append(
+            "THE PASSAGE THEY WERE CUT FROM (for comprehension only — resolve "
+            "references from it, never file it, never rewrite a member):\n"
+            f'"""\n{passage}\n"""'
+        )
+    parts.append(
         f"CANDIDATE NODES ({len(candidate_ids)}):\n\n" + "\n---\n".join(blocks)
     )
+    return "\n\n".join(parts)
 
 
 PROPOSED = "proposed"
@@ -817,6 +870,7 @@ def propose(
     shortlist_size: int = SHORTLIST_SIZE,
     model_id: Optional[str] = None,
     siblings: Optional[Sequence[str]] = None,
+    passage: Optional[str] = None,
 ) -> Proposal:
     """Produce a ranked shortlist for one fact. Files nothing, decides nothing.
 
@@ -845,6 +899,11 @@ def propose(
             two sibling-dependent outcomes: SUBSUMED (this fact is a strict
             partial of a neighbour and should not be filed) and primary-claim
             selection on a fact that merges a main and a subordinate clause.
+        passage: The source text surrounding the segment. Facts are stored
+            verbatim, so a segment may be "It replaced the per-seat model" with
+            the referent in the sentence before. The passage is how the judge
+            resolves that without anything being rewritten — comprehension here,
+            storage untouched. Retrieval still embeds the segment alone.
 
     Returns:
         A Proposal carrying the ranked candidates and the sections behind them,
@@ -880,7 +939,9 @@ def propose(
         )
 
     raw = _call_llm(
-        RANK_PROMPT, _build_judge_input(fact, candidate_ids, arch, siblings), model
+        RANK_PROMPT,
+        _build_judge_input(fact, candidate_ids, arch, siblings, passage),
+        model,
     )
     parsed = _parse_json_object(raw)
 
@@ -925,6 +986,7 @@ def propose_group(
     sections_to_consider: int = 3,
     shortlist_size: int = SHORTLIST_SIZE,
     model_id: Optional[str] = None,
+    passage: Optional[str] = None,
 ) -> Proposal:
     """Produce ONE shortlist for a whole list of facts the chunker grouped.
 
@@ -946,6 +1008,9 @@ def propose_group(
         sections_to_consider: How many sections' leaves the judge sees.
         shortlist_size: Maximum candidates returned to the human.
         model_id: Bedrock model id. Defaults to CLAUDE_SONNET_MODEL.
+        passage: The source text around the list. Members are verbatim segments,
+            so the frame they depend on ("all figures are per institution per
+            year") often sits in the passage rather than in any member.
 
     Returns:
         One Proposal, to be applied to every member of the group. ``fact`` holds
@@ -990,7 +1055,9 @@ def propose_group(
         )
 
     raw = _call_llm(
-        GROUP_RANK_PROMPT, _build_group_input(facts, candidate_ids, arch), model
+        GROUP_RANK_PROMPT,
+        _build_group_input(facts, candidate_ids, arch, passage),
+        model,
     )
     parsed = _parse_json_object(raw)
     ranked = _rank_from_parsed(parsed, arch, shortlist_size)
