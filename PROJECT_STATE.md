@@ -875,6 +875,50 @@ Auto-file is therefore a **data-accumulation** problem. The review tool is what
 generates that data, which makes shipping it the prerequisite rather than a
 consolation.
 
+## WITHIN-SECTION PRECISION — the ceiling on slot work (2026-07-31)
+
+Every number in the LOCKED CONCLUSION is leaf recall@k, a retrieval metric. This is the
+other half, which `feed_classifier_v3` names as untested: *"Coverage is expected to be
+low; precision is the open question."* Measured with
+`scripts/measure_within_section_precision.py` over the 76-fact labelled key, in two
+stages that must not be conflated.
+
+    STAGE 1  correct section in the top 3        34 / 76   44.7%
+    STAGE 2  (given stage 1) correct leaf 1st    24 / 34   70.6%
+             (given stage 1) correct leaf in list 33 / 34   97.1%
+             HEADROOM at rank 1                            29.4 pts
+
+**Read stage 2 twice before spending on slot work.**
+
+- **For auto-file, the prize is 29.4 points** — 10 facts of 34 where the right section
+  was retrieved and the judge still ranked the wrong sibling first.
+- **For review-assist, the prize is ~3 points.** The correct node is already *somewhere*
+  in the shortlist 33 times out of 34. Nothing auto-files; a human picks from the
+  shortlist. Better ranking saves them a glance, not a wrong filing.
+
+The product is review-assist. That is the number that governs.
+
+**The misses are exactly the shape the slot hypothesis predicts** — adjacent siblings in
+the right section, correct node usually one position away:
+
+    want BP.4.4.2   got BP.4.4.3    rank 2
+    want BP.11.1.4  got BP.11.1.3   rank 2
+    want BP.9.2.5   got BP.9.2.13   rank 2
+    want BP.5.3.1   got BP.5.3.2    rank 2
+    want BP.4.5.1   got BP.4.5.4    rank 3
+
+Nine of ten misses are rank 2-3. So the mechanism is plausible and the diagnosis is
+right; the disagreement is only about how much it is worth.
+
+⚠️ **Stage 1 is optimistic and stage 2 is not.** The labelled key is rewritten-era — its
+facts are self-contained sentences of the kind the old chunker produced. Verbatim
+segments retrieve worse (next section), so real stage 1 is below 44.7%. Stage 2 is
+conditioned on retrieval having already worked, so it is much less affected.
+
+**Retrieval, not judging, is where the facts are lost: 55% never reach the right
+section at all.** That is the same gap the locked conclusion closed the book on, and it
+dominates anything downstream.
+
 ## VERBATIM EXTRACTION COSTS RETRIEVAL — isolated A/B (2026-07-31)
 
 **The same three claims retrieve a different neighbourhood depending only on whether

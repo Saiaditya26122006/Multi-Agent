@@ -1,0 +1,1177 @@
+{
+  "scored": 76,
+  "section_retrieved": 34,
+  "correct_at_1": 24,
+  "correct_in_shortlist": 33,
+  "results": [
+    {
+      "fact": "We will never tell an author their odds of getting into a given journal.",
+      "node_id": "BP.1.2.5",
+      "bucket": "a_classifier",
+      "correct_section": "BP.1.2",
+      "retrieved_sections": [
+        "BP.12.2",
+        "BP.12.5",
+        "BP.12.3"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "The pain shows up when a doctoral candidate hands a first draft to their supervisor.",
+      "node_id": "BP.2.1.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.2.1",
+      "retrieved_sections": [
+        "BP.2.2",
+        "BP.7.5",
+        "BP.1.3.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "The system reads the full manuscript PDF, not the abstract.",
+      "node_id": "BP.1.1.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.1.1",
+      "retrieved_sections": [
+        "BP.1.8",
+        "BP.3.1",
+        "BP.3.3"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Spain and the EU only for the first eighteen months. No US work.",
+      "node_id": "BP.1.6.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.1.6",
+      "retrieved_sections": [
+        "BP.1.2",
+        "BP.4.1",
+        "BP.7.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Nothing we output is a decision. A supervisor signs off before anything goes further.",
+      "node_id": "BP.1.1.6",
+      "bucket": "a_classifier",
+      "correct_section": "BP.1.1",
+      "retrieved_sections": [
+        "BP.12.6",
+        "BP.10.4",
+        "BP.9.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We grade findings as blocking, major or minor. Blocking means the claim cannot stand as written.",
+      "node_id": "BP.2.2.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.2.2",
+      "retrieved_sections": [
+        "BP.11.3",
+        "BP.5.1",
+        "BP.5.4"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Roughly 2.8 million manuscripts are submitted each year across our target countries.",
+      "node_id": "BP.4.2.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.4.2",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.1.8",
+        "BP.1.3.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Vendor blogs and press releases are out. We do not cite marketing material.",
+      "node_id": "BP.3.1.5",
+      "bucket": "a_classifier",
+      "correct_section": "BP.3.1",
+      "retrieved_sections": [
+        "BP.1.2",
+        "BP.9.3",
+        "BP.9.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "REF submission deadlines are what force departments to act.",
+      "node_id": "BP.2.3.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.2.3",
+      "retrieved_sections": [
+        "BP.12.2",
+        "BP.5.5",
+        "BP.10.4"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "The IT security lead can stall a purchase for months without holding any budget.",
+      "node_id": "BP.5.1.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.5.1",
+      "retrieved_sections": [
+        "BP.5.4",
+        "BP.5.5",
+        "BP.5.3"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We use a seven-level scale, E1 to E7, from single anecdote up to replicated peer-reviewed work.",
+      "node_id": "BP.3.2.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.3.2",
+      "retrieved_sections": [
+        "BP.3.2",
+        "BP.12.3",
+        "BP.2.2"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.3.2.1",
+        "BP.3.2"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Doctoral supervisors push hardest for this internally. Procurement is where it slows down.",
+      "node_id": "BP.5.2.5",
+      "bucket": "a_classifier",
+      "correct_section": "BP.5.2",
+      "retrieved_sections": [
+        "BP.5.4",
+        "BP.2.4",
+        "BP.7.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We need at least 30 conversations: 15 candidates, 10 supervisors, 5 research office staff.",
+      "node_id": "BP.6.1.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.6.1",
+      "retrieved_sections": [
+        "BP.6.3",
+        "BP.11.5",
+        "BP.1.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "A dean can sign off up to 25,000 euros before it goes to the finance committee.",
+      "node_id": "BP.5.3.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.5.3",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.9.6",
+        "BP.5.3"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.5.3.3",
+        "BP.5.3.4",
+        "BP.5.3"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We are not a plagiarism checker and we will not flag AI-written text.",
+      "node_id": "BP.1.2.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.1.2",
+      "retrieved_sections": [
+        "BP.1.2",
+        "BP.7.3",
+        "BP.6.6"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.1.2.4",
+        "BP.1.2"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "The segments we are looking at: doctoral programmes, research offices, journal editorial teams, independent postdocs.",
+      "node_id": "BP.4.3.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.4.3",
+      "retrieved_sections": [
+        "BP.1.3.6",
+        "BP.4.3",
+        "BP.7.5"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.4.3.1",
+        "BP.4.3"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Our primary buyer is the research dean at target business schools.",
+      "node_id": "BP.5.1.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.5.1",
+      "retrieved_sections": [
+        "BP.5.3",
+        "BP.5.1",
+        "BP.6.1"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.5.1.2",
+        "BP.5.3.1"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Most departments still do this with a senior academic reading drafts by hand over a weekend.",
+      "node_id": "BP.8.2.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.8.2",
+      "retrieved_sections": [
+        "BP.1.3.6",
+        "BP.11.3",
+        "BP.7.5"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Turnitin has distribution and incumbency. Elicit is an adjacent AI tool. Neither checks inference.",
+      "node_id": "BP.8.1.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.8.1",
+      "retrieved_sections": [
+        "BP.8.2",
+        "BP.6.5",
+        "BP.1.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We catch unsupported claims in a manuscript before a supervisor or reviewer has to.",
+      "node_id": "BP.9.1.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.1",
+      "retrieved_sections": [
+        "BP.3.4",
+        "BP.11.3",
+        "BP.11.1"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Customer manuscripts are never used to train or fine-tune any model. Inference only.",
+      "node_id": "BP.7.2.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.7.2",
+      "retrieved_sections": [
+        "BP.7.2",
+        "BP.12.3",
+        "BP.12.1"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.7.2.3",
+        "BP.7.2"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Real use means they uploaded a draft they were already working on, not a file we handed them.",
+      "node_id": "BP.10.2.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.10.2",
+      "retrieved_sections": [
+        "BP.7.5",
+        "BP.1.6",
+        "BP.1.3.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We compare our flags against what two independent reviewers marked on the same paper.",
+      "node_id": "BP.10.1.10",
+      "bucket": "a_classifier",
+      "correct_section": "BP.10.1",
+      "retrieved_sections": [
+        "BP.12.6",
+        "BP.8.1",
+        "BP.1.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "A good fit has 200 or more doctoral candidates, a central research office, and existing integrity training.",
+      "node_id": "BP.4.4.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.4.4",
+      "retrieved_sections": [
+        "BP.4.4",
+        "BP.3.3",
+        "BP.4.3"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.4.4.3",
+        "BP.4.4.2",
+        "BP.4.4.1"
+      ],
+      "rank_of_correct": 2,
+      "correct_at_1": false,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We operate under Spanish and EU law. GDPR applies to everything we store.",
+      "node_id": "BP.7.1.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.7.1",
+      "retrieved_sections": [
+        "BP.7.1",
+        "BP.7.2",
+        "BP.9.2"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.7.1.2",
+        "BP.7.1.3",
+        "BP.7.1.1"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Every discovery call runs the same twelve questions so answers compare across institutions.",
+      "node_id": "BP.6.1.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.6.1",
+      "retrieved_sections": [
+        "BP.6.1",
+        "BP.12.6",
+        "BP.1.6"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.6.1.4"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Grammarly and Elicit are not direct rivals but they compete for the same budget line.",
+      "node_id": "BP.8.1.5",
+      "bucket": "a_classifier",
+      "correct_section": "BP.8.1",
+      "retrieved_sections": [
+        "BP.1.6",
+        "BP.8.1",
+        "BP.8.2"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.8.2.12",
+        "BP.8.1.5",
+        "BP.8.1.2"
+      ],
+      "rank_of_correct": 2,
+      "correct_at_1": false,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "The pilot runs twelve weeks across three departments, about 40 manuscripts each.",
+      "node_id": "BP.10.1.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.10.1",
+      "retrieved_sections": [
+        "BP.10.2",
+        "BP.1.3.6",
+        "BP.10.1"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.10.1.3",
+        "BP.10.2.10",
+        "BP.10.1"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Risks are scored one to five on impact and one to five on likelihood.",
+      "node_id": "BP.12.1.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.12.1",
+      "retrieved_sections": [
+        "BP.12.3",
+        "BP.12.1",
+        "BP.12.6"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.12.1.4",
+        "BP.12.3.4",
+        "BP.12.3.2"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "The problem is that unsupported claims survive to submission because nobody checks inference systematically.",
+      "node_id": "BP.2.1.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.2.1",
+      "retrieved_sections": [
+        "BP.2.5",
+        "BP.2.4",
+        "BP.3.4"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "The unit we evaluate is a single manuscript draft, not the author and not the eventual publication.",
+      "node_id": "BP.1.1.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.1.1",
+      "retrieved_sections": [
+        "BP.1.1",
+        "BP.9.5",
+        "BP.1.8"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.1.1.2",
+        "BP.1.1.4"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "At current spend we have fourteen months of cash left.",
+      "node_id": "BP.9.6.11",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.5.3",
+        "BP.5.5"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We are spending 48,000 euros a month, mostly salaries and compute.",
+      "node_id": "BP.9.6.12",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.5.3",
+        "BP.8.5"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "The summary opens with the problem, then the approach, then what we have actually evidenced, then the ask.",
+      "node_id": "BP.11.2.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.11.2",
+      "retrieved_sections": [
+        "BP.2.1",
+        "BP.11.1",
+        "BP.11.2"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.11.1.2",
+        "BP.11.2.1",
+        "BP.11.1"
+      ],
+      "rank_of_correct": 2,
+      "correct_at_1": false,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We want the founders to still hold a majority after the next two rounds.",
+      "node_id": "BP.9.6.14",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.4.6",
+        "BP.9.7",
+        "BP.5.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Every claim in the investor deck has to point back to a specific numbered node.",
+      "node_id": "BP.11.1.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.11.1",
+      "retrieved_sections": [
+        "BP.11.1",
+        "BP.3.4",
+        "BP.11.3"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.11.1.3",
+        "BP.11.1.4",
+        "BP.3.4.2"
+      ],
+      "rank_of_correct": 2,
+      "correct_at_1": false,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Anything a source cannot support at its tier gets escalated rather than published.",
+      "node_id": "BP.3.2.5",
+      "bucket": "a_classifier",
+      "correct_section": "BP.3.2",
+      "retrieved_sections": [
+        "BP.3.2",
+        "BP.3.5",
+        "BP.10.5"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.3.2.5"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We need 1.2 million euros to reach the pilot-complete milestone.",
+      "node_id": "BP.9.6.10",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.10.2",
+        "BP.9.6",
+        "BP.1.1.7"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.6.10",
+        "BP.9.6.18",
+        "BP.9.6.11"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Deferred items still get logged. We do not drop them just because nobody is acting this quarter.",
+      "node_id": "BP.12.2.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.12.2",
+      "retrieved_sections": [
+        "BP.12.2",
+        "BP.10.4",
+        "BP.4.6"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.12.2.4"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Cash out per month should stay flat until the second engineer starts.",
+      "node_id": "BP.9.6.11",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.12.3",
+        "BP.9.6"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.6.12",
+        "BP.9.6.13",
+        "BP.9.5.2",
+        "BP.9.5.17"
+      ],
+      "rank_of_correct": null,
+      "correct_at_1": false,
+      "correct_in_shortlist": false
+    },
+    {
+      "fact": "We are going with an annual institutional subscription rather than charging per manuscript.",
+      "node_id": "BP.9.2.1",
+      "bucket": "b_architecture_content",
+      "correct_section": "BP.9.2",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.8.2",
+        "BP.6.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We are offering a SAFE with a 6 million cap and a 20 percent discount.",
+      "node_id": "BP.9.6.17",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.9.6",
+        "BP.9.2",
+        "BP.4.2"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.6.17",
+        "BP.9.6.14"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "The base package covers 500 manuscripts a year and extra volume is a bolt-on.",
+      "node_id": "BP.9.2.4",
+      "bucket": "b_architecture_content",
+      "correct_section": "BP.9.2",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.11.5",
+        "BP.3.3"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We are applying for Horizon Europe money so we do not give up equity.",
+      "node_id": "BP.9.6.15",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.4.6",
+        "BP.9.6",
+        "BP.11"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.6.15",
+        "BP.11.7"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Costs break down as 70 percent salaries, 20 percent compute, 10 percent everything else.",
+      "node_id": "BP.9.5.2",
+      "bucket": "b_architecture_content",
+      "correct_section": "BP.9.5",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.8.5",
+        "BP.5.3"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.5.2",
+        "BP.9.5.5",
+        "BP.9.5"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Warm intro from an advisor, then a workshop with the doctoral school, then a pilot.",
+      "node_id": "BP.9.3.3",
+      "bucket": "b_architecture_content",
+      "correct_section": "BP.9.3",
+      "retrieved_sections": [
+        "BP.9.4",
+        "BP.1.3.6",
+        "BP.10.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Access is through the institution's SSO, inside the library portal they already use.",
+      "node_id": "BP.9.1.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.1",
+      "retrieved_sections": [
+        "BP.3.3",
+        "BP.6.5",
+        "BP.8.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We bill the institution annually, never the individual researcher.",
+      "node_id": "BP.9.1.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.1",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.12.3",
+        "BP.12.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Monthly outflow rises to 60,000 euros once the third hire lands.",
+      "node_id": "BP.9.6.12",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.1.1",
+        "BP.9.6"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.6.12",
+        "BP.9.6.13",
+        "BP.9.5.2"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We will go to 15 percent off for a three-year commitment and no lower.",
+      "node_id": "BP.9.2.5",
+      "bucket": "b_architecture_content",
+      "correct_section": "BP.9.2",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.9.2",
+        "BP.5.5"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.2.13",
+        "BP.9.2.5",
+        "BP.9.2.14"
+      ],
+      "rank_of_correct": 2,
+      "correct_at_1": false,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "The person who actually signs is the research dean, not the supervisor who asked for it.",
+      "node_id": "BP.5.1.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.5.1",
+      "retrieved_sections": [
+        "BP.1.3.6",
+        "BP.6.3",
+        "BP.12.4"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Three paid pilots at 15,000 euros each should cover most of next year's infrastructure.",
+      "node_id": "BP.9.6.16",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.9.6",
+        "BP.10.2",
+        "BP.9.2"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.6.16",
+        "BP.9.6.11",
+        "BP.9.6.10"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "About 60 percent of the raise goes to salaries for four new engineers.",
+      "node_id": "BP.9.6.13",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.9.2",
+        "BP.9.6",
+        "BP.11"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.6.13",
+        "BP.9.6.12",
+        "BP.9.6"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Before us, candidates email drafts to their supervisor and wait two weeks.",
+      "node_id": "BP.6.2.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.6.2",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.6.3",
+        "BP.1.3.6"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Grammarly Premium and Turnitin are already installed at most of our targets.",
+      "node_id": "BP.8.2.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.8.2",
+      "retrieved_sections": [
+        "BP.8.7",
+        "BP.12.3",
+        "BP.6.1"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We are not selling to corporate R&D labs, only academic institutions.",
+      "node_id": "BP.4.1.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.4.1",
+      "retrieved_sections": [
+        "BP.1.2",
+        "BP.12.3",
+        "BP.3.3"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Manuscripts are deleted 90 days after the report is delivered.",
+      "node_id": "BP.7.2.4|BP.7.2.5",
+      "bucket": "a_classifier",
+      "correct_section": "BP.7.2.4|BP.7.2",
+      "retrieved_sections": [
+        "BP.7.2",
+        "BP.10.3",
+        "BP.10.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Three tiers: 8k for a department, 20k for a faculty, 45k campus-wide.",
+      "node_id": "BP.9.2.2",
+      "bucket": "b_architecture_content",
+      "correct_section": "BP.9.2",
+      "retrieved_sections": [
+        "BP.3.2",
+        "BP.1.7",
+        "BP.9.2"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.2.2",
+        "BP.9.2.10",
+        "BP.9.2.12"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Procurement can hold a deal for a quarter even when the dean wants it.",
+      "node_id": "BP.5.1.4|BP.5.2.5",
+      "bucket": "a_classifier",
+      "correct_section": "BP.5.1.4|BP.5.2",
+      "retrieved_sections": [
+        "BP.5.4",
+        "BP.9.2",
+        "BP.5.5"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Most of them are using Word track changes and a shared doc.",
+      "node_id": "BP.6.2.2|BP.8.2.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.6.2.2|BP.8.2",
+      "retrieved_sections": [
+        "BP.1.6",
+        "BP.1.3.6",
+        "BP.8.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Corporate labs and undergraduate programmes are both outside what we serve.",
+      "node_id": "BP.4.1.3|BP.4.5.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.4.1.3|BP.4.5",
+      "retrieved_sections": [
+        "BP.1.2",
+        "BP.4.5",
+        "BP.1.5.3"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We do not do integrity policing, and we should not be compared to Turnitin.",
+      "node_id": "BP.1.2.4|BP.8.1.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.1.2.4|BP.8.1",
+      "retrieved_sections": [
+        "BP.1.2",
+        "BP.12.5",
+        "BP.12.3"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "The pilot cannot tell us whether this works outside Spain.",
+      "node_id": "BP.10.1.3|BP.10.1.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.10.1.3|BP.10.1",
+      "retrieved_sections": [
+        "BP.10.3",
+        "BP.1.2",
+        "BP.10.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Our pricing assumes institutions have a training budget line already. That is unproven.",
+      "node_id": "BP.9.2.3|BP.9.6.5",
+      "bucket": "b_architecture_content",
+      "correct_section": "BP.9.2.3|BP.9.6",
+      "retrieved_sections": [
+        "BP.5.3",
+        "BP.5.5",
+        "BP.5.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Everything is Spain and EU first.",
+      "node_id": "BP.1.6.1|BP.4.1.5",
+      "bucket": "a_classifier",
+      "correct_section": "BP.1.6.1|BP.4.1",
+      "retrieved_sections": [
+        "BP.9.3",
+        "BP.1.6",
+        "BP.1.8"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "A single interview can shape a hypothesis but must never be cited as proof of demand.",
+      "node_id": "BP.3.2.3|BP.3.2.4",
+      "bucket": "a_classifier",
+      "correct_section": "BP.3.2.3|BP.3.2",
+      "retrieved_sections": [
+        "BP.12.2",
+        "BP.2.5",
+        "BP.12.4"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "The researcher uses it, the dean pays for it.",
+      "node_id": "BP.5.1.1|BP.5.1.2",
+      "bucket": "a_classifier",
+      "correct_section": "BP.5.1.1|BP.5.1",
+      "retrieved_sections": [
+        "BP.3.3",
+        "BP.1.3.6",
+        "BP.6.3"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "We are missing a commercial lead. Neither founder has sold into universities before.",
+      "node_id": "BP.9.7.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.7",
+      "retrieved_sections": [
+        "BP.11.4",
+        "BP.5.2",
+        "BP.1.2"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "Budget for this sits with the vice-rector for research, not the department.",
+      "node_id": "BP.5.3.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.5.3",
+      "retrieved_sections": [
+        "BP.5.3",
+        "BP.9.5",
+        "BP.9.4"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.5.3.2",
+        "BP.5.3.1",
+        "BP.5.3"
+      ],
+      "rank_of_correct": 2,
+      "correct_at_1": false,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We sell direct to institutions. No resellers, no marketplace.",
+      "node_id": "BP.9.3.2",
+      "bucket": "b_architecture_content",
+      "correct_section": "BP.9.3",
+      "retrieved_sections": [
+        "BP.6.6",
+        "BP.9.3",
+        "BP.8.2"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.3.2",
+        "BP.9.3.3",
+        "BP.9.3.1"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We will watch whether people come back to upload a second manuscript without being prompted.",
+      "node_id": "BP.10.2.3",
+      "bucket": "a_classifier",
+      "correct_section": "BP.10.2",
+      "retrieved_sections": [
+        "BP.1.3.6",
+        "BP.12.5",
+        "BP.1.8"
+      ],
+      "section_retrieved": false
+    },
+    {
+      "fact": "First three hires: a backend engineer, then a research-integrity specialist, then a salesperson.",
+      "node_id": "BP.9.5.17",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.5",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.5.4",
+        "BP.9.6"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.5.17",
+        "BP.9.6.13"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We are assuming 78 percent gross margin once infrastructure costs settle.",
+      "node_id": "BP.9.5.10",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.5",
+      "retrieved_sections": [
+        "BP.9.5",
+        "BP.9.2",
+        "BP.5.3"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.5.10",
+        "BP.9.5.5",
+        "BP.9.5.11"
+      ],
+      "rank_of_correct": 1,
+      "correct_at_1": true,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We are applying to the CDTI Neotec grant in the next round.",
+      "node_id": "BP.11.7",
+      "bucket": "a_classifier",
+      "correct_section": "BP.11",
+      "retrieved_sections": [
+        "BP.11",
+        "BP.5.3",
+        "BP.9.6"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.6.15",
+        "BP.11.7"
+      ],
+      "rank_of_correct": 2,
+      "correct_at_1": false,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "We cannot start the second pilot cohort until we have raised again.",
+      "node_id": "BP.9.6.10",
+      "bucket": "a_classifier",
+      "correct_section": "BP.9.6",
+      "retrieved_sections": [
+        "BP.6.6",
+        "BP.9.6",
+        "BP.2.6"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.9.6.4",
+        "BP.9.6.6",
+        "BP.9.6.10"
+      ],
+      "rank_of_correct": 3,
+      "correct_at_1": false,
+      "correct_in_shortlist": true
+    },
+    {
+      "fact": "Undergraduate programmes are out for now. High volume, near-zero willingness to pay.",
+      "node_id": "BP.4.5.1",
+      "bucket": "a_classifier",
+      "correct_section": "BP.4.5",
+      "retrieved_sections": [
+        "BP.4.5",
+        "BP.11.3",
+        "BP.5.2"
+      ],
+      "section_retrieved": true,
+      "shortlist": [
+        "BP.4.5.4",
+        "BP.4.5.3",
+        "BP.4.5.1"
+      ],
+      "rank_of_correct": 3,
+      "correct_at_1": false,
+      "correct_in_shortlist": true
+    }
+  ]
+}
