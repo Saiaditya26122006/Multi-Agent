@@ -66,6 +66,77 @@ MAX_TOKENS = 2048
 MAX_RETRIES = 3
 RETRY_BACKOFF = (1, 3, 8)
 
+# ---------------------------------------------------------------------------
+# Hybrid section ranking (USE_HYBRID_RETRIEVAL)
+#
+# OFF by default. When on, section induction is driven by RRF fusion of the
+# existing dense cosine with BM25 over node text, the BM25 index enriched with
+# curated per-node operational vocabulary. Everything downstream is unchanged:
+# same INDUCE_DEPTH window, same first-N-distinct-parents induction, same
+# candidate_pool. Only the ORDER of the leaf walk differs.
+#
+# Measured on database/MEASUREMENT_KEY_v2.csv (n=112), candidate-set recall
+# 42.9% -> 53.6% (+10.7), 17 rows gained against 5 lost. The gain is
+# concentrated in BP.1 (+18.2) and BP.10 (+21.4); BP.8 barely moves because its
+# leaves share templated required_output text and so carry no distinguishing
+# vocabulary for BM25 to match.
+#
+# `best_leaf_similarity` stays the DENSE cosine even when ranking is hybrid, so
+# `section_margin` and the review UI keep comparable numbers across the flag.
+# ---------------------------------------------------------------------------
+HYBRID_FLAG_ENV = "USE_HYBRID_RETRIEVAL"
+OPERATIONAL_TERMS_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "resources",
+    "operational_terms_all.json",
+)
+
+_operational_terms: Optional[dict[str, list[str]]] = None
+
+
+def hybrid_enabled() -> bool:
+    """True when USE_HYBRID_RETRIEVAL is set to a truthy value."""
+    return os.getenv(HYBRID_FLAG_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _load_operational_terms() -> dict[str, list[str]]:
+    """Curated per-node operational vocabulary, read once from the repo.
+
+    A missing or unreadable file is not fatal: it degrades the BM25 side to
+    unenriched node text rather than taking the pipeline down, and says so once.
+    """
+    global _operational_terms
+    if _operational_terms is None:
+        try:
+            with open(OPERATIONAL_TERMS_PATH, encoding="utf-8") as handle:
+                _operational_terms = json.load(handle).get("curated", {}) or {}
+            logger.info(
+                "[ClassifierV3] operational terms loaded for %d nodes from %s",
+                len(_operational_terms),
+                OPERATIONAL_TERMS_PATH,
+            )
+        except Exception as exc:  # noqa: BLE001 — logged, then degraded
+            logger.error(
+                "[ClassifierV3] could not read %s (%s) — hybrid BM25 will run "
+                "on unenriched node text",
+                OPERATIONAL_TERMS_PATH,
+                str(exc)[:160],
+            )
+            _operational_terms = {}
+    return _operational_terms
+
+
+def _bm25_for(arch: Architecture) -> Any:
+    """Build (once per Architecture) the BM25 index the hybrid arm fuses with."""
+    index = getattr(arch, "_bm25_index", None)
+    if index is None:
+        from services.hybrid_retrieval import build_bm25
+
+        index = build_bm25(arch, extra_terms=_load_operational_terms())
+        arch._bm25_index = index  # noqa: SLF001 — cache on the loaded arch
+    return index
+
+
 REVIEW_BUCKET = "BP.13"
 AUTO_FILE = "auto_file"
 PARENT_PARKED = "parent_parked"
@@ -418,7 +489,9 @@ def _call_llm(system_prompt: str, user_text: str, model_id: str) -> str:
                 time.sleep(wait)
 
     logger.error("[ClassifierV3] judge failed after %d attempts", MAX_RETRIES)
-    raise RuntimeError(f"Bedrock call failed after {MAX_RETRIES} attempts") from last_error
+    raise RuntimeError(
+        f"Bedrock call failed after {MAX_RETRIES} attempts"
+    ) from last_error
 
 
 def _parse_json_object(raw: str) -> dict[str, Any]:
@@ -549,9 +622,11 @@ def load_architecture(supabase_client: Any = None) -> Architecture:
     matrix = np.vstack(
         [
             np.asarray(
-                json.loads(r["embedding"])
-                if isinstance(r["embedding"], str)
-                else r["embedding"],
+                (
+                    json.loads(r["embedding"])
+                    if isinstance(r["embedding"], str)
+                    else r["embedding"]
+                ),
                 dtype=np.float32,
             )
             for r in leaf_rows
@@ -583,16 +658,39 @@ def load_architecture(supabase_client: Any = None) -> Architecture:
 
 
 def rank_sections(
-    fact_vector: list[float], arch: Architecture, top_n: int = 2
+    fact_vector: list[float],
+    arch: Architecture,
+    top_n: int = 2,
+    fact_text: Optional[str] = None,
 ) -> list[SectionCandidate]:
     """Rank sections by induced similarity: best leaf in each section wins.
 
     Direct scoring against section embeddings measured 7.4% @1 and is not used.
+
+    Args:
+        fact_vector: The embedded fact.
+        arch: A loaded Architecture.
+        top_n: How many distinct sections to keep.
+        fact_text: The fact's raw text. Required for the hybrid ranking signal,
+            which needs the query terms BM25 scores against. Omitting it (or
+            leaving USE_HYBRID_RETRIEVAL off) keeps the dense-only ranking.
+
+    Returns:
+        The chosen sections. `best_leaf_similarity` is the dense cosine of that
+        section's best leaf under either ranking, so the value stays comparable
+        across the flag — only the ORDER of the walk changes.
     """
     q = np.asarray(fact_vector, dtype=np.float32)
     q /= np.linalg.norm(q)
     sims = arch.leaf_matrix @ q
-    order = np.argsort(-sims)[:INDUCE_DEPTH]
+
+    ranking = sims
+    if fact_text and hybrid_enabled():
+        from services.hybrid_retrieval import fuse
+
+        ranking = fuse(sims, _bm25_for(arch).scores(fact_text), mode="rrf")
+
+    order = np.argsort(-ranking)[:INDUCE_DEPTH]
 
     seen: dict[str, SectionCandidate] = {}
     for j in order:
@@ -612,6 +710,7 @@ def rank_sections(
 
 def _describe(node: dict[str, Any]) -> str:
     """Render one candidate node for the judge."""
+
     def field_text(key: str) -> str:
         value = (node.get(key) or "").strip()
         return value if value and value != "None" else "(not specified)"
@@ -900,9 +999,11 @@ def _rank_from_parsed(
             logger.warning(
                 "[ClassifierV3] dropped %s: %s | note: %r",
                 node_id,
-                "judge marked the fit poor"
-                if fit == FIT_POOR
-                else f"note rejects its own node (fit={fit or 'absent'})",
+                (
+                    "judge marked the fit poor"
+                    if fit == FIT_POOR
+                    else f"note rejects its own node (fit={fit or 'absent'})"
+                ),
                 note[:160],
             )
             continue
@@ -1022,7 +1123,9 @@ def propose(
         fact_vector = embed(fact, input_type="search_query")
 
     model = model_id or os.getenv(DEFAULT_MODEL_ENV, DEFAULT_MODEL)
-    sections = rank_sections(fact_vector, arch, top_n=max(sections_to_consider, 2))
+    sections = rank_sections(
+        fact_vector, arch, top_n=max(sections_to_consider, 2), fact_text=fact
+    )
     margin = (
         round(sections[0].best_leaf_similarity - sections[1].best_leaf_similarity, 4)
         if len(sections) > 1
@@ -1079,7 +1182,9 @@ def propose(
         section_margin=margin,
         considered_leaf_ids=candidate_ids,
         reason=str(parsed.get("reason", "")).strip()
-        or ("no candidate fit — the human should browse the tree" if not ranked else ""),
+        or (
+            "no candidate fit — the human should browse the tree" if not ranked else ""
+        ),
     )
 
 
@@ -1134,7 +1239,12 @@ def propose_group(
         group_vector = embed(joined, input_type="search_query")
 
     model = model_id or os.getenv(DEFAULT_MODEL_ENV, DEFAULT_MODEL)
-    sections = rank_sections(group_vector, arch, top_n=max(sections_to_consider, 2))
+    sections = rank_sections(
+        group_vector,
+        arch,
+        top_n=max(sections_to_consider, 2),
+        fact_text=joined,
+    )
     margin = (
         round(sections[0].best_leaf_similarity - sections[1].best_leaf_similarity, 4)
         if len(sections) > 1
@@ -1179,7 +1289,9 @@ def propose_group(
         section_margin=margin,
         considered_leaf_ids=candidate_ids,
         reason=str(parsed.get("reason", "")).strip()
-        or ("no candidate fit — the human should browse the tree" if not ranked else ""),
+        or (
+            "no candidate fit — the human should browse the tree" if not ranked else ""
+        ),
         group_id=group_id,
         group_size=len(facts),
     )
@@ -1233,7 +1345,7 @@ def classify(
 
     model = model_id or os.getenv(DEFAULT_MODEL_ENV, DEFAULT_MODEL)
 
-    sections = rank_sections(fact_vector, arch, top_n=2)
+    sections = rank_sections(fact_vector, arch, top_n=2, fact_text=fact)
     margin = (
         round(sections[0].best_leaf_similarity - sections[1].best_leaf_similarity, 4)
         if len(sections) > 1
