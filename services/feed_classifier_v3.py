@@ -558,8 +558,30 @@ def _call_llm(system_prompt: str, user_text: str, model_id: str) -> str:
     ) from last_error
 
 
+def _require_object(parsed: Any) -> dict[str, Any]:
+    """Enforce this module's parse contract: the judge returns a JSON OBJECT.
+
+    ``json.loads`` happily returns a list, string or number, and ``repair_json``
+    will coerce a prose response into a list — so without this check a non-object
+    reaches ``_rank_from_parsed``, which does ``parsed.get("candidates", [])``
+    and dies with AttributeError far from the cause. Raising here turns it into
+    the ValueError callers already expect from an unusable judge response.
+
+    Observed once in ~450 judge calls, so rare, but the prose-preamble responses
+    that make it possible are not (they hit the repair path on roughly 10%).
+    """
+    if not isinstance(parsed, dict):
+        raise ValueError(f"judge returned a {type(parsed).__name__}, expected object")
+    return parsed
+
+
 def _parse_json_object(raw: str) -> dict[str, Any]:
-    """Parse a JSON object from a model response, tolerating markdown fences."""
+    """Parse a JSON object from a model response, tolerating markdown fences.
+
+    Raises:
+        ValueError: the response is unparseable, or parses to something other
+            than a JSON object.
+    """
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.split("```")[1] if "```" in cleaned[3:] else cleaned[3:]
@@ -568,14 +590,14 @@ def _parse_json_object(raw: str) -> dict[str, Any]:
     cleaned = cleaned.strip().strip("`").strip()
 
     try:
-        return json.loads(cleaned)
+        return _require_object(json.loads(cleaned))
     except json.JSONDecodeError as exc:
         logger.warning("[ClassifierV3] JSON parse failed (%s), trying repair", exc)
 
     try:
         from json_repair import repair_json
 
-        return json.loads(repair_json(cleaned))
+        return _require_object(json.loads(repair_json(cleaned)))
     except Exception as exc:  # noqa: BLE001 — logged, then surfaced as a failure
         logger.error("[ClassifierV3] JSON repair failed: %s", exc)
         raise ValueError(f"judge returned unparseable output: {raw[:200]}") from exc
