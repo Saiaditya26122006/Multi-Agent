@@ -301,12 +301,14 @@ def verify_system():
         print("  Please check your .env file")
         return False
 
-    # Optional flags are echoed rather than required. USE_HYBRID_RETRIEVAL is
-    # read straight from the classifier so a misspelled variable shows up here
-    # as `false` instead of hiding as a silent dense-only run.
-    from services.feed_classifier_v3 import hybrid_enabled
+    # Optional flags are echoed rather than required. Both are read straight
+    # from the classifier so a misspelled variable shows up here as the default
+    # instead of hiding as a silent no-op.
+    from services.feed_classifier_v3 import configured_pool_size, hybrid_enabled
 
+    pool_size = configured_pool_size() or "unset (default: 3 sections)"
     print(f"\n[STARTUP] USE_HYBRID_RETRIEVAL = {str(hybrid_enabled()).lower()}")
+    print(f"[STARTUP] CANDIDATE_POOL_SIZE  = {pool_size}")
 
     print("\n[STARTUP] Verifying database connection...")
     ceo_context = get_ceo_context()

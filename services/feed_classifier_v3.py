@@ -137,6 +137,70 @@ def _bm25_for(arch: Architecture) -> Any:
     return index
 
 
+# ---------------------------------------------------------------------------
+# Candidate pool width (CANDIDATE_POOL_SIZE)
+#
+# UNSET BY DEFAULT, and unset means the historical behaviour exactly: the pool
+# is whatever `sections_to_consider` sections contain (3 for propose(), median
+# 30 nodes). Set it to a node count and the section count grows until the pool
+# reaches that many candidates, capped at MAX_POOL_SECTIONS.
+#
+# It is a TARGET, not a hard cap — sections are taken whole, so the pool
+# overshoots rather than truncating a section mid-way. Truncating would hand the
+# judge a partial sibling set, which is the failure v3 was built to remove: the
+# judge is meant to see every sibling in a chosen section (see module docstring).
+#
+# Measured on database/MEASUREMENT_KEY_v2.csv with hybrid on, in-pool recall by
+# section count: 3 -> 52.7%, 4 -> 54.5%, 5 -> 55.4%, 6 -> 58.0%. Widening this
+# way is a weak lever; a rank-based pool of the same size measured 68.8% at 50
+# nodes. That would be a different pool shape, not a wider one, and is not what
+# this knob does.
+# ---------------------------------------------------------------------------
+POOL_SIZE_ENV = "CANDIDATE_POOL_SIZE"
+MAX_POOL_SECTIONS = 12
+
+
+def configured_pool_size() -> Optional[int]:
+    """Target candidate-pool node count from env, or None when unset.
+
+    A malformed or non-positive value is ignored with a warning rather than
+    raising: a bad env var should not take the pipeline down, and silently
+    running the default is the safe direction.
+    """
+    raw = os.getenv(POOL_SIZE_ENV, "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning(
+            "[ClassifierV3] %s=%r is not an integer — using the default pool",
+            POOL_SIZE_ENV,
+            raw,
+        )
+        return None
+    if value <= 0:
+        logger.warning(
+            "[ClassifierV3] %s=%d is not positive — using the default pool",
+            POOL_SIZE_ENV,
+            value,
+        )
+        return None
+    return value
+
+
+def _sections_for_target(
+    arch: Architecture, sections: Sequence[SectionCandidate], target: int
+) -> list[SectionCandidate]:
+    """Take sections in rank order until their pool reaches `target` nodes."""
+    chosen: list[SectionCandidate] = []
+    for section in sections[:MAX_POOL_SECTIONS]:
+        chosen.append(section)
+        if len(candidate_pool(arch, chosen)) >= target:
+            break
+    return chosen
+
+
 REVIEW_BUCKET = "BP.13"
 AUTO_FILE = "auto_file"
 PARENT_PARKED = "parent_parked"
@@ -1123,15 +1187,19 @@ def propose(
         fact_vector = embed(fact, input_type="search_query")
 
     model = model_id or os.getenv(DEFAULT_MODEL_ENV, DEFAULT_MODEL)
-    sections = rank_sections(
-        fact_vector, arch, top_n=max(sections_to_consider, 2), fact_text=fact
-    )
+    target = configured_pool_size()
+    top_n = MAX_POOL_SECTIONS if target else max(sections_to_consider, 2)
+    sections = rank_sections(fact_vector, arch, top_n=top_n, fact_text=fact)
     margin = (
         round(sections[0].best_leaf_similarity - sections[1].best_leaf_similarity, 4)
         if len(sections) > 1
         else None
     )
-    chosen = sections[:sections_to_consider]
+    chosen = (
+        _sections_for_target(arch, sections, target)
+        if target
+        else sections[:sections_to_consider]
+    )
 
     candidate_ids = candidate_pool(arch, chosen)
 
