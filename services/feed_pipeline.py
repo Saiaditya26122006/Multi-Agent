@@ -150,6 +150,11 @@ class ReviewCard:
     section_margin: Optional[float] = None
     proposal_reason: str = ""
     checks: list[str] = field(default_factory=list)
+    # Set only when USE_CASCADE is on: which rung the fact committed at and the
+    # judge ratings it was decided from. Both travel to the stored record so an
+    # audit can ask which rung a given fact landed on.
+    cascade_level: Optional[str] = None
+    cascade_ratings: list[str] = field(default_factory=list)
 
     # --- the human's answer ---
     confirmed_node_id: Optional[str] = None
@@ -207,6 +212,8 @@ def _apply_proposal(card: ReviewCard, proposal: Proposal) -> ReviewCard:
     because they are two different repairs by two different people.
     """
     card.proposed_node_id = proposal.proposed_node_id
+    card.cascade_level = proposal.cascade_level
+    card.cascade_ratings = list(proposal.cascade_ratings)
     card.shortlist = [asdict(c) for c in proposal.candidates]
     card.candidate_sections = [asdict(s) for s in proposal.sections]
     card.section_margin = proposal.section_margin
@@ -230,8 +237,9 @@ def _apply_proposal(card: ReviewCard, proposal: Proposal) -> ReviewCard:
         checks.append(CHECK_FACT)
     if card.degraded_target:
         checks.append(CHECK_NODE)
-    if proposal.decision == NO_PROPOSAL:
-        checks.append(CHECK_NO_MATCH)
+    if proposal.decision == NO_PROPOSAL or card.cascade_level == "review":
+        if CHECK_NO_MATCH not in checks:
+            checks.append(CHECK_NO_MATCH)
     card.checks = checks
     return card
 
@@ -848,6 +856,10 @@ def confirm_card(
             "rank_of_confirmed": rank,
             "accepted_proposal": confirmed_node_id == card.proposed_node_id,
             "shortlist": [e.get("node_id") for e in card.shortlist],
+            # which rung the cascade committed at, and the judge ratings behind
+            # it. Both are None/[] when USE_CASCADE was off for this run.
+            "cascade_level": card.cascade_level,
+            "cascade_ratings": card.cascade_ratings,
             "pipeline": "feed_v4_review_assist",
         },
     )

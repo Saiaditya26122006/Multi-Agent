@@ -160,6 +160,129 @@ POOL_SIZE_ENV = "CANDIDATE_POOL_SIZE"
 MAX_POOL_SECTIONS = 12
 
 
+# ---------------------------------------------------------------------------
+# Confidence cascade (USE_CASCADE)
+#
+# OFF by default. When on, a post-judge layer decides WHERE a fact commits when
+# the judge is not confident in a leaf, instead of sending every uncertain fact
+# to review:
+#
+#   1. top candidate rated `fits`            -> that leaf      (today's behaviour)
+#   2. else top-N share a parent             -> that PARENT node
+#   3. else top-N share a domain (BP.N)      -> that DOMAIN root
+#   4. else                                  -> review
+#
+# This EXTENDS the parent fallback that already exists rather than paralleling
+# it. `candidate_pool` already appends each chosen section's own node so the
+# judge can pick a parent when no leaf earns the fact, and `_rank_from_parsed`
+# already tags such a pick `level="section"`. What was missing is a decision:
+# that tag reached the reviewer and gated nothing. Rung 2 is the same
+# leaf -> section -> review routing, applied automatically when the judge's own
+# ratings say no leaf earned it.
+#
+# Rungs 2 and 3 walk the node_id string, which is what `parent_of` already does
+# (:520) and what `siblings` is keyed on. That is deliberate but worth knowing:
+# ids encode the hierarchy, and a node whose `parent_node` column disagrees with
+# its id would cascade by the id.
+# ---------------------------------------------------------------------------
+CASCADE_FLAG_ENV = "USE_CASCADE"
+CASCADE_TOP_N = 3
+
+CASCADE_LEAF = "leaf"
+CASCADE_PARENT = "parent"
+CASCADE_DOMAIN = "domain"
+CASCADE_REVIEW = "review"
+
+
+CASCADE_PROMPT_ADDENDUM = """
+
+=== THIRD VERDICT: "partial" (this run only) ===
+
+"fit" has a third value available: "partial". Use it when the node is genuinely
+related to the fact but you are NOT willing to call it the filing target — the
+fact belongs somewhere in this area but this specific node does not claim it.
+
+  "fits"     this node covers this fact; you would file it here
+  "partial"  related, plausible, but you would not commit the fact to this node
+  "poor"     a mismatch — still delete these, do not rank them
+
+Rank "partial" candidates below every "fits" candidate. Returning several
+"partial" candidates that share a parent is a useful answer: it says the area is
+right and the leaf is not determined."""
+
+
+def cascade_enabled() -> bool:
+    """True when USE_CASCADE is set to a truthy value."""
+    return os.getenv(CASCADE_FLAG_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def domain_of(node_id: str) -> str:
+    """The BP domain root of a node id: BP.9.5.17 -> BP.9. '' when malformed."""
+    parts = node_id.split(".")
+    return ".".join(parts[:2]) if len(parts) >= 2 else ""
+
+
+def _common_prefix(node_ids: Sequence[str], depth_from_leaf: int = 1) -> str:
+    """The shared ancestor of every id, or '' when they do not share one.
+
+    depth_from_leaf=1 asks "do these share an immediate parent", which is
+    `parent_of` applied to each and compared.
+    """
+    if not node_ids:
+        return ""
+    ancestors = {
+        ".".join(n.split(".")[:-depth_from_leaf]) if depth_from_leaf else n
+        for n in node_ids
+    }
+    only = ancestors.pop() if len(ancestors) == 1 else ""
+    return only if only and only.count(".") >= 1 else ""
+
+
+def cascade_decision(
+    candidates: Sequence["ProposedNode"], arch: Architecture, top_n: int = CASCADE_TOP_N
+) -> tuple[Optional[str], str, list[str]]:
+    """Decide where a fact commits, given the judge's ranked candidates.
+
+    Args:
+        candidates: The judge's shortlist, best first. May be empty.
+        arch: A loaded Architecture, used to confirm a rung's node exists.
+        top_n: How many of the top candidates rungs 2 and 3 consider.
+
+    Returns:
+        (target_node_id, cascade_level, ratings) — target is None only at the
+        review rung. `ratings` is the fit rating of each considered candidate,
+        recorded so an audit can see what the rung was decided from.
+    """
+    if not candidates:
+        return None, CASCADE_REVIEW, []
+
+    considered = list(candidates[:top_n])
+    ratings = [c.fit or "" for c in considered]
+
+    # 1. the judge is confident in a leaf
+    top = candidates[0]
+    if top.fit == FIT_OK:
+        return top.node_id, CASCADE_LEAF, ratings
+
+    ids = [c.node_id for c in considered]
+
+    # 2. no confident leaf, but they agree on a parent — the existing
+    #    leaf -> section fallback, now decided instead of merely displayed
+    parent = _common_prefix(ids, depth_from_leaf=1)
+    if parent and parent in arch.nodes:
+        return parent, CASCADE_PARENT, ratings
+
+    # 3. they agree only on a domain
+    domains = {domain_of(n) for n in ids}
+    if len(domains) == 1:
+        domain = domains.pop()
+        if domain and domain in arch.nodes:
+            return domain, CASCADE_DOMAIN, ratings
+
+    # 4. no agreement at any level
+    return None, CASCADE_REVIEW, ratings
+
+
 def configured_pool_size() -> Optional[int]:
     """Target candidate-pool node count from env, or None when unset.
 
@@ -934,6 +1057,18 @@ SHORTLIST_SIZE = 5
 FIT_OK = "fits"
 FIT_POOR = "poor"
 
+# Third tier, used only when the cascade is on. The two-value vocabulary is a
+# filter: `poor` is deleted, `fits` is ranked, and nothing survives that the
+# judge was unsure about — so a shortlist carries no signal a cascade could
+# read. `partial` is the missing middle: the node is related and worth showing,
+# but the judge is not willing to call it the filing target.
+#
+# It is gated because admitting `partial` candidates changes what the shortlist
+# contains. With USE_CASCADE off the judge is asked for the original two values
+# and `partial` never appears, so the OFF path is byte-identical to before.
+FIT_PARTIAL = "partial"
+FIT_VALUES = (FIT_OK, FIT_PARTIAL, FIT_POOR)
+
 # Phrases that mean a note has judged its own node wrong. The judge is asked to
 # say so in `fit`; this is the backstop for when it writes the rejection in prose
 # and labels the candidate "fits" anyway — which is the observed failure, not a
@@ -998,6 +1133,10 @@ class ProposedNode:
     # the reviewer can see they are being offered a parent, and so a
     # section-level filing is distinguishable downstream from a leaf filing.
     level: str = "leaf"
+    # The judge's own verdict on this candidate. Historically consumed as a
+    # filter and thrown away; the cascade needs it preserved to tell a confident
+    # leaf from a hedged one. Empty when the judge omitted it.
+    fit: str = ""
 
 
 @dataclass
@@ -1018,10 +1157,25 @@ class Proposal:
     subsumed_by: Optional[str] = None
     group_id: Optional[str] = None
     group_size: int = 1
+    # Set only when USE_CASCADE is on. `cascade_level` is which rung the fact
+    # committed at (leaf/parent/domain/review); `cascade_target` is the node it
+    # committed to, which is NOT candidates[0] on the parent and domain rungs;
+    # `cascade_ratings` is the judge's verdict on each candidate the rung was
+    # decided from, kept for audit.
+    cascade_level: Optional[str] = None
+    cascade_target: Optional[str] = None
+    cascade_ratings: list[str] = field(default_factory=list)
 
     @property
     def proposed_node_id(self) -> Optional[str]:
-        """The top-ranked candidate, or None when nothing fit."""
+        """The node this proposal commits to.
+
+        With the cascade off this is the top-ranked candidate, unchanged. With
+        it on, a parent- or domain-rung decision commits somewhere other than
+        candidates[0], and that is what callers must file against.
+        """
+        if self.cascade_level:
+            return self.cascade_target
         return self.candidates[0].node_id if self.candidates else None
 
     def to_dict(self) -> dict[str, Any]:
@@ -1071,7 +1225,8 @@ def _rank_from_parsed(
 
         note = str(item.get("note", "")).strip()
         fit = str(item.get("fit", "")).strip().lower()
-        if fit and fit not in (FIT_OK, FIT_POOR):
+        known = FIT_VALUES if cascade_enabled() else (FIT_OK, FIT_POOR)
+        if fit and fit not in known:
             # An unrecognised verdict is not read as a rejection — that would
             # let one stray word empty a good shortlist. The note still decides.
             logger.warning(
@@ -1106,6 +1261,7 @@ def _rank_from_parsed(
                 degraded=bool(node.get("degraded_target")),
                 degraded_reason=node.get("degraded_reason"),
                 level="section" if section_level else "leaf",
+                fit=fit,
             )
         )
         if len(ranked) >= shortlist_size:
@@ -1236,8 +1392,9 @@ def propose(
             reason="retrieval surfaced no candidate leaves",
         )
 
+    prompt = RANK_PROMPT + (CASCADE_PROMPT_ADDENDUM if cascade_enabled() else "")
     raw = _call_llm(
-        RANK_PROMPT,
+        prompt,
         _build_judge_input(fact, candidate_ids, arch, siblings, passage),
         model,
     )
@@ -1264,6 +1421,17 @@ def propose(
 
     ranked = _rank_from_parsed(parsed, arch, shortlist_size)
 
+    target, level, ratings = (
+        cascade_decision(ranked, arch) if cascade_enabled() else (None, None, [])
+    )
+    if level:
+        logger.info(
+            "[ClassifierV3] cascade -> %s at %s (ratings=%s)",
+            target or "review",
+            level,
+            ",".join(ratings) or "-",
+        )
+
     return Proposal(
         fact=fact,
         decision=PROPOSED if ranked else NO_PROPOSAL,
@@ -1275,6 +1443,9 @@ def propose(
         or (
             "no candidate fit — the human should browse the tree" if not ranked else ""
         ),
+        cascade_level=level,
+        cascade_target=target,
+        cascade_ratings=ratings,
     )
 
 
